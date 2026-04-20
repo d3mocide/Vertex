@@ -1,0 +1,243 @@
+version: "3.9"
+
+# ─────────────────────────────────────────────────
+# Usage:
+#   Core only:  docker compose up
+#   + SDR hw:   docker compose --profile sdr up
+# ─────────────────────────────────────────────────
+
+services:
+
+  # ── Persistence ─────────────────────────────────
+  db:
+    image: postgis/postgis:16-3.4-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-civicgrid}
+      POSTGRES_USER: ${POSTGRES_USER:-civicgrid}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-civicgrid}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+      - ./db/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-civicgrid}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - internal
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server /etc/redis/redis.conf
+    volumes:
+      - redis_data:/data
+      - ./infra/redis/redis.conf:/etc/redis/redis.conf:ro
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - internal
+
+  # ── Application ──────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      platforms:
+        - linux/amd64
+        - linux/arm64
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-civicgrid}:${POSTGRES_PASSWORD:-civicgrid}@db:5432/${POSTGRES_DB:-civicgrid}
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8000/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    networks:
+      - internal
+
+  poller:
+    build:
+      context: ./poller
+      platforms:
+        - linux/amd64
+        - linux/arm64
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      REDIS_URL: redis://redis:6379
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-civicgrid}:${POSTGRES_PASSWORD:-civicgrid}@db:5432/${POSTGRES_DB:-civicgrid}
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - internal
+
+  frontend:
+    build:
+      context: ./frontend
+      platforms:
+        - linux/amd64
+        - linux/arm64
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_PORT:-80}:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - internal
+
+  # ── SDR Hardware Profile ─────────────────────────
+  # Start with: docker compose --profile sdr up
+  # Requires RTL-SDR dongles assigned serial numbers via:
+  #   rtl_eeprom -d 0 -s adsb001
+  #   rtl_eeprom -d 1 -s p25001
+
+  ultrafeeder:
+    image: ghcr.io/sdr-enthusiasts/docker-adsb-ultrafeeder:latest
+    profiles: [sdr]
+    restart: unless-stopped
+    device_cgroup_rules:
+      - 'c 189:* rwm'
+    volumes:
+      - /dev/bus/usb:/dev/bus/usb
+      - ultrafeeder_conf:/run/readsb
+    tmpfs:
+      - /run/readsb/heatmap:size=64m,uid=1000,gid=1000
+    environment:
+      ADSB_SDR_SERIAL: ${ADSB_SDR_SERIAL:-adsb001}
+      LAT: ${REGION_LAT:-45.3842}
+      LONG: ${REGION_LON:--122.7635}
+      ALT: ${REGION_ALT:-100ft}
+      READSB_GAIN: autogain
+      TAR1090_ENABLE: "false"
+      PROMETHEUS_ENABLE: "false"
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z localhost 30047 || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    networks:
+      - internal
+
+  op25:
+    build:
+      context: ./op25
+      platforms:
+        - linux/amd64
+        - linux/arm64
+    profiles: [sdr]
+    restart: unless-stopped
+    device_cgroup_rules:
+      - 'c 189:* rwm'
+    volumes:
+      - /dev/bus/usb:/dev/bus/usb
+      # Mount your trunk.tsv + tgid.tsv here (copy from op25/config/*.example as starting point)
+      - ./op25/config:/op25-config:ro
+    environment:
+      P25_SAMPLE_RATE: ${P25_SAMPLE_RATE:-2400000}
+      P25_PPM:         ${P25_PPM:-0}
+      P25_GAIN:        ${P25_GAIN:-40}
+      UDP_AUDIO_HOST:  audio-bridge
+      UDP_AUDIO_PORT:  "23456"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8080/ || exit 1"]
+      interval: 20s
+      timeout: 5s
+      retries: 3
+    networks:
+      - internal
+
+  audio-bridge:
+    build:
+      context: ./audio-bridge
+      platforms:
+        - linux/amd64
+        - linux/arm64
+    profiles: [sdr]
+    restart: unless-stopped
+    depends_on:
+      - icecast
+      - op25
+    environment:
+      UDP_AUDIO_PORT:          "23456"
+      ICECAST_HOST:            icecast
+      ICECAST_PORT:            "8000"
+      ICECAST_SOURCE_PASSWORD: ${ICECAST_SOURCE_PASSWORD:-hackme}
+      ICECAST_MOUNT:           radio.mp3
+    networks:
+      - internal
+
+  icecast:
+    build:
+      context: ./icecast
+      platforms:
+        - linux/amd64
+        - linux/arm64
+    profiles: [sdr]
+    restart: unless-stopped
+    environment:
+      ICECAST_SOURCE_PASSWORD: ${ICECAST_SOURCE_PASSWORD:-hackme}
+      ICECAST_RELAY_PASSWORD:  ${ICECAST_RELAY_PASSWORD:-hackme}
+      ICECAST_ADMIN_PASSWORD:  ${ICECAST_ADMIN_PASSWORD:-changeme}
+      ICECAST_HOSTNAME:        ${ICECAST_HOSTNAME:-localhost}
+      ICECAST_PORT:            "8000"
+      ICECAST_MAX_CLIENTS:     "25"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8000/status.xsl > /dev/null || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - internal
+
+  meshcore:
+    build:
+      context: ./meshcore
+      platforms:
+        - linux/amd64
+        - linux/arm64
+    profiles: [sdr]
+    restart: unless-stopped
+    # serial mode: uncomment and set to your MeshCore USB device path
+    # devices:
+    #   - ${MESHCORE_SERIAL_DEVICE:-/dev/ttyUSB2}:/dev/meshcore
+    environment:
+      MESHCORE_MODE:          ${MESHCORE_MODE:-network}
+      MESHCORE_HOST:          ${MESHCORE_HOST:-}
+      MESHCORE_PORT:          ${MESHCORE_PORT:-5000}
+      # For serial mode:
+      # MESHCORE_MODE:          serial
+      # MESHCORE_SERIAL_DEVICE: /dev/meshcore
+      MESHCORE_BAUD:          ${MESHCORE_BAUD:-115200}
+      LOG_LEVEL:              ${LOG_LEVEL:-INFO}
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z localhost 7001 || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    networks:
+      - internal
+
+networks:
+  internal:
+    driver: bridge
+
+volumes:
+  db_data:
+  redis_data:
+  ultrafeeder_conf:
