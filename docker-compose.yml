@@ -1,0 +1,101 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgis/postgis:16-3.4-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-civicgrid}
+      POSTGRES_USER: ${POSTGRES_USER:-civicgrid}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-civicgrid}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+      - ./db/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-civicgrid}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - internal
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server /etc/redis/redis.conf
+    volumes:
+      - redis_data:/data
+      - ./infra/redis/redis.conf:/etc/redis/redis.conf:ro
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - internal
+
+  backend:
+    build:
+      context: ./backend
+      platforms:
+        - linux/amd64
+        - linux/arm64
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-civicgrid}:${POSTGRES_PASSWORD:-civicgrid}@db:5432/${POSTGRES_DB:-civicgrid}
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8000/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    networks:
+      - internal
+
+  poller:
+    build:
+      context: ./poller
+      platforms:
+        - linux/amd64
+        - linux/arm64
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      REDIS_URL: redis://redis:6379
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-civicgrid}:${POSTGRES_PASSWORD:-civicgrid}@db:5432/${POSTGRES_DB:-civicgrid}
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - internal
+
+  frontend:
+    build:
+      context: ./frontend
+      platforms:
+        - linux/amd64
+        - linux/arm64
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_PORT:-80}:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - internal
+
+networks:
+  internal:
+    driver: bridge
+
+volumes:
+  db_data:
+  redis_data:
