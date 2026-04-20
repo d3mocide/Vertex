@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from config import settings
 from db.session import init_db
 from redis_bus import init_redis, close_redis
-from routers import entities, observations, events, weather, alerts, traffic, health, ws
+from routers import entities, observations, events, weather, alerts, traffic, health, ws, radio
 
 logging.basicConfig(
     level=settings.log_level,
@@ -39,4 +39,5 @@ app.include_router(events.router, prefix="/api/v1")
 app.include_router(weather.router, prefix="/api/v1")
 app.include_router(alerts.router, prefix="/api/v1")
 app.include_router(traffic.router, prefix="/api/v1")
+app.include_router(radio.router, prefix="/api/v1")
 app.include_router(ws.router)

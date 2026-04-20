@@ -2,9 +2,10 @@ import { useCivicStore } from '../../store'
 
 export function StatusBar() {
   const { connected, entities } = useCivicStore()
-  const all = Object.values(entities)
-  const aircraft = all.filter((e) => e.entity_type === 'aircraft').length
-  const vessels  = all.filter((e) => e.entity_type === 'vessel').length
+  const all       = Object.values(entities)
+  const aircraft  = all.filter((e) => e.entity_type === 'aircraft').length
+  const vessels   = all.filter((e) => e.entity_type === 'vessel').length
+  const meshNodes = all.filter((e) => e.entity_type === 'mesh_node').length
 
   return (
     <div style={{
@@ -26,6 +27,7 @@ export function StatusBar() {
       </span>
       <span>Aircraft: {aircraft}</span>
       <span>Vessels: {vessels}</span>
+      {meshNodes > 0 && <span style={{ color: '#4dac26' }}>Mesh: {meshNodes}</span>}
     </div>
   )
 }

@@ -20,8 +20,11 @@ async def publish_entity(entity: dict):
 
 async def set_feed(key: str, data):
     r = await get_bus()
-    await r.set(f"feed:{key}", json.dumps(data))
-    await r.publish("civic:updates", json.dumps({"type": "feed_update", "key": key}))
+    payload = json.dumps(data)
+    await r.set(f"feed:{key}", payload)
+    # Radio active state gets its own typed message so the frontend can react immediately
+    msg_type = "radio_update" if key == "radio:active" else "feed_update"
+    await r.publish("civic:updates", json.dumps({"type": msg_type, "key": key, "data": data}))
 
 
 async def close():

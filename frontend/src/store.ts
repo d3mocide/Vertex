@@ -24,32 +24,44 @@ export interface AlertItem {
   published: string
 }
 
-interface CivicStore {
-  entities: Record<string, Entity>
-  alerts: AlertItem[]
-  weather: Record<string, unknown>
-  connected: boolean
-  selectedEntityId: string | null
-  setEntities: (entities: Entity[]) => void
-  upsertEntity: (entity: Entity) => void
-  setAlerts: (alerts: AlertItem[]) => void
-  setWeather: (weather: Record<string, unknown>) => void
-  setConnected: (v: boolean) => void
-  selectEntity: (id: string | null) => void
+export interface RadioState {
+  tgid:    number | null
+  tag:     string | null
+  freq_hz: number | null
+  state:   'idle' | 'call' | 'encrypted' | null
+  updated: string | null
 }
 
+interface CivicStore {
+  entities:        Record<string, Entity>
+  alerts:          AlertItem[]
+  weather:         Record<string, unknown>
+  radio:           RadioState
+  connected:       boolean
+  selectedEntityId: string | null
+  setEntities:     (entities: Entity[]) => void
+  upsertEntity:    (entity: Entity) => void
+  setAlerts:       (alerts: AlertItem[]) => void
+  setWeather:      (weather: Record<string, unknown>) => void
+  setRadio:        (radio: RadioState) => void
+  setConnected:    (v: boolean) => void
+  selectEntity:    (id: string | null) => void
+}
+
+const emptyRadio: RadioState = { tgid: null, tag: null, freq_hz: null, state: null, updated: null }
+
 export const useCivicStore = create<CivicStore>((set) => ({
-  entities: {},
-  alerts: [],
-  weather: {},
-  connected: false,
+  entities:         {},
+  alerts:           [],
+  weather:          {},
+  radio:            emptyRadio,
+  connected:        false,
   selectedEntityId: null,
-  setEntities: (list) =>
-    set({ entities: Object.fromEntries(list.map((e) => [e.entity_id, e])) }),
-  upsertEntity: (entity) =>
-    set((s) => ({ entities: { ...s.entities, [entity.entity_id]: entity } })),
-  setAlerts: (alerts) => set({ alerts }),
-  setWeather: (weather) => set({ weather }),
+  setEntities:  (list)   => set({ entities: Object.fromEntries(list.map((e) => [e.entity_id, e])) }),
+  upsertEntity: (entity) => set((s) => ({ entities: { ...s.entities, [entity.entity_id]: entity } })),
+  setAlerts:    (alerts) => set({ alerts }),
+  setWeather:   (weather) => set({ weather }),
+  setRadio:     (radio)  => set({ radio }),
   setConnected: (connected) => set({ connected }),
   selectEntity: (selectedEntityId) => set({ selectedEntityId }),
 }))

@@ -4,6 +4,7 @@ import 'maplibre-gl/dist/maplibre-gl.css'
 import { MAP_STYLE, DEFAULT_CENTER, DEFAULT_ZOOM } from '../config'
 import { AircraftLayer } from './layers/AircraftLayer'
 import { VesselLayer } from './layers/VesselLayer'
+import { MeshLayer } from './layers/MeshLayer'
 import { useWebSocket } from '../hooks/useWebSocket'
 
 export function Map() {
@@ -31,6 +32,7 @@ export function Map() {
         <>
           <AircraftLayer map={map} />
           <VesselLayer map={map} />
+          <MeshLayer map={map} />
         </>
       )}
     </div>

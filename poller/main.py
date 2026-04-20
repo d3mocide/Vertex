@@ -6,6 +6,8 @@ from pollers.ais import AisPoller
 from pollers.weather import WeatherPoller
 from pollers.alerts import AlertPoller
 from pollers.traffic import TrafficPoller
+from pollers.p25 import P25Poller
+from pollers.meshcore import MeshCorePoller
 from bus import close
 
 logging.basicConfig(
@@ -22,6 +24,8 @@ async def main():
         WeatherPoller(),
         AlertPoller(),
         TrafficPoller(),
+        P25Poller(),
+        MeshCorePoller(),
     ]
     tasks = [asyncio.create_task(p.run()) for p in pollers]
     logger.info("Started %d pollers", len(tasks))
