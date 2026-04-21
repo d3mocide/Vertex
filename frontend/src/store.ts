@@ -17,6 +17,16 @@ export interface Entity {
   tags?:        string[]
 }
 
+// ─── Trail ────────────────────────────────────────────────────────────────────
+export interface TrailPoint {
+  ts:           string
+  lat:          number | null
+  lon:          number | null
+  altitude?:    number | null
+  heading?:     number | null
+  speed?:       number | null
+}
+
 // ─── Alerts / News ────────────────────────────────────────────────────────────
 export interface AlertItem {
   source:    string
@@ -93,6 +103,7 @@ interface CivicStore {
   weather:          WeatherState
   radio:            RadioState
   cameras:          TrafficCamera[]
+  trail:            TrailPoint[]
 
   // Connection / health
   connected:        boolean
@@ -112,6 +123,7 @@ interface CivicStore {
   setWeather:       (weather: Partial<WeatherState>) => void
   setRadio:         (radio: RadioState) => void
   setCameras:       (cameras: TrafficCamera[]) => void
+  setTrail:         (trail: TrailPoint[]) => void
 
   // Actions — connection
   setConnected:     (v: boolean) => void
@@ -147,6 +159,7 @@ export const useCivicStore = create<CivicStore>((set) => ({
   weather:          defaultWeather,
   radio:            emptyRadio,
   cameras:          [],
+  trail:            [],
 
   // Connection
   connected:        false,
@@ -168,6 +181,7 @@ export const useCivicStore = create<CivicStore>((set) => ({
   setWeather:   (patch)   => set((s) => ({ weather: { ...s.weather, ...patch } })),
   setRadio:     (radio)   => set({ radio }),
   setCameras:   (cameras) => set({ cameras }),
+  setTrail:     (trail)   => set({ trail }),
 
   // Connection actions
   setConnected: (connected) => set({ connected }),

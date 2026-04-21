@@ -26,12 +26,18 @@ export function useWebSocket() {
       ws.onmessage = (e) => {
         const msg = JSON.parse(e.data as string)
         switch (msg.type) {
-          case 'snapshot':      setEntities(msg.data);   break
-          case 'entity_update': upsertEntity(msg.data);  break
-          case 'feed_update':
-            if (msg.key === 'radio:active') setRadio(msg.data ?? msg)
+          case 'snapshot':
+            setEntities(msg.data)
             break
-          case 'radio_update':  setRadio(msg.data);      break
+          case 'entity_update':
+            upsertEntity(msg.data)
+            break
+          case 'feed_update':
+          case 'radio_update':
+            if (msg.key === 'radio:active' || msg.type === 'radio_update') {
+              setRadio(msg.data ?? msg)
+            }
+            break
         }
       }
     }

@@ -9,6 +9,7 @@ from pollers.traffic import TrafficPoller
 from pollers.p25 import P25Poller
 from pollers.meshcore import MeshCorePoller
 from bus import close
+from db import init_db, close_db
 
 logging.basicConfig(
     level=settings.log_level,
@@ -18,6 +19,7 @@ logger = logging.getLogger(__name__)
 
 
 async def main():
+    await init_db()
     pollers = [
         AdsbPoller(),
         AisPoller(),
@@ -35,6 +37,7 @@ async def main():
         pass
     finally:
         await close()
+        await close_db()
 
 
 if __name__ == "__main__":
