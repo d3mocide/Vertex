@@ -6,6 +6,10 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+asyncpg://civicgrid:civicgrid@localhost:5432/civicgrid"
     log_level: str = "INFO"
 
+    # Home location (Tualatin)
+    region_lat: float = 45.3842
+    region_lon: float = -122.7635
+
     # Tualatin/Portland Metro bounding box
     bbox_min_lat: float = 44.8
     bbox_max_lat: float = 45.9
