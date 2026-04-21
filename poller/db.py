@@ -38,7 +38,7 @@ async def write_entity_observation(entity: dict):
             """
             INSERT INTO entities
                 (entity_id, entity_type, source, display_name, identity, tags, first_seen, last_seen)
-            VALUES ($1, $2, $3, $4, $5::jsonb, $6::jsonb, NOW(), NOW())
+            VALUES ($1::text, $2::text, $3::text, $4::text, $5::jsonb, $6::jsonb, NOW(), NOW())
             ON CONFLICT (entity_id) DO UPDATE SET
                 display_name = EXCLUDED.display_name,
                 identity     = EXCLUDED.identity,
@@ -57,9 +57,9 @@ async def write_entity_observation(entity: dict):
             """
             INSERT INTO observations
                 (entity_id, ts, lat, lon, altitude, heading, speed, vertical_rate, status, geom)
-            VALUES ($1, NOW(), $2, $3, $4, $5, $6, $7, $8,
-                CASE WHEN $2 IS NOT NULL AND $3 IS NOT NULL
-                     THEN ST_SetSRID(ST_MakePoint($3, $2), 4326)
+            VALUES ($1, NOW(), $2::float, $3::float, $4::float, $5::float, $6::float, $7::float, $8::text,
+                CASE WHEN $2::float IS NOT NULL AND $3::float IS NOT NULL
+                     THEN ST_SetSRID(ST_MakePoint($3::float, $2::float), 4326)
                      ELSE NULL END)
             """,
             entity["entity_id"],

@@ -37,7 +37,7 @@ export function EntityDetail() {
 
   return (
     <aside
-      className="absolute top-4 right-[21rem] hud-panel w-56 z-30 overflow-hidden"
+      className="absolute top-28 right-4 hud-panel w-56 z-30 overflow-hidden"
       aria-label={`Entity detail: ${entity.display_name ?? entity.entity_id}`}
       role="complementary"
     >

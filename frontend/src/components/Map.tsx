@@ -22,11 +22,12 @@ export function Map() {
       style:     MAP_STYLE,
       center:    DEFAULT_CENTER,
       zoom:      DEFAULT_ZOOM,
+      attributionControl: false,
       // Performance: request hardware acceleration
       antialias: true,
     })
 
-    m.addControl(new maplibregl.NavigationControl({ showCompass: true }), 'top-right')
+    m.addControl(new maplibregl.NavigationControl({ showCompass: true }), 'bottom-right')
     m.addControl(new maplibregl.ScaleControl({ maxWidth: 100, unit: 'imperial' }), 'bottom-left')
     m.on('load', () => setMap(m))
 

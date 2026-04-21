@@ -9,18 +9,38 @@ from .base import BasePoller
 logger = logging.getLogger(__name__)
 
 
+def _ultrafeeder_url() -> str | None:
+    """Return the tar1090 aircraft.json URL for a local/external ultrafeeder,
+    or None if no ultrafeeder is configured."""
+    if settings.ultrafeeder_url:
+        return settings.ultrafeeder_url
+    if settings.ultrafeeder_host:
+        return (
+            f"http://{settings.ultrafeeder_host}:{settings.ultrafeeder_port}"
+            "/data/aircraft.json"
+        )
+    return None
+
+
 class AdsbPoller(BasePoller):
     name = "adsb"
     interval = 5
 
+    async def setup(self):
+        url = _ultrafeeder_url()
+        if url:
+            logger.info("[adsb] using local ultrafeeder at %s", url)
+        else:
+            logger.info("[adsb] no ultrafeeder configured — falling back to OpenSky")
+
     async def poll(self):
-        if settings.ultrafeeder_host:
-            await self._poll_ultrafeeder()
+        url = _ultrafeeder_url()
+        if url:
+            await self._poll_ultrafeeder(url)
         else:
             await self._poll_opensky()
 
-    async def _poll_ultrafeeder(self):
-        url = f"http://{settings.ultrafeeder_host}:{settings.ultrafeeder_port}/tar1090/data/aircraft.json"
+    async def _poll_ultrafeeder(self, url: str):
         async with httpx.AsyncClient(timeout=5) as client:
             resp = await client.get(url)
             resp.raise_for_status()
@@ -48,3 +68,4 @@ class AdsbPoller(BasePoller):
             entity = normalize_opensky(state)
             if entity:
                 await publish_entity(entity)
+

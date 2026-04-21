@@ -24,7 +24,7 @@ async def check_geofences(entity: dict, conn) -> None:
         SELECT id, name, zone_type
         FROM geofences
         WHERE active = TRUE
-          AND ST_Contains(geom, ST_SetSRID(ST_MakePoint($1, $2), 4326))
+          AND ST_Contains(geom, ST_SetSRID(ST_MakePoint($1::float, $2::float), 4326))
         """,
         lon,
         lat,

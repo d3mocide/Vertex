@@ -35,19 +35,19 @@ export default function App() {
 
         {/* ── Main content area ──────────────────────────────────────── */}
         <div
-          className={`
-            relative flex-1 flex flex-col min-w-0 overflow-hidden
-            transition-all duration-300
-          `}
+          className="relative flex-1 min-w-0 overflow-hidden transition-all duration-300"
         >
-          {/* Top navigation header */}
-          <Header />
+          {/* Top floating glass controls */}
+          <div className="absolute top-0 inset-x-0 z-40 pointer-events-none">
+            <div className="pointer-events-auto">
+              <Header />
+              <EnvBar />
+            </div>
+          </div>
 
-          {/* Environmental sensor strip */}
-          <EnvBar />
+          {/* Content area — map fills the entire parent area */}
+          <div className="absolute inset-0 overflow-hidden">
 
-          {/* Content area — map always live underneath tab panels */}
-          <div className="relative flex-1 min-h-0 overflow-hidden">
 
             {/* Map — always rendered so data stays live */}
             <div
@@ -61,9 +61,16 @@ export default function App() {
             </div>
 
             {/* ── Tab panels (overlay map) ─────────────────────────── */}
-            {activeTab === 'infrastructure' && <InfrastructureGrid />}
-            {activeTab === 'environment'    && <EnvironmentPanel   />}
-            {activeTab === 'community'      && <CommunityPanel     />}
+            {activeTab !== 'safety' && (
+              <div className="absolute top-24 inset-x-0 bottom-0 z-10 bg-onyx-black/40 backdrop-blur-sm overflow-y-auto">
+                {activeTab === 'infrastructure' && <InfrastructureGrid />}
+
+                {activeTab === 'environment'    && <EnvironmentPanel   />}
+                {activeTab === 'community'      && <CommunityPanel     />}
+              </div>
+            )}
+
+
 
             {/* ── Safety-tab overlays (only on safety/map view) ────── */}
             {activeTab === 'safety' && (

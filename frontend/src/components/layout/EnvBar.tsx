@@ -30,14 +30,18 @@ export function EnvBar() {
   return (
     <div
       className={`
-        h-10 border-b flex items-center px-4 gap-6 shrink-0 overflow-x-auto
+        h-10 border-b flex items-center px-6 gap-6 shrink-0 overflow-x-auto relative
+        transition-all duration-500
         ${hasSevere && mode === 'critical'
-          ? 'bg-red-emergency-muted/40 border-red-emergency/30'
-          : 'bg-onyx-black/30 backdrop-blur-sm border-amber-gold-muted/20'}
+          ? 'bg-red-emergency/5 border-red-emergency/20 backdrop-blur-md'
+          : 'bg-white/[0.02] backdrop-blur-md border-white/5 shadow-inner'}
       `}
       role="region"
       aria-label="Environmental sensor data"
     >
+      {/* Subtle top light for depth */}
+      <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-white/5 to-transparent pointer-events-none" />
+
       {/* AQI */}
       <div className="flex items-center gap-2 shrink-0">
         <span className="ms text-[14px] text-amber-gold leading-none" aria-hidden="true">air</span>

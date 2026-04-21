@@ -21,20 +21,35 @@
   ::-webkit-scrollbar-track   { background: #0a0a0a; }
   ::-webkit-scrollbar-thumb   { background: #FFB800; border-radius: 0; }
 
-  /* MapLibre GL canvas always fills its container */
-  .maplibregl-canvas { display: block; }
+  /* MapLibre GL canvas specifically targeted for tactical grayscale look */
+  canvas.maplibregl-canvas { 
+    display: block; 
+    filter: grayscale(100%) saturate(0%) brightness(0.6) contrast(1.3) !important;
+  }
+
+
+
   .maplibregl-map    { position: absolute; inset: 0; }
 }
+
 
 @layer components {
   /* Glassmorphism panels */
   .hud-panel {
-    background-color: rgba(5, 5, 5, 0.92);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border: 1px solid #FFB800;
-    box-shadow: 0 0 24px rgba(0, 0, 0, 0.6);
+    background-color: rgba(5, 5, 5, 0.8);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border: 1px solid rgba(255, 184, 0, 0.3);
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.8);
   }
+
+  .glass-morphism {
+    background: rgba(5, 5, 5, 0.4);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
 
   .map-overlay-card {
     background-color: rgba(5, 5, 5, 0.85);
@@ -137,7 +152,26 @@
     @apply font-mono text-[9px] uppercase tracking-widest px-1.5 py-0.5 font-bold;
   }
 
+  /* Map Markers */
+  .aircraft-marker {
+    @apply relative w-6 h-6 flex items-center justify-center;
+  }
+
+
+  .aircraft-marker-dot {
+    @apply w-2.5 h-2.5 rounded-full bg-cyan-adsb border border-white shadow-[0_0_10px_rgba(0,191,255,0.6)];
+  }
+
+  .aircraft-marker-ring {
+    @apply absolute inset-0 rounded-full border border-cyan-adsb/40;
+  }
+
+  .aircraft-marker-pulse {
+    @apply absolute inset-0 rounded-full bg-cyan-adsb/20 animate-ping-slow;
+  }
+
   /* Traffic light bar states */
+
   .tl-green  { @apply bg-green-ais text-onyx-black; }
   .tl-yellow { @apply bg-amber-gold text-onyx-black; }
   .tl-red    { @apply bg-red-emergency text-white; }

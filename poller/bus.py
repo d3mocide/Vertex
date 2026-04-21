@@ -15,15 +15,16 @@ async def get_bus() -> Redis:
     return _redis
 
 
-async def publish_entity(entity: dict):
+async def publish_entity(entity: dict, ttl: int = 120):
     r = await get_bus()
-    await r.set(f"entity:{entity['entity_id']}", json.dumps(entity))
+    await r.set(f"entity:{entity['entity_id']}", json.dumps(entity), ex=ttl)
     await r.publish("civic:updates", json.dumps({"type": "entity_update", "data": entity}))
     from db import write_entity_observation  # lazy import — db imports geofence which imports bus
     try:
         await write_entity_observation(entity)
     except Exception as exc:
-        logger.warning("DB write failed for %s: %s", entity.get("entity_id"), exc)
+        import traceback
+        logger.warning("DB write failed for %s: %s\n%s", entity.get("entity_id"), exc, traceback.format_exc())
 
 
 async def set_feed(key: str, data):

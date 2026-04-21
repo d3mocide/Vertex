@@ -16,13 +16,23 @@ class Settings(BaseSettings):
     nws_station_primary: str = "KHIO"
     nws_station_secondary: str = "KUAO"
     nws_zone: str = "ORZ006"
+    # Multi-county NWS alert zones (Washington, Multnomah, Clackamas counties)
+    nws_alert_zones: str = "ORZ006,ORZ005,ORZ007"
 
-    # ODOT TripCheck
-    odot_incidents_url: str = "https://tripcheck.com/Scripts/rss.asp?CMS=true&RSS=TripCheck"
+    # ODOT TripCheck Data API (free key from developer.odot.state.or.us)
+    odot_incidents_url: str = ""  # deprecated RSS URL, kept for backward compat
+    odot_api_key: str = ""         # set to enable the new TripCheck REST API
+
+    # EPA AirNow AQI API (free key from airnowapi.org)
+    airnow_api_key: str = ""
 
     # Local ADS-B — Ultrafeeder tar1090
-    ultrafeeder_host: str = ""
-    ultrafeeder_port: int = 30047
+    # Option A: Set ULTRAFEEDER_URL to the full aircraft.json URL
+    #   e.g. http://192.168.1.50/data/aircraft.json
+    # Option B: Set ULTRAFEEDER_HOST + ULTRAFEEDER_PORT (port 80 = HTTP tar1090)
+    ultrafeeder_url: str = ""   # direct URL override (takes precedence)
+    ultrafeeder_host: str = ""  # hostname / IP of external ultrafeeder
+    ultrafeeder_port: int = 80  # tar1090 HTTP port (NOT the TCP beast port 30047)
 
     # Local AIS-catcher WebSocket
     ais_catcher_host: str = ""

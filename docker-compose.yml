@@ -89,12 +89,17 @@ services:
   frontend:
     build:
       context: ./frontend
+      target: build
       platforms:
         - linux/amd64
         - linux/arm64
+    command: npm run dev -- --host 0.0.0.0 --port 5173
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
     restart: unless-stopped
     ports:
-      - "${FRONTEND_PORT:-80}:80"
+      - "${FRONTEND_PORT:-80}:5173"
     depends_on:
       backend:
         condition: service_healthy

@@ -84,8 +84,8 @@ export function Sidebar() {
       aria-label="Civic Grid sidebar"
     >
       {/* Brand header */}
-      <div className="h-14 flex items-center px-4 border-b border-amber-gold-muted bg-onyx-black/80 shrink-0">
-        <span className="text-amber-gold font-black tracking-[0.2em] text-lg uppercase select-none">
+      <div className="h-14 flex items-center px-6 border-b border-white/5 bg-[#050505]/60 backdrop-blur-2xl shrink-0">
+        <span className="text-amber-gold font-black tracking-[0.25em] text-lg uppercase select-none">
           CIVIC GRID
         </span>
       </div>

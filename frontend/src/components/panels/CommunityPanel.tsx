@@ -127,10 +127,11 @@ export function CommunityPanel() {
 
   return (
     <div
-      className="absolute inset-0 bg-onyx-black/95 backdrop-blur-sm z-10 flex flex-col overflow-hidden"
+      className="relative w-full h-full bg-onyx-black/95 backdrop-blur-sm z-10 flex flex-col overflow-hidden"
       role="region"
       aria-label="Community feed panel"
     >
+
       {/* Panel header */}
       <div className="px-4 py-3 border-b border-amber-gold-muted flex items-center gap-3 shrink-0">
         <span

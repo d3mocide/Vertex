@@ -79,13 +79,16 @@ export function Header() {
   return (
     <header
       className={`
-        border-b flex justify-between items-center w-full px-4 h-14 shrink-0
-        transition-colors duration-300
+        border-b flex justify-between items-center w-full px-6 h-14 shrink-0
+        transition-all duration-500 relative overflow-hidden
         ${mode === 'critical'
-          ? 'bg-red-emergency-muted/40 border-red-emergency/40 backdrop-blur-md'
-          : 'bg-onyx-black/40 border-amber-gold-muted/30 backdrop-blur-md'}
+          ? 'bg-red-emergency/5 border-red-emergency/20 backdrop-blur-md'
+          : 'bg-white/[0.03] border-white/10 backdrop-blur-md shadow-[0_4px_30px_rgba(0,0,0,0.5)]'}
       `}
     >
+      {/* Glass reflection effect */}
+      <div className="absolute inset-0 bg-gradient-to-b from-white/5 to-transparent pointer-events-none" />
+
       {/* Navigation tabs */}
       <nav
         className="hidden lg:flex items-center gap-6 h-full"
@@ -118,12 +121,23 @@ export function Header() {
       </button>
 
       {/* Right controls */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-4 relative z-10">
         <SystemHealthBadge />
         <ModeToggle />
 
+        {/* Critical Mode Status Button from Mockup */}
+        <div className={`
+          px-4 py-1.5 border font-bold text-[10px] uppercase tracking-[0.2em] transition-all duration-300
+          ${mode === 'critical' 
+            ? 'bg-red-emergency/20 border-red-emergency text-red-emergency shadow-[0_0_15px_rgba(255,59,48,0.3)]' 
+            : 'border-amber-gold/30 text-amber-gold/50'}
+        `}>
+          {mode === 'critical' ? 'CRITICAL ACTIVE' : 'CRITICAL MODE'}
+        </div>
+
         {/* Divider */}
-        <div className="divider-v" aria-hidden="true" />
+        <div className="h-4 w-px bg-white/10" aria-hidden="true" />
+
 
         {/* Icon buttons */}
         <div className="flex items-center gap-2 text-on-surface-variant">

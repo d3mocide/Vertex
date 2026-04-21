@@ -6,10 +6,15 @@ const RECONNECT_DELAY_MS = 3000
 
 export function useWebSocket() {
   const wsRef = useRef<WebSocket | null>(null)
-  const { setEntities, upsertEntity, setConnected, setRadio } = useCivicStore()
+  const { setEntities, upsertEntity, purgeStaleEntities, setConnected, setRadio } = useCivicStore()
 
   useEffect(() => {
     let cancelled = false
+
+    // Periodic cleanup for stale entities (e.g. ADSB tracks)
+    const cleanupInterval = setInterval(() => {
+      purgeStaleEntities()
+    }, 10000) // check every 10 seconds
 
     const connect = () => {
       if (cancelled) return
@@ -45,6 +50,7 @@ export function useWebSocket() {
     connect()
     return () => {
       cancelled = true
+      clearInterval(cleanupInterval)
       wsRef.current?.close()
     }
   }, [])

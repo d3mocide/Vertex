@@ -118,6 +118,7 @@ interface CivicStore {
   // Actions — data
   setEntities:      (entities: Entity[]) => void
   upsertEntity:     (entity: Entity) => void
+  purgeStaleEntities: () => void
   setAlerts:        (alerts: AlertItem[]) => void
   setNews:          (news: NewsItem[]) => void
   setWeather:       (weather: Partial<WeatherState>) => void
@@ -176,6 +177,22 @@ export const useCivicStore = create<CivicStore>((set) => ({
     set({ entities: Object.fromEntries(list.map((e) => [e.entity_id, e])) }),
   upsertEntity: (entity) =>
     set((s) => ({ entities: { ...s.entities, [entity.entity_id]: entity } })),
+  purgeStaleEntities: () =>
+    set((s) => {
+      const now = Date.now()
+      const next = { ...s.entities }
+      let changed = false
+      for (const [id, e] of Object.entries(next)) {
+        if (e.entity_type === 'aircraft' && e.last_seen) {
+          const age = now - new Date(e.last_seen).getTime()
+          if (age > 60_000) {
+            delete next[id]
+            changed = true
+          }
+        }
+      }
+      return changed ? { entities: next } : {}
+    }),
   setAlerts:    (alerts)  => set({ alerts }),
   setNews:      (news)    => set({ news }),
   setWeather:   (patch)   => set((s) => ({ weather: { ...s.weather, ...patch } })),

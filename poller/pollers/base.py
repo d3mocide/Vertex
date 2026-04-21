@@ -13,11 +13,16 @@ class BasePoller(ABC):
     async def poll(self):
         ...
 
+    async def setup(self):
+        """Called once before the polling loop. Override to perform startup tasks."""
+
     async def run(self):
         logger.info("[%s] started (interval=%ds)", self.name, self.interval)
+        await self.setup()
         while True:
             try:
                 await self.poll()
             except Exception as exc:
                 logger.error("[%s] poll error: %s", self.name, exc)
             await asyncio.sleep(self.interval)
+
