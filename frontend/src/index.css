@@ -1,0 +1,159 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html, body, #root {
+    height: 100%;
+    overflow: hidden;
+  }
+
+  body {
+    background-color: #050505;
+    color: #F2F2F2;
+    font-family: 'Inter', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Thin amber scrollbar */
+  ::-webkit-scrollbar         { width: 3px; height: 3px; }
+  ::-webkit-scrollbar-track   { background: #0a0a0a; }
+  ::-webkit-scrollbar-thumb   { background: #FFB800; border-radius: 0; }
+
+  /* MapLibre GL canvas always fills its container */
+  .maplibregl-canvas { display: block; }
+  .maplibregl-map    { position: absolute; inset: 0; }
+}
+
+@layer components {
+  /* Glassmorphism panels */
+  .hud-panel {
+    background-color: rgba(5, 5, 5, 0.92);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid #FFB800;
+    box-shadow: 0 0 24px rgba(0, 0, 0, 0.6);
+  }
+
+  .map-overlay-card {
+    background-color: rgba(5, 5, 5, 0.85);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid #FFB800;
+  }
+
+  /* Sidebar */
+  .sidebar-panel {
+    background-color: #050505;
+    border-right: 1px solid #4D3800;
+  }
+
+  /* Typography utilities */
+  .label-caps {
+    @apply font-bold text-[10px] tracking-widest uppercase text-on-surface-variant;
+  }
+
+  .data-value {
+    @apply font-mono text-[11px] text-amber-gold;
+  }
+
+  /* Navigation links */
+  .nav-link {
+    @apply tracking-widest uppercase text-[10px] font-bold text-on-surface-variant
+           hover:text-amber-gold transition-colors h-full flex items-center cursor-pointer
+           focus:outline-none focus-visible:ring-1 focus-visible:ring-amber-gold;
+  }
+
+  .nav-link-active {
+    @apply tracking-widest uppercase text-[10px] font-bold text-amber-gold
+           border-b border-amber-gold h-full flex items-center cursor-pointer
+           focus:outline-none focus-visible:ring-1 focus-visible:ring-amber-gold;
+  }
+
+  /* Incident / news cards */
+  .incident-card {
+    @apply bg-surface-container/60 border border-amber-gold-muted p-3
+           hover:border-amber-gold transition-colors cursor-pointer
+           focus:outline-none focus-visible:ring-1 focus-visible:ring-amber-gold;
+  }
+
+  /* Section headings */
+  .section-heading {
+    @apply font-bold text-[10px] tracking-widest text-amber-gold uppercase
+           flex items-center gap-2 mb-3;
+  }
+
+  /* Amber primary button */
+  .btn-primary {
+    @apply bg-amber-gold text-onyx-black font-bold text-[11px] py-2 px-4
+           uppercase tracking-[0.15em] hover:bg-white transition-colors
+           focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-gold;
+  }
+
+  /* Ghost button */
+  .btn-ghost {
+    @apply border border-amber-gold text-amber-gold font-bold text-[10px]
+           uppercase tracking-widest px-3 py-1 hover:bg-amber-gold hover:text-onyx-black
+           transition-all focus:outline-none focus-visible:ring-1 focus-visible:ring-amber-gold;
+  }
+
+  /* Material Symbols baseline */
+  .ms {
+    font-family: 'Material Symbols Outlined';
+    font-weight: normal;
+    font-style: normal;
+    line-height: 1;
+    display: inline-block;
+    white-space: nowrap;
+    word-wrap: normal;
+    direction: ltr;
+    -webkit-font-feature-settings: 'liga';
+    font-feature-settings: 'liga';
+    user-select: none;
+    vertical-align: middle;
+  }
+
+  /* Dot divider */
+  .divider-v {
+    @apply w-px h-3 bg-amber-gold-muted/50 shrink-0;
+  }
+
+  /* Live pulse ring */
+  .live-ring {
+    @apply absolute inset-0 rounded-full animate-ping-slow
+           border border-amber-gold/40;
+  }
+
+  /* CCTV thumbnail */
+  .cctv-thumb {
+    @apply bg-surface-container border border-amber-gold-muted overflow-hidden
+           relative cursor-pointer hover:border-amber-gold transition-colors;
+    aspect-ratio: 16/9;
+  }
+
+  /* Status pill */
+  .status-pill {
+    @apply font-mono text-[9px] uppercase tracking-widest px-1.5 py-0.5 font-bold;
+  }
+
+  /* Traffic light bar states */
+  .tl-green  { @apply bg-green-ais text-onyx-black; }
+  .tl-yellow { @apply bg-amber-gold text-onyx-black; }
+  .tl-red    { @apply bg-red-emergency text-white; }
+}
+
+/* Waveform animation for audio bars */
+@keyframes waveform {
+  0%, 100% { transform: scaleY(0.3); }
+  50%       { transform: scaleY(1); }
+}
+.wave-bar { animation: waveform 1.2s ease-in-out infinite; transform-origin: bottom; }
+.wave-bar:nth-child(1) { animation-delay: 0s; }
+.wave-bar:nth-child(2) { animation-delay: 0.1s; }
+.wave-bar:nth-child(3) { animation-delay: 0.2s; }
+.wave-bar:nth-child(4) { animation-delay: 0.3s; }
+.wave-bar:nth-child(5) { animation-delay: 0.4s; }
+.wave-bar:nth-child(6) { animation-delay: 0.2s; }
+.wave-bar:nth-child(7) { animation-delay: 0.1s; }
+.wave-bar:nth-child(8) { animation-delay: 0s; }

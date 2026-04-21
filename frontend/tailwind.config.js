@@ -1,0 +1,56 @@
+/** @type {import('tailwindcss').Config} */
+export default {
+  darkMode: 'class',
+  content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
+  theme: {
+    extend: {
+      colors: {
+        'onyx-black':              '#050505',
+        'onyx-deep':               '#0a0a0a',
+        'amber-gold':              '#FFB800',
+        'amber-gold-dim':          '#B88600',
+        'amber-gold-muted':        '#4D3800',
+        'on-surface':              '#F2F2F2',
+        'on-surface-variant':      '#8C8C8C',
+        'outline-variant':         '#333333',
+        'surface':                 '#050505',
+        'surface-container':       '#0F0F0F',
+        'surface-container-low':   '#080808',
+        'surface-container-high':  '#141414',
+        'surface-container-highest':'#1A1A1A',
+        // Signal colours
+        'cyan-adsb':       '#00BFFF',
+        'cyan-adsb-muted': '#004D6B',
+        'green-ais':       '#00C853',
+        'green-ais-muted': '#00401A',
+        'amber-p25':       '#FF8F00',
+        'amber-p25-muted': '#4D2B00',
+        'red-emergency':   '#C62828',
+        'red-emergency-muted': '#4A0000',
+      },
+      borderRadius: {
+        DEFAULT: '0rem',
+        sm:  '0rem',
+        md:  '0rem',
+        lg:  '0rem',
+        xl:  '0rem',
+        '2xl': '0rem',
+        full: '9999px',
+      },
+      fontFamily: {
+        body: ['Inter', 'system-ui', 'sans-serif'],
+        mono: ['"Roboto Mono"', 'monospace'],
+      },
+      boxShadow: {
+        'gold-glow': '0 0 20px rgba(255,184,0,0.25)',
+        'gold-sm':   '0 0 8px rgba(255,184,0,0.4)',
+        'red-glow':  '0 0 20px rgba(198,40,40,0.4)',
+      },
+      animation: {
+        'pulse-slow': 'pulse 3s cubic-bezier(0.4,0,0.6,1) infinite',
+        'ping-slow':  'ping 2s cubic-bezier(0,0,0.2,1) infinite',
+      },
+    },
+  },
+  plugins: [],
+}
