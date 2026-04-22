@@ -6,6 +6,7 @@ import { AircraftLayer } from './layers/AircraftLayer'
 import { VesselLayer }   from './layers/VesselLayer'
 import { MeshLayer }     from './layers/MeshLayer'
 import { TrailLayer }    from './layers/TrailLayer'
+import { MapOverlay }    from './MapOverlay'
 import { useWebSocket }  from '../hooks/useWebSocket'
 import { useTrail }      from '../hooks/useTrail'
 
@@ -48,6 +49,7 @@ export function Map() {
           <AircraftLayer map={map} />
           <VesselLayer   map={map} />
           <MeshLayer     map={map} />
+          <MapOverlay    map={map} />
         </>
       )}
     </div>

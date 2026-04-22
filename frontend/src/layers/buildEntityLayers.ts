@@ -1,0 +1,101 @@
+import { Layer, type LayerContext } from '@deck.gl/core'
+import { IconLayer, ScatterplotLayer } from '@deck.gl/layers'
+import type { Track } from '../store'
+import { getIconAtlas } from './iconAtlas'
+import { entityColor } from './colorUtils'
+
+// ─── StencilClearLayer ────────────────────────────────────────────────────────
+// Clears MapLibre tile stencil buffer bleed before deck.gl draws.
+export class StencilClearLayer extends Layer {
+  static layerName = 'StencilClearLayer'
+
+  initializeState(_context: LayerContext): void {}
+
+  // DrawOptions carries context: LayerContext which exposes gl (deprecated but present in v9)
+  draw(opts: Parameters<Layer['draw']>[0]): void {
+    const { gl } = opts.context
+    gl.disable(gl.STENCIL_TEST)
+    gl.stencilMask(0xff)
+    gl.clear(gl.STENCIL_BUFFER_BIT)
+  }
+
+  renderLayers() { return [] }
+}
+
+// ─── Depth parameters ─────────────────────────────────────────────────────────
+function depthParams(globeMode: boolean, bias: number) {
+  return globeMode
+    ? { depthTest: true,  depthBias: bias }
+    : { depthTest: false, depthBias: 0 }
+}
+
+const HALO_TYPES = new Set(['SAR', 'MIL', 'HEL', 'UAV', 'GOV'])
+
+// ─── buildEntityLayers ────────────────────────────────────────────────────────
+// Returns: [haloLayer, selectionRingLayer, iconLayer]
+// StencilClearLayer is assembled separately in MapOverlay.tsx (must be first).
+export function buildEntityLayers(
+  tracks: Record<string, Track>,
+  selectedUid: string | null,
+  cycle: number,
+  globeMode: boolean,
+): Layer[] {
+  const atlas    = getIconAtlas()
+  const trackArr = Object.values(tracks)
+
+  const haloLayer = new IconLayer<Track>({
+    id:          'entity-halos',
+    data:        trackArr.filter(t => HALO_TYPES.has(t.category ?? '')),
+    iconAtlas:   atlas.url,
+    iconMapping: atlas.mapping,
+    getIcon:     () => 'halo',
+    getPosition: (t) => [t.lon, t.lat],
+    getSize:     () => 52,
+    getColor:    () => [255, 136, 0, 140],
+    sizeUnits:   'pixels',
+    billboard:   false,
+    parameters:  depthParams(globeMode, -150),
+  })
+
+  const selectedTrack = selectedUid ? tracks[selectedUid] : undefined
+
+  const selectionRingLayer = new ScatterplotLayer<Track>({
+    id:             'selection-ring',
+    data:           selectedTrack ? [selectedTrack] : [],
+    getPosition:    (t) => [t.lon, t.lat],
+    getRadius:      () => 30 + cycle * 40,
+    getColor:       (t) => {
+      const [r, g, b] = entityColor(t)
+      return [r, g, b, Math.round(255 * (1 - cycle * cycle))]
+    },
+    radiusUnits:    'pixels',
+    stroked:        true,
+    filled:         false,
+    getLineWidth:   2,
+    lineWidthUnits: 'pixels',
+    parameters:     depthParams(globeMode, -100),
+  })
+
+  const iconLayer = new IconLayer<Track>({
+    id:          'entity-icons',
+    data:        trackArr,
+    iconAtlas:   atlas.url,
+    iconMapping: atlas.mapping,
+    getIcon:     (t) => t.type === 'sea' ? 'vessel' : 'aircraft',
+    getPosition: (t) => [t.lon, t.lat],
+    getAngle:    (t) => -t.courseTrue,
+    getColor:    (t) => entityColor(t),
+    getSize:     (t) => t.uid === selectedUid ? 28 : 22,
+    sizeUnits:   'pixels',
+    billboard:   false,
+    pickable:    true,
+    parameters:  depthParams(globeMode, -200),
+    updateTriggers: {
+      getAngle: trackArr.map(t => t.courseTrue),
+      getColor: trackArr.map(t => t.altMeters + t.speedMs),
+      getSize:  selectedUid,
+    },
+  })
+
+  return [haloLayer, selectionRingLayer, iconLayer]
+}
