@@ -50,7 +50,7 @@ services:
         - linux/amd64
         - linux/arm64
     restart: unless-stopped
-    env_file: .env
+    env_file: ${CIVICGRID_ENV_FILE:-.env}
     environment:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-civicgrid}:${POSTGRES_PASSWORD:-civicgrid}@db:5432/${POSTGRES_DB:-civicgrid}
       REDIS_URL: redis://redis:6379
@@ -74,7 +74,7 @@ services:
         - linux/amd64
         - linux/arm64
     restart: unless-stopped
-    env_file: .env
+    env_file: ${CIVICGRID_ENV_FILE:-.env}
     environment:
       REDIS_URL: redis://redis:6379
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-civicgrid}:${POSTGRES_PASSWORD:-civicgrid}@db:5432/${POSTGRES_DB:-civicgrid}
@@ -93,6 +93,10 @@ services:
       platforms:
         - linux/amd64
         - linux/arm64
+    environment:
+      VITE_PROXY_ICECAST_TARGET: ${VITE_PROXY_ICECAST_TARGET:-http://icecast:8000/}
+      VITE_PROXY_OP25_TARGET: ${VITE_PROXY_OP25_TARGET:-http://op25:8080/}
+      VITE_STREAM_URL: ${VITE_STREAM_URL:-/stream/radio.mp3}
     command: npm run dev -- --host 0.0.0.0 --port 5173
     volumes:
       - ./frontend:/app

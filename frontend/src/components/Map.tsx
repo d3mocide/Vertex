@@ -2,19 +2,14 @@ import { useEffect, useRef, useState } from 'react'
 import maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { MAP_STYLE, DEFAULT_CENTER, DEFAULT_ZOOM } from '../config'
-import { AircraftLayer } from './layers/AircraftLayer'
-import { VesselLayer }   from './layers/VesselLayer'
 import { MeshLayer }     from './layers/MeshLayer'
-import { TrailLayer }    from './layers/TrailLayer'
 import { MapOverlay }    from './MapOverlay'
 import { useWebSocket }  from '../hooks/useWebSocket'
-import { useTrail }      from '../hooks/useTrail'
 
 export function Map() {
   const containerRef = useRef<HTMLDivElement>(null)
   const [map, setMap] = useState<maplibregl.Map | null>(null)
   useWebSocket()
-  useTrail()
 
   useEffect(() => {
     if (!containerRef.current) return
@@ -45,9 +40,6 @@ export function Map() {
       <div ref={containerRef} className="absolute inset-0" />
       {map && (
         <>
-          <TrailLayer    map={map} />
-          <AircraftLayer map={map} />
-          <VesselLayer   map={map} />
           <MeshLayer     map={map} />
           <MapOverlay    map={map} />
         </>

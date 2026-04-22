@@ -1,14 +1,23 @@
 import { useEffect, useRef, useState } from 'react'
 import { useCivicStore } from '../../store'
-import { STREAM_URL } from '../../config'
+import { API_BASE, STREAM_URL } from '../../config'
 
-const TALKGROUP_CHANNELS = [
-  { tgid: 1001, label: 'Tualatin Fire Dispatch',   color: 'text-red-emergency'   },
-  { tgid: 1002, label: 'Washington Co. Sheriff',   color: 'text-cyan-adsb'       },
-  { tgid: 1003, label: 'Tualatin PD Ops',          color: 'text-amber-p25'       },
-  { tgid: 1004, label: 'Lake Oswego Fire',          color: 'text-red-emergency'   },
-  { tgid: 1005, label: 'ODOT Highway Ops',          color: 'text-green-ais'       },
-]
+type RadioCallEvent = {
+  event_id: string
+  event_type: 'p25_call_start' | 'p25_call_end' | string
+  ts: string
+  details?: {
+    tgid?: number
+    tag?: string
+    [k: string]: unknown
+  }
+}
+
+type TalkgroupLogRow = {
+  tgid: number
+  label: string
+  lastSeenIso: string
+}
 
 
 export function TacticalAudio() {
@@ -18,6 +27,7 @@ export function TacticalAudio() {
   const [volume,   setVolume]   = useState(0.7)
   const [elapsed,  setElapsed]  = useState(0)
   const [showChannels, setShowChannels] = useState(false)
+  const [talkgroupLog, setTalkgroupLog] = useState<TalkgroupLogRow[]>([])
   const timerRef   = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const radio = useCivicStore((s) => s.radio)
@@ -73,9 +83,60 @@ export function TacticalAudio() {
     return () => el.removeEventListener('error', onError)
   }, [])
 
+  useEffect(() => {
+    let cancelled = false
+
+    const loadCalls = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/radio/calls?hours=24`)
+        if (!res.ok) return
+        const calls = (await res.json()) as RadioCallEvent[]
+        const byTgid = new Map<number, TalkgroupLogRow>()
+
+        for (const call of calls) {
+          const tgid = call.details?.tgid
+          if (!tgid || byTgid.has(tgid)) continue
+          const label = call.details?.tag?.trim() || `TGID ${tgid}`
+          byTgid.set(tgid, {
+            tgid,
+            label,
+            lastSeenIso: call.ts,
+          })
+        }
+
+        if (!cancelled) {
+          setTalkgroupLog(Array.from(byTgid.values()).slice(0, 20))
+        }
+      } catch {
+        if (!cancelled) setTalkgroupLog([])
+      }
+    }
+
+    loadCalls()
+    const id = setInterval(loadCalls, 15000)
+
+    return () => {
+      cancelled = true
+      clearInterval(id)
+    }
+  }, [])
+
   const activeTag = radio?.tag
-    ?? TALKGROUP_CHANNELS.find((c) => c.tgid === radio?.tgid)?.label
+    ?? (radio?.tgid ? talkgroupLog.find((c) => c.tgid === radio.tgid)?.label : null)
     ?? 'SCAN'
+
+  const visibleTalkgroups: TalkgroupLogRow[] = (() => {
+    const rows = [...talkgroupLog]
+    if (radio?.tgid) {
+      const liveRow: TalkgroupLogRow = {
+        tgid: radio.tgid,
+        label: radio.tag?.trim() || `TGID ${radio.tgid}`,
+        lastSeenIso: radio.updated || new Date().toISOString(),
+      }
+      return [liveRow, ...rows.filter((r) => r.tgid !== liveRow.tgid)]
+    }
+    return rows
+  })()
 
   const formatElapsed = (s: number) => {
     const mm = String(Math.floor(s / 60)).padStart(2, '0')
@@ -89,7 +150,7 @@ export function TacticalAudio() {
   return (
     <aside
       className={`
-        absolute bottom-6 left-1/2 -translate-x-1/2 z-20 flex flex-col justify-end items-end w-[840px] max-w-[95vw] pointer-events-none transition-all duration-300
+        absolute bottom-6 left-1/2 -translate-x-1/2 z-20 flex flex-col justify-end items-end w-[1040px] max-w-[98vw] pointer-events-none transition-all duration-300
         ${isCritical ? 'scale-105 origin-bottom' : 'scale-100 origin-bottom'}
       `}
       aria-label="Tactical audio console"
@@ -101,24 +162,30 @@ export function TacticalAudio() {
              <span className="label-caps">TALKGROUPS</span>
            </div>
            <nav className="max-h-60 overflow-y-auto">
-             {TALKGROUP_CHANNELS.map((ch) => {
-               const isCurrent = radio?.tgid === ch.tgid
-               return (
-                 <button
-                   key={ch.tgid}
-                   className={`
-                     w-full px-4 py-2.5 flex items-center gap-3 text-left transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-amber-gold
-                     ${isCurrent ? 'bg-amber-gold-muted/30 text-amber-gold border-l-2 border-amber-gold' : 'text-on-surface-variant hover:bg-surface-container border-l-2 border-transparent'}
-                   `}
-                 >
-                   <span className="ms text-[18px] leading-none" aria-hidden="true">radio</span>
-                   <div className="flex-1 min-w-0">
-                     <div className="text-[10px] font-bold tracking-widest uppercase truncate">{ch.label}</div>
-                   </div>
-                   <div className="font-mono text-[9px] opacity-60 ml-auto">{ch.tgid}</div>
-                 </button>
-               )
-             })}
+             {visibleTalkgroups.length === 0 ? (
+               <div className="px-4 py-3 text-[10px] tracking-wide text-on-surface-variant/80 uppercase">
+                 Awaiting radio activity...
+               </div>
+             ) : (
+               visibleTalkgroups.map((ch) => {
+                 const isCurrent = radio?.tgid === ch.tgid
+                 return (
+                   <button
+                     key={ch.tgid}
+                     className={`
+                       w-full px-4 py-2.5 flex items-center gap-3 text-left transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-amber-gold
+                       ${isCurrent ? 'bg-amber-gold-muted/30 text-amber-gold border-l-2 border-amber-gold' : 'text-on-surface-variant hover:bg-surface-container border-l-2 border-transparent'}
+                     `}
+                   >
+                     <span className="ms text-[18px] leading-none" aria-hidden="true">radio</span>
+                     <div className="flex-1 min-w-0">
+                       <div className="text-[10px] font-bold tracking-widest uppercase truncate">{ch.label}</div>
+                     </div>
+                     <div className="font-mono text-[9px] opacity-60 ml-auto">{ch.tgid}</div>
+                   </button>
+                 )
+               })
+             )}
            </nav>
         </div>
       )}
@@ -127,7 +194,7 @@ export function TacticalAudio() {
       <div className="bg-white/[0.03] border border-white/10 backdrop-blur-md rounded-full h-12 w-full flex items-center px-4 md:px-5 pointer-events-auto relative shadow-[0_8px_32px_rgba(0,0,0,0.4)]">
         
         {/* Left Section (Info) */}
-        <div className="flex flex-1 items-center gap-2.5 min-w-0 mr-[140px]">
+        <div className="flex flex-1 items-center gap-2.5 min-w-0 mr-[110px] md:mr-[120px] lg:mr-[150px]">
           <div className="w-8 h-8 rounded-full border border-amber-gold/30 flex items-center justify-center bg-black/40 shrink-0">
             <span className="ms text-[18px] text-amber-gold leading-none" aria-hidden="true" style={{ fontVariationSettings: "'FILL' 1" }}>
               cell_tower
@@ -190,7 +257,7 @@ export function TacticalAudio() {
 
 
         {/* Right Section (Stats & Settings) */}
-        <div className="flex flex-1 items-center justify-end gap-5 min-w-0 ml-[160px]">
+        <div className="flex flex-1 items-center justify-end gap-5 min-w-0 ml-[120px] md:ml-[140px] lg:ml-[180px]">
           
           {/* Elapsed Time */}
           <div className="hidden sm:flex items-center">

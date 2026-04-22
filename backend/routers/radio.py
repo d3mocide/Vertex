@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from deps import get_db
+from config import settings
 from db.models import Event
 from redis_bus import get_redis
 
@@ -57,4 +58,4 @@ async def get_calls(
 @router.get("/stream-url")
 async def get_stream_url():
     """Icecast stream endpoint for the frontend audio player."""
-    return {"url": "/stream/radio.mp3", "format": "mp3"}
+    return {"url": settings.radio_stream_url, "format": "mp3"}

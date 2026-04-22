@@ -72,12 +72,12 @@ export default function App() {
 
 
 
+            {/* Tactical audio HUD — always mounted so stream persists across tabs */}
+            <TacticalAudio />
+
             {/* ── Safety-tab overlays (only on safety/map view) ────── */}
             {activeTab === 'safety' && (
               <>
-                {/* Tactical audio HUD — persistent */}
-                <TacticalAudio />
-
                 {/* Entity detail card — appears on entity click */}
                 <EntityDetail />
               </>
@@ -86,7 +86,6 @@ export default function App() {
             {/* ── Critical mode: force audio + entity visible ───────── */}
             {isCritical && activeTab !== 'safety' && (
               <>
-                <TacticalAudio />
                 <EntityDetail />
               </>
             )}

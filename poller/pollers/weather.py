@@ -16,6 +16,9 @@ class WeatherPoller(BasePoller):
     name = "weather"
     interval = 300  # 5 minutes
 
+    async def setup(self):
+        self._airnow_consecutive_failures = 0
+
     async def poll(self):
         obs, aqi, _ = await asyncio.gather(
             self._fetch_observation(),
@@ -49,15 +52,17 @@ class WeatherPoller(BasePoller):
         lat = (settings.bbox_max_lat + settings.bbox_min_lat) / 2.0
         lon = (settings.bbox_max_lon + settings.bbox_min_lon) / 2.0
         
-        url = (
-            "https://www.airnowapi.org/aq/observation/latLong/current/"
-            "?format=application/json"
-            f"&latitude={lat}&longitude={lon}"
-            f"&distance=25&API_KEY={settings.airnow_api_key}"
-        )
+        url = "https://www.airnowapi.org/aq/observation/latLong/current/"
+        params = {
+            "format": "application/json",
+            "latitude": lat,
+            "longitude": lon,
+            "distance": 25,
+            "API_KEY": settings.airnow_api_key,
+        }
         try:
             async with httpx.AsyncClient(timeout=15) as client:
-                resp = await client.get(url)
+                resp = await client.get(url, params=params)
                 resp.raise_for_status()
             data = resp.json()
             if not isinstance(data, list) or not data:
@@ -69,9 +74,41 @@ class WeatherPoller(BasePoller):
                 "aqi": max_aqi_obs.get("AQI"),
                 "aqi_label": max_aqi_obs.get("Category", {}).get("Name"),
             }
-        except Exception as exc:
-            logger.warning("[weather] AirNow AQI failed: %s", exc)
+        except httpx.HTTPStatusError as exc:
+            self._airnow_consecutive_failures += 1
+            status = exc.response.status_code
+            if status >= 500:
+                # AirNow intermittently returns 5xx; keep weather feed flowing without noisy warnings.
+                if self._airnow_consecutive_failures in (1, 6):
+                    logger.info("[weather] AirNow AQI temporarily unavailable (HTTP %d)", status)
+                else:
+                    logger.debug("[weather] AirNow AQI still unavailable (HTTP %d)", status)
+            else:
+                if self._airnow_consecutive_failures in (1, 3):
+                    logger.warning("[weather] AirNow AQI request failed with HTTP %d", status)
+                else:
+                    logger.debug("[weather] AirNow AQI request still failing with HTTP %d", status)
             return {}
+        except httpx.HTTPError as exc:
+            self._airnow_consecutive_failures += 1
+            if self._airnow_consecutive_failures in (1, 6):
+                logger.info("[weather] AirNow AQI request failed (%s)", exc.__class__.__name__)
+            else:
+                logger.debug("[weather] AirNow AQI request still failing (%s)", exc.__class__.__name__)
+            return {}
+        except Exception as exc:
+            self._airnow_consecutive_failures += 1
+            if self._airnow_consecutive_failures in (1, 3):
+                logger.warning("[weather] AirNow AQI unexpected failure (%s)", exc.__class__.__name__)
+            else:
+                logger.debug("[weather] AirNow AQI unexpected failure (%s)", exc.__class__.__name__)
+            return {}
+        finally:
+            # Reset only on success path where data parsing completed with no exception.
+            if "data" in locals():
+                if self._airnow_consecutive_failures > 0:
+                    logger.info("[weather] AirNow AQI recovered after %d failures", self._airnow_consecutive_failures)
+                self._airnow_consecutive_failures = 0
 
     async def _poll_alerts(self):
         url = f"{NWS_BASE}/alerts/active?zone={settings.nws_zone}"

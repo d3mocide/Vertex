@@ -5,6 +5,7 @@ from pollers.adsb import AdsbPoller
 from pollers.ais import AisPoller
 from pollers.weather import WeatherPoller
 from pollers.alerts import AlertPoller
+from pollers.news import NewsPoller
 from pollers.traffic import TrafficPoller
 from pollers.utilities import UtilityPoller
 from pollers.p25 import P25Poller
@@ -16,6 +17,9 @@ logging.basicConfig(
     level=settings.log_level,
     format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
 )
+# Suppress per-request transport logs (they include full URLs and query params).
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
 logger = logging.getLogger(__name__)
 
 
@@ -26,6 +30,7 @@ async def main():
         AisPoller(),
         WeatherPoller(),
         AlertPoller(),
+        NewsPoller(),
         TrafficPoller(),
         UtilityPoller(),
         P25Poller(),

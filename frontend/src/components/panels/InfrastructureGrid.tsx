@@ -111,11 +111,11 @@ export function InfrastructureGrid() {
   // Helper to get flow status
   const getFlowStatus = (road: string, minSpeed: number = 45) => {
     const sensor = trafficFlow.find(f => f.road?.includes(road) || f.loc?.includes(road))
-    if (!sensor) return { label: 'No Data', status: 'warn' as const }
+    if (!sensor) return { value: 'No Data', status: 'warn' as const }
     const speed = sensor.speed || 0
-    if (speed === 0) return { label: 'Stopped', status: 'down' as const }
-    if (speed < minSpeed) return { label: `${speed} MPH`, status: 'warn' as const }
-    return { label: 'Normal Flow', status: 'ok' as const }
+    if (speed === 0) return { value: 'Stopped', status: 'down' as const }
+    if (speed < minSpeed) return { value: `${speed} MPH`, status: 'warn' as const }
+    return { value: 'Normal Flow', status: 'ok' as const }
   }
 
   const pge = utilityStatus || {
@@ -164,7 +164,9 @@ export function InfrastructureGrid() {
               />
               <div className="absolute top-4 left-4 flex flex-col gap-1">
                 <div className="bg-onyx-black/60 px-2 py-1 rounded-sm border border-white/10">
-                   <span className="font-mono text-[10px] text-amber-gold">LIVE FEED • {selectedCam.dist_km}km</span>
+                   <span className="font-mono text-[10px] text-amber-gold">
+                    LIVE FEED • {selectedCam.dist_km != null ? `${selectedCam.dist_km}km` : 'Range N/A'}
+                   </span>
                 </div>
                 {selectedCam.road && (
                   <div className="bg-onyx-black/60 px-2 py-1 rounded-sm border border-white/10 w-fit">
