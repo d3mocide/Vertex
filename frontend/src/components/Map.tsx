@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { MAP_STYLE, DEFAULT_CENTER, DEFAULT_ZOOM } from '../config'
+import { RadarLayer }    from './layers/RadarLayer'
 import { AircraftLayer } from './layers/AircraftLayer'
 import { VesselLayer }   from './layers/VesselLayer'
 import { MeshLayer }     from './layers/MeshLayer'
@@ -45,6 +46,7 @@ export function Map() {
       <div ref={containerRef} className="absolute inset-0" />
       {map && (
         <>
+          <RadarLayer    map={map} />
           <TrailLayer    map={map} />
           <AircraftLayer map={map} />
           <VesselLayer   map={map} />

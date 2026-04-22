@@ -1,3 +1,4 @@
+import { useCallback } from 'react'
 import { useCivicStore, WeatherAlert } from '../../store'
 
 function AqiGauge({ aqi }: { aqi: number | undefined }) {
@@ -120,6 +121,61 @@ function WeatherCard() {
   )
 }
 
+function RadarControls() {
+  const radarVisible  = useCivicStore((s) => s.radarVisible)
+  const radarOpacity  = useCivicStore((s) => s.radarOpacity)
+  const setRadarVisible = useCivicStore((s) => s.setRadarVisible)
+  const setRadarOpacity = useCivicStore((s) => s.setRadarOpacity)
+
+  const handleOpacity = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => setRadarOpacity(Number(e.target.value)),
+    [setRadarOpacity],
+  )
+
+  return (
+    <div className="hud-panel p-4 mb-4">
+      <div className="flex items-center justify-between mb-3">
+        <div className="label-caps">NEXRAD RADAR</div>
+        <button
+          onClick={() => setRadarVisible(!radarVisible)}
+          className={`
+            font-mono text-[9px] uppercase tracking-widest px-2 py-1 border transition-colors
+            ${radarVisible
+              ? 'border-green-ais text-green-ais bg-green-ais/10'
+              : 'border-amber-gold-muted text-on-surface-variant bg-transparent'}
+          `}
+          aria-pressed={radarVisible}
+        >
+          {radarVisible ? 'ON' : 'OFF'}
+        </button>
+      </div>
+
+      <div className={`transition-opacity duration-200 ${radarVisible ? 'opacity-100' : 'opacity-40 pointer-events-none'}`}>
+        <div className="flex items-center justify-between mb-1">
+          <span className="label-caps text-[9px]">OPACITY</span>
+          <span className="font-mono text-[9px] text-on-surface-variant">
+            {Math.round(radarOpacity * 100)}%
+          </span>
+        </div>
+        <input
+          type="range"
+          min={0.1}
+          max={1}
+          step={0.05}
+          value={radarOpacity}
+          onChange={handleOpacity}
+          className="w-full accent-green-ais"
+          aria-label="Radar opacity"
+        />
+      </div>
+
+      <div className="mt-3 font-mono text-[9px] text-on-surface-variant">
+        CONUS N0Q · IEM NEXRAD · 5 MIN REFRESH
+      </div>
+    </div>
+  )
+}
+
 export function EnvironmentPanel() {
   const { weather } = useCivicStore()
 
@@ -153,6 +209,7 @@ export function EnvironmentPanel() {
         <div>
           <AqiGauge aqi={weather.aqi} />
           <WeatherCard />
+          <RadarControls />
         </div>
 
         {/* Right column — NWS alerts */}
