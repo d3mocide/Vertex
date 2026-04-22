@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { chaikinSmooth, destinationPoint } from './layers/geoUtils'
 
 // ─── Entity ───────────────────────────────────────────────────────────────────
 export interface Entity {
@@ -25,6 +26,25 @@ export interface TrailPoint {
   altitude?:    number | null
   heading?:     number | null
   speed?:       number | null
+}
+
+// ─── Deck.gl Track Model ──────────────────────────────────────────────────────
+// Compact tuple: [lon, lat, altMeters, speedMs, ts?]
+export type TrailPt = [number, number, number, number, string?]
+
+export interface Track {
+  uid:           string
+  lat:           number
+  lon:           number
+  altMeters:     number        // metres MSL (0 for vessels)
+  speedMs:       number        // m/s
+  courseTrue:    number        // 0–360°, true north
+  type:          'air' | 'sea'
+  callsign?:     string
+  category?:     string
+  trail:         TrailPt[]     // raw history, newest last, capped at 150 pts
+  smoothedTrail: number[][]    // [[lon,lat],...] after 2× Chaikin
+  predictedPath: [number, number][]
 }
 
 // ─── Alerts / News ────────────────────────────────────────────────────────────
@@ -98,6 +118,7 @@ export type NavTab   = 'safety' | 'infrastructure' | 'environment' | 'community'
 interface CivicStore {
   // Live data
   entities:         Record<string, Entity>
+  tracks:           Record<string, Track>
   alerts:           AlertItem[]
   news:             NewsItem[]
   weather:          WeatherState
@@ -141,6 +162,50 @@ interface CivicStore {
   setLdiMode:       (v: boolean) => void
 }
 
+// ─── Entity → Track conversion ────────────────────────────────────────────────
+const ALT_FT_TO_M  = 0.3048
+const SPD_KT_TO_MS = 0.5144
+const TRAIL_CAP    = 150
+
+function entityToTrack(entity: Entity, existing?: Track): Track | null {
+  if (entity.lat == null || entity.lon == null) return null
+  const isAir = entity.entity_type === 'aircraft'
+  if (!isAir && entity.entity_type !== 'vessel') return null
+
+  const altMeters  = isAir ? (entity.altitude ?? 0) * ALT_FT_TO_M : 0
+  const speedMs    = (entity.speed ?? 0) * SPD_KT_TO_MS
+  const courseTrue = entity.heading ?? 0
+
+  const newPt: TrailPt = [entity.lon, entity.lat, altMeters, speedMs, entity.last_seen]
+  const trail = [...(existing?.trail ?? []), newPt].slice(-TRAIL_CAP)
+
+  const smoothedTrail = trail.length >= 2
+    ? chaikinSmooth(trail.map(p => [p[0], p[1]]), 2)
+    : []
+
+  const predictedPath: [number, number][] = []
+  if (speedMs >= 0.5) {
+    for (let i = 1; i <= 6; i++) {
+      predictedPath.push(destinationPoint(entity.lon, entity.lat, courseTrue, speedMs * 60 * i))
+    }
+  }
+
+  return {
+    uid:          entity.entity_id,
+    lat:          entity.lat,
+    lon:          entity.lon,
+    altMeters,
+    speedMs,
+    courseTrue,
+    type:         isAir ? 'air' : 'sea',
+    callsign:     entity.display_name,
+    category:     entity.tags?.[0],
+    trail,
+    smoothedTrail,
+    predictedPath,
+  }
+}
+
 const emptyRadio: RadioState = {
   tgid: null, tag: null, freq_hz: null, state: null, updated: null,
 }
@@ -159,6 +224,7 @@ const defaultHealth: SystemHealth = {
 export const useCivicStore = create<CivicStore>((set) => ({
   // Data
   entities:         {},
+  tracks:           {},
   alerts:           [],
   news:             [],
   weather:          defaultWeather,
@@ -179,10 +245,23 @@ export const useCivicStore = create<CivicStore>((set) => ({
   ldiMode:          false,
 
   // Data actions
-  setEntities:  (list) =>
-    set({ entities: Object.fromEntries(list.map((e) => [e.entity_id, e])) }),
+  setEntities: (list) => {
+    const entities = Object.fromEntries(list.map((e) => [e.entity_id, e]))
+    const tracks: Record<string, Track> = {}
+    for (const e of list) {
+      const t = entityToTrack(e)
+      if (t) tracks[t.uid] = t
+    }
+    set({ entities, tracks })
+  },
   upsertEntity: (entity) =>
-    set((s) => ({ entities: { ...s.entities, [entity.entity_id]: entity } })),
+    set((s) => {
+      const track = entityToTrack(entity, s.tracks[entity.entity_id])
+      return {
+        entities: { ...s.entities, [entity.entity_id]: entity },
+        tracks: track ? { ...s.tracks, [entity.entity_id]: track } : s.tracks,
+      }
+    }),
   purgeStaleEntities: () =>
     set((s) => {
       const now = Date.now()
@@ -197,7 +276,12 @@ export const useCivicStore = create<CivicStore>((set) => ({
           }
         }
       }
-      return changed ? { entities: next } : {}
+      if (!changed) return {}
+      const nextTracks = { ...s.tracks }
+      for (const id of Object.keys(s.tracks)) {
+        if (!(id in next)) delete nextTracks[id]
+      }
+      return { entities: next, tracks: nextTracks }
     }),
   setAlerts:    (alerts)  => set({ alerts }),
   setNews:      (news)    => set({ news }),
