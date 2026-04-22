@@ -22,23 +22,14 @@ export class StencilClearLayer extends Layer {
   renderLayers() { return [] }
 }
 
-// ─── Depth parameters ─────────────────────────────────────────────────────────
-function depthParams(globeMode: boolean, bias: number) {
-  return globeMode
-    ? { depthTest: true,  depthBias: bias }
-    : { depthTest: false, depthBias: 0 }
-}
-
 const HALO_TYPES = new Set(['SAR', 'MIL', 'HEL', 'UAV', 'GOV'])
 
 // ─── buildEntityLayers ────────────────────────────────────────────────────────
 // Returns: [haloLayer, selectionRingLayer, iconLayer]
-// StencilClearLayer is assembled separately in MapOverlay.tsx (must be first).
 export function buildEntityLayers(
   tracks: Record<string, Track>,
   selectedUid: string | null,
   cycle: number,
-  globeMode: boolean,
 ): Layer[] {
   const atlas    = getIconAtlas()
   const trackArr = Object.values(tracks)
@@ -54,7 +45,6 @@ export function buildEntityLayers(
     getColor:    () => [255, 136, 0, 140],
     sizeUnits:   'pixels',
     billboard:   false,
-    parameters:  depthParams(globeMode, -150),
   })
 
   const selectedTrack = selectedUid ? tracks[selectedUid] : undefined
@@ -73,7 +63,6 @@ export function buildEntityLayers(
     filled:         false,
     getLineWidth:   2,
     lineWidthUnits: 'pixels',
-    parameters:     depthParams(globeMode, -100),
   })
 
   const iconLayer = new IconLayer<Track>({
@@ -89,7 +78,6 @@ export function buildEntityLayers(
     sizeUnits:   'pixels',
     billboard:   false,
     pickable:    true,
-    parameters:  depthParams(globeMode, -200),
     updateTriggers: {
       getAngle: trackArr.map(t => t.courseTrue),
       getColor: trackArr.map(t => t.altMeters + t.speedMs),

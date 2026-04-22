@@ -21,11 +21,6 @@ function getViewState(map: maplibregl.Map) {
   }
 }
 
-function isGlobeMode(map: maplibregl.Map): boolean {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return ((map as any).getProjection?.() as { name?: string } | undefined)?.name === 'globe'
-}
-
 export function MapOverlay({ map }: Props) {
   const deckRef     = useRef<Deck | null>(null)
   const tracksRef   = useRef<Record<string, Track>>({})
@@ -79,14 +74,13 @@ export function MapOverlay({ map }: Props) {
       last = now
       cycleRef.current = (cycleRef.current + dt / 2000) % 1  // 2-second pulse
 
-      const t     = tracksRef.current
-      const sel   = selectedRef.current
-      const globe = isGlobeMode(map)
+      const t   = tracksRef.current
+      const sel = selectedRef.current
 
       deck.setProps({
         layers: [
-          ...buildTrailLayers(t, sel, globe),
-          ...buildEntityLayers(t, sel, cycleRef.current, globe),
+          ...buildTrailLayers(t, sel),
+          ...buildEntityLayers(t, sel, cycleRef.current),
         ],
       })
 

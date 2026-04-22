@@ -10,12 +10,6 @@ import { entityColor } from './colorUtils'
 const pos  = (arr: number[]): Position   => arr as unknown as Position
 const posA = (arr: number[][]): Position[] => arr as unknown as Position[]
 
-function depthParams(globeMode: boolean, bias: number) {
-  return globeMode
-    ? { depthTest: true,  depthBias: bias }
-    : { depthTest: false, depthBias: 0 }
-}
-
 type GapBridge = {
   from:  number[]
   to:    number[]
@@ -33,7 +27,6 @@ function trailPath(t: Track): Position[] {
 export function buildTrailLayers(
   tracks: Record<string, Track>,
   selectedUid: string | null,
-  globeMode: boolean,
 ): Layer[] {
   const trackArr = Object.values(tracks)
 
@@ -51,7 +44,6 @@ export function buildTrailLayers(
     jointRounded:   true,
     capRounded:     true,
     pickable:       false,
-    parameters:     depthParams(globeMode, -50),
   })
 
   // ── Gap bridge: connect smoothed trail end → live position ───────────────
@@ -112,7 +104,6 @@ export function buildTrailLayers(
     widthUnits:     'pixels',
     jointRounded:   true,
     capRounded:     true,
-    parameters:     depthParams(globeMode, -50),
   })
 
   return [trailLayer, gapBridgeLayer, predictedPathLayer, selectedTrailLayer]
