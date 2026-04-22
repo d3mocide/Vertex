@@ -5,15 +5,7 @@ import { useCivicStore } from '../store'
 import type { Track } from '../store'
 import { buildEntityLayers } from '../layers/buildEntityLayers'
 import { buildTrailLayers } from '../layers/buildTrailLayers'
-import { getDistanceMeters } from '../layers/geoUtils'
-
-const SMOOTH_TAU_MS = 300
-const SNAP_DISTANCE_M = 600
-
-type AnimatedTrackState = {
-  lon: number
-  lat: number
-}
+import { applyPVB, type PVBState } from '../layers/pvb'
 
 interface Props {
   map: maplibregl.Map
@@ -30,58 +22,17 @@ function getViewState(map: maplibregl.Map) {
   }
 }
 
-function getAnimatedTracks(
-  tracks: Record<string, Track>,
-  dtMs: number,
-  state: Record<string, AnimatedTrackState>,
-): Record<string, Track> {
-  const out: Record<string, Track> = {}
-
-  const liveIds = new Set(Object.keys(tracks))
-  for (const uid of Object.keys(state)) {
-    if (!liveIds.has(uid)) delete state[uid]
-  }
-
-  const alpha = 1 - Math.exp(-Math.max(0, dtMs) / SMOOTH_TAU_MS)
-
-  for (const [uid, track] of Object.entries(tracks)) {
-    const targetLon = track.lon
-    const targetLat = track.lat
-
-    if (!state[uid]) {
-      state[uid] = { lon: targetLon, lat: targetLat }
-    } else {
-      const distM = getDistanceMeters(state[uid].lon, state[uid].lat, targetLon, targetLat)
-      if (distM > SNAP_DISTANCE_M) {
-        state[uid].lon = targetLon
-        state[uid].lat = targetLat
-      } else {
-        state[uid].lon += (targetLon - state[uid].lon) * alpha
-        state[uid].lat += (targetLat - state[uid].lat) * alpha
-      }
-    }
-
-    out[uid] = {
-      ...track,
-      lon: state[uid].lon,
-      lat: state[uid].lat,
-    }
-  }
-
-  return out
-}
-
 export function MapOverlay({ map }: Props) {
   const deckRef     = useRef<Deck | null>(null)
   const tracksRef   = useRef<Record<string, Track>>({})
-  const animatedStateRef = useRef<Record<string, AnimatedTrackState>>({})
+  const pvbRef      = useRef<Record<string, PVBState>>({})
   const selectedRef = useRef<string | null>(null)
   const cycleRef    = useRef(0)
   const rafRef      = useRef(0)
 
   // Keep refs in sync — no loop restart on state change
-  const tracks     = useCivicStore((s) => s.tracks)
-  const selectedId = useCivicStore((s) => s.selectedEntityId)
+  const tracks      = useCivicStore((s) => s.tracks)
+  const selectedId  = useCivicStore((s) => s.selectedEntityId)
   const selectEntity = useCivicStore((s) => s.selectEntity)
   useEffect(() => { tracksRef.current = tracks     }, [tracks])
   useEffect(() => { selectedRef.current = selectedId }, [selectedId])
@@ -131,14 +82,31 @@ export function MapOverlay({ map }: Props) {
       cycleRef.current = (cycleRef.current + dt / 2000) % 1  // 2-second pulse
 
       const rawTracks = tracksRef.current
-      const animatedTracks = getAnimatedTracks(rawTracks, dt, animatedStateRef.current)
-      const sel = selectedRef.current
+      const pvb       = pvbRef.current
+      const sel       = selectedRef.current
+
+      // Project each track forward from both the last server report and the last
+      // visual position, then blend between them (Projective Velocity Blending).
+      // Trail layers receive rawTracks (actual history); only icon positions are smoothed.
+      const pvbTracks: Record<string, Track> = {}
+      for (const uid of Object.keys(rawTracks)) {
+        const track = rawTracks[uid] as Track
+        const [lon, lat] = applyPVB(pvb, track, now)
+        pvbTracks[uid] = (lon === track.lon && lat === track.lat)
+          ? track
+          : { ...track, lon, lat }
+      }
+
+      // Remove PVB state for tracks that have been purged from the store.
+      for (const uid of Object.keys(pvb)) {
+        if (!(uid in rawTracks)) delete pvb[uid]
+      }
 
       deck.setProps({
         viewState: getViewState(map),
         layers: [
           ...buildTrailLayers(rawTracks, sel),
-          ...buildEntityLayers(animatedTracks, sel, cycleRef.current),
+          ...buildEntityLayers(pvbTracks, sel, cycleRef.current),
         ],
       })
 
@@ -153,7 +121,7 @@ export function MapOverlay({ map }: Props) {
       deck.finalize()
       canvas.remove()
       deckRef.current = null
-      animatedStateRef.current = {}
+      pvbRef.current = {}
     }
   }, [map])
 
