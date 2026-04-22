@@ -11,11 +11,14 @@ logger = logging.getLogger(__name__)
 _ODOT_API_BASE = "https://api.odot.state.or.us/tripcheck"
 _ODOT_INCIDENTS_PATH = "/Incidents"
 _ODOT_CCTV_PATH = "/Cctv/Inventory"
+_ODOT_FLOW_PATH = "/TrafficDetector/Roadway"
+_ODOT_INV_PATH = "/TrafficDetector/Inventory"
 
 
 class TrafficPoller(BasePoller):
     name = "traffic"
-    interval = 300  # CCTV inventory doesn't change often
+    interval = 60
+    _station_map = {}
 
     async def setup(self):
         if not settings.odot_api_key:
@@ -55,6 +58,22 @@ class TrafficPoller(BasePoller):
                 await set_feed("traffic:cameras", _parse_odot_cameras(resp.json()))
             except Exception as exc:
                 logger.warning("[traffic] cctv fetch failed: %s", exc)
+
+            # 3. Fetch Roadway Flow
+            try:
+                # Refresh inventory occasionally (every 10 polls)
+                if not self._station_map:
+                    url = f"{_ODOT_API_BASE}{_ODOT_INV_PATH}"
+                    resp = await client.get(url, headers=headers)
+                    if resp.status_code == 200:
+                        self._station_map = _parse_odot_inventory(resp.json())
+
+                url = f"{_ODOT_API_BASE}{_ODOT_FLOW_PATH}"
+                resp = await client.get(url, headers=headers)
+                resp.raise_for_status()
+                await set_feed("traffic:flow", _parse_odot_flow(resp.json(), self._station_map))
+            except Exception as exc:
+                logger.warning("[traffic] flow fetch failed: %s", exc)
 
 
 def _parse_odot_incidents(data: dict) -> list[dict]:
@@ -119,6 +138,60 @@ def _parse_odot_cameras(data: dict) -> list[dict]:
     # Sort by distance
     items.sort(key=lambda x: x["dist_km"])
     return items
+
+
+def _parse_odot_flow(data: dict, station_map: dict) -> list[dict]:
+    """Normalize ODOT Traffic Detector response."""
+    items: list[dict] = []
+    # Key is 'detector-data-items'
+    records = data.get("detector-data-items", [])
+    
+    for rec in records:
+        # Structure: {"detector-list": {"detector-data-detail": {...}}}
+        det_list = rec.get("detector-list", {})
+        detail = det_list.get("detector-data-detail", {})
+        
+        sid = detail.get("station-id")
+        if sid is None: continue
+        
+        meta = station_map.get(sid)
+        if not meta: continue
+
+        hwy = meta.get("road", "")
+        loc = meta.get("loc", "")
+        
+        # Filter for our specific corridor
+        if "I-5" in hwy or "99W" in hwy or "Pacific Highway" in hwy:
+            items.append({
+                "id":    str(sid),
+                "road":  hwy,
+                "loc":   loc,
+                "speed": detail.get("vehicle-speed"),
+                "occ":   detail.get("vehicle-occupancy"),
+                "vol":   detail.get("vehicle-count"),
+                "lat":   meta.get("lat"),
+                "lon":   meta.get("lon"),
+            })
+            
+    return items
+
+
+def _parse_odot_inventory(data: dict) -> dict:
+    """Map station-id to location metadata."""
+    mapping = {}
+    stations = data.get("traffic-detector-list", [])
+    for s in stations:
+        loc = s.get("location", {})
+        det = s.get("detector-station", {})
+        sid = det.get("station-id")
+        if sid is not None:
+            mapping[sid] = {
+                "road": loc.get("highway-name", ""),
+                "loc":  loc.get("location-name", ""),
+                "lat":  loc.get("latitude"),
+                "lon":  loc.get("longitude"),
+            }
+    return mapping
 
 
 

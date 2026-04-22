@@ -94,7 +94,7 @@ const PLACEHOLDER_CAMERAS: TrafficCamera[] = [
 ]
 
 export function InfrastructureGrid() {
-  const { cameras, ldiMode, setLdiMode } = useCivicStore()
+  const { cameras, trafficFlow, utilityStatus, ldiMode, setLdiMode } = useCivicStore()
   const [radiusKm, setRadiusKm] = useState(5)
   const [page, setPage] = useState(0)
   const [selectedCam, setSelectedCam] = useState<TrafficCamera | null>(null)
@@ -107,6 +107,23 @@ export function InfrastructureGrid() {
 
   const totalPages = Math.ceil(filteredCameras.length / PAGE_SIZE)
   const displayCameras = filteredCameras.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
+
+  // Helper to get flow status
+  const getFlowStatus = (road: string, minSpeed: number = 45) => {
+    const sensor = trafficFlow.find(f => f.road?.includes(road) || f.loc?.includes(road))
+    if (!sensor) return { label: 'No Data', status: 'warn' as const }
+    const speed = sensor.speed || 0
+    if (speed === 0) return { label: 'Stopped', status: 'down' as const }
+    if (speed < minSpeed) return { label: `${speed} MPH`, status: 'warn' as const }
+    return { label: 'Normal Flow', status: 'ok' as const }
+  }
+
+  const pge = utilityStatus || {
+    status: 'Operational',
+    active_outages: 0,
+    customers_affected: 0,
+    last_updated: '—',
+  }
 
   return (
     <div
@@ -280,10 +297,10 @@ export function InfrastructureGrid() {
           </h3>
           <div className="hud-panel p-3 mb-4">
             <div className="label-caps mb-2">PGE POWER GRID</div>
-            <UtilityStatusRow label="System Status"      value="Operational"        status="ok"   />
-            <UtilityStatusRow label="Active Outages"     value="0"                  status="ok"   />
-            <UtilityStatusRow label="Customers Affected" value="—"                  status="ok"   />
-            <UtilityStatusRow label="Last Updated"       value="—"                  status="ok"   />
+            <UtilityStatusRow label="System Status"      value={pge.status}              status={pge.active_outages > 0 ? 'warn' : 'ok'}   />
+            <UtilityStatusRow label="Active Outages"     value={String(pge.active_outages)} status={pge.active_outages > 0 ? 'warn' : 'ok'}   />
+            <UtilityStatusRow label="Customers Affected" value={pge.customers_affected > 0 ? String(pge.customers_affected) : '—'} status={pge.customers_affected > 0 ? 'warn' : 'ok'}   />
+            <UtilityStatusRow label="Last Updated"       value={pge.last_updated}        status="ok"   />
           </div>
 
           <h3 className="section-heading mb-3">
@@ -291,10 +308,10 @@ export function InfrastructureGrid() {
             Road & Traffic
           </h3>
           <div className="hud-panel p-3">
-            <UtilityStatusRow label="I-5 Northbound"    value="Normal Flow"   status="ok"   />
-            <UtilityStatusRow label="I-5 Southbound"    value="Normal Flow"   status="ok"   />
-            <UtilityStatusRow label="OR-99W"            value="Normal Flow"   status="ok"   />
-            <UtilityStatusRow label="Boones Ferry Rd"   value="Normal Flow"   status="ok"   />
+            <UtilityStatusRow label="I-5 Northbound"    {...getFlowStatus('I-5')}   />
+            <UtilityStatusRow label="I-5 Southbound"    {...getFlowStatus('I-5')}   />
+            <UtilityStatusRow label="OR-99W"            {...getFlowStatus('99W')}   />
+            <UtilityStatusRow label="Boones Ferry Rd"   {...getFlowStatus('Boones Ferry')}   />
           </div>
         </section>
       </div>

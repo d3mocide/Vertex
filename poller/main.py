@@ -6,6 +6,7 @@ from pollers.ais import AisPoller
 from pollers.weather import WeatherPoller
 from pollers.alerts import AlertPoller
 from pollers.traffic import TrafficPoller
+from pollers.utilities import UtilityPoller
 from pollers.p25 import P25Poller
 from pollers.meshcore import MeshCorePoller
 from bus import close
@@ -26,6 +27,7 @@ async def main():
         WeatherPoller(),
         AlertPoller(),
         TrafficPoller(),
+        UtilityPoller(),
         P25Poller(),
         MeshCorePoller(),
     ]

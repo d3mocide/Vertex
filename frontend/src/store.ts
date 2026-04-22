@@ -103,6 +103,8 @@ interface CivicStore {
   weather:          WeatherState
   radio:            RadioState
   cameras:          TrafficCamera[]
+  trafficFlow:      any[]
+  utilityStatus:    any
   trail:            TrailPoint[]
 
   // Connection / health
@@ -124,6 +126,8 @@ interface CivicStore {
   setWeather:       (weather: Partial<WeatherState>) => void
   setRadio:         (radio: RadioState) => void
   setCameras:       (cameras: TrafficCamera[]) => void
+  setTrafficFlow:   (flow: any[]) => void
+  setUtilityStatus: (status: any) => void
   setTrail:         (trail: TrailPoint[]) => void
 
   // Actions — connection
@@ -160,6 +164,8 @@ export const useCivicStore = create<CivicStore>((set) => ({
   weather:          defaultWeather,
   radio:            emptyRadio,
   cameras:          [],
+  trafficFlow:      [],
+  utilityStatus:    null,
   trail:            [],
 
   // Connection
@@ -198,6 +204,8 @@ export const useCivicStore = create<CivicStore>((set) => ({
   setWeather:   (patch)   => set((s) => ({ weather: { ...s.weather, ...patch } })),
   setRadio:     (radio)   => set({ radio }),
   setCameras:   (cameras) => set({ cameras }),
+  setTrafficFlow: (trafficFlow) => set({ trafficFlow }),
+  setUtilityStatus: (utilityStatus) => set({ utilityStatus }),
   setTrail:     (trail)   => set({ trail }),
 
   // Connection actions

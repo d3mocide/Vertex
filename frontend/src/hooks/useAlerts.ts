@@ -13,7 +13,7 @@ async function fetchJson<T>(url: string): Promise<T | null> {
 }
 
 export function useAlerts() {
-  const { setAlerts, setWeather, setCameras } = useCivicStore()
+  const { setAlerts, setWeather, setCameras, setTrafficFlow, setUtilityStatus } = useCivicStore()
   const timers = useRef<ReturnType<typeof setInterval>[]>([])
 
   useEffect(() => {
@@ -51,16 +51,32 @@ export function useAlerts() {
       if (Array.isArray(data)) setCameras(data as Parameters<typeof setCameras>[0])
     }
 
+    // Fetch flow
+    const pollFlow = async () => {
+      const data = await fetchJson<unknown[]>(`${API_BASE}/traffic/flow`)
+      if (Array.isArray(data)) setTrafficFlow(data as any[])
+    }
+
+    // Fetch utilities
+    const pollUtilities = async () => {
+      const data = await fetchJson<any>(`${API_BASE}/utilities/pge`)
+      if (data) setUtilityStatus(data)
+    }
+
     // Initial fetch
     pollAlerts()
     pollWeather()
     pollCameras()
+    pollFlow()
+    pollUtilities()
 
     // Schedule polling
     timers.current = [
       setInterval(pollAlerts,  ALERTS_POLL_MS),
       setInterval(pollWeather, WEATHER_POLL_MS),
       setInterval(pollCameras, CAMERAS_POLL_MS),
+      setInterval(pollFlow,    30000), // 30s for flow
+      setInterval(pollUtilities, 60000), // 60s for utilities
     ]
 
     return () => timers.current.forEach(clearInterval)
