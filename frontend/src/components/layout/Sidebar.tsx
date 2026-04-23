@@ -81,12 +81,12 @@ export function Sidebar() {
   return (
     <aside
       className="w-80 h-full sidebar-panel flex flex-col shrink-0 z-30"
-      aria-label="Outpost sidebar"
+      aria-label="Vertex sidebar"
     >
       {/* Brand header */}
       <div className="h-14 flex items-center px-6 border-b border-white/5 bg-[#050505]/60 backdrop-blur-2xl shrink-0">
         <span className="text-amber-gold font-black tracking-[0.25em] text-lg uppercase select-none">
-          OUTPOST
+          VERTEX
         </span>
       </div>
 

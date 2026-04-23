@@ -3,7 +3,7 @@ from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
     redis_url: str = "redis://localhost:6379"
-    database_url: str = "postgresql+asyncpg://outpost:outpost@localhost:5432/outpost"
+    database_url: str = "postgresql+asyncpg://vertex:vertex@localhost:5432/vertex"
     log_level: str = "INFO"
 
     # Home location (Tualatin)

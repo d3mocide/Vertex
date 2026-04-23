@@ -34,7 +34,7 @@ class TrafficPoller(BasePoller):
 
         headers = {
             "Ocp-Apim-Subscription-Key": settings.odot_api_key,
-            "User-Agent": "Outpost/0.1 (outpost; contact@localhost)",
+            "User-Agent": "Vertex/0.1 (vertex; contact@localhost)",
         }
         
         # Note: Inventory API doesn't use 'county' param, but Incidents does.
