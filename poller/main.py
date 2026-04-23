@@ -11,7 +11,7 @@ from pollers.utilities import UtilityPoller
 from pollers.p25 import P25Poller
 from pollers.meshcore import MeshCorePoller
 from bus import close
-from db import init_db, close_db
+from db import init_db, close_db, purge_observations
 
 logging.basicConfig(
     level=settings.log_level,
@@ -21,6 +21,18 @@ logging.basicConfig(
 logging.getLogger("httpx").setLevel(logging.WARNING)
 logging.getLogger("httpcore").setLevel(logging.WARNING)
 logger = logging.getLogger(__name__)
+
+
+async def _purge_loop():
+    """Run the observation purge once per day, with an initial 1-hour delay so it
+    doesn't hammer the DB immediately after a restart."""
+    await asyncio.sleep(3600)
+    while True:
+        try:
+            await purge_observations()
+        except Exception as exc:
+            logger.warning("Observation purge failed: %s", exc)
+        await asyncio.sleep(86400)
 
 
 async def main():
@@ -37,7 +49,8 @@ async def main():
         MeshCorePoller(),
     ]
     tasks = [asyncio.create_task(p.run()) for p in pollers]
-    logger.info("Started %d pollers", len(tasks))
+    tasks.append(asyncio.create_task(_purge_loop()))
+    logger.info("Started %d pollers + purge task", len(tasks) - 1)
     try:
         await asyncio.gather(*tasks)
     except asyncio.CancelledError:

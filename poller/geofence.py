@@ -31,7 +31,13 @@ async def check_geofences(entity: dict, conn) -> None:
     )
 
     current_ids = {r["id"] for r in current_rows}
-    previous_ids = _entity_state.get(entity_id, set())
+    previous_ids = _entity_state.get(entity_id)
+
+    if previous_ids is None:
+        # First observation for this entity since startup — initialize state silently
+        # to avoid a false-positive entry storm after a poller restart.
+        _entity_state[entity_id] = current_ids
+        return
 
     entered_ids = current_ids - previous_ids
     exited_ids = previous_ids - current_ids

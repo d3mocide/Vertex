@@ -105,6 +105,17 @@ export interface TrafficCamera {
   road?:     string
 }
 
+// ─── System Events ────────────────────────────────────────────────────────────
+export interface SystemEvent {
+  event_id:   string
+  event_type: string
+  entity_id?: string
+  ts:         string
+  severity:   string
+  summary:    string
+  details?:   Record<string, unknown>
+}
+
 // ─── System Health ────────────────────────────────────────────────────────────
 export interface SystemHealth {
   ok:       boolean
@@ -130,6 +141,9 @@ interface CivicStore {
   utilityStatus:    any
   trail:            TrailPoint[]
 
+  // Event log (ring buffer, capped at 100)
+  systemEvents:     SystemEvent[]
+
   // Connection / health
   connected:        boolean
   health:           SystemHealth
@@ -146,6 +160,7 @@ interface CivicStore {
   setEntities:      (entities: Entity[]) => void
   upsertEntity:     (entity: Entity) => void
   purgeStaleEntities: () => void
+  appendSystemEvent: (event: SystemEvent) => void
   setAlerts:        (alerts: AlertItem[]) => void
   setNews:          (news: NewsItem[]) => void
   setWeather:       (weather: Partial<WeatherState>) => void
@@ -248,6 +263,7 @@ export const useCivicStore = create<CivicStore>((set) => ({
   tracks:           {},
   alerts:           [],
   news:             [],
+  systemEvents:     [],
   weather:          defaultWeather,
   radio:            emptyRadio,
   cameras:          [],
@@ -292,10 +308,16 @@ export const useCivicStore = create<CivicStore>((set) => ({
       const now = Date.now()
       const next = { ...s.entities }
       let changed = false
+      const STALE_MS: Record<string, number> = {
+        aircraft:  60_000,        // 1 min  — ADS-B updates every 5 s
+        vessel:    600_000,       // 10 min — AIS updates are infrequent
+        mesh_node: 3_600_000,     // 1 hour — nodes are semi-static
+      }
       for (const [id, e] of Object.entries(next)) {
-        if (e.entity_type === 'aircraft' && e.last_seen) {
+        const limit = STALE_MS[e.entity_type]
+        if (limit && e.last_seen) {
           const age = now - new Date(e.last_seen).getTime()
-          if (age > 60_000) {
+          if (age > limit) {
             delete next[id]
             changed = true
           }
@@ -308,6 +330,10 @@ export const useCivicStore = create<CivicStore>((set) => ({
       }
       return { entities: next, tracks: nextTracks }
     }),
+  appendSystemEvent: (event) =>
+    set((s) => ({
+      systemEvents: [...s.systemEvents, event].slice(-100),
+    })),
   setAlerts:    (alerts)  => set({ alerts }),
   setNews:      (news)    => set({ news }),
   setWeather:   (patch)   => set((s) => ({ weather: { ...s.weather, ...patch } })),

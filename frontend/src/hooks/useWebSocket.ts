@@ -6,7 +6,7 @@ const RECONNECT_DELAY_MS = 3000
 
 export function useWebSocket() {
   const wsRef = useRef<WebSocket | null>(null)
-  const { setEntities, upsertEntity, purgeStaleEntities, setConnected, setRadio } = useCivicStore()
+  const { setEntities, upsertEntity, purgeStaleEntities, setConnected, setRadio, appendSystemEvent } = useCivicStore()
 
   useEffect(() => {
     let cancelled = false
@@ -42,6 +42,9 @@ export function useWebSocket() {
             if (msg.key === 'radio:active' || msg.type === 'radio_update') {
               setRadio(msg.data ?? msg)
             }
+            break
+          case 'event':
+            appendSystemEvent(msg.data)
             break
         }
       }
