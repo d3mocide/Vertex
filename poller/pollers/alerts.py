@@ -11,18 +11,15 @@ logger = logging.getLogger(__name__)
 # NWS CAP alerts API — no auth required, covers WA/Multnomah/Clackamas counties
 _NWS_HEADERS = {"User-Agent": "CivicGrid/0.1 (civic-grid; contact@localhost)"}
 
+# TVFR emergency alert RSS feed
+_TVFR_RSS_URL = "https://www.tvfr.com/RSSFeed.aspx?ModID=63&CID=Emergency-Alert-3"
+
 # FlashAlert Portland — emergency-only XML feed on flashalertnewswire.net
 # Discovered via flashalert.net/xml-feeds.html (the old flashalert.net RSS URLs
 # return 500 errors; this is the current working endpoint).
 _FLASHALERT_EMERGENCY_URL = (
     "http://www.flashalertnewswire.net/IIN/reportsX/flashnews_xml_emergency.php"
 )
-
-# RSS feeds that are confirmed working
-_RSS_FEEDS = [
-    # Tualatin city news/alerts RSS
-    ("tualatin_city", "https://www.tualatinoregon.gov/rss.xml"),
-]
 
 # Reliable way to strip the FlashAlert proprietary DTD: slice from the root element.
 # The root is always <flashnews ...>, so we find it and discard the preamble.
@@ -79,24 +76,6 @@ class AlertPoller(BasePoller):
         except Exception as exc:
             logger.warning("[alerts] flashalert failed: %s", exc)
 
-        # ── RSS sources ──────────────────────────────────────────────────────
-        for source, url in _RSS_FEEDS:
-            try:
-                async with httpx.AsyncClient(timeout=15, follow_redirects=True) as client:
-                    resp = await client.get(url)
-                    resp.raise_for_status()
-                feed = feedparser.parse(resp.text)
-                for entry in feed.entries[:10]:
-                    items.append({
-                        "source":    source,
-                        "title":     entry.get("title", ""),
-                        "summary":   entry.get("summary", ""),
-                        "link":      entry.get("link", ""),
-                        "published": entry.get("published", ""),
-                    })
-            except Exception as exc:
-                logger.warning("[alerts] %s failed: %s", source, exc)
-
         # ── NWS CAP alerts (covers WA/Multnomah/Clackamas) ──────────────────
         try:
             zones = settings.nws_alert_zones
@@ -117,5 +96,23 @@ class AlertPoller(BasePoller):
                 })
         except Exception as exc:
             logger.warning("[alerts] nws_cap failed: %s", exc)
+
+        # ── TVFR Emergency Alerts ─────────────────────────────────────────
+        try:
+            async with httpx.AsyncClient(timeout=15, follow_redirects=True) as client:
+                resp = await client.get(_TVFR_RSS_URL)
+                resp.raise_for_status()
+            feed = feedparser.parse(resp.text)
+            for entry in feed.entries[:10]:
+                items.append({
+                    "source":    "tvfr",
+                    "title":     entry.get("title", ""),
+                    "summary":   entry.get("summary", "") or entry.get("description", ""),
+                    "link":      entry.get("link", "https://www.tvfr.com"),
+                    "published": entry.get("published", "") or entry.get("updated", ""),
+                    "severity":  "Unknown",
+                })
+        except Exception as exc:
+            logger.warning("[alerts] tvfr failed: %s", repr(exc))
 
         await set_feed("alerts:flash", items)

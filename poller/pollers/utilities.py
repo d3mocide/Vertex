@@ -1,6 +1,5 @@
 import logging
 import httpx
-from config import settings
 from bus import set_feed
 from .base import BasePoller
 
@@ -15,9 +14,14 @@ class UtilityPoller(BasePoller):
     interval = 120  # Outage data is stable, 2m is fine
 
     async def setup(self):
+        self._consecutive_failures = 0
+        self._disabled_due_to_404 = False
         logger.info("[utilities] Utility poller initialized (PGE)")
 
     async def poll(self):
+        if self._disabled_due_to_404:
+            return
+
         try:
             async with httpx.AsyncClient(timeout=15, follow_redirects=True) as client:
                 headers = {
@@ -41,5 +45,39 @@ class UtilityPoller(BasePoller):
                     "last_updated": summary.get("lastUpdated", "—"),
                     "reliability": summary.get("customersWithPower", 100),
                 })
+
+                if self._consecutive_failures > 0:
+                    logger.info("[utilities] PGE outage feed recovered after %d failures", self._consecutive_failures)
+                self._consecutive_failures = 0
+        except httpx.HTTPStatusError as exc:
+            status = exc.response.status_code
+            self._consecutive_failures += 1
+            if status == 404:
+                self._disabled_due_to_404 = True
+                logger.warning("[utilities] PGE outage endpoint returned 404; disabling PGE polling until restart")
+                await set_feed("utility:pge", {
+                    "provider": "PGE",
+                    "status": "Unavailable",
+                    "active_outages": 0,
+                    "customers_affected": 0,
+                    "last_updated": "—",
+                    "reliability": None,
+                })
+                return
+
+            if self._consecutive_failures in (1, 5, 15):
+                logger.warning("[utilities] PGE outage fetch failed with HTTP %d", status)
+            else:
+                logger.debug("[utilities] PGE outage fetch still failing with HTTP %d", status)
+        except httpx.HTTPError as exc:
+            self._consecutive_failures += 1
+            if self._consecutive_failures in (1, 5, 15):
+                logger.warning("[utilities] PGE outage fetch failed (%s)", exc.__class__.__name__)
+            else:
+                logger.debug("[utilities] PGE outage fetch still failing (%s)", exc.__class__.__name__)
         except Exception as exc:
-            logger.warning("[utilities] PGE outage fetch failed: %s", exc)
+            self._consecutive_failures += 1
+            if self._consecutive_failures in (1, 5, 15):
+                logger.warning("[utilities] Unexpected PGE poller failure (%s)", exc.__class__.__name__)
+            else:
+                logger.debug("[utilities] Unexpected PGE poller failure (%s)", exc.__class__.__name__)

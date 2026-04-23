@@ -74,7 +74,7 @@ export function buildEntityLayers(
     getPosition: (t) => [t.lon, t.lat],
     getAngle:    (t) => -t.courseTrue,
     getColor:    (t) => entityColor(t),
-    getSize:     (t) => t.uid === selectedUid ? 28 : 22,
+    getSize:     (t) => t.uid === selectedUid ? 40 : 32,
     sizeUnits:   'pixels',
     billboard:   false,
     pickable:    true,

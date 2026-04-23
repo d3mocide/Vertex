@@ -11,7 +11,9 @@ type FeedItem = {
 }
 
 function formatAge(iso: string): string {
-  const diff = Date.now() - Date.parse(iso)
+  const ts = Date.parse(iso)
+  if (Number.isNaN(ts)) return 'Link'
+  const diff = Date.now() - ts
   const mins = Math.floor(diff / 60_000)
   if (mins < 1)  return 'Just now'
   if (mins < 60) return `${mins}m ago`

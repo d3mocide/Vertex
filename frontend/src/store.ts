@@ -101,6 +101,8 @@ export interface TrafficCamera {
   ldi_url?:  string
   lat?:      number
   lon?:      number
+  dist_km?:  number
+  road?:     string
 }
 
 // ─── System Health ────────────────────────────────────────────────────────────
@@ -170,6 +172,8 @@ interface CivicStore {
 const ALT_FT_TO_M  = 0.3048
 const SPD_KT_TO_MS = 0.5144
 const TRAIL_CAP    = 150
+const PRED_STEP_S  = 20
+const PRED_STEPS   = 3
 
 function entityToTrack(entity: Entity, existing?: Track): Track | null {
   if (entity.lat == null || entity.lon == null) return null
@@ -189,8 +193,8 @@ function entityToTrack(entity: Entity, existing?: Track): Track | null {
 
   const predictedPath: [number, number][] = []
   if (speedMs >= 0.5) {
-    for (let i = 1; i <= 6; i++) {
-      predictedPath.push(destinationPoint(entity.lon, entity.lat, courseTrue, speedMs * 60 * i))
+    for (let i = 1; i <= PRED_STEPS; i++) {
+      predictedPath.push(destinationPoint(entity.lon, entity.lat, courseTrue, speedMs * PRED_STEP_S * i))
     }
   }
 

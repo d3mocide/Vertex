@@ -147,9 +147,7 @@ export function Sidebar() {
                 <IncidentCard
                   key={i}
                   id={`INC-${String(i + 1).padStart(4, '0')}`}
-                  time={new Date(alert.published).toLocaleTimeString('en-US', {
-                    hour: '2-digit', minute: '2-digit', timeZoneName: 'short',
-                  })}
+                  time={formatIncidentTime(alert.published)}
                   title={alert.title}
                   severity={i === 0 ? 'high' : 'low'}
                 />
@@ -195,10 +193,21 @@ export function Sidebar() {
 }
 
 function formatAge(iso: string): string {
-  const diff = Date.now() - Date.parse(iso)
+  const ts = Date.parse(iso)
+  if (Number.isNaN(ts)) return '—'
+  const diff = Date.now() - ts
   const mins = Math.floor(diff / 60_000)
+  if (mins < 1)   return 'Just now'
   if (mins < 60)  return `${mins}m ago`
   const hrs = Math.floor(mins / 60)
   if (hrs < 24)   return `${hrs}hr ago`
   return `${Math.floor(hrs / 24)}d ago`
+}
+
+function formatIncidentTime(iso: string): string {
+  const ts = Date.parse(iso)
+  if (Number.isNaN(ts)) return '—'
+  return new Date(ts).toLocaleTimeString('en-US', {
+    hour: '2-digit', minute: '2-digit', timeZoneName: 'short',
+  })
 }

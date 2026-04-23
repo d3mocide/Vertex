@@ -6,16 +6,13 @@ import { RadarLayer }    from './layers/RadarLayer'
 import { AircraftLayer } from './layers/AircraftLayer'
 import { VesselLayer }   from './layers/VesselLayer'
 import { MeshLayer }     from './layers/MeshLayer'
-import { TrailLayer }    from './layers/TrailLayer'
 import { MapOverlay }    from './MapOverlay'
 import { useWebSocket }  from '../hooks/useWebSocket'
-import { useTrail }      from '../hooks/useTrail'
 
 export function Map() {
   const containerRef = useRef<HTMLDivElement>(null)
   const [map, setMap] = useState<maplibregl.Map | null>(null)
   useWebSocket()
-  useTrail()
 
   useEffect(() => {
     if (!containerRef.current) return

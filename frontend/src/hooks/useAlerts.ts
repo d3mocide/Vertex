@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { API_BASE, ALERTS_POLL_MS, WEATHER_POLL_MS, CAMERAS_POLL_MS } from '../config'
+import { API_BASE, ALERTS_POLL_MS, NEWS_POLL_MS, WEATHER_POLL_MS, CAMERAS_POLL_MS } from '../config'
 import { useCivicStore } from '../store'
 
 async function fetchJson<T>(url: string): Promise<T | null> {
@@ -13,7 +13,7 @@ async function fetchJson<T>(url: string): Promise<T | null> {
 }
 
 export function useAlerts() {
-  const { setAlerts, setWeather, setCameras, setTrafficFlow, setUtilityStatus } = useCivicStore()
+  const { setAlerts, setNews, setWeather, setCameras, setTrafficFlow, setUtilityStatus } = useCivicStore()
   const timers = useRef<ReturnType<typeof setInterval>[]>([])
 
   useEffect(() => {
@@ -21,6 +21,12 @@ export function useAlerts() {
     const pollAlerts = async () => {
       const data = await fetchJson<unknown[]>(`${API_BASE}/alerts`)
       if (Array.isArray(data)) setAlerts(data as Parameters<typeof setAlerts>[0])
+    }
+
+    // Fetch local/newsroom feeds
+    const pollNews = async () => {
+      const data = await fetchJson<unknown[]>(`${API_BASE}/news`)
+      if (Array.isArray(data)) setNews(data as Parameters<typeof setNews>[0])
     }
 
     // Fetch weather
@@ -65,6 +71,7 @@ export function useAlerts() {
 
     // Initial fetch
     pollAlerts()
+    pollNews()
     pollWeather()
     pollCameras()
     pollFlow()
@@ -73,6 +80,7 @@ export function useAlerts() {
     // Schedule polling
     timers.current = [
       setInterval(pollAlerts,  ALERTS_POLL_MS),
+      setInterval(pollNews,    NEWS_POLL_MS),
       setInterval(pollWeather, WEATHER_POLL_MS),
       setInterval(pollCameras, CAMERAS_POLL_MS),
       setInterval(pollFlow,    30000), // 30s for flow
