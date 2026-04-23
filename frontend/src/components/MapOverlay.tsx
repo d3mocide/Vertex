@@ -2,9 +2,10 @@ import { useEffect, useRef } from 'react'
 import maplibregl from 'maplibre-gl'
 import { Deck } from '@deck.gl/core'
 import { useCivicStore } from '../store'
-import type { Track } from '../store'
+import type { Track, TrafficCamera } from '../store'
 import { buildEntityLayers } from '../layers/buildEntityLayers'
 import { buildTrailLayers } from '../layers/buildTrailLayers'
+import { buildCameraLayer } from '../layers/buildCameraLayer'
 import { applyPVB, type PVBState } from '../layers/pvb'
 
 interface Props {
@@ -23,19 +24,30 @@ function getViewState(map: maplibregl.Map) {
 }
 
 export function MapOverlay({ map }: Props) {
-  const deckRef     = useRef<Deck | null>(null)
-  const tracksRef   = useRef<Record<string, Track>>({})
-  const pvbRef      = useRef<Record<string, PVBState>>({})
-  const selectedRef = useRef<string | null>(null)
-  const cycleRef    = useRef(0)
-  const rafRef      = useRef(0)
+  const deckRef        = useRef<Deck | null>(null)
+  const tracksRef      = useRef<Record<string, Track>>({})
+  const pvbRef         = useRef<Record<string, PVBState>>({})
+  const selectedRef    = useRef<string | null>(null)
+  const camerasRef     = useRef<TrafficCamera[]>([])
+  const selectedCamRef = useRef<string | null>(null)
+  const activeTabRef   = useRef<string>('safety')
+  const cycleRef       = useRef(0)
+  const rafRef         = useRef(0)
 
   // Keep refs in sync — no loop restart on state change
-  const tracks      = useCivicStore((s) => s.tracks)
-  const selectedId  = useCivicStore((s) => s.selectedEntityId)
-  const selectEntity = useCivicStore((s) => s.selectEntity)
-  useEffect(() => { tracksRef.current = tracks     }, [tracks])
-  useEffect(() => { selectedRef.current = selectedId }, [selectedId])
+  const tracks         = useCivicStore((s) => s.tracks)
+  const selectedId     = useCivicStore((s) => s.selectedEntityId)
+  const cameras        = useCivicStore((s) => s.cameras)
+  const selectedCamId  = useCivicStore((s) => s.selectedCamId)
+  const activeTab      = useCivicStore((s) => s.activeTab)
+  const selectEntity   = useCivicStore((s) => s.selectEntity)
+  const setSelectedCamId = useCivicStore((s) => s.setSelectedCamId)
+  const setActiveTab   = useCivicStore((s) => s.setActiveTab)
+  useEffect(() => { tracksRef.current = tracks          }, [tracks])
+  useEffect(() => { selectedRef.current = selectedId    }, [selectedId])
+  useEffect(() => { camerasRef.current = cameras        }, [cameras])
+  useEffect(() => { selectedCamRef.current = selectedCamId }, [selectedCamId])
+  useEffect(() => { activeTabRef.current = activeTab    }, [activeTab])
 
   useEffect(() => {
     const container = map.getContainer()
@@ -58,11 +70,18 @@ export function MapOverlay({ map }: Props) {
     })
     deckRef.current = deck
 
-    // Allow selecting deck.gl entity icons while preserving normal map interaction.
+    // Allow selecting entities and cameras while preserving normal map interaction.
     const onMapClick = (e: maplibregl.MapMouseEvent) => {
       const picked = deck.pickObject({ x: e.point.x, y: e.point.y, radius: 10 })
-      const track = picked?.object as Track | undefined
-      if (track?.uid) selectEntity(track.uid)
+      if (!picked) return
+      if (picked.layer?.id === 'camera-points') {
+        const cam = picked.object as TrafficCamera
+        setSelectedCamId(cam.id)
+        setActiveTab('infrastructure')
+      } else {
+        const track = picked.object as Track | undefined
+        if (track?.uid) selectEntity(track.uid)
+      }
     }
     map.on('click', onMapClick)
 
@@ -102,11 +121,16 @@ export function MapOverlay({ map }: Props) {
         if (!(uid in rawTracks)) delete pvb[uid]
       }
 
+      const showCameras = activeTabRef.current === 'infrastructure'
+
       deck.setProps({
         viewState: getViewState(map),
         layers: [
           ...buildTrailLayers(rawTracks, sel),
           ...buildEntityLayers(pvbTracks, sel, cycleRef.current),
+          ...(showCameras
+            ? [buildCameraLayer(camerasRef.current, selectedCamRef.current)]
+            : []),
         ],
       })
 

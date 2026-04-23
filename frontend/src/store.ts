@@ -166,6 +166,14 @@ interface CivicStore {
   setLdiMode:       (v: boolean) => void
   setRadarVisible:  (v: boolean) => void
   setRadarOpacity:  (v: number) => void
+
+  // Camera map interaction
+  selectedCamId:    string | null
+  setSelectedCamId: (id: string | null) => void
+
+  // Camera favorites (persisted to localStorage)
+  favoriteCamIds:    string[]
+  toggleFavoriteCam: (id: string) => void
 }
 
 // ─── Entity → Track conversion ────────────────────────────────────────────────
@@ -214,6 +222,11 @@ function entityToTrack(entity: Entity, existing?: Track): Track | null {
   }
 }
 
+function loadFavoriteCamIds(): string[] {
+  try { return JSON.parse(localStorage.getItem('favoriteCamIds') ?? '[]') }
+  catch { return [] }
+}
+
 const emptyRadio: RadioState = {
   tgid: null, tag: null, freq_hz: null, state: null, updated: null,
 }
@@ -253,6 +266,8 @@ export const useCivicStore = create<CivicStore>((set) => ({
   ldiMode:          false,
   radarVisible:     false,
   radarOpacity:     0.6,
+  selectedCamId:    null,
+  favoriteCamIds:   loadFavoriteCamIds(),
 
   // Data actions
   setEntities: (list) => {
@@ -314,4 +329,13 @@ export const useCivicStore = create<CivicStore>((set) => ({
   setLdiMode:      (ldiMode)      => set({ ldiMode }),
   setRadarVisible: (radarVisible) => set({ radarVisible }),
   setRadarOpacity: (radarOpacity) => set({ radarOpacity }),
+  setSelectedCamId: (selectedCamId) => set({ selectedCamId }),
+  toggleFavoriteCam: (id) =>
+    set((s) => {
+      const next = s.favoriteCamIds.includes(id)
+        ? s.favoriteCamIds.filter((f) => f !== id)
+        : [...s.favoriteCamIds, id]
+      localStorage.setItem('favoriteCamIds', JSON.stringify(next))
+      return { favoriteCamIds: next }
+    }),
 }))

@@ -31,3 +31,7 @@ export const RADAR_LAYER = import.meta.env.VITE_RADAR_LAYER || 'RTX-N0Q-0'
 // product so users still see regional context outside local radar coverage.
 export const RADAR_FALLBACK_MAX_ZOOM = Number(import.meta.env.VITE_RADAR_FALLBACK_MAX_ZOOM || 6)
 export const RADAR_FALLBACK_LAYER = import.meta.env.VITE_RADAR_FALLBACK_LAYER || 'USCOMP-N0Q-0'
+
+// Observation range ring — radius in km centered on DEFAULT_CENTER.
+// Set VITE_OBSERVATION_RANGE_KM=0 to hide the ring.
+export const OBSERVATION_RANGE_KM = Number(import.meta.env.VITE_OBSERVATION_RANGE_KM ?? 50)
