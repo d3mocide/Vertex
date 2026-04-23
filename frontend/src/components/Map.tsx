@@ -2,9 +2,10 @@ import { useEffect, useRef, useState } from 'react'
 import maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { MAP_STYLE, DEFAULT_CENTER, DEFAULT_ZOOM } from '../config'
-import { RadarLayer }    from './layers/RadarLayer'
-import { MeshLayer }     from './layers/MeshLayer'
-import { MapOverlay }    from './MapOverlay'
+import { RadarLayer }           from './layers/RadarLayer'
+import { MeshLayer }            from './layers/MeshLayer'
+import { ObservationRingLayer } from './layers/ObservationRingLayer'
+import { MapOverlay }           from './MapOverlay'
 import { useWebSocket }  from '../hooks/useWebSocket'
 
 export function Map() {
@@ -58,9 +59,10 @@ export function Map() {
       <div ref={containerRef} className="absolute inset-0" />
       {map && (
         <>
-          <RadarLayer    map={map} />
-          <MeshLayer     map={map} />
-          <MapOverlay    map={map} />
+          <RadarLayer            map={map} />
+          <MeshLayer             map={map} />
+          <ObservationRingLayer  map={map} />
+          <MapOverlay            map={map} />
         </>
       )}
     </div>

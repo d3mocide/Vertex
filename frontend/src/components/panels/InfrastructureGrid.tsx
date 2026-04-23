@@ -1,7 +1,14 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useCivicStore, TrafficCamera } from '../../store'
 
-function CctvThumbnail({ cam, ldi }: { cam: TrafficCamera; ldi: boolean }) {
+function CctvThumbnail({
+  cam, ldi, isFavorite, onToggleFavorite,
+}: {
+  cam: TrafficCamera
+  ldi: boolean
+  isFavorite: boolean
+  onToggleFavorite: (e: React.MouseEvent) => void
+}) {
   const [imgError, setImgError] = useState(false)
   const src = ldi && cam.ldi_url ? cam.ldi_url : cam.url
 
@@ -34,6 +41,21 @@ function CctvThumbnail({ cam, ldi }: { cam: TrafficCamera; ldi: boolean }) {
           loading="lazy"
         />
       )}
+      {/* Favorite bookmark */}
+      <button
+        onClick={onToggleFavorite}
+        className="absolute top-1 left-1 p-0.5 text-amber-gold hover:scale-110 transition-transform"
+        aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+        title={isFavorite ? 'Remove from favorites' : 'Bookmark feed'}
+      >
+        <span
+          className="ms text-[16px] leading-none"
+          aria-hidden="true"
+          style={{ fontVariationSettings: `'FILL' ${isFavorite ? 1 : 0}` }}
+        >
+          bookmark
+        </span>
+      </button>
       {/* Camera label overlay */}
       <div className="absolute bottom-0 left-0 right-0 bg-onyx-black/80 px-2 py-1 flex items-center justify-between">
         <span className="font-mono text-[9px] text-amber-gold uppercase truncate mr-1">
@@ -94,16 +116,38 @@ const PLACEHOLDER_CAMERAS: TrafficCamera[] = [
 ]
 
 export function InfrastructureGrid() {
-  const { cameras, trafficFlow, utilityStatus, ldiMode, setLdiMode } = useCivicStore()
+  const {
+    cameras, trafficFlow, utilityStatus, ldiMode, setLdiMode,
+    selectedCamId, setSelectedCamId,
+    favoriteCamIds, toggleFavoriteCam,
+  } = useCivicStore()
   const [radiusKm, setRadiusKm] = useState(5)
   const [page, setPage] = useState(0)
   const [selectedCam, setSelectedCam] = useState<TrafficCamera | null>(null)
   const PAGE_SIZE = 9
 
-  // Filter cameras by radius
-  const filteredCameras = (cameras.length > 0 ? cameras : PLACEHOLDER_CAMERAS).filter(
-    cam => !cam.dist_km || cam.dist_km <= radiusKm
-  )
+  // When map click targets a camera, open its modal
+  useEffect(() => {
+    if (!selectedCamId) return
+    const source = cameras.length > 0 ? cameras : PLACEHOLDER_CAMERAS
+    const cam = source.find((c) => c.id === selectedCamId)
+    if (cam) setSelectedCam(cam)
+  }, [selectedCamId, cameras])
+
+  const closeModal = () => {
+    setSelectedCam(null)
+    setSelectedCamId(null)
+  }
+
+  // Filter by radius, then sort favorites to top
+  const allCameras = cameras.length > 0 ? cameras : PLACEHOLDER_CAMERAS
+  const filteredCameras = allCameras
+    .filter((cam) => !cam.dist_km || cam.dist_km <= radiusKm)
+    .sort((a, b) => {
+      const aFav = favoriteCamIds.includes(a.id) ? 0 : 1
+      const bFav = favoriteCamIds.includes(b.id) ? 0 : 1
+      return aFav - bFav
+    })
 
   const totalPages = Math.ceil(filteredCameras.length / PAGE_SIZE)
   const displayCameras = filteredCameras.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
@@ -134,9 +178,9 @@ export function InfrastructureGrid() {
 
       {/* Camera Pop-out Modal */}
       {selectedCam && (
-        <div 
+        <div
           className="absolute inset-0 z-50 flex items-center justify-center p-6 bg-onyx-black/80 backdrop-blur-md animate-in fade-in zoom-in duration-200"
-          onClick={() => setSelectedCam(null)}
+          onClick={closeModal}
         >
           <div 
             className="hud-panel w-full max-w-3xl overflow-hidden pointer-events-auto"
@@ -149,8 +193,8 @@ export function InfrastructureGrid() {
                   {selectedCam.name}
                 </span>
               </div>
-              <button 
-                onClick={() => setSelectedCam(null)}
+              <button
+                onClick={closeModal}
                 className="ms text-[20px] text-on-surface-variant hover:text-amber-gold transition-colors"
               >
                 close
@@ -179,8 +223,8 @@ export function InfrastructureGrid() {
                <span className="font-mono text-[9px] text-on-surface-variant uppercase tracking-widest">
                  System: ODOT TRIPCHECK • ID: {selectedCam.id}
                </span>
-               <button 
-                 onClick={() => setSelectedCam(null)}
+               <button
+                 onClick={closeModal}
                  className="px-4 py-1.5 bg-amber-gold text-onyx-black font-bold text-[10px] uppercase tracking-tighter hover:bg-amber-400 transition-colors"
                >
                  Acknowledge
@@ -256,7 +300,12 @@ export function InfrastructureGrid() {
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
             {displayCameras.map((cam) => (
               <div key={cam.id} className="cursor-pointer" onClick={() => setSelectedCam(cam)}>
-                <CctvThumbnail cam={cam} ldi={ldiMode} />
+                <CctvThumbnail
+                  cam={cam}
+                  ldi={ldiMode}
+                  isFavorite={favoriteCamIds.includes(cam.id)}
+                  onToggleFavorite={(e) => { e.stopPropagation(); toggleFavoriteCam(cam.id) }}
+                />
               </div>
             ))}
           </div>

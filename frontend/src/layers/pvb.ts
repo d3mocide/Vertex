@@ -26,7 +26,9 @@ function project(
 function evaluatePVB(state: PVBState, nowMs: number): [number, number] {
   const [sLon, sLat] = project(state.sLon, state.sLat, state.sCourse, state.sSpeedMs, nowMs - state.sTime)
   const [vLon, vLat] = project(state.vLon, state.vLat, state.vCourse, state.vSpeedMs, nowMs - state.vTime)
-  const alpha = Math.min((nowMs - state.sTime) / BLEND_WINDOW_MS, 1)
+  // Smoothstep so the correction eases in and out rather than rubber-banding linearly.
+  const t = Math.min((nowMs - state.sTime) / BLEND_WINDOW_MS, 1)
+  const alpha = t * t * (3 - 2 * t)
   return [vLon + alpha * (sLon - vLon), vLat + alpha * (sLat - vLat)]
 }
 
@@ -55,9 +57,11 @@ export function applyPVB(
     // the position the icon was at, then use that as the new visual anchor so
     // the icon continues smoothly from where it was rather than jumping.
     const [vLon, vLat] = evaluatePVB(state, nowMs)
+    // Visual anchor inherits new server velocity so both projections travel in the same
+    // direction during the blend window — blend only corrects position offset, not heading.
     pvb[track.uid] = {
       sLon: track.lon, sLat: track.lat, sSpeedMs: track.speedMs, sCourse: track.courseTrue, sTime: nowMs,
-      vLon, vLat, vSpeedMs: state.sSpeedMs, vCourse: state.sCourse, vTime: nowMs,
+      vLon, vLat, vSpeedMs: track.speedMs, vCourse: track.courseTrue, vTime: nowMs,
       lastTs,
     }
   }
