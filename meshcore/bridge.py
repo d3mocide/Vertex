@@ -1,11 +1,11 @@
 """
-MeshCore → WebSocket bridge for Civic Grid poller.
+MeshCore → WebSocket bridge for Outpost poller.
 
 Modes (set via MESHCORE_MODE env var):
   serial   — read directly from a MeshCore gateway node on a USB serial device
   network  — connect to an existing MeshCore companion hub via TCP
 
-Exposes a WebSocket server on port 7001. The Civic Grid poller subscribes
+Exposes a WebSocket server on port 7001. The Outpost poller subscribes
 to this socket and receives canonical node-update JSON messages.
 """
 

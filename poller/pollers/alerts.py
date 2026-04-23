@@ -9,7 +9,7 @@ from .base import BasePoller
 logger = logging.getLogger(__name__)
 
 # NWS CAP alerts API — no auth required, covers WA/Multnomah/Clackamas counties
-_NWS_HEADERS = {"User-Agent": "CivicGrid/0.1 (civic-grid; contact@localhost)"}
+_NWS_HEADERS = {"User-Agent": "Outpost/0.1 (outpost; contact@localhost)"}
 
 # TVFR emergency alert RSS feed
 _TVFR_RSS_URL = "https://www.tvfr.com/RSSFeed.aspx?ModID=63&CID=Emergency-Alert-3"

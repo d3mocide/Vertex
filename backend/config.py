@@ -2,7 +2,7 @@ from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
-    database_url: str = "postgresql+asyncpg://civicgrid:civicgrid@localhost:5432/civicgrid"
+    database_url: str = "postgresql+asyncpg://outpost:outpost@localhost:5432/outpost"
     redis_url: str = "redis://localhost:6379"
     log_level: str = "INFO"
 

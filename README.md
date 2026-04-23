@@ -1,4 +1,4 @@
-# Civic_Grid
+# Outpost
 
 See your neighborhood sharper
 
@@ -34,7 +34,7 @@ This runs local OP25/Icecast/SDR-related services.
 
 - No more single overloaded `.env` for all scenarios
 - One file per mode keeps values obvious and avoids accidental cross-mode settings
-- Backend and poller now consume the selected mode file through `CIVICGRID_ENV_FILE`
+- Backend and poller now consume the selected mode file through `OUTPOST_ENV_FILE`
 
 ## Quick Mode Scripts (PowerShell)
 

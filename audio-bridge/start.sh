@@ -16,6 +16,6 @@ exec ffmpeg -hide_banner -loglevel warning \
     -f s16le -ar 8000 -ac 1 \
     -i "udp://0.0.0.0:${UDP_PORT}?timeout=10000000" \
     -c:a libmp3lame -b:a 64k -ar 44100 -ac 1 \
-    -ice_name "Civic Grid - P25 Radio" \
+    -ice_name "Outpost - P25 Radio" \
     -f mp3 \
     "icecast://source:${ICECAST_PASSWORD}@${ICECAST_HOST}:${ICECAST_PORT}/${ICECAST_MOUNT}"
