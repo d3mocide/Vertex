@@ -121,7 +121,9 @@ def _parse_odot_cameras(data: dict) -> list[dict]:
         dx = (lon - h_lon) * 78.0
         dist_km = math.sqrt(dx**2 + dy**2)
 
-        if dist_km > 20.0: # Keep up to 20km in the bus, filter tighter in UI
+        # Filter by global bounding box to ensure consistency across tactical layers
+        if not (settings.bbox_min_lat <= lat <= settings.bbox_max_lat and
+                settings.bbox_min_lon <= lon <= settings.bbox_max_lon):
             continue
 
         items.append({
