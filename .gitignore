@@ -8,6 +8,8 @@ build/
 
 # Environment files
 .env
+.env.remote
+.env.local-sdr
 .env.local
 .env.*.local
 

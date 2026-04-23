@@ -3,8 +3,6 @@ import maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { MAP_STYLE, DEFAULT_CENTER, DEFAULT_ZOOM } from '../config'
 import { RadarLayer }    from './layers/RadarLayer'
-import { AircraftLayer } from './layers/AircraftLayer'
-import { VesselLayer }   from './layers/VesselLayer'
 import { MeshLayer }     from './layers/MeshLayer'
 import { MapOverlay }    from './MapOverlay'
 import { useWebSocket }  from '../hooks/useWebSocket'
@@ -26,11 +24,28 @@ export function Map() {
       antialias: true,
     })
 
+    // Static region-center marker so operators can quickly orient to the
+    // configured area of responsibility.
+    const regionMarkerEl = document.createElement('div')
+    regionMarkerEl.className = 'ms text-[18px] text-green-ais drop-shadow-[0_0_6px_rgba(0,200,83,0.55)]'
+    regionMarkerEl.textContent = 'my_location'
+    regionMarkerEl.setAttribute('aria-hidden', 'true')
+
+    const regionMarker = new maplibregl.Marker({
+      element: regionMarkerEl,
+      anchor: 'center',
+    })
+      .setLngLat(DEFAULT_CENTER)
+      .addTo(m)
+
     m.addControl(new maplibregl.NavigationControl({ showCompass: true }), 'bottom-right')
     m.addControl(new maplibregl.ScaleControl({ maxWidth: 100, unit: 'imperial' }), 'bottom-left')
     m.on('load', () => setMap(m))
 
-    return () => m.remove()
+    return () => {
+      regionMarker.remove()
+      m.remove()
+    }
   }, [])
 
   return (
@@ -44,9 +59,6 @@ export function Map() {
       {map && (
         <>
           <RadarLayer    map={map} />
-          <TrailLayer    map={map} />
-          <AircraftLayer map={map} />
-          <VesselLayer   map={map} />
           <MeshLayer     map={map} />
           <MapOverlay    map={map} />
         </>

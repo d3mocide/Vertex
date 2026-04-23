@@ -73,6 +73,29 @@ function ModeToggle() {
   )
 }
 
+function RadarToggle() {
+  const { radarVisible, setRadarVisible } = useCivicStore()
+
+  return (
+    <button
+      onClick={() => setRadarVisible(!radarVisible)}
+      className={`
+        flex items-center gap-2 px-3 py-1 border font-mono text-[10px] uppercase tracking-widest transition-colors
+        focus:outline-none focus-visible:ring-1 focus-visible:ring-amber-gold
+        ${radarVisible
+          ? 'border-green-ais text-green-ais bg-green-ais/10'
+          : 'border-amber-gold-muted text-on-surface-variant hover:text-on-surface'}
+      `}
+      aria-pressed={radarVisible}
+      aria-label={`Radar ${radarVisible ? 'enabled' : 'disabled'}`}
+      title="Toggle NEXRAD radar layer"
+    >
+      <span className="ms text-[14px] leading-none" aria-hidden="true">radar</span>
+      <span>{radarVisible ? 'RADAR ON' : 'RADAR OFF'}</span>
+    </button>
+  )
+}
+
 export function Header() {
   const { activeTab, setActiveTab, mode } = useCivicStore()
 
@@ -123,6 +146,7 @@ export function Header() {
       {/* Right controls */}
       <div className="flex items-center gap-4 relative z-10">
         <SystemHealthBadge />
+        <RadarToggle />
         <ModeToggle />
 
         {/* Critical Mode Status Button from Mockup */}

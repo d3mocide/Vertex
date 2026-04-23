@@ -22,3 +22,12 @@ export const NEWS_POLL_MS     = 60_000
 export const WEATHER_POLL_MS  = 60_000
 export const CAMERAS_POLL_MS  = 120_000
 export const RADAR_REFRESH_MS = 5 * 60_000  // IEM NEXRAD updates every ~5 min
+
+// Radar layer slug for IEM tile service, e.g. "USCOMP-N0Q-0" or "RTX-N0Q-0".
+// Defaulting to RTX gives much better local detail around the current map center.
+export const RADAR_LAYER = import.meta.env.VITE_RADAR_LAYER || 'RTX-N0Q-0'
+
+// When zoomed out at or below this threshold, switch to a broad composite
+// product so users still see regional context outside local radar coverage.
+export const RADAR_FALLBACK_MAX_ZOOM = Number(import.meta.env.VITE_RADAR_FALLBACK_MAX_ZOOM || 6)
+export const RADAR_FALLBACK_LAYER = import.meta.env.VITE_RADAR_FALLBACK_LAYER || 'USCOMP-N0Q-0'

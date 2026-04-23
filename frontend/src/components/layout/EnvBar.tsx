@@ -1,4 +1,5 @@
 import { useCivicStore } from '../../store'
+import { DEFAULT_CENTER } from '../../config'
 
 function aqiColor(aqi: number | undefined): string {
   if (aqi == null) return 'text-on-surface-variant'
@@ -17,8 +18,14 @@ function aqiLabel(aqi: number | undefined, label: string | undefined): string {
   return 'UNHEALTHY'
 }
 
+function formatCoord(val: number, pos: string, neg: string): string {
+  const dir = val >= 0 ? pos : neg
+  return `${Math.abs(val).toFixed(3)}${dir}`
+}
+
 export function EnvBar() {
   const { weather, mode } = useCivicStore()
+  const [centerLon, centerLat] = DEFAULT_CENTER
 
   // In critical mode, highlight the entire bar if severe alerts exist
   const hasSevere = weather.alerts.some(
@@ -115,6 +122,17 @@ export function EnvBar() {
           <span className="label-caps">NWS: NO ACTIVE ALERTS</span>
         </div>
       )}
+
+      <div className="divider-v ml-auto" aria-hidden="true" />
+
+      {/* Region center indicator */}
+      <div className="flex items-center gap-2 shrink-0 text-on-surface-variant">
+        <span className="ms text-[14px] text-green-ais leading-none" aria-hidden="true">my_location</span>
+        <span className="label-caps">REGION CTR:</span>
+        <span className="font-mono text-[10px] text-on-surface">
+          {formatCoord(centerLat, 'N', 'S')} {formatCoord(centerLon, 'E', 'W')}
+        </span>
+      </div>
     </div>
   )
 }

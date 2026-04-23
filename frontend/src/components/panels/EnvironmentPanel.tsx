@@ -1,5 +1,6 @@
 import { useCallback } from 'react'
 import { useCivicStore, WeatherAlert } from '../../store'
+import { RADAR_LAYER } from '../../config'
 
 function AqiGauge({ aqi }: { aqi: number | undefined }) {
   if (aqi == null) return null
@@ -170,7 +171,7 @@ function RadarControls() {
       </div>
 
       <div className="mt-3 font-mono text-[9px] text-on-surface-variant">
-        CONUS N0Q · IEM NEXRAD · 5 MIN REFRESH
+          {RADAR_LAYER.replace(/-0$/, '')} · IEM NEXRAD · 5 MIN REFRESH
       </div>
     </div>
   )
