@@ -3,7 +3,7 @@ import logging
 import httpx
 from config import settings
 from bus import set_feed
-from normalizers.weather import normalize_observation, normalize_alerts
+from normalizers.weather import normalize_observation
 from .base import BasePoller
 
 logger = logging.getLogger(__name__)
@@ -20,17 +20,16 @@ class WeatherPoller(BasePoller):
         self._airnow_consecutive_failures = 0
 
     async def poll(self):
-        obs, aqi, _ = await asyncio.gather(
+        obs, aqi = await asyncio.gather(
             self._fetch_observation(),
             self._fetch_aqi(),
-            self._poll_alerts(),
-            return_exceptions=True
+            return_exceptions=True,
         )
-        
+
         payload = obs if isinstance(obs, dict) else {}
         if isinstance(aqi, dict) and aqi:
             payload.update(aqi)
-            
+
         if payload:
             await set_feed("weather:current", payload)
 
@@ -110,13 +109,3 @@ class WeatherPoller(BasePoller):
                     logger.info("[weather] AirNow AQI recovered after %d failures", self._airnow_consecutive_failures)
                 self._airnow_consecutive_failures = 0
 
-    async def _poll_alerts(self):
-        url = f"{NWS_BASE}/alerts/active?zone={settings.nws_zone}"
-        try:
-            async with httpx.AsyncClient(timeout=15, headers=_HEADERS) as client:
-                resp = await client.get(url)
-                resp.raise_for_status()
-            await set_feed("weather:alerts", normalize_alerts(resp.json()))
-        except Exception as exc:
-            logger.warning("[weather] NWS alerts failed: %s", exc)
-            await set_feed("weather:alerts", [])

@@ -76,6 +76,19 @@ async def write_entity_observation(entity: dict):
             await check_geofences(entity, conn)
 
 
+async def purge_observations() -> int:
+    """Delete observations older than 30 days. Returns the number of rows deleted."""
+    if _pool is None:
+        return 0
+    async with _pool.acquire() as conn:
+        result = await conn.execute(
+            "DELETE FROM observations WHERE ts < NOW() - INTERVAL '30 days'"
+        )
+    deleted = int(result.split()[-1])
+    logger.info("[db] purged %d old observations", deleted)
+    return deleted
+
+
 async def write_event(
     event_type: str,
     entity_id: str | None,
