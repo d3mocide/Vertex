@@ -139,6 +139,8 @@ interface CivicStore {
   activeTab:        NavTab
   selectedEntityId: string | null
   ldiMode:          boolean          // Last Daylight Image toggle for cameras
+  radarVisible:     boolean
+  radarOpacity:     number
 
   // Actions — data
   setEntities:      (entities: Entity[]) => void
@@ -162,6 +164,8 @@ interface CivicStore {
   setActiveTab:     (tab: NavTab) => void
   selectEntity:     (id: string | null) => void
   setLdiMode:       (v: boolean) => void
+  setRadarVisible:  (v: boolean) => void
+  setRadarOpacity:  (v: number) => void
 }
 
 // ─── Entity → Track conversion ────────────────────────────────────────────────
@@ -247,6 +251,8 @@ export const useCivicStore = create<CivicStore>((set) => ({
   activeTab:        'safety',
   selectedEntityId: null,
   ldiMode:          false,
+  radarVisible:     false,
+  radarOpacity:     0.6,
 
   // Data actions
   setEntities: (list) => {
@@ -302,8 +308,10 @@ export const useCivicStore = create<CivicStore>((set) => ({
     set((s) => ({ health: { ...s.health, ...patch } })),
 
   // UI actions
-  setMode:      (mode)      => set({ mode }),
-  setActiveTab: (activeTab) => set({ activeTab }),
-  selectEntity: (selectedEntityId) => set({ selectedEntityId }),
-  setLdiMode:   (ldiMode)   => set({ ldiMode }),
+  setMode:         (mode)         => set({ mode }),
+  setActiveTab:    (activeTab)    => set({ activeTab }),
+  selectEntity:    (selectedEntityId) => set({ selectedEntityId }),
+  setLdiMode:      (ldiMode)      => set({ ldiMode }),
+  setRadarVisible: (radarVisible) => set({ radarVisible }),
+  setRadarOpacity: (radarOpacity) => set({ radarOpacity }),
 }))

@@ -21,3 +21,4 @@ export const ALERTS_POLL_MS   = 30_000
 export const NEWS_POLL_MS     = 60_000
 export const WEATHER_POLL_MS  = 60_000
 export const CAMERAS_POLL_MS  = 120_000
+export const RADAR_REFRESH_MS = 5 * 60_000  // IEM NEXRAD updates every ~5 min
