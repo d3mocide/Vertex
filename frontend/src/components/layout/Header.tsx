@@ -73,6 +73,29 @@ function ModeToggle() {
   )
 }
 
+function CameraToggle() {
+  const { camerasVisible, setCamerasVisible } = useCivicStore()
+
+  return (
+    <button
+      onClick={() => setCamerasVisible(!camerasVisible)}
+      className={`
+        flex items-center gap-2 px-3 py-1 border font-mono text-[10px] uppercase tracking-widest transition-colors
+        focus:outline-none focus-visible:ring-1 focus-visible:ring-amber-gold
+        ${camerasVisible
+          ? 'border-amber-gold text-amber-gold bg-amber-gold/10'
+          : 'border-amber-gold-muted text-on-surface-variant hover:text-on-surface'}
+      `}
+      aria-pressed={camerasVisible}
+      aria-label={`Cameras ${camerasVisible ? 'enabled' : 'disabled'}`}
+      title="Toggle traffic camera map layer"
+    >
+      <span className="ms text-[14px] leading-none" aria-hidden="true">videocam</span>
+      <span>{camerasVisible ? 'CAMERAS ON' : 'CAMERAS OFF'}</span>
+    </button>
+  )
+}
+
 function RadarToggle() {
   const { radarVisible, setRadarVisible } = useCivicStore()
 
@@ -146,6 +169,7 @@ export function Header() {
       {/* Right controls */}
       <div className="flex items-center gap-4 relative z-10">
         <SystemHealthBadge />
+        <CameraToggle />
         <RadarToggle />
         <ModeToggle />
 

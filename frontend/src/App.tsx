@@ -12,6 +12,7 @@ import { EntityDetail }      from './components/panels/EntityDetail'
 import { InfrastructureGrid } from './components/panels/InfrastructureGrid'
 import { EnvironmentPanel }  from './components/panels/EnvironmentPanel'
 import { CommunityPanel }    from './components/panels/CommunityPanel'
+import { CameraModal }       from './components/panels/CameraModal'
 
 export default function App() {
   // Bootstrap data connections
@@ -83,12 +84,14 @@ export default function App() {
               </>
             )}
 
-            {/* ── Critical mode: force audio + entity visible ───────── */}
             {isCritical && activeTab !== 'safety' && (
               <>
                 <EntityDetail />
               </>
             )}
+
+            {/* Global Camera Viewer */}
+            <CameraModal />
           </div>
         </div>
       </div>

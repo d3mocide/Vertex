@@ -39,6 +39,7 @@ export function MapOverlay({ map }: Props) {
   const selectedId     = useCivicStore((s) => s.selectedEntityId)
   const cameras        = useCivicStore((s) => s.cameras)
   const selectedCamId  = useCivicStore((s) => s.selectedCamId)
+  const camerasVisible = useCivicStore((s) => s.camerasVisible)
   const activeTab      = useCivicStore((s) => s.activeTab)
   const selectEntity   = useCivicStore((s) => s.selectEntity)
   const setSelectedCamId = useCivicStore((s) => s.setSelectedCamId)
@@ -47,6 +48,8 @@ export function MapOverlay({ map }: Props) {
   useEffect(() => { selectedRef.current = selectedId    }, [selectedId])
   useEffect(() => { camerasRef.current = cameras        }, [cameras])
   useEffect(() => { selectedCamRef.current = selectedCamId }, [selectedCamId])
+  const camerasVisibleRef = useRef(false)
+  useEffect(() => { camerasVisibleRef.current = camerasVisible }, [camerasVisible])
   useEffect(() => { activeTabRef.current = activeTab    }, [activeTab])
 
   useEffect(() => {
@@ -77,7 +80,6 @@ export function MapOverlay({ map }: Props) {
       if (picked.layer?.id === 'camera-points') {
         const cam = picked.object as TrafficCamera
         setSelectedCamId(cam.id)
-        setActiveTab('infrastructure')
       } else {
         const track = picked.object as Track | undefined
         if (track?.uid) selectEntity(track.uid)
@@ -121,14 +123,12 @@ export function MapOverlay({ map }: Props) {
         if (!(uid in rawTracks)) delete pvb[uid]
       }
 
-      const showCameras = activeTabRef.current === 'infrastructure'
-
       deck.setProps({
         viewState: getViewState(map),
         layers: [
           ...buildTrailLayers(rawTracks, sel),
           ...buildEntityLayers(pvbTracks, sel, cycleRef.current),
-          ...(showCameras
+          ...(camerasVisibleRef.current
             ? [buildCameraLayer(camerasRef.current, selectedCamRef.current)]
             : []),
         ],

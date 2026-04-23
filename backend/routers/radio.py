@@ -18,7 +18,12 @@ router = APIRouter(prefix="/radio", tags=["radio"])
 async def get_active():
     """Current P25 talkgroup — reads live state from Redis."""
     raw = await get_redis().get("feed:radio:active")
-    return json.loads(raw) if raw else {"state": "idle", "tgid": None, "tag": None}
+    if not raw:
+        return {"state": "idle", "tgid": None, "tag": None}
+    try:
+        return json.loads(raw)
+    except (json.JSONDecodeError, TypeError):
+        return {"state": "idle", "tgid": None, "tag": None}
 
 
 @router.get("/calls")

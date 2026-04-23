@@ -123,19 +123,9 @@ export function InfrastructureGrid() {
   } = useCivicStore()
   const [radiusKm, setRadiusKm] = useState(5)
   const [page, setPage] = useState(0)
-  const [selectedCam, setSelectedCam] = useState<TrafficCamera | null>(null)
   const PAGE_SIZE = 9
 
-  // When map click targets a camera, open its modal
-  useEffect(() => {
-    if (!selectedCamId) return
-    const source = cameras.length > 0 ? cameras : PLACEHOLDER_CAMERAS
-    const cam = source.find((c) => c.id === selectedCamId)
-    if (cam) setSelectedCam(cam)
-  }, [selectedCamId, cameras])
-
   const closeModal = () => {
-    setSelectedCam(null)
     setSelectedCamId(null)
   }
 
@@ -175,64 +165,6 @@ export function InfrastructureGrid() {
       role="region"
       aria-label="Infrastructure panel"
     >
-
-      {/* Camera Pop-out Modal */}
-      {selectedCam && (
-        <div
-          className="absolute inset-0 z-50 flex items-center justify-center p-6 bg-onyx-black/80 backdrop-blur-md animate-in fade-in zoom-in duration-200"
-          onClick={closeModal}
-        >
-          <div 
-            className="hud-panel w-full max-w-3xl overflow-hidden pointer-events-auto"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="px-4 py-3 border-b border-amber-gold-muted flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <span className="ms text-[18px] text-amber-gold">videocam</span>
-                <span className="font-bold text-sm uppercase tracking-tight text-on-surface truncate">
-                  {selectedCam.name}
-                </span>
-              </div>
-              <button
-                onClick={closeModal}
-                className="ms text-[20px] text-on-surface-variant hover:text-amber-gold transition-colors"
-              >
-                close
-              </button>
-            </div>
-            <div className="aspect-video bg-surface-container relative">
-              <img 
-                src={ldiMode && selectedCam.ldi_url ? selectedCam.ldi_url : selectedCam.url} 
-                alt={selectedCam.name}
-                className="w-full h-full object-contain"
-              />
-              <div className="absolute top-4 left-4 flex flex-col gap-1">
-                <div className="bg-onyx-black/60 px-2 py-1 rounded-sm border border-white/10">
-                   <span className="font-mono text-[10px] text-amber-gold">
-                    LIVE FEED • {selectedCam.dist_km != null ? `${selectedCam.dist_km}km` : 'Range N/A'}
-                   </span>
-                </div>
-                {selectedCam.road && (
-                  <div className="bg-onyx-black/60 px-2 py-1 rounded-sm border border-white/10 w-fit">
-                    <span className="font-mono text-[10px] text-on-surface-variant uppercase">{selectedCam.road}</span>
-                  </div>
-                )}
-              </div>
-            </div>
-            <div className="p-3 border-t border-amber-gold-muted/30 bg-white/[0.02] flex items-center justify-between">
-               <span className="font-mono text-[9px] text-on-surface-variant uppercase tracking-widest">
-                 System: ODOT TRIPCHECK • ID: {selectedCam.id}
-               </span>
-               <button
-                 onClick={closeModal}
-                 className="px-4 py-1.5 bg-amber-gold text-onyx-black font-bold text-[10px] uppercase tracking-tighter hover:bg-amber-400 transition-colors"
-               >
-                 Acknowledge
-               </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Panel header */}
       <div className="px-4 py-3 border-b border-amber-gold-muted flex items-center gap-4 shrink-0">
@@ -299,7 +231,7 @@ export function InfrastructureGrid() {
 
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
             {displayCameras.map((cam) => (
-              <div key={cam.id} className="cursor-pointer" onClick={() => setSelectedCam(cam)}>
+              <div key={cam.id} className="cursor-pointer" onClick={() => setSelectedCamId(cam.id)}>
                 <CctvThumbnail
                   cam={cam}
                   ldi={ldiMode}

@@ -19,6 +19,7 @@ Thumbs.db
 .vscode/
 .idea/
 brain/
+scratch/
 
 # Python
 __pycache__/
@@ -34,6 +35,7 @@ venv/
 # Logs
 *.log
 npm-debug.log*
+*logs.txt
 
 # Misc
 *.local

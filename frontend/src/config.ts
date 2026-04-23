@@ -9,7 +9,10 @@ export const MAP_STYLE = 'https://tiles.openfreemap.org/styles/dark'
 
 
 // Default view: Tualatin, OR
-export const DEFAULT_CENTER: [number, number] = [-122.7635, 45.3842]
+export const DEFAULT_CENTER: [number, number] = [
+  Number(import.meta.env.VITE_REGION_LON ?? -122.7635),
+  Number(import.meta.env.VITE_REGION_LAT ?? 45.3842),
+]
 export const DEFAULT_ZOOM = 10
 
 // Audio stream
@@ -25,7 +28,7 @@ export const RADAR_REFRESH_MS = 5 * 60_000  // IEM NEXRAD updates every ~5 min
 
 // Radar layer slug for IEM tile service, e.g. "USCOMP-N0Q-0" or "RTX-N0Q-0".
 // Defaulting to RTX gives much better local detail around the current map center.
-export const RADAR_LAYER = import.meta.env.VITE_RADAR_LAYER || 'RTX-N0Q-0'
+export const RADAR_LAYER = import.meta.env.VITE_RADAR_LAYER || 'RTX-N0B-0'
 
 // When zoomed out at or below this threshold, switch to a broad composite
 // product so users still see regional context outside local radar coverage.

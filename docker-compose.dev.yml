@@ -11,15 +11,15 @@ services:
       context: ./frontend
       target: build
     # Override the nginx image entrypoint with the Vite dev server
-    command: npm run dev -- --host 0.0.0.0 --port 5173
+    command: npm run dev -- --host 0.0.0.0 --port 80
     environment:
       VITE_STREAM_URL: ${VITE_STREAM_URL:-/stream/radio.mp3}
-      VITE_RADAR_LAYER: ${VITE_RADAR_LAYER:-RTX-N0Q-0}
+      VITE_RADAR_LAYER: ${VITE_RADAR_LAYER:-RTX-N0B-0}
       VITE_OBSERVATION_RANGE_KM: ${VITE_OBSERVATION_RANGE_KM:-50}
       VITE_PROXY_ICECAST_TARGET: ${VITE_PROXY_ICECAST_TARGET:-http://icecast:8000/}
       VITE_PROXY_OP25_TARGET: ${VITE_PROXY_OP25_TARGET:-http://op25:8080/}
+      VITE_REGION_LAT: ${REGION_LAT:-45.3842}
+      VITE_REGION_LON: ${REGION_LON:--122.7635}
     volumes:
       - ./frontend:/app
       - /app/node_modules
-    ports:
-      - "${FRONTEND_PORT:-80}:5173"

@@ -8,10 +8,20 @@ router = APIRouter(prefix="/weather", tags=["weather"])
 @router.get("")
 async def get_weather():
     raw = await get_redis().get("feed:weather:current")
-    return json.loads(raw) if raw else {}
+    if not raw:
+        return {}
+    try:
+        return json.loads(raw)
+    except (json.JSONDecodeError, TypeError):
+        return {}
 
 
 @router.get("/alerts")
 async def get_weather_alerts():
     raw = await get_redis().get("feed:weather:alerts")
-    return json.loads(raw) if raw else []
+    if not raw:
+        return []
+    try:
+        return json.loads(raw)
+    except (json.JSONDecodeError, TypeError):
+        return []

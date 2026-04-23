@@ -155,6 +155,7 @@ interface CivicStore {
   ldiMode:          boolean          // Last Daylight Image toggle for cameras
   radarVisible:     boolean
   radarOpacity:     number
+  camerasVisible:   boolean
 
   // Actions — data
   setEntities:      (entities: Entity[]) => void
@@ -181,6 +182,7 @@ interface CivicStore {
   setLdiMode:       (v: boolean) => void
   setRadarVisible:  (v: boolean) => void
   setRadarOpacity:  (v: number) => void
+  setCamerasVisible: (v: boolean) => void
 
   // Camera map interaction
   selectedCamId:    string | null
@@ -282,6 +284,7 @@ export const useCivicStore = create<CivicStore>((set) => ({
   ldiMode:          false,
   radarVisible:     false,
   radarOpacity:     0.6,
+  camerasVisible:   false,
   selectedCamId:    null,
   favoriteCamIds:   loadFavoriteCamIds(),
 
@@ -355,6 +358,7 @@ export const useCivicStore = create<CivicStore>((set) => ({
   setLdiMode:      (ldiMode)      => set({ ldiMode }),
   setRadarVisible: (radarVisible) => set({ radarVisible }),
   setRadarOpacity: (radarOpacity) => set({ radarOpacity }),
+  setCamerasVisible: (camerasVisible) => set({ camerasVisible }),
   setSelectedCamId: (selectedCamId) => set({ selectedCamId }),
   toggleFavoriteCam: (id) =>
     set((s) => {
