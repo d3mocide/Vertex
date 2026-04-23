@@ -77,10 +77,10 @@ function refreshSourceTiles(
   layerSlug: string,
   bust: number,
 ) {
-  const source = map.getSource(sourceId) as maplibregl.AnySourceImpl & { setTiles?: (tiles: string[]) => void }
+  const source = map.getSource(sourceId) as maplibregl.RasterTileSource | undefined
   const nextTile = tileUrl(layerSlug, bust)
 
-  if (source && typeof source.setTiles === 'function') {
+  if (source?.setTiles) {
     source.setTiles([nextTile])
     return
   }
