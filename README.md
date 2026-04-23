@@ -1,8 +1,8 @@
-# Outpost
+# Vertex
 
 > See your neighborhood sharper
 
-Outpost is a local-first, real-time situational awareness dashboard. It fuses aircraft, vessel, weather, traffic, emergency alert, and P25 radio data into a single map-centric interface — running on hardware you own, in your home.
+Vertex is a local-first, real-time situational awareness dashboard. It fuses aircraft, vessel, weather, traffic, emergency alert, and P25 radio data into a single map-centric interface — running on hardware you own, in your home.
 
 Part of the [Sovereign Watch](https://github.com/d3mocide) family of local intelligence tools.
 
@@ -93,7 +93,7 @@ docker compose --env-file .env.local-sdr --profile sdr up -d
 
 ## Configuration
 
-Copy the appropriate example file and fill in your values. The `OUTPOST_ENV_FILE` variable tells the backend and poller containers which file to load.
+Copy the appropriate example file and fill in your values. The `VERTEX_ENV_FILE` variable tells the backend and poller containers which file to load.
 
 ### API Keys
 

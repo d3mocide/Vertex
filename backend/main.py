@@ -23,7 +23,7 @@ async def lifespan(app: FastAPI):
     await close_redis()
 
 
-app = FastAPI(title="Outpost API", version="0.1.0", lifespan=lifespan)
+app = FastAPI(title="Vertex API", version="0.1.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,

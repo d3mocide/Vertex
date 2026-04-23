@@ -13,14 +13,14 @@ services:
     image: postgis/postgis:16-3.4-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-outpost}
-      POSTGRES_USER: ${POSTGRES_USER:-outpost}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-outpost}
+      POSTGRES_DB: ${POSTGRES_DB:-vertex}
+      POSTGRES_USER: ${POSTGRES_USER:-vertex}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-vertex}
     volumes:
       - db_data:/var/lib/postgresql/data
       - ./db/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-outpost}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-vertex}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -50,9 +50,9 @@ services:
         - linux/amd64
         - linux/arm64
     restart: unless-stopped
-    env_file: ${OUTPOST_ENV_FILE:-.env}
+    env_file: ${VERTEX_ENV_FILE:-.env}
     environment:
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-outpost}:${POSTGRES_PASSWORD:-outpost}@db:5432/${POSTGRES_DB:-outpost}
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-vertex}:${POSTGRES_PASSWORD:-vertex}@db:5432/${POSTGRES_DB:-vertex}
       REDIS_URL: redis://redis:6379
     depends_on:
       db:
@@ -74,10 +74,10 @@ services:
         - linux/amd64
         - linux/arm64
     restart: unless-stopped
-    env_file: ${OUTPOST_ENV_FILE:-.env}
+    env_file: ${VERTEX_ENV_FILE:-.env}
     environment:
       REDIS_URL: redis://redis:6379
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-outpost}:${POSTGRES_PASSWORD:-outpost}@db:5432/${POSTGRES_DB:-outpost}
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-vertex}:${POSTGRES_PASSWORD:-vertex}@db:5432/${POSTGRES_DB:-vertex}
     depends_on:
       db:
         condition: service_healthy

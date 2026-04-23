@@ -9,7 +9,7 @@ from .base import BasePoller
 logger = logging.getLogger(__name__)
 
 NWS_BASE = "https://api.weather.gov"
-_HEADERS = {"User-Agent": "Outpost/0.1 (outpost; contact@localhost)"}
+_HEADERS = {"User-Agent": "Vertex/0.1 (vertex; contact@localhost)"}
 
 
 class WeatherPoller(BasePoller):

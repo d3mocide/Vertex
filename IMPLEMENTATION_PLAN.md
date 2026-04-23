@@ -1,8 +1,8 @@
-# Outpost — Master Implementation Plan
+# Vertex — Master Implementation Plan
 
 ## Project Vision
 
-Outpost is a local-first, real-time situational awareness dashboard for the Tualatin/Portland
+Vertex is a local-first, real-time situational awareness dashboard for the Tualatin/Portland
 metro area. It fuses aviation, maritime, weather, traffic, and emergency alert data into a single
 map-centric interface. The system runs on a Raspberry Pi 5 and supports both ARM64 and x86_64.
 
@@ -27,7 +27,7 @@ All base images carry native `linux/amd64` and `linux/arm64` manifests — no em
 ## Directory Structure
 
 ```
-outpost/
+vertex/
 ├── docker-compose.yml
 ├── .env.example
 ├── IMPLEMENTATION_PLAN.md
