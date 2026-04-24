@@ -1,0 +1,55 @@
+annotated-types==0.7.0
+    # via pydantic
+anyio==4.13.0
+    # via httpx
+asyncpg==0.30.0
+    # via -r requirements.txt
+certifi==2026.4.22
+    # via
+    #   httpcore
+    #   httpx
+feedparser==6.0.11
+    # via -r requirements.txt
+greenlet==3.4.0
+    # via sqlalchemy
+h11==0.16.0
+    # via httpcore
+hiredis==3.3.1
+    # via redis
+httpcore==1.0.9
+    # via httpx
+httpx==0.28.0
+    # via -r requirements.txt
+idna==3.13
+    # via
+    #   anyio
+    #   httpx
+pydantic==2.13.3
+    # via pydantic-settings
+pydantic-core==2.46.3
+    # via pydantic
+pydantic-settings==2.6.1
+    # via -r requirements.txt
+python-dateutil==2.9.0
+    # via -r requirements.txt
+python-dotenv==1.2.2
+    # via pydantic-settings
+redis[hiredis]==5.2.0
+    # via -r requirements.txt
+sgmllib3k==1.0.0
+    # via feedparser
+six==1.17.0
+    # via python-dateutil
+sqlalchemy[asyncio]==2.0.36
+    # via -r requirements.txt
+typing-extensions==4.15.0
+    # via
+    #   anyio
+    #   pydantic
+    #   pydantic-core
+    #   sqlalchemy
+    #   typing-inspection
+typing-inspection==0.4.2
+    # via pydantic
+websockets==13.1
+    # via -r requirements.txt
