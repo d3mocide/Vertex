@@ -6,6 +6,7 @@ const TABS: { id: NavTab; label: string; icon: string }[] = [
   { id: 'infrastructure', label: 'Infrastructure', icon: 'traffic'  },
   { id: 'environment',    label: 'Environment',    icon: 'eco'      },
   { id: 'community',      label: 'Community',      icon: 'groups'   },
+  { id: 'events',         label: 'Event Log',      icon: 'history'  },
 ]
 
 export function MobileNav() {

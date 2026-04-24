@@ -4,6 +4,7 @@ import 'maplibre-gl/dist/maplibre-gl.css'
 import { MAP_STYLE, DEFAULT_CENTER, DEFAULT_ZOOM } from '../config'
 import { RadarLayer }           from './layers/RadarLayer'
 import { MeshLayer }            from './layers/MeshLayer'
+import { GeofenceLayer }        from './layers/GeofenceLayer'
 import { ObservationRingLayer } from './layers/ObservationRingLayer'
 import { MapOverlay }           from './MapOverlay'
 import { useWebSocket }  from '../hooks/useWebSocket'
@@ -61,6 +62,7 @@ export function Map() {
         <>
           <RadarLayer            map={map} />
           <MeshLayer             map={map} />
+          <GeofenceLayer         map={map} />
           <ObservationRingLayer  map={map} />
           <MapOverlay            map={map} />
         </>

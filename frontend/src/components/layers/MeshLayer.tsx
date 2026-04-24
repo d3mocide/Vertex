@@ -10,15 +10,18 @@ const LAYER = 'mesh-node-points'
 const STALE_MS = 10 * 60 * 1000  // 10 minutes
 
 export function MeshLayer({ map }: Props) {
-  const nodes       = useEntitiesByType('mesh_node')
-  const selectEntity = useCivicStore((s) => s.selectEntity)
+  const nodes          = useEntitiesByType('mesh_node')
+  const selectEntity   = useCivicStore((s) => s.selectEntity)
+  const meshVisible    = useCivicStore((s) => s.entityFilter.mesh_node)
 
   useEffect(() => {
     const now = Date.now()
 
+    const visibleNodes = meshVisible ? nodes : []
+
     const geojson: GeoJSON.FeatureCollection = {
       type: 'FeatureCollection',
-      features: nodes.map((n) => {
+      features: visibleNodes.map((n) => {
         const lastMs  = n.last_seen ? Date.parse(n.last_seen) : 0
         const isStale = now - lastMs > STALE_MS
         return {
@@ -71,7 +74,7 @@ export function MeshLayer({ map }: Props) {
     } else {
       (map.getSource(SRC) as maplibregl.GeoJSONSource).setData(geojson)
     }
-  }, [nodes, map])
+  }, [nodes, map, meshVisible])
 
   return null
 }

@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import { WS_URL } from '../config'
 import { useCivicStore } from '../store'
 import { wsTokenParam } from '../auth'
+import { initNotifications, maybeNotify } from '../notifications'
 
 const RECONNECT_DELAY_MS = 3000
 
@@ -12,10 +13,11 @@ export function useWebSocket() {
   useEffect(() => {
     let cancelled = false
 
-    // Periodic cleanup for stale entities (e.g. ADSB tracks)
+    initNotifications()
+
     const cleanupInterval = setInterval(() => {
       purgeStaleEntities()
-    }, 10000) // check every 10 seconds
+    }, 10000)
 
     const connect = () => {
       if (cancelled) return
@@ -50,6 +52,7 @@ export function useWebSocket() {
             break
           case 'event':
             appendSystemEvent(msg.data)
+            maybeNotify(msg.data)
             break
         }
       }
