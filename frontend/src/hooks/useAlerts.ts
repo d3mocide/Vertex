@@ -65,8 +65,12 @@ export function useAlerts() {
 
     // Fetch utilities
     const pollUtilities = async () => {
-      const data = await fetchJson<any>(`${API_BASE}/utilities/pge`)
-      if (data) setUtilityStatus(data)
+      const [pge, oregon] = await Promise.all([
+        fetchJson<any>(`${API_BASE}/utilities/pge`),
+        fetchJson<any>(`${API_BASE}/utilities/oregon`),
+      ])
+      if (pge) setUtilityStatus(pge)
+      if (oregon) setOregonStatus(oregon)
     }
 
     // Initial fetch

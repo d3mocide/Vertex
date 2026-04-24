@@ -159,6 +159,15 @@ export function InfrastructureGrid() {
     last_updated: '—',
   }
 
+  const oregon = oregonStatus || {
+    status: 'Operational',
+    state_affected: 0,
+    metro_affected: 0,
+    pge_affected: 0,
+    pacificorp_affected: 0,
+    last_updated: '—',
+  }
+
   return (
     <div
       className="relative w-full h-full bg-onyx-black/95 backdrop-blur-sm z-10 flex flex-col overflow-hidden"
@@ -276,14 +285,21 @@ export function InfrastructureGrid() {
         <section aria-labelledby="utility-heading">
           <h3 id="utility-heading" className="section-heading mb-3">
             <span className="ms text-[14px] leading-none" aria-hidden="true">bolt</span>
-            Utility Status
+            Regional Utility Status
           </h3>
+          
           <div className="hud-panel p-3 mb-4">
-            <div className="label-caps mb-2">PGE POWER GRID</div>
-            <UtilityStatusRow label="System Status"      value={pge.status}              status={pge.active_outages > 0 ? 'warn' : 'ok'}   />
-            <UtilityStatusRow label="Active Outages"     value={String(pge.active_outages)} status={pge.active_outages > 0 ? 'warn' : 'ok'}   />
-            <UtilityStatusRow label="Customers Affected" value={pge.customers_affected > 0 ? String(pge.customers_affected) : '—'} status={pge.customers_affected > 0 ? 'warn' : 'ok'}   />
-            <UtilityStatusRow label="Last Updated"       value={pge.last_updated}        status="ok"   />
+            <div className="label-caps mb-2 text-amber-gold">Oregon Statewide (ODIN)</div>
+            <UtilityStatusRow label="Statewide Status"   value={oregon.status}            status={oregon.state_affected > 5000 ? 'down' : oregon.state_affected > 1000 ? 'warn' : 'ok'} />
+            <UtilityStatusRow label="Total Meters Out"   value={String(oregon.state_affected)} status={oregon.state_affected > 1000 ? 'warn' : 'ok'} />
+            <UtilityStatusRow label="Metro Area (W/M/C)" value={String(oregon.metro_affected)} status={oregon.metro_affected > 100 ? 'warn' : 'ok'} />
+          </div>
+
+          <div className="hud-panel p-3 mb-4">
+            <div className="label-caps mb-2">Major Providers</div>
+            <UtilityStatusRow label="PGE (Portland General)" value={String(oregon.pge_affected)}    status={oregon.pge_affected > 50 ? 'warn' : 'ok'} />
+            <UtilityStatusRow label="Pacific Power (PAC)"    value={String(oregon.pacificorp_affected)} status={oregon.pacificorp_affected > 50 ? 'warn' : 'ok'} />
+            <UtilityStatusRow label="Last Sync"               value={oregon.last_updated}      status="ok" />
           </div>
 
           <h3 className="section-heading mb-3">

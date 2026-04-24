@@ -41,6 +41,10 @@ export function useWebSocket() {
           case 'radio_update':
             if (msg.key === 'radio:active' || msg.type === 'radio_update') {
               setRadio(msg.data ?? msg)
+            } else if (msg.key === 'utility:pge') {
+              setUtilityStatus(msg.data)
+            } else if (msg.key === 'utility:oregon') {
+              setOregonStatus(msg.data)
             }
             break
           case 'event':

@@ -5,79 +5,92 @@ from .base import BasePoller
 
 logger = logging.getLogger(__name__)
 
-# PGE Outage Map API
-_PGE_SUMMARY_URL = "https://www.portlandgeneral.com/api/outage-map/outage-summary"
+# Oregon OEM ODIN Outage ArcGIS API
+_ODIN_URL = "https://services.arcgis.com/uUvqNMGPm7axC2dD/arcgis/rest/services/ODINPublicPoly_view/FeatureServer/0/query"
+
+METRO_COUNTIES = {"MULTNOMAH", "WASHINGTON", "CLACKAMAS"}
 
 
 class UtilityPoller(BasePoller):
     name = "utilities"
-    interval = 120  # Outage data is stable, 2m is fine
+    interval = 300  # 5 minutes is plenty for statewide aggregated data
 
     async def setup(self):
         self._consecutive_failures = 0
-        self._disabled_due_to_404 = False
-        logger.info("[utilities] Utility poller initialized (PGE)")
+        logger.info("[utilities] Utility poller initialized (Oregon ODIN)")
 
     async def poll(self):
-        if self._disabled_due_to_404:
-            return
-
         try:
-            async with httpx.AsyncClient(timeout=15, follow_redirects=True) as client:
-                headers = {
-                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-                    "Accept": "application/json",
-                    "Referer": "https://portlandgeneral.com/outages",
-                    "X-Requested-With": "XMLHttpRequest",
-                }
-                resp = await client.get(_PGE_SUMMARY_URL, headers=headers)
+            params = {
+                "where": "1=1",
+                "outFields": "utilityName,metersOut,CountyName",
+                "f": "json"
+            }
+            async with httpx.AsyncClient(timeout=20, follow_redirects=True) as client:
+                resp = await client.get(_ODIN_URL, params=params)
                 resp.raise_for_status()
                 data = resp.json()
                 
-                # The API returns: {"outageSummary": {"customersWithPower": 99.9, "customersAffected": 12, ...}}
-                summary = data.get("outageSummary", {})
-                
+                features = data.get("features", [])
+                if not features:
+                    logger.debug("[utilities] No outage features returned from ODIN")
+                    return
+
+                state_total_affected = 0
+                metro_total_affected = 0
+                utility_stats = {}
+
+                for feat in features:
+                    attr = feat.get("attributes", {})
+                    utility = attr.get("utilityName", "Unknown")
+                    affected = attr.get("metersOut") or 0
+                    county = (attr.get("CountyName") or "").upper()
+
+                    state_total_affected += affected
+                    if county in METRO_COUNTIES:
+                        metro_total_affected += affected
+
+                    if utility not in utility_stats:
+                        utility_stats[utility] = {"affected": 0, "counties": set()}
+                    
+                    utility_stats[utility]["affected"] += affected
+                    if county:
+                        utility_stats[utility]["counties"].add(county)
+
+                # Find major utilities for the summary
+                # (Focusing on PGE and Pacificorp as they are the primary ones for the user)
+                pge_data = utility_stats.get("PORTLAND GENERAL ELECTRIC CO", {"affected": 0})
+                pac_data = utility_stats.get("PACIFICORP", {"affected": 0})
+
+                await set_feed("utility:oregon", {
+                    "provider": "Oregon ODIN",
+                    "status": "Operational" if state_total_affected < 1000 else "Regional Outages",
+                    "state_affected": state_total_affected,
+                    "metro_affected": metro_total_affected,
+                    "pge_affected": pge_data["affected"],
+                    "pacificorp_affected": pac_data["affected"],
+                    "utility_count": len(utility_stats),
+                    "last_updated": "Just now",
+                })
+
+                # Maintain backward compatibility for the 'utility:pge' feed if frontend relies on it
+                # We'll map the Portland General Electric data here.
                 await set_feed("utility:pge", {
                     "provider": "PGE",
-                    "status": "Operational" if summary.get("customersWithPower", 100) > 99 else "Outages Detected",
-                    "active_outages": summary.get("activeOutages", 0),
-                    "customers_affected": summary.get("customersAffected", 0),
-                    "last_updated": summary.get("lastUpdated", "—"),
-                    "reliability": summary.get("customersWithPower", 100),
+                    "status": "Operational" if pge_data["affected"] < 100 else "Outages Detected",
+                    "active_outages": "—",  # ODIN doesn't provide incident count easily in this layer
+                    "customers_affected": pge_data["affected"],
+                    "last_updated": "Just now",
+                    "reliability": None,
                 })
 
                 if self._consecutive_failures > 0:
-                    logger.info("[utilities] PGE outage feed recovered after %d failures", self._consecutive_failures)
+                    logger.info("[utilities] Oregon ODIN feed recovered after %d failures", self._consecutive_failures)
                 self._consecutive_failures = 0
-        except httpx.HTTPStatusError as exc:
-            status = exc.response.status_code
-            self._consecutive_failures += 1
-            if status == 404:
-                self._disabled_due_to_404 = True
-                logger.warning("[utilities] PGE outage endpoint returned 404; disabling PGE polling until restart")
-                await set_feed("utility:pge", {
-                    "provider": "PGE",
-                    "status": "Unavailable",
-                    "active_outages": 0,
-                    "customers_affected": 0,
-                    "last_updated": "—",
-                    "reliability": None,
-                })
-                return
 
-            if self._consecutive_failures in (1, 5, 15):
-                logger.warning("[utilities] PGE outage fetch failed with HTTP %d", status)
-            else:
-                logger.debug("[utilities] PGE outage fetch still failing with HTTP %d", status)
-        except httpx.HTTPError as exc:
-            self._consecutive_failures += 1
-            if self._consecutive_failures in (1, 5, 15):
-                logger.warning("[utilities] PGE outage fetch failed (%s)", exc.__class__.__name__)
-            else:
-                logger.debug("[utilities] PGE outage fetch still failing (%s)", exc.__class__.__name__)
         except Exception as exc:
             self._consecutive_failures += 1
             if self._consecutive_failures in (1, 5, 15):
-                logger.warning("[utilities] Unexpected PGE poller failure (%s)", exc.__class__.__name__)
+                logger.warning("[utilities] Oregon ODIN fetch failed: %s", exc)
             else:
-                logger.debug("[utilities] Unexpected PGE poller failure (%s)", exc.__class__.__name__)
+                logger.debug("[utilities] Oregon ODIN fetch still failing: %s", exc)

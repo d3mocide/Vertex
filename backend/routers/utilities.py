@@ -28,3 +28,30 @@ async def get_pge_status():
             "last_updated": "—",
             "reliability": 100
         }
+
+
+@router.get("/oregon")
+async def get_oregon_status():
+    raw = await get_redis().get("feed:utility:oregon")
+    if not raw:
+        return {
+            "provider": "Oregon ODIN",
+            "status": "Operational",
+            "state_affected": 0,
+            "metro_affected": 0,
+            "pge_affected": 0,
+            "pacificorp_affected": 0,
+            "last_updated": "—"
+        }
+    try:
+        return json.loads(raw)
+    except (json.JSONDecodeError, TypeError):
+        return {
+            "provider": "Oregon ODIN",
+            "status": "Operational",
+            "state_affected": 0,
+            "metro_affected": 0,
+            "pge_affected": 0,
+            "pacificorp_affected": 0,
+            "last_updated": "—"
+        }

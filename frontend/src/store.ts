@@ -139,6 +139,7 @@ interface CivicStore {
   cameras:          TrafficCamera[]
   trafficFlow:      any[]
   utilityStatus:    any
+  oregonStatus:     any
   trail:            TrailPoint[]
 
   // Event log (ring buffer, capped at 100)
@@ -169,6 +170,7 @@ interface CivicStore {
   setCameras:       (cameras: TrafficCamera[]) => void
   setTrafficFlow:   (flow: any[]) => void
   setUtilityStatus: (status: any) => void
+  setOregonStatus:  (status: any) => void
   setTrail:         (trail: TrailPoint[]) => void
 
   // Actions — connection
@@ -271,6 +273,7 @@ export const useCivicStore = create<CivicStore>((set) => ({
   cameras:          [],
   trafficFlow:      [],
   utilityStatus:    null,
+  oregonStatus:     null,
   trail:            [],
 
   // Connection
@@ -344,6 +347,7 @@ export const useCivicStore = create<CivicStore>((set) => ({
   setCameras:   (cameras) => set({ cameras }),
   setTrafficFlow: (trafficFlow) => set({ trafficFlow }),
   setUtilityStatus: (utilityStatus) => set({ utilityStatus }),
+  setOregonStatus: (oregonStatus) => set({ oregonStatus }),
   setTrail:     (trail)   => set({ trail }),
 
   // Connection actions
