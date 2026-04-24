@@ -11,16 +11,6 @@ logger = logging.getLogger(__name__)
 # NWS CAP alerts API — no auth required, covers WA/Multnomah/Clackamas counties
 _NWS_HEADERS = {"User-Agent": "Vertex/0.1 (vertex; contact@localhost)"}
 
-# TVFR emergency alert RSS feed
-_TVFR_RSS_URL = "https://www.tvfr.com/RSSFeed.aspx?ModID=63&CID=Emergency-Alert-3"
-
-# FlashAlert Portland — emergency-only XML feed on flashalertnewswire.net
-# Discovered via flashalert.net/xml-feeds.html (the old flashalert.net RSS URLs
-# return 500 errors; this is the current working endpoint).
-_FLASHALERT_EMERGENCY_URL = (
-    "http://www.flashalertnewswire.net/IIN/reportsX/flashnews_xml_emergency.php"
-)
-
 # Reliable way to strip the FlashAlert proprietary DTD: slice from the root element.
 # The root is always <flashnews ...>, so we find it and discard the preamble.
 def _strip_flashalert_dtd(text: str) -> str:
@@ -67,14 +57,15 @@ class AlertPoller(BasePoller):
     async def poll(self):
         items: list[dict] = []
 
-        # ── FlashAlert Portland emergency feed ───────────────────────────────
-        try:
-            async with httpx.AsyncClient(timeout=15, follow_redirects=True) as client:
-                resp = await client.get(_FLASHALERT_EMERGENCY_URL)
-                resp.raise_for_status()
-            items.extend(_parse_flashalert_xml(resp.text))
-        except Exception as exc:
-            logger.warning("[alerts] flashalert failed: %s", exc)
+        # ── FlashAlert emergency feed ────────────────────────────────────────
+        if settings.flashalert_enabled:
+            try:
+                async with httpx.AsyncClient(timeout=15, follow_redirects=True) as client:
+                    resp = await client.get(settings.flashalert_url)
+                    resp.raise_for_status()
+                items.extend(_parse_flashalert_xml(resp.text))
+            except Exception as exc:
+                logger.warning("[alerts] flashalert failed: %s", exc)
 
         # ── NWS CAP alerts (covers WA/Multnomah/Clackamas) ──────────────────
         try:
@@ -97,22 +88,23 @@ class AlertPoller(BasePoller):
         except Exception as exc:
             logger.warning("[alerts] nws_cap failed: %s", exc)
 
-        # ── TVFR Emergency Alerts ─────────────────────────────────────────
-        try:
-            async with httpx.AsyncClient(timeout=15, follow_redirects=True) as client:
-                resp = await client.get(_TVFR_RSS_URL)
-                resp.raise_for_status()
-            feed = feedparser.parse(resp.text)
-            for entry in feed.entries[:10]:
-                items.append({
-                    "source":    "tvfr",
-                    "title":     entry.get("title", ""),
-                    "summary":   entry.get("summary", "") or entry.get("description", ""),
-                    "link":      entry.get("link", "https://www.tvfr.com"),
-                    "published": entry.get("published", "") or entry.get("updated", ""),
-                    "severity":  "Unknown",
-                })
-        except Exception as exc:
-            logger.warning("[alerts] tvfr failed: %s", repr(exc))
+        # ── TVFR / regional agency emergency alert RSS ────────────────────
+        if settings.tvfr_enabled:
+            try:
+                async with httpx.AsyncClient(timeout=15, follow_redirects=True) as client:
+                    resp = await client.get(settings.tvfr_rss_url)
+                    resp.raise_for_status()
+                feed = feedparser.parse(resp.text)
+                for entry in feed.entries[:10]:
+                    items.append({
+                        "source":    "tvfr",
+                        "title":     entry.get("title", ""),
+                        "summary":   entry.get("summary", "") or entry.get("description", ""),
+                        "link":      entry.get("link", settings.tvfr_rss_url),
+                        "published": entry.get("published", "") or entry.get("updated", ""),
+                        "severity":  "Unknown",
+                    })
+            except Exception as exc:
+                logger.warning("[alerts] tvfr failed: %s", repr(exc))
 
         await set_feed("alerts:flash", items)

@@ -145,35 +145,36 @@ def _parse_odot_cameras(data: dict) -> list[dict]:
 def _parse_odot_flow(data: dict, station_map: dict) -> list[dict]:
     """Normalize ODOT Traffic Detector response."""
     items: list[dict] = []
-    # Key is 'detector-data-items'
     records = data.get("detector-data-items", [])
-    
+    corridors = [c.strip() for c in settings.traffic_flow_corridors.split(",") if c.strip()]
+
     for rec in records:
-        # Structure: {"detector-list": {"detector-data-detail": {...}}}
         det_list = rec.get("detector-list", {})
         detail = det_list.get("detector-data-detail", {})
-        
+
         sid = detail.get("station-id")
-        if sid is None: continue
-        
+        if sid is None:
+            continue
+
         meta = station_map.get(sid)
-        if not meta: continue
+        if not meta:
+            continue
 
         hwy = meta.get("road", "")
         loc = meta.get("loc", "")
-        
-        # Filter for our specific corridor
-        if "I-5" in hwy or "99W" in hwy or "Pacific Highway" in hwy:
-            items.append({
-                "id":    str(sid),
-                "road":  hwy,
-                "loc":   loc,
-                "speed": detail.get("vehicle-speed"),
-                "occ":   detail.get("vehicle-occupancy"),
-                "vol":   detail.get("vehicle-count"),
-                "lat":   meta.get("lat"),
-                "lon":   meta.get("lon"),
-            })
+
+        if not any(c in hwy for c in corridors):
+            continue
+        items.append({
+            "id":    str(sid),
+            "road":  hwy,
+            "loc":   loc,
+            "speed": detail.get("vehicle-speed"),
+            "occ":   detail.get("vehicle-occupancy"),
+            "vol":   detail.get("vehicle-count"),
+            "lat":   meta.get("lat"),
+            "lon":   meta.get("lon"),
+        })
             
     return items
 

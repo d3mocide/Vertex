@@ -129,7 +129,7 @@ services:
       ALT: ${REGION_ALT:-100ft}
       READSB_GAIN: autogain
       TAR1090_ENABLE: "false"
-      PROMETHEUS_ENABLE: "false"
+      PROMETHEUS_ENABLE: "true"
     healthcheck:
       test: ["CMD-SHELL", "nc -z localhost 30047 || exit 1"]
       interval: 15s
@@ -237,6 +237,49 @@ services:
     networks:
       - internal
 
+  # ── Auth Profile ────────────────────────────────
+  # Start with: docker compose --profile auth up
+  # Exposes an authenticated HTTP reverse proxy on CADDY_PORT (default 8080).
+  # Generate a bcrypt hash for your password:
+  #   docker run --rm caddy:2-alpine caddy hash-password --plaintext 'yourpassword'
+  # Then set CADDY_BASICAUTH_USER and CADDY_BASICAUTH_HASH in your .env.
+
+  caddy:
+    image: caddy:2-alpine
+    profiles: [auth]
+    restart: unless-stopped
+    ports:
+      - "${CADDY_PORT:-8080}:${CADDY_PORT:-8080}"
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    environment:
+      CADDY_PORT: ${CADDY_PORT:-8080}
+      CADDY_BASICAUTH_USER: ${CADDY_BASICAUTH_USER:-admin}
+      CADDY_BASICAUTH_HASH: ${CADDY_BASICAUTH_HASH:-}
+    depends_on:
+      - frontend
+    networks:
+      - internal
+
+  # ── Remote Access Profile ────────────────────────
+  # Start with: docker compose --profile remote up
+  # Requires a Cloudflare tunnel token from dash.cloudflare.com > Zero Trust > Tunnels.
+  # Configure the tunnel to route HTTPS traffic to http://frontend:80
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    profiles: [remote]
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:-}
+    depends_on:
+      - frontend
+    networks:
+      - internal
+
 networks:
   internal:
     driver: bridge
@@ -245,3 +288,5 @@ volumes:
   db_data:
   redis_data:
   ultrafeeder_conf:
+  caddy_data:
+  caddy_config:
