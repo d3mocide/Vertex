@@ -117,7 +117,7 @@ const PLACEHOLDER_CAMERAS: TrafficCamera[] = [
 
 export function InfrastructureGrid() {
   const {
-    cameras, trafficFlow, utilityStatus, ldiMode, setLdiMode,
+    cameras, trafficFlow, utilityStatus, oregonStatus, ldiMode, setLdiMode,
     selectedCamId, setSelectedCamId,
     favoriteCamIds, toggleFavoriteCam,
   } = useCivicStore()

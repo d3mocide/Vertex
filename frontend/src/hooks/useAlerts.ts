@@ -13,7 +13,7 @@ async function fetchJson<T>(url: string): Promise<T | null> {
 }
 
 export function useAlerts() {
-  const { setAlerts, setNews, setWeather, setCameras, setTrafficFlow, setUtilityStatus } = useCivicStore()
+  const { setAlerts, setNews, setWeather, setCameras, setTrafficFlow, setUtilityStatus, setOregonStatus } = useCivicStore()
   const timers = useRef<ReturnType<typeof setInterval>[]>([])
 
   useEffect(() => {

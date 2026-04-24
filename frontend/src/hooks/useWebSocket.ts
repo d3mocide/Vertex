@@ -6,7 +6,7 @@ const RECONNECT_DELAY_MS = 3000
 
 export function useWebSocket() {
   const wsRef = useRef<WebSocket | null>(null)
-  const { setEntities, upsertEntity, purgeStaleEntities, setConnected, setRadio, appendSystemEvent } = useCivicStore()
+  const { setEntities, upsertEntity, purgeStaleEntities, setConnected, setRadio, appendSystemEvent, setUtilityStatus, setOregonStatus } = useCivicStore()
 
   useEffect(() => {
     let cancelled = false
