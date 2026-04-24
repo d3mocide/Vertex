@@ -5,10 +5,11 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from prometheus_fastapi_instrumentator import Instrumentator
 
+from auth_middleware import AuthMiddleware
 from config import settings
 from db.session import init_db
 from redis_bus import init_redis, close_redis
-from routers import entities, observations, events, weather, alerts, news, traffic, health, ws, radio, utilities, summary
+from routers import entities, observations, events, weather, alerts, news, traffic, health, ws, radio, utilities, summary, auth
 
 logging.basicConfig(
     level=settings.log_level,
@@ -34,8 +35,10 @@ app.add_middleware(
 )
 
 Instrumentator().instrument(app).expose(app)
+app.add_middleware(AuthMiddleware)
 
 app.include_router(health.router)
+app.include_router(auth.router, prefix="/api/v1")
 app.include_router(entities.router, prefix="/api/v1")
 app.include_router(observations.router, prefix="/api/v1")
 app.include_router(events.router, prefix="/api/v1")

@@ -130,22 +130,24 @@ No cloud lock-in, no subscriptions.
 - **Status:** Fixed ✓
 
 ### 12. Authentication / access control
-- **Files:** `caddy/Caddyfile`, `docker-compose.yml`, `.env.example`
+- **Files:** `backend/routers/auth.py`, `backend/auth_middleware.py`, `backend/config.py`,
+  `frontend/src/auth.ts`, `frontend/src/components/LoginPage.tsx`, `frontend/src/App.tsx`,
+  `frontend/src/hooks/useAlerts.ts`, `frontend/src/hooks/useWebSocket.ts`
 - **Roadmap:** M6
-- **What shipped:** Added a `caddy` service under `--profile auth`. Caddy listens on
-  `${CADDY_PORT:-8080}`, enforces HTTP basic auth via `CADDY_BASICAUTH_USER` /
-  `CADDY_BASICAUTH_HASH` (bcrypt), and reverse-proxies to `frontend:80`. The internal
-  stack remains unauthenticated for LAN use. Hash generation:
-  `docker run --rm caddy:2-alpine caddy hash-password --plaintext 'yourpassword'`
+- **What shipped:** In-app JWT authentication. Disabled by default (`AUTH_ENABLED=false`).
+  When enabled: `POST /api/v1/auth/token` issues a signed JWT (HS256, bcrypt password
+  verification). `AuthMiddleware` validates Bearer tokens on all HTTP routes and `?token=`
+  query param on WebSocket upgrades. `/health`, `/metrics`, and `/api/v1/auth/*` are always
+  public. Frontend fetches `GET /api/v1/auth/status` on load to decide whether to show the
+  login page — no rebuild required to toggle auth.
 - **Status:** Fixed ✓
 
-### 13. Cloudflare Tunnel / remote access
-- **File:** `docker-compose.yml`, `.env.example`
+### 13. Remote access
 - **Roadmap:** M6
-- **What shipped:** Added `cloudflared` service under `--profile remote`. Set
-  `CLOUDFLARE_TUNNEL_TOKEN` in `.env` and configure the tunnel in the Cloudflare dashboard
-  to route to `http://frontend:80` (or `http://caddy:8080` if using auth).
-- **Status:** Fixed ✓
+- **Note:** No container added. Deploy your own reverse proxy (nginx, Traefik, HAProxy)
+  in front of the frontend port and configure TLS termination there. The JWT auth layer
+  (item 12) provides the access control regardless of which proxy sits in front.
+- **Status:** Deferred — handled by external reverse proxy
 
 ### 14. Regional portability
 - **Files:** `poller/config.py`, `poller/pollers/alerts.py`, `poller/pollers/traffic.py`, `.env.example`
@@ -167,11 +169,14 @@ No cloud lock-in, no subscriptions.
 - **Files:** `poller/pollers/summary.py`, `poller/main.py`, `backend/routers/summary.py`,
   `backend/main.py`, `poller/requirements.txt`, `poller/config.py`, `.env.example`
 - **Roadmap:** M6
-- **What shipped:** `AISummaryPoller` runs every 5 minutes. When `ANTHROPIC_API_KEY` is set,
-  it reads `feed:weather:alerts`, `feed:alerts:flash`, and `feed:traffic:incidents` from
-  Redis, prompts `claude-haiku-4-5-20251001` for a 2-3 sentence situational awareness
-  summary, and stores the result in `feed:summary:latest`. Backend exposes it at
-  `GET /api/v1/summary`. Leave `ANTHROPIC_API_KEY` blank to disable.
+- **What shipped:** `AISummaryPoller` runs every 5 minutes. Uses **LiteLLM** so any
+  compatible model works — cloud (Anthropic, OpenAI) or fully local/off-grid (Ollama,
+  LM Studio). Set `SUMMARY_LLM_MODEL` to enable; leave blank to disable. Model is scoped
+  in `.env`:
+  - `anthropic/claude-haiku-4-5-20251001` + `SUMMARY_LLM_API_KEY`
+  - `ollama/llama3.2` + `SUMMARY_LLM_API_BASE=http://host:11434` (no key)
+  Reads active alerts and incidents from Redis, stores 2-3 sentence narrative in
+  `feed:summary:latest`. Backend exposes it at `GET /api/v1/summary`.
 - **Status:** Fixed ✓
 
 ---
@@ -237,7 +242,7 @@ No cloud lock-in, no subscriptions.
 | 23 | Camera map layer controls | P2.5 Shipped | M | ✓ Done |
 | 11 | Prometheus metrics | P3 Roadmap | S | ✓ Done |
 | 12 | Authentication | P3 Roadmap | M | ✓ Done |
-| 13 | Remote access | P3 Roadmap | S | ✓ Done |
+| 13 | Remote access | P3 Roadmap | S | Deferred (external proxy) |
 | 14 | Regional portability | P3 Roadmap | M | ✓ Done |
 | 15 | Trail completeness | P3 Roadmap | XS | ✓ Done |
 | 16 | AI summary worker | P3 Roadmap | M | ✓ Done |

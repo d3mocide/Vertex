@@ -1,6 +1,10 @@
+import { useState, useEffect } from 'react'
 import { useCivicStore } from './store'
 import { useAlerts } from './hooks/useAlerts'
 import { useSystemHealth } from './hooks/useSystemHealth'
+import { LoginPage } from './components/LoginPage'
+import { isLoggedIn } from './auth'
+import { API_BASE } from './config'
 
 import { AlertStatusBar }    from './components/layout/AlertStatusBar'
 import { Sidebar }           from './components/layout/Sidebar'
@@ -16,8 +20,8 @@ import { EnvironmentPanel }  from './components/panels/EnvironmentPanel'
 import { CommunityPanel }    from './components/panels/CommunityPanel'
 import { CameraModal }       from './components/panels/CameraModal'
 
-export default function App() {
-  // Bootstrap data connections
+// ── Authenticated dashboard ────────────────────────────────────────────────────
+function Dashboard() {
   useAlerts()
   useSystemHealth()
 
@@ -29,18 +33,12 @@ export default function App() {
       className="dark h-screen w-screen overflow-hidden flex flex-col font-body text-sm antialiased bg-onyx-black text-on-surface"
       data-mode={mode}
     >
-      {/* Traffic-light status bar — spans full width */}
       <AlertStatusBar />
 
       <div className="flex flex-1 min-h-0">
-        {/* ── Left sidebar ───────────────────────────────────────────── */}
         <Sidebar />
 
-        {/* ── Main content area ──────────────────────────────────────── */}
-        <div
-          className="relative flex-1 min-w-0 overflow-hidden transition-all duration-300"
-        >
-          {/* Top floating glass controls */}
+        <div className="relative flex-1 min-w-0 overflow-hidden transition-all duration-300">
           <div className="absolute top-0 inset-x-0 z-40 pointer-events-none">
             <div className="pointer-events-auto">
               <Header />
@@ -48,11 +46,7 @@ export default function App() {
             </div>
           </div>
 
-          {/* Content area — map fills the entire parent area */}
           <div className="absolute inset-0 overflow-hidden">
-
-
-            {/* Map — always rendered so data stays live */}
             <div
               className={`
                 absolute inset-0 transition-opacity duration-300
@@ -63,25 +57,18 @@ export default function App() {
               <Map />
             </div>
 
-            {/* ── Tab panels (overlay map) ─────────────────────────── */}
             {activeTab !== 'safety' && (
               <div className="absolute top-24 inset-x-0 bottom-0 z-10 bg-onyx-black/40 backdrop-blur-sm overflow-y-auto">
                 {activeTab === 'infrastructure' && <InfrastructureGrid />}
-
                 {activeTab === 'environment'    && <EnvironmentPanel   />}
                 {activeTab === 'community'      && <CommunityPanel     />}
               </div>
             )}
 
-
-
-            {/* Tactical audio HUD — always mounted so stream persists across tabs */}
             <TacticalAudio />
 
-            {/* ── Safety-tab overlays (only on safety/map view) ────── */}
             {activeTab === 'safety' && (
               <>
-                {/* Entity detail card — appears on entity click */}
                 <EntityDetail />
               </>
             )}
@@ -92,13 +79,11 @@ export default function App() {
               </>
             )}
 
-            {/* Global Camera Viewer */}
             <CameraModal />
           </div>
         </div>
       </div>
 
-      {/* Skip-to-main accessibility link */}
       <a
         href="#main-content"
         className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 btn-primary"
@@ -106,9 +91,32 @@ export default function App() {
         Skip to main content
       </a>
 
-      {/* Global overlays */}
       <MobileNav />
       <SettingsPanel />
     </div>
   )
+}
+
+// ── Auth gate ─────────────────────────────────────────────────────────────────
+export default function App() {
+  const [authChecked, setAuthChecked] = useState(false)
+  const [authed, setAuthed]           = useState(false)
+
+  useEffect(() => {
+    fetch(`${API_BASE}/auth/status`)
+      .then(r => r.json())
+      .then(({ auth_enabled }: { auth_enabled: boolean }) => {
+        setAuthed(!auth_enabled || isLoggedIn())
+        setAuthChecked(true)
+      })
+      .catch(() => {
+        // Can't reach server yet — proceed without auth gate
+        setAuthed(true)
+        setAuthChecked(true)
+      })
+  }, [])
+
+  if (!authChecked) return null
+  if (!authed) return <LoginPage onLogin={() => setAuthed(true)} />
+  return <Dashboard />
 }

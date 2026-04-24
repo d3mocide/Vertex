@@ -2,15 +2,15 @@ import json
 import logging
 from datetime import datetime, timezone
 
-import anthropic
+import litellm
 
 from bus import get_bus, set_feed
 from config import settings
 from .base import BasePoller
 
 logger = logging.getLogger(__name__)
+litellm.suppress_debug_info = True
 
-_MODEL = "claude-haiku-4-5-20251001"
 _MAX_TOKENS = 256
 _SYSTEM = (
     "You are a situational awareness assistant for a local emergency operations center. "
@@ -23,11 +23,13 @@ class AISummaryPoller(BasePoller):
     interval = 300  # 5 minutes
 
     async def setup(self):
-        if not settings.anthropic_api_key:
-            logger.warning("[summary] ANTHROPIC_API_KEY not set — AI summaries disabled.")
+        if not settings.summary_llm_model:
+            logger.warning("[summary] SUMMARY_LLM_MODEL not set — AI summaries disabled.")
+        else:
+            logger.info("[summary] AI summary using model: %s", settings.summary_llm_model)
 
     async def poll(self):
-        if not settings.anthropic_api_key:
+        if not settings.summary_llm_model:
             return
 
         r = await get_bus()
@@ -68,22 +70,29 @@ class AISummaryPoller(BasePoller):
             + "\n\n".join(context_parts)
         )
 
+        kwargs: dict = {
+            "model": settings.summary_llm_model,
+            "messages": [
+                {"role": "system", "content": _SYSTEM},
+                {"role": "user", "content": prompt},
+            ],
+            "max_tokens": _MAX_TOKENS,
+        }
+        if settings.summary_llm_api_key:
+            kwargs["api_key"] = settings.summary_llm_api_key
+        if settings.summary_llm_api_base:
+            kwargs["api_base"] = settings.summary_llm_api_base
+
         try:
-            client = anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key)
-            message = await client.messages.create(
-                model=_MODEL,
-                max_tokens=_MAX_TOKENS,
-                system=_SYSTEM,
-                messages=[{"role": "user", "content": prompt}],
-            )
-            text = message.content[0].text.strip()
+            response = await litellm.acompletion(**kwargs)
+            text = response.choices[0].message.content.strip()
         except Exception as exc:
-            logger.warning("[summary] Anthropic API call failed: %s", exc)
+            logger.warning("[summary] LLM call failed (%s): %s", settings.summary_llm_model, exc)
             return
 
         await set_feed("summary:latest", {
             "ts": datetime.now(timezone.utc).isoformat(),
             "summary": text,
-            "model": _MODEL,
+            "model": settings.summary_llm_model,
         })
-        logger.info("[summary] Updated situational summary.")
+        logger.info("[summary] Updated situational summary via %s.", settings.summary_llm_model)

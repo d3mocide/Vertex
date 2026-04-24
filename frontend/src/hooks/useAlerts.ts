@@ -1,10 +1,12 @@
 import { useEffect, useRef } from 'react'
 import { API_BASE, ALERTS_POLL_MS, NEWS_POLL_MS, WEATHER_POLL_MS, CAMERAS_POLL_MS } from '../config'
 import { useCivicStore } from '../store'
+import { authHeaders, clearToken } from '../auth'
 
 async function fetchJson<T>(url: string): Promise<T | null> {
   try {
-    const res = await fetch(url)
+    const res = await fetch(url, { headers: authHeaders() })
+    if (res.status === 401) { clearToken(); window.location.reload(); return null }
     if (!res.ok) return null
     return res.json() as Promise<T>
   } catch {

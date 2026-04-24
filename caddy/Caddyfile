@@ -1,6 +1,0 @@
-:{$CADDY_PORT:8080} {
-    basicauth /* {
-        {$CADDY_BASICAUTH_USER} {$CADDY_BASICAUTH_HASH}
-    }
-    reverse_proxy frontend:80
-}

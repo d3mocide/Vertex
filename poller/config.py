@@ -42,8 +42,15 @@ class Settings(BaseSettings):
     tvfr_rss_url: str = "https://www.tvfr.com/RSSFeed.aspx?ModID=63&CID=Emergency-Alert-3"
     tvfr_enabled: bool = True
 
-    # Anthropic API key — set to enable the AI situational summary poller
-    anthropic_api_key: str = ""
+    # AI situational summary — configure any LiteLLM-compatible model.
+    # Examples:
+    #   anthropic/claude-haiku-4-5-20251001  (requires SUMMARY_LLM_API_KEY)
+    #   ollama/llama3.2                       (requires SUMMARY_LLM_API_BASE=http://host:11434)
+    #   openai/gpt-4o-mini                    (requires SUMMARY_LLM_API_KEY)
+    # Leave SUMMARY_LLM_MODEL blank to disable the summary poller entirely.
+    summary_llm_model: str = ""
+    summary_llm_api_key: str = ""
+    summary_llm_api_base: str = ""
 
     # Local ADS-B — Ultrafeeder tar1090
     # Option A: Set ULTRAFEEDER_URL to the full aircraft.json URL
