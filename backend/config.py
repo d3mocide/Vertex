@@ -14,6 +14,11 @@ class Settings(BaseSettings):
     bbox_max_lon: float = -121.8
     radio_stream_url: str = "/stream/op25"
 
+    # Authentication (disabled by default — set AUTH_ENABLED=true to activate)
+    auth_enabled: bool = False
+    auth_secret_key: str = ""       # generate: openssl rand -hex 32
+    auth_token_expire_hours: int = 24
+
     class Config:
         env_file = ".env"
 

@@ -129,7 +129,7 @@ services:
       ALT: ${REGION_ALT:-100ft}
       READSB_GAIN: autogain
       TAR1090_ENABLE: "false"
-      PROMETHEUS_ENABLE: "false"
+      PROMETHEUS_ENABLE: "true"
     healthcheck:
       test: ["CMD-SHELL", "nc -z localhost 30047 || exit 1"]
       interval: 15s

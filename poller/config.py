@@ -27,8 +27,30 @@ class Settings(BaseSettings):
     odot_incidents_url: str = ""  # deprecated RSS URL, kept for backward compat
     odot_api_key: str = ""         # set to enable the new TripCheck REST API
 
+    # Traffic flow corridor filter — comma-separated highway name fragments.
+    # Only detector stations whose highway name contains one of these fragments
+    # are included in the traffic:flow feed. Override to match your region.
+    traffic_flow_corridors: str = "I-5,99W,Pacific Highway"
+
     # EPA AirNow AQI API (free key from airnowapi.org)
     airnow_api_key: str = ""
+
+    # Regional alert feeds — override these to adapt to non-Portland deployments.
+    # Set _enabled to false to disable a source entirely.
+    flashalert_url: str = "http://www.flashalertnewswire.net/IIN/reportsX/flashnews_xml_emergency.php"
+    flashalert_enabled: bool = True
+    tvfr_rss_url: str = "https://www.tvfr.com/RSSFeed.aspx?ModID=63&CID=Emergency-Alert-3"
+    tvfr_enabled: bool = True
+
+    # AI situational summary — configure any LiteLLM-compatible model.
+    # Examples:
+    #   anthropic/claude-haiku-4-5-20251001  (requires SUMMARY_LLM_API_KEY)
+    #   ollama/llama3.2                       (requires SUMMARY_LLM_API_BASE=http://host:11434)
+    #   openai/gpt-4o-mini                    (requires SUMMARY_LLM_API_KEY)
+    # Leave SUMMARY_LLM_MODEL blank to disable the summary poller entirely.
+    summary_llm_model: str = ""
+    summary_llm_api_key: str = ""
+    summary_llm_api_base: str = ""
 
     # Local ADS-B — Ultrafeeder tar1090
     # Option A: Set ULTRAFEEDER_URL to the full aircraft.json URL

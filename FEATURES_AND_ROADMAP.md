@@ -122,43 +122,62 @@ No cloud lock-in, no subscriptions.
 ## P3 — Missing Features from the M1–M6 Roadmap
 
 ### 11. Prometheus metrics endpoint
-- **File:** `backend/main.py`
+- **File:** `backend/main.py`, `backend/requirements.txt`, `docker-compose.yml`
 - **Roadmap:** M6
-- **Suggested implementation:** Add `prometheus-fastapi-instrumentator` to backend
-  requirements. Expose `/metrics`. Add `PROMETHEUS_ENABLE=true` to ultrafeeder env to enable
-  its native metrics endpoint.
+- **What shipped:** Added `prometheus-fastapi-instrumentator` to backend requirements.
+  `Instrumentator().instrument(app).expose(app)` wires up `/metrics` in `backend/main.py`.
+  Ultrafeeder `PROMETHEUS_ENABLE` flipped to `"true"` to expose its native ADS-B metrics.
+- **Status:** Fixed ✓
 
 ### 12. Authentication / access control
-- **Files:** `backend/main.py`, `docker-compose.yml`
+- **Files:** `backend/routers/auth.py`, `backend/auth_middleware.py`, `backend/config.py`,
+  `frontend/src/auth.ts`, `frontend/src/components/LoginPage.tsx`, `frontend/src/App.tsx`,
+  `frontend/src/hooks/useAlerts.ts`, `frontend/src/hooks/useWebSocket.ts`
 - **Roadmap:** M6
-- **Current state:** CORS is `allow_origins=["*"]`. No auth on REST or WebSocket.
-- **Suggested implementation:** Caddy reverse proxy with basic auth or OIDC as the outermost
-  layer. Keep the internal stack unauthenticated (LAN only).
+- **What shipped:** In-app JWT authentication. Disabled by default (`AUTH_ENABLED=false`).
+  When enabled: `POST /api/v1/auth/token` issues a signed JWT (HS256, bcrypt password
+  verification). `AuthMiddleware` validates Bearer tokens on all HTTP routes and `?token=`
+  query param on WebSocket upgrades. `/health`, `/metrics`, and `/api/v1/auth/*` are always
+  public. Frontend fetches `GET /api/v1/auth/status` on load to decide whether to show the
+  login page — no rebuild required to toggle auth.
+- **Status:** Fixed ✓
 
-### 13. Cloudflare Tunnel / remote access
-- **File:** `docker-compose.yml`
+### 13. Remote access
 - **Roadmap:** M6
-- **Suggested implementation:** Add an optional `cloudflared` container as a Compose profile
-  (`--profile remote`). Requires a Cloudflare account with a free tunnel.
+- **Note:** No container added. Deploy your own reverse proxy (nginx, Traefik, HAProxy)
+  in front of the frontend port and configure TLS termination there. The JWT auth layer
+  (item 12) provides the access control regardless of which proxy sits in front.
+- **Status:** Deferred — handled by external reverse proxy
 
 ### 14. Regional portability
-- **Files:** `poller/pollers/alerts.py`, `poller/pollers/traffic.py`, `.env.example`
-- **Problem:** FlashAlert, TVFR, PGE, and ODOT traffic flow routes are all hardcoded to
-  the Portland/Oregon metro area. The `.env` supports region config but pollers don't honor it.
-- **Suggested fix:** Move all region-specific RSS URLs and route names to `Settings` so they
-  can be overridden via env vars.
+- **Files:** `poller/config.py`, `poller/pollers/alerts.py`, `poller/pollers/traffic.py`, `.env.example`
+- **What shipped:** Moved all region-specific hardcoded values to `Settings`:
+  `flashalert_url`, `flashalert_enabled`, `tvfr_rss_url`, `tvfr_enabled`,
+  `traffic_flow_corridors`. Set any `_enabled` flag to `false` or replace URLs to adapt
+  to a non-Portland deployment. Traffic flow corridor filter now reads from a comma-separated
+  env var instead of a hardcoded `if "I-5" in hwy` check.
+- **Status:** Fixed ✓
 
 ### 15. Observation trail completeness
-- **Files:** `backend/routers/observations.py`, `backend/schemas/observation.py`
-- **Problem:** The trail endpoint doesn't expose `signal_quality` or `raw_payload` columns
-  even though they exist in the DB.
-- **Suggested fix:** Add those fields to `ObservationSchema` and the SQL query.
+- **File:** `backend/schemas/observation.py`
+- **What shipped:** Added `signal_quality: Optional[float]` and `raw_payload: Optional[dict]`
+  to `ObservationSchema`. The ORM model already had both columns; only the Pydantic schema
+  was missing them.
+- **Status:** Fixed ✓
 
 ### 16. AI summary worker
+- **Files:** `poller/pollers/summary.py`, `poller/main.py`, `backend/routers/summary.py`,
+  `backend/main.py`, `poller/requirements.txt`, `poller/config.py`, `.env.example`
 - **Roadmap:** M6
-- **Suggested implementation:** A small async worker (add to poller or as its own container)
-  that periodically calls the Anthropic API to produce a plain-language incident narrative
-  from the current `alerts`, `weather:alerts`, and `events` Redis keys.
+- **What shipped:** `AISummaryPoller` runs every 5 minutes. Uses **LiteLLM** so any
+  compatible model works — cloud (Anthropic, OpenAI) or fully local/off-grid (Ollama,
+  LM Studio). Set `SUMMARY_LLM_MODEL` to enable; leave blank to disable. Model is scoped
+  in `.env`:
+  - `anthropic/claude-haiku-4-5-20251001` + `SUMMARY_LLM_API_KEY`
+  - `ollama/llama3.2` + `SUMMARY_LLM_API_BASE=http://host:11434` (no key)
+  Reads active alerts and incidents from Redis, stores 2-3 sentence narrative in
+  `feed:summary:latest`. Backend exposes it at `GET /api/v1/summary`.
+- **Status:** Fixed ✓
 
 ---
 
@@ -221,12 +240,12 @@ No cloud lock-in, no subscriptions.
 | 9 | Settings panel | P2 UI | M | ✓ Done |
 | 10 | Audio channel controls | P2 UI | S | ✓ Done |
 | 23 | Camera map layer controls | P2.5 Shipped | M | ✓ Done |
-| 11 | Prometheus metrics | P3 Roadmap | S | — |
-| 12 | Authentication | P3 Roadmap | M | — |
-| 13 | Remote access | P3 Roadmap | S | — |
-| 14 | Regional portability | P3 Roadmap | M | — |
-| 15 | Trail completeness | P3 Roadmap | XS | — |
-| 16 | AI summary worker | P3 Roadmap | M | — |
+| 11 | Prometheus metrics | P3 Roadmap | S | ✓ Done |
+| 12 | Authentication | P3 Roadmap | M | ✓ Done |
+| 13 | Remote access | P3 Roadmap | S | Deferred (external proxy) |
+| 14 | Regional portability | P3 Roadmap | M | ✓ Done |
+| 15 | Trail completeness | P3 Roadmap | XS | ✓ Done |
+| 16 | AI summary worker | P3 Roadmap | M | ✓ Done |
 | 17 | Event log panel | P4 New | S | — |
 | 18 | Entity search/filter | P4 New | M | — |
 | 19 | Historical playback | P4 New | L | — |

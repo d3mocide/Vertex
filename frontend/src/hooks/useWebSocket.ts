@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { WS_URL } from '../config'
 import { useCivicStore } from '../store'
+import { wsTokenParam } from '../auth'
 
 const RECONNECT_DELAY_MS = 3000
 
@@ -18,7 +19,7 @@ export function useWebSocket() {
 
     const connect = () => {
       if (cancelled) return
-      const ws = new WebSocket(WS_URL)
+      const ws = new WebSocket(WS_URL + wsTokenParam())
       wsRef.current = ws
 
       ws.onopen  = () => setConnected(true)

@@ -13,6 +13,8 @@ class ObservationSchema(BaseModel):
     speed: Optional[float] = None
     vertical_rate: Optional[float] = None
     status: Optional[str] = None
+    signal_quality: Optional[float] = None
+    raw_payload: Optional[dict] = None
 
     class Config:
         from_attributes = True

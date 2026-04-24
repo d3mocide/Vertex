@@ -10,6 +10,7 @@ from pollers.traffic import TrafficPoller
 from pollers.utilities import UtilityPoller
 from pollers.p25 import P25Poller
 from pollers.meshcore import MeshCorePoller
+from pollers.summary import AISummaryPoller
 from bus import close
 from db import init_db, close_db, purge_observations
 
@@ -47,6 +48,7 @@ async def main():
         UtilityPoller(),
         P25Poller(),
         MeshCorePoller(),
+        AISummaryPoller(),
     ]
     tasks = [asyncio.create_task(p.run()) for p in pollers]
     tasks.append(asyncio.create_task(_purge_loop()))
