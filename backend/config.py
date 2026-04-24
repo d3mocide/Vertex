@@ -16,10 +16,7 @@ class Settings(BaseSettings):
 
     # Authentication (disabled by default — set AUTH_ENABLED=true to activate)
     auth_enabled: bool = False
-    auth_secret_key: str = ""           # generate with: openssl rand -hex 32
-    auth_username: str = "admin"
-    auth_password_hash: str = ""        # bcrypt hash; generate in Python:
-                                        # from passlib.hash import bcrypt; bcrypt.hash("pw")
+    auth_secret_key: str = ""       # generate: openssl rand -hex 32
     auth_token_expire_hours: int = 24
 
     class Config:

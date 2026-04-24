@@ -99,24 +99,25 @@ function Dashboard() {
 
 // ── Auth gate ─────────────────────────────────────────────────────────────────
 export default function App() {
-  const [authChecked, setAuthChecked] = useState(false)
-  const [authed, setAuthed]           = useState(false)
+  const [authChecked, setAuthChecked]     = useState(false)
+  const [authed, setAuthed]               = useState(false)
+  const [setupRequired, setSetupRequired] = useState(false)
 
   useEffect(() => {
     fetch(`${API_BASE}/auth/status`)
       .then(r => r.json())
-      .then(({ auth_enabled }: { auth_enabled: boolean }) => {
-        setAuthed(!auth_enabled || isLoggedIn())
+      .then(({ auth_enabled, setup_required }: { auth_enabled: boolean; setup_required: boolean }) => {
+        setSetupRequired(setup_required)
+        setAuthed(!auth_enabled || (!setup_required && isLoggedIn()))
         setAuthChecked(true)
       })
       .catch(() => {
-        // Can't reach server yet — proceed without auth gate
         setAuthed(true)
         setAuthChecked(true)
       })
   }, [])
 
   if (!authChecked) return null
-  if (!authed) return <LoginPage onLogin={() => setAuthed(true)} />
+  if (!authed) return <LoginPage onLogin={() => setAuthed(true)} setupRequired={setupRequired} />
   return <Dashboard />
 }

@@ -85,3 +85,17 @@ CREATE OR REPLACE FUNCTION purge_old_observations() RETURNS void
     LANGUAGE SQL AS $$
         DELETE FROM observations WHERE ts < NOW() - INTERVAL '30 days';
     $$;
+
+-- -------------------------------------------------------------------------
+-- users: local accounts for dashboard authentication
+-- -------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS users (
+    id            SERIAL       PRIMARY KEY,
+    username      VARCHAR(64)  UNIQUE NOT NULL,
+    password_hash VARCHAR(256) NOT NULL,
+    role          VARCHAR(32)  NOT NULL DEFAULT 'admin',
+    created_at    TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    last_login    TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS ix_users_username ON users (username);
