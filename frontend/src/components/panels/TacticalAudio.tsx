@@ -28,6 +28,7 @@ export function TacticalAudio() {
   const [elapsed,  setElapsed]  = useState(0)
   const [showChannels, setShowChannels] = useState(false)
   const [talkgroupLog, setTalkgroupLog] = useState<TalkgroupLogRow[]>([])
+  const [selectedTgIdx, setSelectedTgIdx] = useState<number | null>(null)
   const timerRef   = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const radio = useCivicStore((s) => s.radio)
@@ -121,10 +122,6 @@ export function TacticalAudio() {
     }
   }, [])
 
-  const activeTag = radio?.tag
-    ?? (radio?.tgid ? talkgroupLog.find((c) => c.tgid === radio.tgid)?.label : null)
-    ?? 'SCAN'
-
   const visibleTalkgroups: TalkgroupLogRow[] = (() => {
     const rows = [...talkgroupLog]
     if (radio?.tgid) {
@@ -137,6 +134,23 @@ export function TacticalAudio() {
     }
     return rows
   })()
+
+  const skipChannel = (dir: -1 | 1) => {
+    if (visibleTalkgroups.length === 0) return
+    setSelectedTgIdx((prev) => {
+      const base = prev ?? (dir === 1 ? -1 : visibleTalkgroups.length)
+      const next = (base + dir + visibleTalkgroups.length) % visibleTalkgroups.length
+      return next
+    })
+    setShowChannels(true)
+  }
+
+  const selectedTg = selectedTgIdx !== null ? visibleTalkgroups[selectedTgIdx] ?? null : null
+
+  const activeTag = selectedTg?.label
+    ?? radio?.tag
+    ?? (radio?.tgid ? talkgroupLog.find((c) => c.tgid === radio.tgid)?.label : null)
+    ?? 'SCAN'
 
   const formatElapsed = (s: number) => {
     const mm = String(Math.floor(s / 60)).padStart(2, '0')
@@ -167,15 +181,19 @@ export function TacticalAudio() {
                  Awaiting radio activity...
                </div>
              ) : (
-               visibleTalkgroups.map((ch) => {
-                 const isCurrent = radio?.tgid === ch.tgid
+               visibleTalkgroups.map((ch, idx) => {
+                 const isLive     = radio?.tgid === ch.tgid
+                 const isSelected = selectedTgIdx === idx
+                 const highlight  = isLive || isSelected
                  return (
                    <button
                      key={ch.tgid}
+                     onClick={() => setSelectedTgIdx(idx)}
                      className={`
                        w-full px-4 py-2.5 flex items-center gap-3 text-left transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-amber-gold
-                       ${isCurrent ? 'bg-amber-gold-muted/30 text-amber-gold border-l-2 border-amber-gold' : 'text-on-surface-variant hover:bg-surface-container border-l-2 border-transparent'}
+                       ${highlight ? 'bg-amber-gold-muted/30 text-amber-gold border-l-2 border-amber-gold' : 'text-on-surface-variant hover:bg-surface-container border-l-2 border-transparent'}
                      `}
+                     aria-pressed={isSelected}
                    >
                      <span className="ms text-[18px] leading-none" aria-hidden="true">radio</span>
                      <div className="flex-1 min-w-0">
@@ -206,8 +224,14 @@ export function TacticalAudio() {
             </h2>
             <div className="w-px h-3 bg-white/10 shrink-0" />
             <div className="flex items-center gap-2 font-mono text-[9px] text-on-surface-variant truncate">
-              <span>{radio?.tgid ? `TGID ${radio.tgid}` : 'TACTICAL AUDIO'}</span>
-              {radio?.freq_hz && (
+              <span>
+                {selectedTg && selectedTg.tgid !== radio?.tgid
+                  ? `TGID ${selectedTg.tgid}`
+                  : radio?.tgid
+                    ? `TGID ${radio.tgid}`
+                    : 'TACTICAL AUDIO'}
+              </span>
+              {radio?.freq_hz && !selectedTg && (
                 <>
                   <span className="opacity-50">•</span>
                   <span>{(radio.freq_hz / 1e6).toFixed(4)} MHz</span>
@@ -226,7 +250,12 @@ export function TacticalAudio() {
 
         {/* Middle Section (Playback Controls) - Absolutely Centered */}
         <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-3 shrink-0 h-full">
-          <button className="text-on-surface-variant hover:text-amber-gold transition-colors focus:outline-none flex" aria-label="Previous channel">
+          <button
+            onClick={() => skipChannel(-1)}
+            disabled={visibleTalkgroups.length === 0}
+            className="text-on-surface-variant hover:text-amber-gold transition-colors focus:outline-none flex disabled:opacity-30"
+            aria-label="Previous channel"
+          >
             <span className="ms text-[18px]">skip_previous</span>
           </button>
 
@@ -250,7 +279,12 @@ export function TacticalAudio() {
           </button>
 
 
-          <button className="text-on-surface-variant hover:text-amber-gold transition-colors focus:outline-none flex" aria-label="Next channel">
+          <button
+            onClick={() => skipChannel(1)}
+            disabled={visibleTalkgroups.length === 0}
+            className="text-on-surface-variant hover:text-amber-gold transition-colors focus:outline-none flex disabled:opacity-30"
+            aria-label="Next channel"
+          >
             <span className="ms text-[18px]">skip_next</span>
           </button>
         </div>

@@ -6,6 +6,8 @@ import { AlertStatusBar }    from './components/layout/AlertStatusBar'
 import { Sidebar }           from './components/layout/Sidebar'
 import { Header }            from './components/layout/Header'
 import { EnvBar }            from './components/layout/EnvBar'
+import { MobileNav }         from './components/layout/MobileNav'
+import { SettingsPanel }     from './components/layout/SettingsPanel'
 import { Map }               from './components/Map'
 import { TacticalAudio }     from './components/panels/TacticalAudio'
 import { EntityDetail }      from './components/panels/EntityDetail'
@@ -103,6 +105,10 @@ export default function App() {
       >
         Skip to main content
       </a>
+
+      {/* Global overlays */}
+      <MobileNav />
+      <SettingsPanel />
     </div>
   )
 }
