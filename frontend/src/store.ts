@@ -126,6 +126,7 @@ export interface SystemHealth {
 // ─── UI State ─────────────────────────────────────────────────────────────────
 export type AppMode  = 'calm' | 'critical'
 export type NavTab   = 'safety' | 'infrastructure' | 'environment' | 'community'
+export type EntityTypeFilter = { aircraft: boolean; vessel: boolean; mesh_node: boolean }
 
 // ─── Store ────────────────────────────────────────────────────────────────────
 interface CivicStore {
@@ -176,13 +177,19 @@ interface CivicStore {
   setHealth:        (h: Partial<SystemHealth>) => void
 
   // Actions — UI
-  setMode:          (mode: AppMode) => void
-  setActiveTab:     (tab: NavTab) => void
-  selectEntity:     (id: string | null) => void
-  setLdiMode:       (v: boolean) => void
-  setRadarVisible:  (v: boolean) => void
-  setRadarOpacity:  (v: number) => void
-  setCamerasVisible: (v: boolean) => void
+  setMode:             (mode: AppMode) => void
+  setActiveTab:        (tab: NavTab) => void
+  selectEntity:        (id: string | null) => void
+  setLdiMode:          (v: boolean) => void
+  setRadarVisible:     (v: boolean) => void
+  setRadarOpacity:     (v: number) => void
+  setCamerasVisible:   (v: boolean) => void
+  mobileNavOpen:       boolean
+  setMobileNavOpen:    (v: boolean) => void
+  settingsOpen:        boolean
+  setSettingsOpen:     (v: boolean) => void
+  entityFilter:        EntityTypeFilter
+  setEntityFilter:     (f: Partial<EntityTypeFilter>) => void
 
   // Camera map interaction
   selectedCamId:    string | null
@@ -287,6 +294,9 @@ export const useCivicStore = create<CivicStore>((set) => ({
   camerasVisible:   false,
   selectedCamId:    null,
   favoriteCamIds:   loadFavoriteCamIds(),
+  mobileNavOpen:    false,
+  settingsOpen:     false,
+  entityFilter:     { aircraft: true, vessel: true, mesh_node: true },
 
   // Data actions
   setEntities: (list) => {
@@ -352,13 +362,16 @@ export const useCivicStore = create<CivicStore>((set) => ({
     set((s) => ({ health: { ...s.health, ...patch } })),
 
   // UI actions
-  setMode:         (mode)         => set({ mode }),
-  setActiveTab:    (activeTab)    => set({ activeTab }),
-  selectEntity:    (selectedEntityId) => set({ selectedEntityId }),
-  setLdiMode:      (ldiMode)      => set({ ldiMode }),
-  setRadarVisible: (radarVisible) => set({ radarVisible }),
-  setRadarOpacity: (radarOpacity) => set({ radarOpacity }),
+  setMode:           (mode)           => set({ mode }),
+  setActiveTab:      (activeTab)      => set({ activeTab }),
+  selectEntity:      (selectedEntityId) => set({ selectedEntityId }),
+  setLdiMode:        (ldiMode)        => set({ ldiMode }),
+  setRadarVisible:   (radarVisible)   => set({ radarVisible }),
+  setRadarOpacity:   (radarOpacity)   => set({ radarOpacity }),
   setCamerasVisible: (camerasVisible) => set({ camerasVisible }),
+  setMobileNavOpen:  (mobileNavOpen)  => set({ mobileNavOpen }),
+  setSettingsOpen:   (settingsOpen)   => set({ settingsOpen }),
+  setEntityFilter:   (f)              => set((s) => ({ entityFilter: { ...s.entityFilter, ...f } })),
   setSelectedCamId: (selectedCamId) => set({ selectedCamId }),
   toggleFavoriteCam: (id) =>
     set((s) => {

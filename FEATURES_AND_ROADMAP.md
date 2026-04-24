@@ -67,30 +67,55 @@ No cloud lock-in, no subscriptions.
 ## P2 — Incomplete UI (scaffolding present, no functionality)
 
 ### 7. Mobile navigation (hamburger menu)
-- **File:** `frontend/src/components/layout/Header.tsx`
-- **Problem:** Hamburger button renders with `aria-label="Open navigation menu"` but has no
-  `onClick` handler and no slide-out panel. The app is unusable on phones.
-- **Suggested fix:** Add a slide-out drawer component driven by a `mobileNavOpen` boolean in
-  the store. Nav tabs should appear in the drawer on small screens.
+- **File:** `frontend/src/components/layout/MobileNav.tsx`, `frontend/src/components/layout/Header.tsx`
+- **Problem:** Hamburger button rendered with no `onClick` handler and no slide-out panel.
+  The app was unusable on phones.
+- **Fix:** Added `MobileNav` full-screen drawer (z-50, left-side slide-in). Driven by
+  `mobileNavOpen` in the store. Hamburger `onClick` opens it; Escape key and backdrop tap
+  close it. Nav tabs appear vertically with active-state highlighting.
+- **Status:** Fixed ✓
 
 ### 8. Notifications button
 - **File:** `frontend/src/components/layout/Header.tsx`
-- **Problem:** Bell icon button renders, no handler. Intended to surface geofence events and
-  severe weather alerts.
-- **Suggested fix:** Open a dropdown/sheet showing the `systemEvents` ring buffer (now
-  populated by the P1 fix above).
+- **Problem:** Bell icon button rendered, no handler. Intended to surface geofence and alert
+  events.
+- **Fix:** Bell opens a `NotificationsDropdown` (local state, closes on outside click).
+  Renders the `systemEvents` ring buffer in reverse-chronological order with severity
+  colouring. A red dot indicator appears when the buffer is non-empty.
+- **Status:** Fixed ✓
 
 ### 9. Settings panel
-- **File:** `frontend/src/components/layout/Header.tsx`
-- **Problem:** Gear icon button renders, no handler. Intended to expose user preferences.
-- **Suggested fix:** Add a settings drawer with: default tab, range ring distance, radar
-  opacity, visible entity type toggles, camera radius default.
+- **File:** `frontend/src/components/layout/SettingsPanel.tsx`, `frontend/src/store.ts`
+- **Problem:** Gear icon button rendered, no handler.
+- **Fix:** Gear opens a `SettingsPanel` right-side drawer (z-50, Escape to close). Exposes:
+  radar on/off toggle, radar opacity slider, camera layer toggle, and entity-type visibility
+  toggles (aircraft / vessels / mesh nodes) backed by `entityFilter` in the store.
+- **Status:** Fixed ✓
 
 ### 10. TacticalAudio channel controls
 - **File:** `frontend/src/components/panels/TacticalAudio.tsx`
-- **Problem:** Skip/prev/next channel buttons render with no `onClick` handlers. Only
-  play/pause and volume work.
-- **Suggested fix:** Wire skip/next to cycle through talkgroups from the call history log.
+- **Problem:** Skip/prev/next buttons rendered with no `onClick` handlers.
+- **Fix:** Added `selectedTgIdx` local state. Skip prev/next cycle through
+  `visibleTalkgroups` (wraps around), open the channel list, and highlight the selected row.
+  Clicking a row in the channel list also sets the selection. Left info section reflects the
+  selected channel name and TGID.
+- **Status:** Fixed ✓
+
+---
+
+---
+
+## P2.5 — Shipped After Document Was Written
+
+### 23. Camera map layer controls
+- **Files:** `frontend/src/components/panels/CameraModal.tsx`,
+  `frontend/src/components/layout/Header.tsx`, `frontend/src/store.ts`
+- **What shipped:** A `CameraToggle` button in the header toggles the camera icon layer on
+  the map (`camerasVisible` in store). Clicking a camera icon on the map or in the
+  Infrastructure grid opens a full-screen `CameraModal` with still-image viewer, LDI/live
+  toggle, and favourite management. Backed by `selectedCamId`, `camerasVisible`, and
+  `favoriteCamIds` (localStorage) in the store.
+- **Status:** Shipped ✓ (commit `7a14640`)
 
 ---
 
@@ -183,27 +208,28 @@ No cloud lock-in, no subscriptions.
 
 ## Summary Table
 
-| # | Item | Category | Effort |
-|---|------|----------|--------|
-| 1 | Purge scheduling | P1 Bug | XS |
-| 2 | Prod docker-compose | P1 Bug | S |
-| 3 | Browser entity leak | P1 Bug | XS |
-| 4 | Geofence cold-start | P1 Bug | XS |
-| 5 | WS event handling | P1 Bug | XS |
-| 6 | Duplicate NWS polling | P1 Bug | XS |
-| 7 | Mobile nav | P2 UI | M |
-| 8 | Notifications UI | P2 UI | S |
-| 9 | Settings panel | P2 UI | M |
-| 10 | Audio channel controls | P2 UI | S |
-| 11 | Prometheus metrics | P3 Roadmap | S |
-| 12 | Authentication | P3 Roadmap | M |
-| 13 | Remote access | P3 Roadmap | S |
-| 14 | Regional portability | P3 Roadmap | M |
-| 15 | Trail completeness | P3 Roadmap | XS |
-| 16 | AI summary worker | P3 Roadmap | M |
-| 17 | Event log panel | P4 New | S |
-| 18 | Entity search/filter | P4 New | M |
-| 19 | Historical playback | P4 New | L |
-| 20 | Custom geofence UI | P4 New | L |
-| 21 | Push notifications | P4 New | M |
-| 22 | API rate limiting | P4 New | XS |
+| # | Item | Category | Effort | Status |
+|---|------|----------|--------|--------|
+| 1 | Purge scheduling | P1 Bug | XS | ✓ Done |
+| 2 | Prod docker-compose | P1 Bug | S | ✓ Done |
+| 3 | Browser entity leak | P1 Bug | XS | ✓ Done |
+| 4 | Geofence cold-start | P1 Bug | XS | ✓ Done |
+| 5 | WS event handling | P1 Bug | XS | ✓ Done |
+| 6 | Duplicate NWS polling | P1 Bug | XS | ✓ Done |
+| 7 | Mobile nav | P2 UI | M | ✓ Done |
+| 8 | Notifications UI | P2 UI | S | ✓ Done |
+| 9 | Settings panel | P2 UI | M | ✓ Done |
+| 10 | Audio channel controls | P2 UI | S | ✓ Done |
+| 23 | Camera map layer controls | P2.5 Shipped | M | ✓ Done |
+| 11 | Prometheus metrics | P3 Roadmap | S | — |
+| 12 | Authentication | P3 Roadmap | M | — |
+| 13 | Remote access | P3 Roadmap | S | — |
+| 14 | Regional portability | P3 Roadmap | M | — |
+| 15 | Trail completeness | P3 Roadmap | XS | — |
+| 16 | AI summary worker | P3 Roadmap | M | — |
+| 17 | Event log panel | P4 New | S | — |
+| 18 | Entity search/filter | P4 New | M | — |
+| 19 | Historical playback | P4 New | L | — |
+| 20 | Custom geofence UI | P4 New | L | — |
+| 21 | Push notifications | P4 New | M | — |
+| 22 | API rate limiting | P4 New | XS | — |
