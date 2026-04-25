@@ -8,6 +8,7 @@ type FeedItem = {
   link:      string
   published: string
   priority:  'high' | 'normal'
+  category?: string
 }
 
 function formatAge(iso: string): string {
@@ -95,6 +96,7 @@ function toFeedItem(item: AlertItem | NewsItem, i: number, isAlert: boolean): Fe
     link:      item.link,
     published: item.published,
     priority:  isAlert ? 'high' : 'normal',
+    category:  item.category,
   }
 }
 
@@ -102,30 +104,62 @@ export function CommunityPanel() {
   const { alerts, news } = useCivicStore()
 
   // Merge and sort by published date descending
-  const feed: FeedItem[] = [
+  const allItems = [
     ...alerts.map((a, i) => toFeedItem(a, i, true)),
     ...news.map((n, i) => toFeedItem(n, i, false)),
-  ].sort((a, b) => Date.parse(b.published) - Date.parse(a.published))
-
-  // If both are empty, show placeholder items
-  const displayFeed: FeedItem[] = feed.length > 0 ? feed : [
-    {
-      key: 'placeholder-1',
-      source: 'FLASHALERT',
-      title: 'Awaiting FlashAlert Newswire feed…',
-      published: new Date().toISOString(),
-      link: '',
-      priority: 'normal',
-    },
-    {
-      key: 'placeholder-2',
-      source: 'TUALATIN LIFE',
-      title: 'Awaiting local news feed…',
-      published: new Date(Date.now() - 3600_000).toISOString(),
-      link: '',
-      priority: 'normal',
-    },
   ]
+
+  // Separate tactical resources from the chronological news feed
+  const resourceItems = allItems.filter(item => item.category === 'Tactical Resources')
+  const newsItems = allItems
+    .filter(item => item.category !== 'Tactical Resources')
+    .sort((a, b) => {
+      const bTs = Date.parse(b.published || '') || 0
+      const aTs = Date.parse(a.published || '') || 0
+      return bTs - aTs
+    })
+
+  // Group news by category
+  const groupedNews: Record<string, FeedItem[]> = {}
+  for (const item of newsItems) {
+    const cat = item.category || 'Regional News'
+    if (!groupedNews[cat]) groupedNews[cat] = []
+    groupedNews[cat].push(item)
+  }
+
+  // If live feed is empty, show placeholders in Regional News
+  if (newsItems.length === 0) {
+    groupedNews['Regional News'] = [
+      {
+        key: 'placeholder-1',
+        source: 'FLASHALERT',
+        title: 'Awaiting FlashAlert Newswire feed…',
+        published: new Date().toISOString(),
+        link: '',
+        priority: 'normal',
+        category: 'Regional News',
+      },
+      {
+        key: 'placeholder-2',
+        source: 'TUALATIN LIFE',
+        title: 'Awaiting local news feed…',
+        published: new Date(Date.now() - 3600_000).toISOString(),
+        link: '',
+        priority: 'normal',
+        category: 'Regional News',
+      },
+    ]
+  }
+
+  const categoryOrder = ['Local Government', 'Regional News']
+  const sortedCategories = Object.keys(groupedNews).sort((a, b) => {
+    const ai = categoryOrder.indexOf(a)
+    const bi = categoryOrder.indexOf(b)
+    if (ai !== -1 && bi !== -1) return ai - bi
+    if (ai !== -1) return -1
+    if (bi !== -1) return 1
+    return a.localeCompare(b)
+  })
 
   return (
     <div
@@ -157,17 +191,7 @@ export function CommunityPanel() {
         </div>
       </div>
 
-      {/* Source legend */}
-      <div className="px-4 py-2 border-b border-amber-gold-muted/20 flex items-center gap-4 shrink-0 bg-surface-container/30">
-        <div className="flex items-center gap-1.5">
-          <span className="w-2 h-2 bg-amber-gold shrink-0" aria-hidden="true" />
-          <span className="font-mono text-[9px] text-on-surface-variant uppercase tracking-widest">FlashAlert Emergency</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <span className="w-2 h-2 bg-on-surface-variant shrink-0" aria-hidden="true" />
-          <span className="font-mono text-[9px] text-on-surface-variant uppercase tracking-widest">Local News</span>
-        </div>
-      </div>
+
 
       {/* Feed */}
       <div
@@ -176,8 +200,43 @@ export function CommunityPanel() {
         aria-label="Community news and alert feed"
         aria-live="polite"
       >
-        {displayFeed.map((item) => (
-          <FeedCard key={item.key} item={item} />
+        {resourceItems.length > 0 && (
+          <div className="mb-10">
+            <h3 className="section-heading mb-3 text-on-surface-variant/60">
+              <span className="ms text-[14px] leading-none" aria-hidden="true">link</span>
+              Tactical Resources
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {resourceItems.map((item) => (
+                <a
+                  key={item.key}
+                  href={item.link}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  className="flex flex-col p-3 border border-white/5 bg-white/5 hover:bg-white/10 hover:border-amber-gold/30 transition-all group"
+                >
+                  <span className="font-mono text-[8px] text-amber-gold uppercase tracking-[0.2em] mb-1">{item.source.replace(/_/g, ' ')}</span>
+                  <span className="text-[11px] font-bold text-on-surface group-hover:text-amber-gold transition-colors">{item.title}</span>
+                  {item.summary && <span className="text-[10px] text-on-surface-variant mt-1 line-clamp-1">{item.summary}</span>}
+                </a>
+              ))}
+            </div>
+            <div className="mt-8 border-b border-white/10" />
+          </div>
+        )}
+
+        {sortedCategories.map((cat) => (
+          <div key={cat} className="mb-10 last:mb-0">
+            <h3 className="section-heading mb-4 text-on-surface flex items-center gap-2">
+              <span className="ms text-[14px] leading-none text-amber-gold" aria-hidden="true">
+                {cat === 'Local Government' ? 'account_balance' : 'rss_feed'}
+              </span>
+              {cat}
+            </h3>
+            {groupedNews[cat].map((item) => (
+              <FeedCard key={item.key} item={item} />
+            ))}
+          </div>
         ))}
       </div>
     </div>

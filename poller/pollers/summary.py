@@ -8,8 +8,13 @@ from bus import get_bus, set_feed
 from config import settings
 from .base import BasePoller
 
+import warnings
+
 logger = logging.getLogger(__name__)
 litellm.suppress_debug_info = True
+
+# Suppress Pydantic serialization warnings from LiteLLM/Pydantic V2 mismatch
+warnings.filterwarnings("ignore", category=UserWarning, message="Pydantic serializer warnings")
 
 _MAX_TOKENS = 256
 _SYSTEM = (

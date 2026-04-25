@@ -3,8 +3,8 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
-  const icecastTarget = env.VITE_PROXY_ICECAST_TARGET || 'http://icecast:8000/'
-  const op25Target = env.VITE_PROXY_OP25_TARGET || 'http://op25:8080/'
+  const icecastTarget = process.env.VITE_ICECAST_URL || env.VITE_ICECAST_URL || 'http://icecast:8000/'
+  const op25Target = process.env.VITE_OP25_URL || env.VITE_OP25_URL || 'http://op25:8080/'
 
   return {
     plugins: [react()],
@@ -18,10 +18,10 @@ export default defineConfig(({ mode }) => {
         '/api': 'http://backend:8000',
         '/ws': { target: 'ws://backend:8000', ws: true },
         '/health': 'http://backend:8000',
-        '/stream/': {
+        '/stream': {
           target: icecastTarget,
           changeOrigin: true,
-          rewrite: (path) => path.replace(/^\/stream\//, ''),
+          rewrite: (path) => path.replace(/^\/stream/, ''),
         },
         '/op25/': {
           target: op25Target,

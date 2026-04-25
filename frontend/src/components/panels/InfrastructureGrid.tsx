@@ -124,7 +124,7 @@ export function InfrastructureGrid() {
   } = useCivicStore()
   const [radiusKm, setRadiusKm] = useState(5)
   const [page, setPage] = useState(0)
-  const PAGE_SIZE = 9
+  const PAGE_SIZE = 12
 
   const closeModal = () => {
     setSelectedCamId(null)

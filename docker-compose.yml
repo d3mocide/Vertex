@@ -52,6 +52,10 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-vertex}:${POSTGRES_PASSWORD:-vertex}@db:5432/${POSTGRES_DB:-vertex}
       REDIS_URL: redis://redis:6379
+      RADIO_STREAM_URL: ${RADIO_STREAM_URL:-/stream/radio.mp3}
+      ICECAST_URL: ${ICECAST_URL:-}
+      OP25_URL: ${OP25_URL:-}
+      ADSB_URL: ${ADSB_URL:-}
     depends_on:
       db:
         condition: service_healthy
@@ -64,6 +68,8 @@ services:
       retries: 3
     networks:
       - internal
+    volumes:
+      - ./backend:/app:ro
 
   poller:
     build:
@@ -76,6 +82,12 @@ services:
     environment:
       REDIS_URL: redis://redis:6379
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-vertex}:${POSTGRES_PASSWORD:-vertex}@db:5432/${POSTGRES_DB:-vertex}
+      RADIO_STREAM_URL: ${RADIO_STREAM_URL:-/stream/radio.mp3}
+      ICECAST_URL: ${ICECAST_URL:-}
+      OP25_URL: ${OP25_URL:-}
+      ADSB_URL: ${ADSB_URL:-}
+      AIS_CATCHER_URL: ${AIS_CATCHER_URL:-}
+      MESHCORE_URL: ${MESHCORE_URL:-}
     depends_on:
       db:
         condition: service_healthy
@@ -83,6 +95,8 @@ services:
         condition: service_healthy
     networks:
       - internal
+    volumes:
+      - ./poller:/app:ro
 
   frontend:
     build:

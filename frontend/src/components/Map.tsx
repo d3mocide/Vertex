@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { MAP_STYLE, DEFAULT_CENTER, DEFAULT_ZOOM } from '../config'
@@ -42,6 +42,15 @@ export function Map() {
 
     m.addControl(new maplibregl.NavigationControl({ showCompass: true }), 'bottom-right')
     m.addControl(new maplibregl.ScaleControl({ maxWidth: 100, unit: 'imperial' }), 'bottom-left')
+    m.on('styleimagemissing', (e) => {
+      const id = e.id
+      console.warn(`Map style image missing: ${id}. Providing fallback.`)
+      
+      // Provide a tiny 1x1 transparent pixel as a fallback to stop MapLibre from complaining
+      const data = new Uint8Array(4)
+      m.addImage(id, { width: 1, height: 1, data })
+    })
+
     m.on('load', () => setMap(m))
 
     return () => {

@@ -1,6 +1,10 @@
 import asyncio
 import logging
+import warnings
 from config import settings
+
+# Suppress Pydantic serialization warnings from LiteLLM/Pydantic V2 mismatch
+warnings.filterwarnings("ignore", category=UserWarning, message="Pydantic serializer warnings")
 from pollers.adsb import AdsbPoller
 from pollers.ais import AisPoller
 from pollers.weather import WeatherPoller

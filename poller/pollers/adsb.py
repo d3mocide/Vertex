@@ -10,16 +10,8 @@ logger = logging.getLogger(__name__)
 
 
 def _ultrafeeder_url() -> str | None:
-    """Return the tar1090 aircraft.json URL for a local/external ultrafeeder,
-    or None if no ultrafeeder is configured."""
-    if settings.ultrafeeder_url:
-        return settings.ultrafeeder_url
-    if settings.ultrafeeder_host:
-        return (
-            f"http://{settings.ultrafeeder_host}:{settings.ultrafeeder_port}"
-            "/data/aircraft.json"
-        )
-    return None
+    """Return the tar1090 aircraft.json URL for a local/external ADS-B source."""
+    return settings.adsb_url if settings.adsb_url else None
 
 
 class AdsbPoller(BasePoller):
@@ -42,7 +34,7 @@ class AdsbPoller(BasePoller):
 
     async def _poll_ultrafeeder(self, url: str):
         async with httpx.AsyncClient(timeout=5) as client:
-            resp = await client.get(url)
+            resp = await client.get(url, headers={"User-Agent": "Vertex/1.0 (Situational Awareness Dashboard)"})
             resp.raise_for_status()
             data = resp.json()
         for ac in data.get("aircraft", []):

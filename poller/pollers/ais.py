@@ -20,7 +20,7 @@ class AisPoller(BasePoller):
         pass  # streaming pollers override run()
 
     async def run(self):
-        if settings.ais_catcher_host:
+        if settings.ais_catcher_url:
             await self._run_ais_catcher()
         elif settings.aisstream_api_key:
             await self._run_aisstream()
@@ -28,7 +28,7 @@ class AisPoller(BasePoller):
             logger.warning("[ais] no AIS source configured — poller inactive")
 
     async def _run_ais_catcher(self):
-        url = f"ws://{settings.ais_catcher_host}:{settings.ais_catcher_port}"
+        url = settings.ais_catcher_url
         logger.info("[ais] connecting to local AIS-catcher at %s", url)
         while True:
             try:

@@ -2,41 +2,14 @@ import { useState, useRef, useEffect } from 'react'
 import { useCivicStore, NavTab, AppMode, SystemEvent } from '../../store'
 
 const TABS: { id: NavTab; label: string; icon: string }[] = [
-  { id: 'safety',         label: 'Safety',         icon: 'shield'         },
+  { id: 'safety',         label: 'Overview',       icon: 'dashboard'      },
   { id: 'infrastructure', label: 'Infrastructure',  icon: 'traffic'        },
   { id: 'environment',    label: 'Environment',     icon: 'eco'            },
   { id: 'community',      label: 'Community',       icon: 'groups'         },
   { id: 'events',         label: 'Event Log',       icon: 'history'        },
 ]
 
-function SystemHealthBadge() {
-  const { health, connected } = useCivicStore()
-  const ok = health.ok && connected
 
-  return (
-    <div
-      className={`
-        flex items-center gap-2 px-3 py-1 border
-        ${ok
-          ? 'bg-surface-container/80 border-amber-gold-muted'
-          : 'bg-red-emergency-muted border-red-emergency/60'}
-      `}
-      aria-label={`System health: ${ok ? 'OK' : 'Degraded'}`}
-      title={`System health: ${ok ? 'OK' : 'Degraded'} · Redis: ${health.redis ? 'up' : 'down'}`}
-    >
-      <span
-        className={`ms text-[16px] leading-none ${ok ? 'text-amber-gold' : 'text-red-emergency'}`}
-        aria-hidden="true"
-        style={{ fontVariationSettings: "'FILL' 1" }}
-      >
-        monitor_heart
-      </span>
-      <span className={`font-mono text-[11px] ${ok ? 'text-amber-gold' : 'text-red-emergency'}`}>
-        {ok ? 'SYS_OK' : 'DEGRADED'}
-      </span>
-    </div>
-  )
-}
 
 function ModeToggle() {
   const { mode, setMode } = useCivicStore()
@@ -72,52 +45,6 @@ function ModeToggle() {
         CRITICAL
       </button>
     </div>
-  )
-}
-
-function CameraToggle() {
-  const { camerasVisible, setCamerasVisible } = useCivicStore()
-
-  return (
-    <button
-      onClick={() => setCamerasVisible(!camerasVisible)}
-      className={`
-        flex items-center gap-2 px-3 py-1 border font-mono text-[10px] uppercase tracking-widest transition-colors
-        focus:outline-none focus-visible:ring-1 focus-visible:ring-amber-gold
-        ${camerasVisible
-          ? 'border-amber-gold text-amber-gold bg-amber-gold/10'
-          : 'border-amber-gold-muted text-on-surface-variant hover:text-on-surface'}
-      `}
-      aria-pressed={camerasVisible}
-      aria-label={`Cameras ${camerasVisible ? 'enabled' : 'disabled'}`}
-      title="Toggle traffic camera map layer"
-    >
-      <span className="ms text-[14px] leading-none" aria-hidden="true">videocam</span>
-      <span>{camerasVisible ? 'CAMERAS ON' : 'CAMERAS OFF'}</span>
-    </button>
-  )
-}
-
-function RadarToggle() {
-  const { radarVisible, setRadarVisible } = useCivicStore()
-
-  return (
-    <button
-      onClick={() => setRadarVisible(!radarVisible)}
-      className={`
-        flex items-center gap-2 px-3 py-1 border font-mono text-[10px] uppercase tracking-widest transition-colors
-        focus:outline-none focus-visible:ring-1 focus-visible:ring-amber-gold
-        ${radarVisible
-          ? 'border-green-ais text-green-ais bg-green-ais/10'
-          : 'border-amber-gold-muted text-on-surface-variant hover:text-on-surface'}
-      `}
-      aria-pressed={radarVisible}
-      aria-label={`Radar ${radarVisible ? 'enabled' : 'disabled'}`}
-      title="Toggle NEXRAD radar layer"
-    >
-      <span className="ms text-[14px] leading-none" aria-hidden="true">radar</span>
-      <span>{radarVisible ? 'RADAR ON' : 'RADAR OFF'}</span>
-    </button>
   )
 }
 
@@ -221,22 +148,7 @@ export function Header() {
 
       {/* Right controls */}
       <div className="flex items-center gap-4 relative z-10">
-        <SystemHealthBadge />
-        <CameraToggle />
-        <RadarToggle />
         <ModeToggle />
-
-        {/* Critical Mode Status Button from Mockup */}
-        <div className={`
-          px-4 py-1.5 border font-bold text-[10px] uppercase tracking-[0.2em] transition-all duration-300
-          ${mode === 'critical' 
-            ? 'bg-red-emergency/20 border-red-emergency text-red-emergency shadow-[0_0_15px_rgba(255,59,48,0.3)]' 
-            : 'border-amber-gold/30 text-amber-gold/50'}
-        `}>
-          {mode === 'critical' ? 'CRITICAL ACTIVE' : 'CRITICAL MODE'}
-        </div>
-
-        {/* Divider */}
         <div className="h-4 w-px bg-white/10" aria-hidden="true" />
 
 

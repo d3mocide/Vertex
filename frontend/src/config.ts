@@ -16,7 +16,7 @@ export const DEFAULT_CENTER: [number, number] = [
 export const DEFAULT_ZOOM = 10
 
 // Audio stream
-export const STREAM_URL = import.meta.env.VITE_STREAM_URL || '/stream/op25'
+export const STREAM_URL = import.meta.env.VITE_RADIO_STREAM_URL || '/stream/radio.mp3'
 
 // Polling intervals (ms)
 export const HEALTH_POLL_MS   = 15_000

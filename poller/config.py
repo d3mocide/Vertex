@@ -52,28 +52,23 @@ class Settings(BaseSettings):
     summary_llm_api_key: str = ""
     summary_llm_api_base: str = ""
 
-    # Local ADS-B — Ultrafeeder tar1090
-    # Option A: Set ULTRAFEEDER_URL to the full aircraft.json URL
-    #   e.g. http://192.168.1.50/data/aircraft.json
-    # Option B: Set ULTRAFEEDER_HOST + ULTRAFEEDER_PORT (port 80 = HTTP tar1090)
-    ultrafeeder_url: str = ""   # direct URL override (takes precedence)
-    ultrafeeder_host: str = ""  # hostname / IP of external ultrafeeder
-    ultrafeeder_port: int = 80  # tar1090 HTTP port (NOT the TCP beast port 30047)
+    # Local ADS-B — tar1090 aircraft.json URL
+    adsb_url: str = ""
 
-    # Local AIS-catcher WebSocket
-    ais_catcher_host: str = ""
-    ais_catcher_port: int = 8100
+    # Local AIS-catcher URL (WebSocket)
+    ais_catcher_url: str = ""
 
     # AISstream.io public fallback
     aisstream_api_key: str = ""
 
-    # OP25 HTTP terminal (used when running in compose with sdr profile)
-    op25_host: str = ""
-    op25_port: int = 8080
+    # OP25 HTTP terminal base URL
+    op25_url: str = ""
 
-    # MeshCore bridge WebSocket
-    meshcore_bridge_host: str = ""
-    meshcore_bridge_port: int = 7001
+    # Icecast server base URL
+    icecast_url: str = ""
+
+    # MeshCore bridge URL (WebSocket)
+    meshcore_url: str = ""
 
     class Config:
         env_file = ".env"

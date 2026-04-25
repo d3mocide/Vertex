@@ -19,6 +19,7 @@ function buildCircleGeoJSON(center: [number, number], radiusKm: number, steps = 
 }
 
 export function ObservationRingLayer({ map }: Props) {
+  if (!map || typeof map.getLayer !== 'function') return null
   useEffect(() => {
     if (!OBSERVATION_RANGE_KM) return
 
@@ -49,9 +50,11 @@ export function ObservationRingLayer({ map }: Props) {
     })
 
     return () => {
-      if (map.getLayer(LINE_ID)) map.removeLayer(LINE_ID)
-      if (map.getLayer(FILL_ID)) map.removeLayer(FILL_ID)
-      if (map.getSource(SRC_ID)) map.removeSource(SRC_ID)
+      if (map && typeof map.getLayer === 'function') {
+        if (map.getLayer(LINE_ID)) map.removeLayer(LINE_ID)
+        if (map.getLayer(FILL_ID)) map.removeLayer(FILL_ID)
+        if (map.getSource(SRC_ID)) map.removeSource(SRC_ID)
+      }
     }
   }, [map])
 

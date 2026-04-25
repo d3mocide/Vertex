@@ -20,7 +20,7 @@ from .base import BasePoller
 
 logger = logging.getLogger(__name__)
 
-_OP25_BASE = f"http://{settings.op25_host}:{settings.op25_port}"
+_OP25_BASE = settings.op25_url
 
 # OP25 state field values
 _STATE_CALL = 1

@@ -54,7 +54,11 @@ export function buildEntityLayers(
     data:           selectedTrack ? [selectedTrack] : [],
     getPosition:    (t) => [t.lon, t.lat],
     getRadius:      () => 30 + cycle * 40,
-    getColor:       (t) => {
+    getFillColor:   (t) => {
+      const [r, g, b] = entityColor(t)
+      return [r, g, b, Math.round(255 * (1 - cycle * cycle))]
+    },
+    getLineColor:   (t) => {
       const [r, g, b] = entityColor(t)
       return [r, g, b, Math.round(255 * (1 - cycle * cycle))]
     },

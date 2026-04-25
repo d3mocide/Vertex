@@ -103,6 +103,7 @@ export function MapOverlay({ map }: Props) {
   const selectEntity      = useCivicStore((s) => s.selectEntity)
   const setSelectedCamId  = useCivicStore((s) => s.setSelectedCamId)
   const setActiveTab      = useCivicStore((s) => s.setActiveTab)
+  const geofencesVisible  = useCivicStore((s) => s.geofencesVisible)
   useEffect(() => { tracksRef.current = tracks                  }, [tracks])
   useEffect(() => { selectedRef.current = selectedId            }, [selectedId])
   useEffect(() => { camerasRef.current = cameras                }, [cameras])
@@ -117,6 +118,8 @@ export function MapOverlay({ map }: Props) {
   const camerasVisibleRef = useRef(false)
   useEffect(() => { camerasVisibleRef.current = camerasVisible  }, [camerasVisible])
   useEffect(() => { activeTabRef.current = activeTab            }, [activeTab])
+  const geofencesVisibleRef = useRef(true)
+  useEffect(() => { geofencesVisibleRef.current = geofencesVisible }, [geofencesVisible])
 
   useEffect(() => {
     const container = map.getContainer()
@@ -138,6 +141,119 @@ export function MapOverlay({ map }: Props) {
       layers:           [],
     })
     deckRef.current = deck
+
+    // Unified SA Tooltip Bridge
+    const tooltip = document.createElement('div')
+    tooltip.className = 'absolute pointer-events-none z-[100] opacity-0 transition-opacity duration-150'
+    container.appendChild(tooltip)
+
+    const onMapMouseMove = (e: maplibregl.MapMouseEvent) => {
+      // 1. Pick from Deck.gl
+      const picked = deck.pickObject({ x: e.point.x, y: e.point.y, radius: 5 })
+      
+      // 2. Pick from MapLibre layers (Geofences, Mesh Nodes)
+      // Filter to only layers that currently exist in the map style — querying
+      // a non-existent layer throws synchronously in MapLibre.
+      const candidateLayers = ['mesh-node-points', 'mesh-node-points-ring']
+      if (geofencesVisibleRef.current) candidateLayers.push('geofences-fill')
+      const layers = candidateLayers.filter((id) => !!map.getLayer(id))
+
+      const mapHits = layers.length > 0
+        ? map.queryRenderedFeatures(e.point, { layers })
+        : []
+
+      let html = ''
+      
+      if (picked?.object && picked.layer) {
+        const { object, layer } = picked
+        if (layer.id === 'entity-icons') {
+          const t = object as Track
+          const isAir = t.type === 'air'
+          const ALT_M_TO_FT = 3.28084
+          const MS_TO_KT    = 1.94384
+          html = `
+            <div class="p-2 min-w-[160px] bg-slate-900/95 border border-slate-700 rounded-lg shadow-2xl backdrop-blur-md">
+              <div class="flex items-center justify-between mb-2 border-b border-slate-700/50 pb-1.5">
+                <div class="flex items-center gap-2">
+                  <span class="material-symbols-outlined text-[16px] ${isAir ? 'text-blue-400' : 'text-teal-400'}">${isAir ? 'flight' : 'sailing'}</span>
+                  <span class="font-bold text-white uppercase tracking-wider text-[11px] truncate">${t.callsign || t.uid}</span>
+                </div>
+                <span class="text-[9px] text-slate-500 font-mono">${isAir ? 'ADS-B' : 'AIS'}</span>
+              </div>
+              <div class="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-[10px] text-slate-400 font-mono">
+                 ${isAir ? `<span>ALT:</span><span class="text-blue-200 text-right">${Math.round(t.altMeters * ALT_M_TO_FT).toLocaleString()} FT</span>` : ''}
+                 <span>SPD:</span><span class="text-white text-right">${Math.round(t.speedMs * MS_TO_KT)} KTS</span>
+                 <span>HDG:</span><span class="text-white text-right">${Math.round(t.courseTrue).toString().padStart(3, '0')}°</span>
+                 ${t.category ? `<span>CAT:</span><span class="text-amber-400 text-right uppercase">${t.category}</span>` : ''}
+              </div>
+              <div class="mt-2 pt-1 border-t border-white/5 text-[9px] text-slate-500 flex justify-between uppercase">
+                <span>ID: ${t.uid.slice(0, 8)}</span>
+                <span>${isAir ? 'Airborne' : 'Underway'}</span>
+              </div>
+            </div>
+          `
+        } else if (layer.id === 'camera-points') {
+          const cam = object as TrafficCamera
+          html = `
+            <div class="p-2 min-w-[180px] bg-slate-900/95 border border-slate-700 rounded-lg shadow-2xl backdrop-blur-md">
+              <div class="flex items-center gap-2 text-[11px] font-bold text-white mb-1.5">
+                 <span class="material-symbols-outlined text-[16px] text-amber-400">videocam</span>
+                 <span class="truncate">${cam.name}</span>
+              </div>
+              <div class="space-y-1">
+                ${cam.road ? `<div class="text-[10px] text-slate-300 flex items-center gap-1.5"><span class="ms text-[12px] text-slate-500">add_road</span> ${cam.road}</div>` : ''}
+                <div class="text-[10px] text-slate-400 italic flex justify-between">
+                  <span>${cam.road ? 'Traffic Cam' : (cam as any).provider || 'Regional Network'}</span>
+                  ${cam.dist_km ? `<span>${cam.dist_km.toFixed(1)} km</span>` : ''}
+                </div>
+              </div>
+            </div>
+          `
+        }
+      } else if (mapHits.length > 0) {
+        const feature = mapHits[0]
+        const props = feature.properties
+        if (feature.layer.id === 'geofences-fill') {
+          html = `
+            <div class="p-2 bg-slate-900/95 border border-slate-700 rounded-lg shadow-2xl backdrop-blur-md">
+              <div class="flex items-center gap-2 text-[11px] font-bold text-white mb-1">
+                <span class="material-symbols-outlined text-[16px] text-blue-400">verified_user</span>
+                <span>${props.name}</span>
+              </div>
+              <div class="text-[9px] text-slate-400 font-mono uppercase tracking-tighter">${props.zone_type} Zone</div>
+            </div>
+          `
+        } else if (feature.layer.id.startsWith('mesh-node-points')) {
+          const stale = props.stale === 'true' || props.stale === true
+          html = `
+            <div class="p-2 bg-slate-900/95 border border-slate-700 rounded-lg shadow-2xl backdrop-blur-md">
+              <div class="flex items-center gap-2 text-[11px] font-bold text-white mb-1">
+                <span class="material-symbols-outlined text-[16px] ${stale ? 'text-slate-500' : 'text-green-500'}">router</span>
+                <span>${props.name}</span>
+              </div>
+              <div class="flex items-center gap-1.5">
+                <div class="w-1.5 h-1.5 rounded-full ${stale ? 'bg-slate-500' : 'bg-green-500 pulse-fast'}"></div>
+                <div class="text-[9px] text-slate-400 font-mono">${stale ? 'STALE / OFFLINE' : 'ACTIVE / ONLINE'}</div>
+              </div>
+            </div>
+          `
+        }
+      }
+
+      if (html) {
+        tooltip.innerHTML = html
+        tooltip.style.opacity = '1'
+        tooltip.style.left = `${e.point.x + 15}px`
+        tooltip.style.top = `${e.point.y + 15}px`
+        map.getCanvas().style.cursor = 'pointer'
+      } else {
+        tooltip.style.opacity = '0'
+        map.getCanvas().style.cursor = ''
+      }
+    }
+
+    map.on('mousemove', onMapMouseMove)
+    map.on('mouseleave', () => { tooltip.style.opacity = '0' })
 
     // Allow selecting entities and cameras while preserving normal map interaction.
     const onMapClick = (e: maplibregl.MapMouseEvent) => {
@@ -250,9 +366,11 @@ export function MapOverlay({ map }: Props) {
     return () => {
       cancelAnimationFrame(rafRef.current)
       map.off('click', onMapClick)
+      map.off('mousemove', onMapMouseMove)
       resizeObserver.disconnect()
       deck.finalize()
       canvas.remove()
+      tooltip.remove()
       deckRef.current = null
       pvbRef.current = {}
     }

@@ -71,6 +71,7 @@ function buildDrawGeoJSON(points: [number, number][]): GeoJSON.FeatureCollection
 export function GeofenceLayer({ map }: Props) {
   const geofenceDrawing    = useCivicStore((s) => s.geofenceDrawing)
   const geofenceDrawPoints = useCivicStore((s) => s.geofenceDrawPoints)
+  const geofencesVisible   = useCivicStore((s) => s.geofencesVisible)
   const addGeofenceDrawPoint = useCivicStore((s) => s.addGeofenceDrawPoint)
   const fencesRef = useRef<GeofenceRecord[]>([])
 
@@ -132,6 +133,13 @@ export function GeofenceLayer({ map }: Props) {
       (map.getSource(SRC_FENCES) as maplibregl.GeoJSONSource).setData(geojson)
     }
   }
+
+  // Toggle visibility
+  useEffect(() => {
+    const visibility = geofencesVisible ? 'visible' : 'none'
+    if (map.getLayer('geofences-fill')) map.setLayoutProperty('geofences-fill', 'visibility', visibility)
+    if (map.getLayer('geofences-line')) map.setLayoutProperty('geofences-line', 'visibility', visibility)
+  }, [geofencesVisible, map])
 
   // Draw preview layer
   useEffect(() => {

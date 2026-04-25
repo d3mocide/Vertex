@@ -8,6 +8,7 @@ export function SettingsPanel() {
     radarVisible, setRadarVisible,
     radarOpacity, setRadarOpacity,
     camerasVisible, setCamerasVisible,
+    geofencesVisible, setGeofencesVisible,
     entityFilter, setEntityFilter,
   } = useCivicStore()
 
@@ -73,6 +74,12 @@ export function SettingsPanel() {
                 icon="videocam"
                 checked={camerasVisible}
                 onChange={setCamerasVisible}
+              />
+              <ToggleRow
+                label="Zone Monitor"
+                icon="verified_user"
+                checked={geofencesVisible}
+                onChange={setGeofencesVisible}
               />
             </div>
           </section>

@@ -66,17 +66,27 @@ function NewsRow({ source, age, title }: { source: string; age: string; title: s
 }
 
 export function Sidebar() {
-  const { alerts, news, health, entities, connected } = useCivicStore()
+  const { alerts, news, health, entities, connected, cameras, weather } = useCivicStore()
 
   const aircraft  = Object.values(entities).filter((e) => e.entity_type === 'aircraft').length
   const vessels   = Object.values(entities).filter((e) => e.entity_type === 'vessel').length
   const meshNodes = Object.values(entities).filter((e) => e.entity_type === 'mesh_node').length
+  const cams      = cameras.length
+  const wAlerts   = weather.alerts.length
+  const activeInc = alerts.length
 
   // Derive incidents from alerts (first 4)
   const incidents = alerts.slice(0, 4)
 
   // News items from store, fallback to empty
-  const newsItems = news.slice(0, 5)
+  // News items filtered for Regional News only
+  const newsItems = news
+    .filter(item => item.category === 'Regional News')
+    .sort((a, b) => {
+      const bTs = Date.parse(b.published || '') || 0
+      const aTs = Date.parse(a.published || '') || 0
+      return bTs - aTs
+    })
 
   return (
     <aside
@@ -84,45 +94,107 @@ export function Sidebar() {
       aria-label="Vertex sidebar"
     >
       {/* Brand header */}
-      <div className="h-14 flex items-center px-6 border-b border-white/5 bg-[#050505]/60 backdrop-blur-2xl shrink-0">
-        <span className="text-amber-gold font-black tracking-[0.25em] text-lg uppercase select-none">
-          VERTEX
-        </span>
+      <div className="h-16 flex items-center px-6 border-b border-white/5 bg-onyx-deep/40 backdrop-blur-md shrink-0">
+        <div className="flex items-center gap-3">
+          <div className="relative h-8 w-8 flex-shrink-0">
+            <svg viewBox="0 0 32 32" className="h-full w-full fill-none stroke-amber-gold stroke-[2]" aria-hidden="true">
+              {/* Tactical Viewfinder / Crosshair */}
+              <path d="M4 12 V6 H12" />
+              <path d="M20 6 H28 V12" />
+              <path d="M28 20 V26 H20" />
+              <path d="M12 26 H4 V20" />
+              {/* Central Observation Point */}
+              <circle cx="16" cy="16" r="3" className="fill-amber-gold stroke-none" />
+              {/* Axis markers */}
+              <path d="M16 8 V11" className="opacity-40" />
+              <path d="M16 21 V24" className="opacity-40" />
+              <path d="M8 16 H11" className="opacity-40" />
+              <path d="M21 16 H24" className="opacity-40" />
+            </svg>
+          </div>
+          
+          <div className="flex items-baseline leading-none">
+            <span className="text-[18px] font-black tracking-[0.05em] text-white uppercase select-none">
+              VERTEX
+            </span>
+          </div>
+        </div>
       </div>
 
       {/* Grid status */}
       <div className="p-4 border-b border-amber-gold-muted bg-onyx-deep/60 shrink-0">
-        <span className="label-caps block mb-3">GRID STATUS</span>
-        <div className="flex items-center gap-4 mb-3">
-          <GridStatusDots ok={health.ok} />
-          <span className="font-mono text-[12px] text-amber-gold uppercase tracking-tighter">
-            {health.ok ? 'Nominal' : 'Degraded'}
-          </span>
-          <span
-            className={`ml-auto w-2 h-2 rounded-full ${connected ? 'bg-green-ais animate-pulse' : 'bg-on-surface-variant'}`}
-            title={connected ? 'WebSocket connected' : 'Disconnected'}
-            aria-label={connected ? 'Live data connected' : 'Disconnected'}
-          />
+        <div className="flex items-center justify-between mb-3">
+          <span className="label-caps">GRID STATUS</span>
+          <div className="flex items-center gap-1.5">
+            <span
+              className={`ms text-[14px] ${health.ok ? 'text-amber-gold' : 'text-red-emergency'}`}
+              style={{ fontVariationSettings: "'FILL' 1" }}
+            >
+              monitor_heart
+            </span>
+            <span
+              className={`ml-1 w-2 h-2 rounded-full ${connected ? 'bg-green-ais animate-pulse' : 'bg-red-emergency shadow-[0_0_8px_rgba(255,59,48,0.5)]'}`}
+              title={connected ? 'WebSocket connected' : 'Disconnected'}
+            />
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-4">
+            <GridStatusDots ok={health.ok} />
+            <div className="flex flex-col">
+              <span className={`font-mono text-[12px] uppercase tracking-tighter ${health.ok ? 'text-amber-gold' : 'text-red-emergency font-bold'}`}>
+                {health.ok ? 'Nominal' : 'Degraded'}
+              </span>
+              {!health.ok && (
+                <span className="text-[9px] text-red-emergency/80 uppercase font-mono tracking-tight">
+                  Check service logs
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+             <span className={`flex items-center text-[10px] font-mono ${activeInc > 0 ? 'text-red-emergency animate-pulse' : 'text-on-surface-variant opacity-20'}`} title="Active Incidents">
+               <span className="ms text-[14px] mr-1" aria-hidden="true">warning</span>
+               {activeInc}
+             </span>
+             <span className={`flex items-center text-[10px] font-mono ${wAlerts > 0 ? 'text-amber-gold' : 'text-on-surface-variant opacity-20'}`} title="Weather Alerts">
+               <span className="ms text-[14px] mr-1" aria-hidden="true">cloud_alert</span>
+               {wAlerts}
+             </span>
+          </div>
         </div>
 
         {/* Entity count strip */}
-        <div className="flex gap-4 text-[10px] font-mono">
-          <span className="text-cyan-adsb">
-            <span className="ms text-[12px] mr-1" aria-hidden="true">flight</span>
-            {aircraft}
-          </span>
-          <span className="text-green-ais">
-            <span className="ms text-[12px] mr-1" aria-hidden="true">directions_boat</span>
-            {vessels}
-          </span>
-          {meshNodes > 0 && (
-            <span className="text-amber-p25">
-              <span className="ms text-[12px] mr-1" aria-hidden="true">router</span>
-              {meshNodes}
-            </span>
-          )}
+        <div className="flex flex-col gap-2.5 text-[10px] font-mono border-t border-white/5 pt-3">
+          <div className="flex items-center justify-between">
+            <div className="flex gap-4">
+              <span className="text-cyan-adsb flex items-center" title="Aircraft (ADS-B)">
+                <span className="ms text-[14px] mr-1" aria-hidden="true">flight</span>
+                {aircraft}
+              </span>
+              <span className="text-green-ais flex items-center" title="Vessels (AIS)">
+                <span className="ms text-[14px] mr-1" aria-hidden="true">directions_boat</span>
+                {vessels}
+              </span>
+            </div>
+            <div className="flex gap-4">
+              <span className="text-amber-gold flex items-center" title="Traffic Cameras">
+                <span className="ms text-[14px] mr-1" aria-hidden="true">videocam</span>
+                {cams}
+              </span>
+              {meshNodes > 0 && (
+                <span className="text-amber-p25 flex items-center" title="Mesh Nodes">
+                  <span className="ms text-[14px] mr-1" aria-hidden="true">router</span>
+                  {meshNodes}
+                </span>
+              )}
+            </div>
+                </div>
         </div>
       </div>
+
 
       {/* Scrollable content */}
       <div className="flex-1 overflow-y-auto p-4 space-y-6 bg-onyx-black">

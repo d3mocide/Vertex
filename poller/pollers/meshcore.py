@@ -27,11 +27,11 @@ class MeshCorePoller(BasePoller):
         pass  # streaming — overrides run()
 
     async def run(self):
-        if not settings.meshcore_bridge_host:
-            logger.warning("[meshcore] MESHCORE_BRIDGE_HOST not set — poller inactive")
+        if not settings.meshcore_url:
+            logger.warning("[meshcore] MESHCORE_URL not set — poller inactive")
             return
 
-        url = f"ws://{settings.meshcore_bridge_host}:{settings.meshcore_bridge_port}"
+        url = settings.meshcore_url
         logger.info("[meshcore] connecting to bridge at %s", url)
 
         while True:

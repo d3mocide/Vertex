@@ -54,6 +54,7 @@ export interface AlertItem {
   summary:   string
   link:      string
   published: string
+  category?:  string
 }
 
 export interface NewsItem {
@@ -62,6 +63,7 @@ export interface NewsItem {
   summary?:  string
   link:      string
   published: string
+  category?:  string
 }
 
 // ─── Weather ──────────────────────────────────────────────────────────────────
@@ -186,6 +188,7 @@ interface CivicStore {
   radarVisible:     boolean
   radarOpacity:     number
   camerasVisible:   boolean
+  geofencesVisible: boolean
 
   // Actions — data
   setEntities:      (entities: Entity[]) => void
@@ -214,6 +217,7 @@ interface CivicStore {
   setRadarVisible:     (v: boolean) => void
   setRadarOpacity:     (v: number) => void
   setCamerasVisible:   (v: boolean) => void
+  setGeofencesVisible: (v: boolean) => void
   mobileNavOpen:       boolean
   setMobileNavOpen:    (v: boolean) => void
   settingsOpen:        boolean
@@ -348,6 +352,7 @@ export const useCivicStore = create<CivicStore>((set) => ({
   radarVisible:     false,
   radarOpacity:     0.6,
   camerasVisible:   false,
+  geofencesVisible: true,
   selectedCamId:    null,
   favoriteCamIds:   loadFavoriteCamIds(),
   mobileNavOpen:    false,
@@ -440,6 +445,7 @@ export const useCivicStore = create<CivicStore>((set) => ({
   setRadarVisible:   (radarVisible)   => set({ radarVisible }),
   setRadarOpacity:   (radarOpacity)   => set({ radarOpacity }),
   setCamerasVisible: (camerasVisible) => set({ camerasVisible }),
+  setGeofencesVisible: (geofencesVisible) => set({ geofencesVisible }),
   setMobileNavOpen:  (mobileNavOpen)  => set({ mobileNavOpen }),
   setSettingsOpen:   (settingsOpen)   => set({ settingsOpen }),
   setEntityFilter:   (f)              => set((s) => ({ entityFilter: { ...s.entityFilter, ...f } })),

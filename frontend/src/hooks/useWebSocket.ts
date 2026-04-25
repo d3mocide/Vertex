@@ -62,7 +62,14 @@ export function useWebSocket() {
     return () => {
       cancelled = true
       clearInterval(cleanupInterval)
-      wsRef.current?.close()
+      if (wsRef.current) {
+        wsRef.current.onopen = null
+        wsRef.current.onerror = null
+        wsRef.current.onclose = null
+        wsRef.current.onmessage = null
+        wsRef.current.close()
+        wsRef.current = null
+      }
     }
   }, [])
 }

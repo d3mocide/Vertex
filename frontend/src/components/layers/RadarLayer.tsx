@@ -52,8 +52,13 @@ function addRasterLayer(
 }
 
 function removeRasterLayer(map: maplibregl.Map, sourceId: string, layerId: string) {
-  if (map.getLayer(layerId)) map.removeLayer(layerId)
-  if (map.getSource(sourceId)) map.removeSource(sourceId)
+  if (!map || typeof map.getLayer !== 'function') return
+  try {
+    if (map.getLayer(layerId)) map.removeLayer(layerId)
+    if (map.getSource(sourceId)) map.removeSource(sourceId)
+  } catch {
+    // Map may have already been destroyed via m.remove() — safe to ignore.
+  }
 }
 
 function resolveBlendForZoom(zoom: number) {
@@ -62,6 +67,7 @@ function resolveBlendForZoom(zoom: number) {
 }
 
 function setBlendOpacities(map: maplibregl.Map, baseOpacity: number, blend: number) {
+  if (!map || typeof map.getLayer !== 'function') return
   if (map.getLayer(LAYER_LOCAL)) {
     map.setPaintProperty(LAYER_LOCAL, 'raster-opacity', baseOpacity * (1 - blend))
   }
@@ -90,17 +96,19 @@ function refreshSourceTiles(
 }
 
 export function RadarLayer({ map }: Props) {
+  // ── All hooks must be called unconditionally (Rules of Hooks) ──────────────
   const radarVisible = useCivicStore((s) => s.radarVisible)
   const radarOpacity = useCivicStore((s) => s.radarOpacity)
   // Keep a stable ref to opacity so the refresh interval always uses the
   // current value without being a dependency that restarts the timer.
   const opacityRef = useRef(radarOpacity)
   opacityRef.current = radarOpacity
-  const blendRef = useRef(resolveBlendForZoom(map.getZoom()))
+  const blendRef = useRef(0)
   const crossfadeRafRef = useRef<number | null>(null)
 
   // Mount/unmount the layer + refresh every RADAR_REFRESH_MS
   useEffect(() => {
+    if (!map || typeof map.getLayer !== 'function') return
     if (!radarVisible) return
 
     const cancelCrossfade = () => {
@@ -155,15 +163,19 @@ export function RadarLayer({ map }: Props) {
     return () => {
       cancelCrossfade()
       clearInterval(timer)
-      map.off('zoomend', onZoomEnd)
-      removeRasterLayer(map, SRC_LOCAL, LAYER_LOCAL)
-      removeRasterLayer(map, SRC_WIDE, LAYER_WIDE)
+      if (map && typeof map.off === 'function') {
+        map.off('zoomend', onZoomEnd)
+        removeRasterLayer(map, SRC_LOCAL, LAYER_LOCAL)
+        removeRasterLayer(map, SRC_WIDE, LAYER_WIDE)
+      }
     }
   }, [map, radarVisible])
 
   // Opacity-only updates — preserve current blend position while updating alpha.
   useEffect(() => {
-    setBlendOpacities(map, radarOpacity, blendRef.current)
+    if (map && typeof map.getLayer === 'function') {
+      setBlendOpacities(map, radarOpacity, blendRef.current)
+    }
   }, [map, radarOpacity])
 
   return null

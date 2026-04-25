@@ -105,10 +105,10 @@ export function PlaybackController() {
         <button
           onClick={() => setOpen((v) => !v)}
           className={`
-            absolute bottom-16 right-4 z-30 flex items-center gap-2 px-3 py-2
+            absolute top-28 left-[280px] z-30 flex items-center gap-2 px-3 py-2 HUD-panel-glow
             hud-panel border border-amber-gold-muted text-[10px] font-mono uppercase tracking-widest
             hover:border-amber-gold/60 transition-colors focus:outline-none
-            ${open ? 'text-amber-gold border-amber-gold' : 'text-on-surface-variant'}
+            ${open ? 'text-amber-gold border-amber-gold shadow-[0_0_10px_rgba(255,184,0,0.2)]' : 'text-on-surface-variant'}
           `}
           aria-expanded={open}
           title="Historical playback"
@@ -120,7 +120,7 @@ export function PlaybackController() {
 
       {/* Load panel — shown when trigger clicked and not yet in replay mode */}
       {open && !replayMode && (
-        <div className="absolute bottom-28 right-4 z-30 w-64 hud-panel p-4 space-y-4">
+        <div className="absolute top-40 left-4 z-[40] w-72 hud-panel p-4 space-y-4 shadow-2xl border-amber-gold-muted">
           <div className="flex items-center justify-between">
             <span className="font-bold text-[10px] tracking-[0.2em] uppercase text-amber-gold">Load History</span>
             <button onClick={() => setOpen(false)} className="ms text-[16px] text-on-surface-variant hover:text-on-surface leading-none focus:outline-none">close</button>
