@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useCivicStore } from '../../store'
 import { API_BASE, STREAM_URL } from '../../config'
+import { authHeaders } from '../../auth'
 
 type RadioCallEvent = {
   event_id: string
@@ -89,7 +90,9 @@ export function TacticalAudio() {
 
     const loadCalls = async () => {
       try {
-        const res = await fetch(`${API_BASE}/radio/calls?hours=24`)
+        const res = await fetch(`${API_BASE}/radio/calls?hours=24`, {
+          headers: authHeaders(),
+        })
         if (!res.ok) return
         const calls = (await res.json()) as RadioCallEvent[]
         const byTgid = new Map<number, TalkgroupLogRow>()

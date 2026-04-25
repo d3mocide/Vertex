@@ -4,20 +4,29 @@ Chronological log of agent-completed work. Most recent entries at the top.
 Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 
 ---
-6: 
-7: ## 2026-04-25 — Synced environment example files
-8: 
-9: - **Sync .env templates** (`.env.local-sdr.example`, `.env.remote.example`): Added missing sections from `.env.example` to the specialized templates.
-10: - **Fix Build Failures**:
-11:     - Updated `prometheus-fastapi-instrumentator` to `7.1.0` in `backend/requirements.txt` to resolve a missing version error.
-12:     - Downgraded `httpx` to `0.27.2` in `poller/requirements.txt` to resolve a dependency conflict with `litellm`.
-13: - Added `TRAFFIC_FLOW_CORRIDORS` for highway detection filtering.
-14: - Added **Regional Alert Feeds** section for FlashAlert and TVFR.
-15: - Added **AI Situational Summary** configuration for incident analysis.
-16: - Added **Authentication** settings for dashboard security.
-17: - **Motivation**: Ensure specialized deployment profiles have parity with new system features and configuration options, and restore build stability across the Docker environment.
-18: 
-19: ---
+
+## 2026-04-25 — Restored Docker stack and deployed remote configuration
+
+- **Restore Docker Stack**: Created missing `.env` from `.env.example` to resolve container start failures.
+- **Deploy Remote Configuration**: Successfully launched the development stack using `docker-compose.dev.yml` and `.env.remote` as requested.
+- **Verify Backend Stability**: Confirmed backend container health and successful application startup with the new environment configuration.
+- **Sync Pollers**: Forced poller restart to ensure all background tasks are running with the latest `.env.remote` settings.
+- **Motivation**: Recover from a broken container state and transition to a remote radio deployment for development.
+
+---
+
+## 2026-04-25 — Synced environment templates and fixed build/runtime errors
+
+- **Sync .env templates** (`.env.local-sdr.example`, `.env.remote.example`): Added missing sections from `.env.example` to the specialized templates (Traffic Flow, Regional Alerts, AI Summary, Auth).
+- **Fix Build Failures**:
+    - Updated `prometheus-fastapi-instrumentator` to `7.1.0` in `backend/requirements.txt` to resolve a missing version error.
+    - Downgraded `httpx` to `0.27.2` in `poller/requirements.txt` to resolve a dependency conflict with `litellm`.
+- **Fix Runtime Errors**:
+    - Added missing `shapely` dependency to `backend/requirements.txt`.
+    - Refactored `backend/db/session.py` to use `Base.metadata.create_all` instead of manual SQL, resolving an `IntegrityError` caused by sequence duplication and a `PostgresSyntaxError` from multi-statement blocks.
+- **Motivation**: Ensure specialized deployment profiles have parity with new system features and configuration options, and restore system stability across the Docker environment.
+
+---
 
 ## 2026-04-24 — Phase 4: all 6 new features implemented
 

@@ -12,17 +12,8 @@ class Base(DeclarativeBase):
 
 
 async def init_db():
+    from db import models  # noqa: F401
     async with engine.begin() as conn:
         # Core schema is managed by db/init/ SQL scripts (run on fresh volume only).
-        # Users table is created here so existing deployments pick it up automatically.
-        await conn.execute(text("""
-            CREATE TABLE IF NOT EXISTS users (
-                id            SERIAL       PRIMARY KEY,
-                username      VARCHAR(64)  UNIQUE NOT NULL,
-                password_hash VARCHAR(256) NOT NULL,
-                role          VARCHAR(32)  NOT NULL DEFAULT 'admin',
-                created_at    TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
-                last_login    TIMESTAMPTZ
-            );
-            CREATE INDEX IF NOT EXISTS ix_users_username ON users (username);
-        """))
+        # Users table (and others) are checked here so existing deployments pick them up automatically.
+        await conn.run_sync(Base.metadata.create_all)
