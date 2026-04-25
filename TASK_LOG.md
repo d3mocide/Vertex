@@ -8,13 +8,16 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 7: ## 2026-04-25 — Synced environment example files
 8: 
 9: - **Sync .env templates** (`.env.local-sdr.example`, `.env.remote.example`): Added missing sections from `.env.example` to the specialized templates.
-10: - Added `TRAFFIC_FLOW_CORRIDORS` for highway detection filtering.
-11: - Added **Regional Alert Feeds** section for FlashAlert and TVFR.
-12: - Added **AI Situational Summary** configuration for incident analysis.
-13: - Added **Authentication** settings for dashboard security.
-14: - **Motivation**: Ensure specialized deployment profiles have parity with new system features and configuration options.
-15: 
-16: ---
+10: - **Fix Build Failures**:
+11:     - Updated `prometheus-fastapi-instrumentator` to `7.1.0` in `backend/requirements.txt` to resolve a missing version error.
+12:     - Downgraded `httpx` to `0.27.2` in `poller/requirements.txt` to resolve a dependency conflict with `litellm`.
+13: - Added `TRAFFIC_FLOW_CORRIDORS` for highway detection filtering.
+14: - Added **Regional Alert Feeds** section for FlashAlert and TVFR.
+15: - Added **AI Situational Summary** configuration for incident analysis.
+16: - Added **Authentication** settings for dashboard security.
+17: - **Motivation**: Ensure specialized deployment profiles have parity with new system features and configuration options, and restore build stability across the Docker environment.
+18: 
+19: ---
 
 ## 2026-04-24 — Phase 4: all 6 new features implemented
 
