@@ -18,7 +18,10 @@ import { EntityDetail }      from './components/panels/EntityDetail'
 import { InfrastructureGrid } from './components/panels/InfrastructureGrid'
 import { EnvironmentPanel }  from './components/panels/EnvironmentPanel'
 import { CommunityPanel }    from './components/panels/CommunityPanel'
-import { CameraModal }       from './components/panels/CameraModal'
+import { EventLogPanel }      from './components/panels/EventLogPanel'
+import { EntitySearchPanel }   from './components/panels/EntitySearchPanel'
+import { PlaybackController }  from './components/panels/PlaybackController'
+import { CameraModal }         from './components/panels/CameraModal'
 
 // ── Authenticated dashboard ────────────────────────────────────────────────────
 function Dashboard() {
@@ -62,6 +65,7 @@ function Dashboard() {
                 {activeTab === 'infrastructure' && <InfrastructureGrid />}
                 {activeTab === 'environment'    && <EnvironmentPanel   />}
                 {activeTab === 'community'      && <CommunityPanel     />}
+                {activeTab === 'events'         && <EventLogPanel      />}
               </div>
             )}
 
@@ -69,7 +73,9 @@ function Dashboard() {
 
             {activeTab === 'safety' && (
               <>
+                <EntitySearchPanel />
                 <EntityDetail />
+                <PlaybackController />
               </>
             )}
 

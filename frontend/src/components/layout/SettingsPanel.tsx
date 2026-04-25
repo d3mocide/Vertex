@@ -1,5 +1,6 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useCivicStore } from '../../store'
+import { notificationPermission, requestNotificationPermission } from '../../notifications'
 
 export function SettingsPanel() {
   const {
@@ -10,6 +11,8 @@ export function SettingsPanel() {
     entityFilter, setEntityFilter,
   } = useCivicStore()
 
+  const [notifPermission, setNotifPermission] = useState(() => notificationPermission())
+
   // Close on Escape
   useEffect(() => {
     if (!settingsOpen) return
@@ -17,6 +20,12 @@ export function SettingsPanel() {
     document.addEventListener('keydown', handler)
     return () => document.removeEventListener('keydown', handler)
   }, [settingsOpen, setSettingsOpen])
+
+  const handleNotifToggle = async () => {
+    if (notifPermission === 'granted') return  // browser doesn't allow revocation via JS
+    const granted = await requestNotificationPermission()
+    setNotifPermission(granted ? 'granted' : 'denied')
+  }
 
   if (!settingsOpen) return null
 
@@ -94,6 +103,36 @@ export function SettingsPanel() {
                     aria-valuenow={Math.round(radarOpacity * 100)}
                   />
                 </div>
+              </div>
+            </section>
+          )}
+
+          {/* Notifications */}
+          {notifPermission !== 'unsupported' && (
+            <section>
+              <h2 className="label-caps mb-3">Notifications</h2>
+              <div className="space-y-3">
+                {notifPermission === 'denied' ? (
+                  <p className="text-[10px] text-on-surface-variant leading-relaxed">
+                    Notifications blocked by browser. Enable them in browser site settings.
+                  </p>
+                ) : (
+                  <button
+                    onClick={handleNotifToggle}
+                    disabled={notifPermission === 'granted'}
+                    className={`flex items-center gap-3 w-full text-left group ${notifPermission === 'granted' ? 'cursor-default' : 'cursor-pointer'}`}
+                  >
+                    <span className={`ms text-[18px] leading-none transition-colors ${notifPermission === 'granted' ? 'text-amber-gold' : 'text-on-surface-variant group-hover:text-on-surface'}`} aria-hidden="true">
+                      notifications
+                    </span>
+                    <span className={`flex-1 font-bold text-[10px] tracking-widest uppercase transition-colors ${notifPermission === 'granted' ? 'text-on-surface' : 'text-on-surface-variant group-hover:text-on-surface'}`}>
+                      {notifPermission === 'granted' ? 'Notifications On' : 'Enable Notifications'}
+                    </span>
+                    {notifPermission === 'granted' && (
+                      <span className="ms text-[14px] text-amber-gold leading-none">check_circle</span>
+                    )}
+                  </button>
+                )}
               </div>
             </section>
           )}

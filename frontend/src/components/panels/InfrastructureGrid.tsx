@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useCivicStore, TrafficCamera } from '../../store'
+import { GeofencePanel } from './GeofencePanel'
 
 function CctvThumbnail({
   cam, ldi, isFavorite, onToggleFavorite,
@@ -312,6 +313,15 @@ export function InfrastructureGrid() {
             <UtilityStatusRow label="OR-99W"            {...getFlowStatus('99W')}   />
             <UtilityStatusRow label="Boones Ferry Rd"   {...getFlowStatus('Boones Ferry')}   />
           </div>
+        </section>
+
+        {/* Geofence management */}
+        <section aria-labelledby="geofence-heading" className="lg:col-span-2">
+          <h3 id="geofence-heading" className="section-heading mb-4">
+            <span className="ms text-[14px] leading-none" aria-hidden="true">pentagon</span>
+            Geofence Zones
+          </h3>
+          <GeofencePanel />
         </section>
       </div>
     </div>

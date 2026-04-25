@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from deps import get_db
-from db.models import Observation
+from db.models import Observation, Entity
 from schemas.observation import ObservationSchema
 
 router = APIRouter(tags=["observations"])
@@ -23,3 +23,61 @@ async def get_trail(
         .order_by(Observation.ts)
     )
     return result.scalars().all()
+
+
+@router.get("/observations/replay")
+async def get_replay(
+    start: datetime = Query(..., description="Replay window start (ISO 8601)"),
+    end: datetime = Query(None,  description="Replay window end (ISO 8601, default: now)"),
+    entity_type: str | None = Query(None, description="Filter by entity type"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Return all observations in a time window, grouped by entity_id.
+
+    Capped at 30 days back; end defaults to now.
+    """
+    now = datetime.now(timezone.utc)
+    if end is None:
+        end = now
+    start = max(start.replace(tzinfo=timezone.utc) if start.tzinfo is None else start,
+                now - timedelta(days=30))
+
+    query = (
+        select(Observation, Entity.entity_type, Entity.display_name)
+        .join(Entity, Observation.entity_id == Entity.entity_id)
+        .where(
+            Observation.ts >= start,
+            Observation.ts <= end,
+            Observation.lat.isnot(None),
+            Observation.lon.isnot(None),
+        )
+        .order_by(Observation.entity_id, Observation.ts)
+    )
+    if entity_type:
+        query = query.where(Entity.entity_type == entity_type)
+
+    result = await db.execute(query)
+    rows = result.all()
+
+    grouped: dict[str, dict] = {}
+    for obs, etype, dname in rows:
+        if obs.entity_id not in grouped:
+            grouped[obs.entity_id] = {
+                "entity_type": etype,
+                "display_name": dname,
+                "points": [],
+            }
+        grouped[obs.entity_id]["points"].append({
+            "ts":       obs.ts.isoformat(),
+            "lat":      obs.lat,
+            "lon":      obs.lon,
+            "altitude": obs.altitude,
+            "heading":  obs.heading,
+            "speed":    obs.speed,
+        })
+
+    return {
+        "start":    start.isoformat(),
+        "end":      end.isoformat(),
+        "entities": grouped,
+    }

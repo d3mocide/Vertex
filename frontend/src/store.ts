@@ -125,8 +125,36 @@ export interface SystemHealth {
 
 // ─── UI State ─────────────────────────────────────────────────────────────────
 export type AppMode  = 'calm' | 'critical'
-export type NavTab   = 'safety' | 'infrastructure' | 'environment' | 'community'
+export type NavTab   = 'safety' | 'infrastructure' | 'environment' | 'community' | 'events'
 export type EntityTypeFilter = { aircraft: boolean; vessel: boolean; mesh_node: boolean }
+
+// [min, max] — altitude in feet, speed in knots
+export type RangeFilter = [number, number]
+
+export const ALT_RANGE_DEFAULT: RangeFilter  = [0, 60_000]
+export const SPD_RANGE_DEFAULT: RangeFilter  = [0, 600]
+
+// ─── Replay ───────────────────────────────────────────────────────────────────
+export interface ReplayPoint {
+  ts:        string
+  lat:       number
+  lon:       number
+  altitude:  number | null
+  heading:   number | null
+  speed:     number | null
+}
+
+export interface ReplayEntityData {
+  entity_type:  string
+  display_name: string | null
+  points:       ReplayPoint[]
+}
+
+export interface ReplayData {
+  start:    string
+  end:      string
+  entities: Record<string, ReplayEntityData>
+}
 
 // ─── Store ────────────────────────────────────────────────────────────────────
 interface CivicStore {
@@ -192,6 +220,31 @@ interface CivicStore {
   setSettingsOpen:     (v: boolean) => void
   entityFilter:        EntityTypeFilter
   setEntityFilter:     (f: Partial<EntityTypeFilter>) => void
+  entitySearchQuery:   string
+  setEntitySearchQuery: (q: string) => void
+  entityAltRange:      RangeFilter
+  setEntityAltRange:   (r: RangeFilter) => void
+  entitySpeedRange:    RangeFilter
+  setEntitySpeedRange: (r: RangeFilter) => void
+
+  // Geofence draw tool
+  geofenceDrawing:      boolean
+  geofenceDrawPoints:   [number, number][]   // [lon, lat] pairs
+  setGeofenceDrawing:   (v: boolean) => void
+  addGeofenceDrawPoint: (pt: [number, number]) => void
+  clearGeofenceDrawPoints: () => void
+
+  // Replay mode
+  replayMode:         boolean
+  replayData:         ReplayData | null
+  replayCurrentTs:    number       // Unix ms — current playhead position
+  replayPlaying:      boolean
+  replaySpeed:        number       // 1 | 2 | 5 | 10
+  setReplayMode:      (v: boolean) => void
+  setReplayData:      (d: ReplayData | null) => void
+  setReplayCurrentTs: (ts: number) => void
+  setReplayPlaying:   (v: boolean) => void
+  setReplaySpeed:     (v: number) => void
 
   // Camera map interaction
   selectedCamId:    string | null
@@ -300,6 +353,20 @@ export const useCivicStore = create<CivicStore>((set) => ({
   mobileNavOpen:    false,
   settingsOpen:     false,
   entityFilter:     { aircraft: true, vessel: true, mesh_node: true },
+  entitySearchQuery: '',
+  entityAltRange:   ALT_RANGE_DEFAULT,
+  entitySpeedRange: SPD_RANGE_DEFAULT,
+
+  // Geofence draw
+  geofenceDrawing:      false,
+  geofenceDrawPoints:   [],
+
+  // Replay
+  replayMode:      false,
+  replayData:      null,
+  replayCurrentTs: 0,
+  replayPlaying:   false,
+  replaySpeed:     1,
 
   // Data actions
   setEntities: (list) => {
@@ -376,6 +443,19 @@ export const useCivicStore = create<CivicStore>((set) => ({
   setMobileNavOpen:  (mobileNavOpen)  => set({ mobileNavOpen }),
   setSettingsOpen:   (settingsOpen)   => set({ settingsOpen }),
   setEntityFilter:   (f)              => set((s) => ({ entityFilter: { ...s.entityFilter, ...f } })),
+  setEntitySearchQuery: (entitySearchQuery) => set({ entitySearchQuery }),
+  setEntityAltRange:   (entityAltRange)    => set({ entityAltRange }),
+  setEntitySpeedRange: (entitySpeedRange)  => set({ entitySpeedRange }),
+
+  setGeofenceDrawing:   (geofenceDrawing) => set({ geofenceDrawing }),
+  addGeofenceDrawPoint: (pt) => set((s) => ({ geofenceDrawPoints: [...s.geofenceDrawPoints, pt] })),
+  clearGeofenceDrawPoints: () => set({ geofenceDrawPoints: [] }),
+
+  setReplayMode:      (replayMode)      => set({ replayMode }),
+  setReplayData:      (replayData)      => set({ replayData }),
+  setReplayCurrentTs: (replayCurrentTs) => set({ replayCurrentTs }),
+  setReplayPlaying:   (replayPlaying)   => set({ replayPlaying }),
+  setReplaySpeed:     (replaySpeed)     => set({ replaySpeed }),
   setSelectedCamId: (selectedCamId) => set({ selectedCamId }),
   toggleFavoriteCam: (id) =>
     set((s) => {
