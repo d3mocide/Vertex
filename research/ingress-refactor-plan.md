@@ -52,11 +52,11 @@ they survive database wipes.
 - [x] `poller/pollers/meshcore.py` — load URLs from DB, fix dead `setup()` in `run()` override
 
 ### Phase 4 — Write-Back API
-- [ ] `backend/config_writer.py` — asyncio-locked YAML write operations
-- [ ] Extend `backend/routers/radio.py` — streams CRUD + write-back
-- [ ] Create `backend/routers/sources.py` — poller_sources + news_feeds CRUD
-- [ ] Register new router in `backend/main.py`
-- [ ] Publish `vertex:config_sync` Redis key on every API mutation
+- [x] `backend/config_writer.py` — asyncio-locked YAML write operations
+- [x] Extend `backend/routers/radio.py` — streams CRUD + write-back
+- [x] Create `backend/routers/sources.py` — poller_sources + news_feeds + alert_zones CRUD
+- [x] Register new router in `backend/main.py`
+- [x] Updated `poller/config_sync.py` — source=user entries in YAML now recovered on DB wipe
 
 ### Phase 5 — News Feeds + Alert Zones
 - [ ] `poller/pollers/news.py` — replace `_NEWS_SOURCES` with DB query in `setup()`
