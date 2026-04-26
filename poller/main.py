@@ -16,7 +16,10 @@ from pollers.p25 import P25Poller
 from pollers.meshcore import MeshCorePoller
 from pollers.summary import AISummaryPoller
 from bus import close
-from db import init_db, close_db, purge_observations
+from config_loader import load_sources_config
+from config_sync import sync_sources_to_db
+from config_watcher import watch_config
+from db import init_db, close_db, get_pool, purge_observations
 
 logging.basicConfig(
     level=settings.log_level,
@@ -42,6 +45,10 @@ async def _purge_loop():
 
 async def main():
     await init_db()
+
+    config = load_sources_config()
+    await sync_sources_to_db(config, get_pool())
+
     pollers = [
         AdsbPoller(),
         AisPoller(),
@@ -56,7 +63,8 @@ async def main():
     ]
     tasks = [asyncio.create_task(p.run()) for p in pollers]
     tasks.append(asyncio.create_task(_purge_loop()))
-    logger.info("Started %d pollers + purge task", len(tasks) - 1)
+    tasks.append(asyncio.create_task(watch_config(get_pool())))
+    logger.info("Started %d pollers + purge + config watcher", len(tasks) - 2)
     try:
         await asyncio.gather(*tasks)
     except asyncio.CancelledError:

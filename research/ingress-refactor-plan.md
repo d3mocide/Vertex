@@ -40,10 +40,10 @@ they survive database wipes.
 - [x] `pyyaml` added to both requirements files
 
 ### Phase 2 — Config Watcher + DB Seed
-- [ ] `poller/config_sync.py` — diff-and-sync logic
-- [ ] `poller/config_watcher.py` — async mtime watcher task
-- [ ] Wire watcher + initial seed into `poller/main.py`
-- [ ] Expose `get_pool()` from `poller/db.py`
+- [x] `poller/config_sync.py` — diff-and-sync logic
+- [x] `poller/config_watcher.py` — async mtime watcher task
+- [x] Wire watcher + initial seed into `poller/main.py`
+- [x] Expose `get_pool()` from `poller/db.py`
 
 ### Phase 3 — Poller Refactor
 - [ ] `poller/pollers/adsb.py` — load URLs from DB via `setup()`
