@@ -9,6 +9,12 @@ logger = logging.getLogger(__name__)
 _pool: asyncpg.Pool | None = None
 
 
+def get_pool() -> asyncpg.Pool:
+    if _pool is None:
+        raise RuntimeError("DB pool not initialised — call init_db() first")
+    return _pool
+
+
 async def init_db():
     global _pool
     dsn = settings.database_url.replace("postgresql+asyncpg://", "postgresql://")

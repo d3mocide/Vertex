@@ -1,0 +1,92 @@
+# Vertex source configuration — example with all fields documented.
+# Copy to sources.yml and fill in your local network addresses.
+#
+# This file is mounted into the backend (read-write) and poller (read-only)
+# containers at /config/sources.yml.
+#
+# The poller hot-reloads this file within ~5 seconds of any change.
+# Entries added via the UI are written back here with source: user so they
+# survive database wipes.
+#
+# source field:
+#   config — managed by editing this file directly
+#   user   — written here automatically when added via the UI
+
+# ---------------------------------------------------------------------------
+# Radio streams — any Icecast/HLS-compatible audio stream.
+# Broadcastify feeds, local OP25 icecast, scanner feeds, etc.
+# ---------------------------------------------------------------------------
+radio_streams:
+  - name: "Local P25"
+    url: "http://192.168.1.x:8000/radio.mp3"
+    format: mp3            # mp3 | ogg | aac
+    enabled: true
+    source: config
+
+  - name: "Broadcastify — Portland Fire"
+    url: "https://broadcastify.cdnstream1.com/XXXXX"
+    format: mp3
+    enabled: false
+    source: config
+
+# ---------------------------------------------------------------------------
+# News feeds — RSS/Atom feeds shown in the news panel.
+# ---------------------------------------------------------------------------
+news_feeds:
+  - name: "KOIN 6 News"
+    url: "https://www.koin.com/feed"
+    format: rss
+    enabled: true
+    source: config
+
+  - name: "OPB News"
+    url: "https://www.opb.org/arc/outboundfeeds/rss/?outputType=xml"
+    format: rss
+    enabled: true
+    source: config
+
+  - name: "FlashAlert Emergency Newswire"
+    url: "http://www.flashalertnewswire.net/IIN/reportsX/flashnews_xml_emergency.php"
+    format: flashalert_xml
+    enabled: true
+    source: config
+
+# ---------------------------------------------------------------------------
+# Poller sources — local network endpoints for SDR and sensor data.
+# The poller connects to these instead of managing its own containers.
+# ---------------------------------------------------------------------------
+poller_sources:
+  - type: adsb             # ADS-B — tar1090 / readsb aircraft.json
+    name: "Primary ADS-B"
+    url: "http://192.168.1.x:8080/data/aircraft.json"
+    enabled: true
+    source: config
+
+  - type: ais              # AIS — ais-catcher WebSocket
+    name: "Local AIS-Catcher"
+    url: "ws://192.168.1.x:10101"
+    enabled: true
+    source: config
+
+  - type: p25              # P25 — OP25 HTTP terminal state endpoint
+    name: "Local OP25"
+    url: "http://192.168.1.x:8080"
+    enabled: true
+    source: config
+
+  - type: meshcore         # MeshCore — meshcore-bridge WebSocket
+    name: "MeshCore Bridge"
+    url: "ws://192.168.1.x:7001"
+    enabled: true
+    source: config
+
+# ---------------------------------------------------------------------------
+# Alert zones — NWS zone codes for weather alerts.
+# Find yours at: https://www.weather.gov/pimar/PubZone
+# ---------------------------------------------------------------------------
+alert_zones:
+  nws_zones:
+    - "ORZ006"             # Washington County, OR
+    - "ORZ005"             # Multnomah County, OR
+    - "ORZ007"             # Clackamas County, OR
+  source: config

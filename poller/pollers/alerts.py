@@ -8,16 +8,13 @@ from .base import BasePoller
 
 logger = logging.getLogger(__name__)
 
-# NWS CAP alerts API — no auth required, covers WA/Multnomah/Clackamas counties
 _NWS_HEADERS = {"User-Agent": "Vertex/0.1 (vertex; contact@localhost)"}
 
-# Reliable way to strip the FlashAlert proprietary DTD: slice from the root element.
-# The root is always <flashnews ...>, so we find it and discard the preamble.
+
 def _strip_flashalert_dtd(text: str) -> str:
     idx = text.find("<flashnews")
     if idx == -1:
         raise ValueError("No <flashnews> root element found in FlashAlert XML")
-    # Prepend the XML declaration so ElementTree gets a valid document
     return '<?xml version="1.0" encoding="UTF-8"?>' + text[idx:]
 
 
@@ -34,7 +31,6 @@ def _parse_flashalert_xml(text: str) -> list[dict]:
         orgname  = (report.findtext("orgname") or "").strip()
         detail   = (report.findtext("detail") or "").strip()
         category = ""
-        # Walk up to the emergency_category to get the category name
         for cat in root.iter("emergency_category"):
             if report in list(cat):
                 category = cat.get("name", "")
@@ -54,6 +50,25 @@ class AlertPoller(BasePoller):
     name = "alerts"
     interval = 60
 
+    def __init__(self):
+        self._zones: str = ""
+
+    async def setup(self):
+        from db import get_pool
+        rows = await get_pool().fetch(
+            "SELECT zone_code FROM alert_zone_configs WHERE enabled = TRUE"
+        )
+        if rows:
+            self._zones = ",".join(row["zone_code"] for row in rows)
+            logger.info("[alerts] %d NWS zone(s) loaded from DB: %s", len(rows), self._zones)
+        else:
+            # Fall back to env var for deployments that haven't migrated yet
+            self._zones = settings.nws_alert_zones
+            if self._zones:
+                logger.info("[alerts] no zones in DB — using NWS_ALERT_ZONES env fallback: %s", self._zones)
+            else:
+                logger.warning("[alerts] no NWS alert zones configured")
+
     async def poll(self):
         items: list[dict] = []
 
@@ -67,26 +82,26 @@ class AlertPoller(BasePoller):
             except Exception as exc:
                 logger.warning("[alerts] flashalert failed: %s", exc)
 
-        # ── NWS CAP alerts (covers WA/Multnomah/Clackamas) ──────────────────
-        try:
-            zones = settings.nws_alert_zones
-            url = f"https://api.weather.gov/alerts/active?zone={zones}"
-            async with httpx.AsyncClient(timeout=15, headers=_NWS_HEADERS) as client:
-                resp = await client.get(url)
-                resp.raise_for_status()
-            for feature in resp.json().get("features", [])[:15]:
-                props = feature.get("properties", {})
-                items.append({
-                    "source":    "nws_cap",
-                    "title":     props.get("headline", props.get("event", "")),
-                    "summary":   props.get("description", ""),
-                    "link":      props.get("@id", ""),
-                    "published": props.get("effective", ""),
-                    "severity":  props.get("severity", ""),
-                    "certainty": props.get("certainty", ""),
-                })
-        except Exception as exc:
-            logger.warning("[alerts] nws_cap failed: %s", exc)
+        # ── NWS CAP alerts ───────────────────────────────────────────────────
+        if self._zones:
+            try:
+                url = f"https://api.weather.gov/alerts/active?zone={self._zones}"
+                async with httpx.AsyncClient(timeout=15, headers=_NWS_HEADERS) as client:
+                    resp = await client.get(url)
+                    resp.raise_for_status()
+                for feature in resp.json().get("features", [])[:15]:
+                    props = feature.get("properties", {})
+                    items.append({
+                        "source":    "nws_cap",
+                        "title":     props.get("headline", props.get("event", "")),
+                        "summary":   props.get("description", ""),
+                        "link":      props.get("@id", ""),
+                        "published": props.get("effective", ""),
+                        "severity":  props.get("severity", ""),
+                        "certainty": props.get("certainty", ""),
+                    })
+            except Exception as exc:
+                logger.warning("[alerts] nws_cap failed: %s", exc)
 
         # ── TVFR / regional agency emergency alert RSS ────────────────────
         if settings.tvfr_enabled:

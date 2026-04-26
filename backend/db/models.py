@@ -78,3 +78,53 @@ class Geofence(Base):
     zone_type: Mapped[str] = mapped_column(String(32), default="alert")
     geom: Mapped[object] = mapped_column(Geometry("POLYGON", srid=4326))
     active: Mapped[bool] = mapped_column(Boolean, default=True)
+
+
+class RadioStream(Base):
+    __tablename__ = "radio_streams"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(128))
+    url: Mapped[str] = mapped_column(String(512))
+    format: Mapped[str] = mapped_column(String(16), default="mp3")
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    source: Mapped[str] = mapped_column(String(16), default="config")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class NewsFeed(Base):
+    __tablename__ = "news_feeds"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(128))
+    url: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
+    format: Mapped[str] = mapped_column(String(32), default="rss")
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    source: Mapped[str] = mapped_column(String(16), default="config")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class PollerSource(Base):
+    __tablename__ = "poller_sources"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    type: Mapped[str] = mapped_column(String(32), index=True)
+    name: Mapped[str] = mapped_column(String(128))
+    url: Mapped[str] = mapped_column(String(512))
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    source: Mapped[str] = mapped_column(String(16), default="config")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class AlertZoneConfig(Base):
+    __tablename__ = "alert_zone_configs"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    zone_code: Mapped[str] = mapped_column(String(32), unique=True)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    source: Mapped[str] = mapped_column(String(16), default="config")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
