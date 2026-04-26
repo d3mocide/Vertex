@@ -13,35 +13,32 @@ radio_streams: []
   #   enabled: true
   #   source: config
 
-news_feeds: []
-  # - name: "KOIN 6 News"
-  #   url: "https://www.koin.com/feed"
-  #   format: rss        # rss | atom | flashalert_xml | static
-  #   enabled: true
-  #   source: config
+news_feeds:
+  - name: "City of Tualatin"
+    url: "https://www.tualatinoregon.gov/rss/news"
+    format: rss
+    enabled: true
+    source: config
+  - name: "KOIN 6"
+    url: "https://www.koin.com/feed"
+    format: rss
+    enabled: true
+    source: config
+  - name: "Portland Tribune"
+    url: "https://www.portlandtribune.com/rss"
+    format: rss
+    enabled: true
+    source: config
+  - name: "OPB News"
+    url: "https://www.opb.org/arc/outboundfeeds/rss/?outputType=xml"
+    format: rss
+    enabled: true
+    source: config
 
 poller_sources: []
   # - type: adsb         # adsb | ais | p25 | meshcore
   #   name: "Local tar1090"
   #   url: "http://192.168.1.x:8080/data/aircraft.json"
-  #   enabled: true
-  #   source: config
-  #
-  # - type: ais
-  #   name: "Local AIS-Catcher"
-  #   url: "ws://192.168.1.x:10101"
-  #   enabled: true
-  #   source: config
-  #
-  # - type: p25
-  #   name: "Local OP25"
-  #   url: "http://192.168.1.x:8080"
-  #   enabled: true
-  #   source: config
-  #
-  # - type: meshcore
-  #   name: "MeshCore Bridge"
-  #   url: "ws://192.168.1.x:7001"
   #   enabled: true
   #   source: config
 

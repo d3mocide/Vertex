@@ -59,28 +59,24 @@ they survive database wipes.
 - [x] Updated `poller/config_sync.py` — source=user entries in YAML now recovered on DB wipe
 
 ### Phase 5 — News Feeds + Alert Zones
-- [ ] `poller/pollers/news.py` — replace `_NEWS_SOURCES` with DB query in `setup()`
-- [ ] `poller/pollers/alerts.py` — replace `settings.nws_alert_zones` with DB query
+- [x] `poller/pollers/news.py` — loads RSS sources from DB via `setup()`; static tactical links remain hardcoded
+- [x] `poller/pollers/alerts.py` — `setup()` queries `alert_zone_configs`; falls back to `NWS_ALERT_ZONES` env if table empty
+- [x] `config/sources.yml` — seeded with 4 default RSS news feeds
 
 ### Phase 6 — Frontend Radio Panel
-- [ ] `frontend/src/hooks/useRadioStreams.ts` — fetch stream list from API
-- [ ] `frontend/src/components/panels/TacticalAudio.tsx` — tabbed Streams + Talkgroups drawer
-- [ ] Remove `VITE_STREAM_URL` build-time dependency (keep as fallback during transition)
+- [x] `frontend/src/hooks/useRadioStreams.ts` — fetches stream list from `/api/v1/radio/streams`
+- [x] `frontend/src/components/panels/TacticalAudio.tsx` — CHANNELS drawer now tabbed (STREAMS / TALKGROUPS); stream selection swaps audio src live; `STREAM_URL` kept as build-time fallback
 
 ### Phase 7 — SDR Container Removal
-- [ ] Remove ultrafeeder, op25, audio-bridge, icecast, meshcore from `docker-compose.yml`
-- [ ] Remove `--profile sdr` concept entirely
-- [ ] Add `./config:/config` volume mount to backend (rw) and poller (ro)
-- [ ] Remove SDR-related env vars from compose service blocks
+- [x] Removed ultrafeeder, op25, audio-bridge, icecast, meshcore from `docker-compose.yml`
+- [x] Removed `--profile sdr` concept entirely
+- [x] Added `./config:/config` volume mount — rw for backend, ro for poller
+- [x] Removed all SDR-related env vars from compose service blocks (ICECAST_URL, OP25_URL, ADSB_URL, AIS_CATCHER_URL, MESHCORE_URL, RADIO_STREAM_URL, VITE_STREAM_URL)
+- [x] Removed ultrafeeder_conf named volume
 
 ### Phase 8 — .env Cleanup
-- [ ] Remove source URLs (ADSB_URL, OP25_URL, AIS_CATCHER_URL, MESHCORE_URL, ICECAST_URL)
-- [ ] Remove SDR tuning vars (P25_*, ADSB_SDR_SERIAL, MESHCORE_MODE/HOST/PORT/BAUD)
-- [ ] Remove NWS_ZONE, NWS_ALERT_ZONES (moved to sources.yml)
-- [ ] Remove RADIO_STREAM_URL, VITE_STREAM_URL
-- [ ] Remove Icecast credential vars
-- [ ] Delete corresponding fields from `poller/config.py` and `backend/config.py`
-- [ ] Update all .env.example files
+- [x] `backend/config.py` — removed `radio_stream_url`, `icecast_url`, `op25_url`, `adsb_url`
+- [x] `poller/config.py` — removed `adsb_url`, `ais_catcher_url`, `op25_url`, `icecast_url`, `meshcore_url`; `nws_alert_zones` kept as documented fallback; `aisstream_api_key` kept as cloud fallback
 
 ---
 

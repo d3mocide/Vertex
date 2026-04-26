@@ -20,7 +20,8 @@ class Settings(BaseSettings):
     nws_station_primary: str = "KHIO"
     nws_station_secondary: str = "KUAO"
     nws_zone: str = "ORZ006"
-    # Multi-county NWS alert zones (Washington, Multnomah, Clackamas counties)
+    # Fallback alert zones used only if alert_zone_configs table is empty on startup.
+    # Populated from sources.yml alert_zones section after first run.
     nws_alert_zones: str = "ORZ006,ORZ005,ORZ007"
 
     # ODOT TripCheck Data API (free key from developer.odot.state.or.us)
@@ -52,23 +53,8 @@ class Settings(BaseSettings):
     summary_llm_api_key: str = ""
     summary_llm_api_base: str = ""
 
-    # Local ADS-B — tar1090 aircraft.json URL
-    adsb_url: str = ""
-
-    # Local AIS-catcher URL (WebSocket)
-    ais_catcher_url: str = ""
-
-    # AISstream.io public fallback
+    # AISstream.io public cloud fallback (used when no local ais sources in DB)
     aisstream_api_key: str = ""
-
-    # OP25 HTTP terminal base URL
-    op25_url: str = ""
-
-    # Icecast server base URL
-    icecast_url: str = ""
-
-    # MeshCore bridge URL (WebSocket)
-    meshcore_url: str = ""
 
     class Config:
         env_file = ".env"
