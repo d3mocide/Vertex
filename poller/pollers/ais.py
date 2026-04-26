@@ -16,19 +16,38 @@ class AisPoller(BasePoller):
     name = "ais"
     interval = 10
 
+    def __init__(self):
+        self._local_urls: list[str] = []
+
     async def poll(self):
         pass  # streaming pollers override run()
 
+    async def setup(self):
+        from db import get_pool
+        rows = await get_pool().fetch(
+            "SELECT url FROM poller_sources WHERE type = 'ais' AND enabled = TRUE"
+        )
+        self._local_urls = [row["url"] for row in rows]
+        if self._local_urls:
+            logger.info("[ais] %d local source(s): %s", len(self._local_urls), self._local_urls)
+        elif settings.aisstream_api_key:
+            logger.info("[ais] no local sources — will use AISstream.io fallback")
+        else:
+            logger.warning("[ais] no AIS source configured — poller inactive")
+
     async def run(self):
-        if settings.ais_catcher_url:
-            await self._run_ais_catcher()
+        await self.setup()
+        if self._local_urls:
+            await asyncio.gather(*[
+                asyncio.create_task(self._run_ais_catcher(url))
+                for url in self._local_urls
+            ])
         elif settings.aisstream_api_key:
             await self._run_aisstream()
         else:
             logger.warning("[ais] no AIS source configured — poller inactive")
 
-    async def _run_ais_catcher(self):
-        url = settings.ais_catcher_url
+    async def _run_ais_catcher(self, url: str):
         logger.info("[ais] connecting to local AIS-catcher at %s", url)
         while True:
             try:
@@ -38,7 +57,7 @@ class AisPoller(BasePoller):
                         if entity:
                             await publish_entity(entity)
             except Exception as exc:
-                logger.error("[ais] ais-catcher error: %s — retrying in %ds", exc, _RETRY_DELAY)
+                logger.error("[ais] ais-catcher error (%s): %s — retrying in %ds", url, exc, _RETRY_DELAY)
                 await asyncio.sleep(_RETRY_DELAY)
 
     async def _run_aisstream(self):

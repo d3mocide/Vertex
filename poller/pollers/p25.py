@@ -15,12 +15,10 @@ from datetime import datetime, timezone
 import httpx
 
 from bus import set_feed, get_bus
-from config import settings
 from .base import BasePoller
 
-logger = logging.getLogger(__name__)
 
-_OP25_BASE = settings.op25_url
+logger = logging.getLogger(__name__)
 
 # OP25 state field values
 _STATE_CALL = 1
@@ -34,12 +32,26 @@ class P25Poller(BasePoller):
     def __init__(self):
         self._last_tgid: int | None = None
         self._call_start: str | None = None
+        self._op25_url: str | None = None
+
+    async def setup(self):
+        from db import get_pool
+        row = await get_pool().fetchrow(
+            "SELECT url FROM poller_sources WHERE type = 'p25' AND enabled = TRUE LIMIT 1"
+        )
+        self._op25_url = row["url"] if row else None
+        if self._op25_url:
+            logger.info("[p25] using OP25 at %s", self._op25_url)
+        else:
+            logger.warning("[p25] no P25 source configured — poller inactive")
 
     async def poll(self):
+        if not self._op25_url:
+            return
         try:
             # OP25 terminal API expects command queue JSON, same as main.js send_process().
             async with httpx.AsyncClient(timeout=3) as client:
-                resp = await client.post(_OP25_BASE, json=[{
+                resp = await client.post(self._op25_url, json=[{
                     "command": "update",
                     "arg1": 0,
                     "arg2": 0,

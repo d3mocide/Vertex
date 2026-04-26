@@ -46,10 +46,10 @@ they survive database wipes.
 - [x] Expose `get_pool()` from `poller/db.py`
 
 ### Phase 3 — Poller Refactor
-- [ ] `poller/pollers/adsb.py` — load URLs from DB via `setup()`
-- [ ] `poller/pollers/p25.py` — remove module-level `_OP25_BASE` capture
-- [ ] `poller/pollers/ais.py` — load URLs from DB, fix dead `setup()` in `run()` override
-- [ ] `poller/pollers/meshcore.py` — load URLs from DB, fix dead `setup()` in `run()` override
+- [x] `poller/pollers/adsb.py` — load URLs from DB via `setup()`
+- [x] `poller/pollers/p25.py` — remove module-level `_OP25_BASE` capture
+- [x] `poller/pollers/ais.py` — load URLs from DB, fix dead `setup()` in `run()` override
+- [x] `poller/pollers/meshcore.py` — load URLs from DB, fix dead `setup()` in `run()` override
 
 ### Phase 4 — Write-Back API
 - [ ] `backend/config_writer.py` — asyncio-locked YAML write operations
