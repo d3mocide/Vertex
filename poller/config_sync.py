@@ -2,7 +2,7 @@ import logging
 
 import asyncpg
 
-from config_loader import AlertZonesConfig, NewsFeedEntry, PollerSourceEntry, RadioStreamEntry, SourcesConfig
+from config_loader import AlertFeedEntry, AlertZonesConfig, NewsFeedEntry, PollerSourceEntry, RadioStreamEntry, SourcesConfig
 
 logger = logging.getLogger(__name__)
 
@@ -20,11 +20,12 @@ async def sync_sources_to_db(config: SourcesConfig, pool: asyncpg.Pool) -> None:
         nf = await _sync_news_feeds(config.news_feeds, conn)
         ps = await _sync_poller_sources(config.poller_sources, conn)
         az = await _sync_alert_zones(config.alert_zones, conn)
+        af = await _sync_alert_feeds(config.alert_feeds, conn)
 
-    if any((rs, nf, ps, az)):
+    if any((rs, nf, ps, az, af)):
         logger.info(
-            "[config_sync] radio_streams(%s) news_feeds(%s) poller_sources(%s) alert_zones(%s)",
-            rs, nf, ps, az,
+            "[config_sync] radio_streams(%s) news_feeds(%s) poller_sources(%s) alert_zones(%s) alert_feeds(%s)",
+            rs, nf, ps, az, af,
         )
     else:
         logger.debug("[config_sync] no changes")
@@ -156,6 +157,38 @@ async def _sync_alert_zones(
     if to_remove:
         await conn.execute(
             "DELETE FROM alert_zone_configs WHERE source = 'config' AND zone_code = ANY($1::text[])",
+            list(to_remove),
+        )
+        removed += len(to_remove)
+
+    return f"+{added} -{removed}" if (added or removed) else ""
+
+
+async def _sync_alert_feeds(
+    entries: list[AlertFeedEntry], conn: asyncpg.Connection
+) -> str:
+    existing = await conn.fetch("SELECT url, source FROM alert_feed_configs")
+    db_all_urls = {row["url"] for row in existing}
+    db_config_urls = {row["url"] for row in existing if row["source"] == "config"}
+
+    yaml_config_urls = {e.url for e in entries if e.source == "config"}
+    added = removed = 0
+
+    for entry in entries:
+        if entry.url not in db_all_urls:
+            await conn.execute(
+                """
+                INSERT INTO alert_feed_configs (name, url, format, enabled, source, created_at, updated_at)
+                VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
+                """,
+                entry.name, entry.url, entry.format, entry.enabled, entry.source,
+            )
+            added += 1
+
+    to_remove = db_config_urls - yaml_config_urls
+    if to_remove:
+        await conn.execute(
+            "DELETE FROM alert_feed_configs WHERE source = 'config' AND url = ANY($1::text[])",
             list(to_remove),
         )
         removed += len(to_remove)
