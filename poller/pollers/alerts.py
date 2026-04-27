@@ -46,15 +46,33 @@ def _parse_flashalert_xml(text: str) -> list[dict]:
     return results
 
 
+def _parse_rss_feed(text: str, source_name: str, fallback_url: str) -> list[dict]:
+    feed = feedparser.parse(text)
+    items = []
+    for entry in feed.entries[:10]:
+        items.append({
+            "source":    source_name.lower().replace(" ", "_"),
+            "title":     entry.get("title", ""),
+            "summary":   entry.get("summary", "") or entry.get("description", ""),
+            "link":      entry.get("link", fallback_url),
+            "published": entry.get("published", "") or entry.get("updated", ""),
+            "severity":  "Unknown",
+        })
+    return items
+
+
 class AlertPoller(BasePoller):
     name = "alerts"
     interval = 60
 
     def __init__(self):
         self._zones: str = ""
+        self._alert_feeds: list[dict] = []
 
     async def setup(self):
         from db import get_pool
+
+        # ── NWS alert zones ──────────────────────────────────────────────────
         rows = await get_pool().fetch(
             "SELECT zone_code FROM alert_zone_configs WHERE enabled = TRUE"
         )
@@ -62,25 +80,48 @@ class AlertPoller(BasePoller):
             self._zones = ",".join(row["zone_code"] for row in rows)
             logger.info("[alerts] %d NWS zone(s) loaded from DB: %s", len(rows), self._zones)
         else:
-            # Fall back to env var for deployments that haven't migrated yet
+            # Fall back to env var for deployments that haven't migrated yet.
             self._zones = settings.nws_alert_zones
             if self._zones:
                 logger.info("[alerts] no zones in DB — using NWS_ALERT_ZONES env fallback: %s", self._zones)
             else:
                 logger.warning("[alerts] no NWS alert zones configured")
 
+        # ── Alert feeds (FlashAlert, agency RSS, etc.) ───────────────────────
+        feed_rows = await get_pool().fetch(
+            "SELECT name, url, format FROM alert_feed_configs WHERE enabled = TRUE"
+        )
+        if feed_rows:
+            self._alert_feeds = [dict(r) for r in feed_rows]
+            logger.info("[alerts] %d alert feed(s) loaded from DB", len(self._alert_feeds))
+        else:
+            # Fall back to env vars for deployments that haven't migrated yet.
+            fallbacks = []
+            if settings.flashalert_enabled and settings.flashalert_url:
+                fallbacks.append({"name": "FlashAlert", "url": settings.flashalert_url, "format": "flashalert_xml"})
+            if settings.tvfr_enabled and settings.tvfr_rss_url:
+                fallbacks.append({"name": "TVFR", "url": settings.tvfr_rss_url, "format": "rss"})
+            self._alert_feeds = fallbacks
+            if fallbacks:
+                logger.info("[alerts] no alert feeds in DB — using env var fallback (%d feed(s))", len(fallbacks))
+            else:
+                logger.warning("[alerts] no alert feeds configured")
+
     async def poll(self):
         items: list[dict] = []
 
-        # ── FlashAlert emergency feed ────────────────────────────────────────
-        if settings.flashalert_enabled:
-            try:
-                async with httpx.AsyncClient(timeout=15, follow_redirects=True) as client:
-                    resp = await client.get(settings.flashalert_url)
+        # ── URL-based alert feeds ────────────────────────────────────────────
+        async with httpx.AsyncClient(timeout=15, follow_redirects=True) as client:
+            for feed in self._alert_feeds:
+                try:
+                    resp = await client.get(feed["url"])
                     resp.raise_for_status()
-                items.extend(_parse_flashalert_xml(resp.text))
-            except Exception as exc:
-                logger.warning("[alerts] flashalert failed: %s", exc)
+                    if feed["format"] == "flashalert_xml":
+                        items.extend(_parse_flashalert_xml(resp.text))
+                    else:
+                        items.extend(_parse_rss_feed(resp.text, feed["name"], feed["url"]))
+                except Exception as exc:
+                    logger.warning("[alerts] feed %r failed: %s", feed["name"], exc)
 
         # ── NWS CAP alerts ───────────────────────────────────────────────────
         if self._zones:
@@ -102,24 +143,5 @@ class AlertPoller(BasePoller):
                     })
             except Exception as exc:
                 logger.warning("[alerts] nws_cap failed: %s", exc)
-
-        # ── TVFR / regional agency emergency alert RSS ────────────────────
-        if settings.tvfr_enabled:
-            try:
-                async with httpx.AsyncClient(timeout=15, follow_redirects=True) as client:
-                    resp = await client.get(settings.tvfr_rss_url)
-                    resp.raise_for_status()
-                feed = feedparser.parse(resp.text)
-                for entry in feed.entries[:10]:
-                    items.append({
-                        "source":    "tvfr",
-                        "title":     entry.get("title", ""),
-                        "summary":   entry.get("summary", "") or entry.get("description", ""),
-                        "link":      entry.get("link", settings.tvfr_rss_url),
-                        "published": entry.get("published", "") or entry.get("updated", ""),
-                        "severity":  "Unknown",
-                    })
-            except Exception as exc:
-                logger.warning("[alerts] tvfr failed: %s", repr(exc))
 
         await set_feed("alerts:flash", items)

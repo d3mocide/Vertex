@@ -32,6 +32,14 @@ class PollerSourceEntry(BaseModel):
     source: Literal["config", "user"] = "config"
 
 
+class AlertFeedEntry(BaseModel):
+    name: str
+    url: str
+    format: str = "rss"
+    enabled: bool = True
+    source: Literal["config", "user"] = "config"
+
+
 class AlertZonesConfig(BaseModel):
     nws_zones: list[str] = []
     source: Literal["config", "user"] = "config"
@@ -47,6 +55,7 @@ class SourcesConfig(BaseModel):
     news_feeds: list[NewsFeedEntry] = []
     poller_sources: list[PollerSourceEntry] = []
     alert_zones: AlertZonesConfig = AlertZonesConfig()
+    alert_feeds: list[AlertFeedEntry] = []
 
 
 def load_sources_config() -> SourcesConfig:

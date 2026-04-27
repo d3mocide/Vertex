@@ -50,3 +50,16 @@ CREATE TABLE IF NOT EXISTS alert_zone_configs (
     created_at  TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
     updated_at  TIMESTAMPTZ   NOT NULL DEFAULT NOW()
 );
+
+CREATE TABLE IF NOT EXISTS alert_feed_configs (
+    id          SERIAL        PRIMARY KEY,
+    name        VARCHAR(128)  NOT NULL,
+    url         VARCHAR(512)  NOT NULL,
+    format      VARCHAR(32)   NOT NULL DEFAULT 'rss',
+    enabled     BOOLEAN       NOT NULL DEFAULT TRUE,
+    source      VARCHAR(16)   NOT NULL DEFAULT 'config',
+    created_at  TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+    updated_at  TIMESTAMPTZ   NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS ix_alert_feed_configs_enabled ON alert_feed_configs (enabled);

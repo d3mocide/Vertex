@@ -36,13 +36,6 @@ class Settings(BaseSettings):
     # EPA AirNow AQI API (free key from airnowapi.org)
     airnow_api_key: str = ""
 
-    # Regional alert feeds — override these to adapt to non-Portland deployments.
-    # Set _enabled to false to disable a source entirely.
-    flashalert_url: str = "http://www.flashalertnewswire.net/IIN/reportsX/flashnews_xml_emergency.php"
-    flashalert_enabled: bool = True
-    tvfr_rss_url: str = "https://www.tvfr.com/RSSFeed.aspx?ModID=63&CID=Emergency-Alert-3"
-    tvfr_enabled: bool = True
-
     # AI situational summary — configure any LiteLLM-compatible model.
     # Examples:
     #   anthropic/claude-haiku-4-5-20251001  (requires SUMMARY_LLM_API_KEY)

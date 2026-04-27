@@ -45,9 +45,21 @@ news_feeds:
     enabled: true
     source: config
 
+# ---------------------------------------------------------------------------
+# Alert feeds — emergency agency feeds shown in the alerts panel (high priority).
+# format: flashalert_xml  — FlashAlert proprietary XML (Portland-area newswire)
+# format: rss             — Standard RSS from an emergency agency
+# ---------------------------------------------------------------------------
+alert_feeds:
   - name: "FlashAlert Emergency Newswire"
     url: "http://www.flashalertnewswire.net/IIN/reportsX/flashnews_xml_emergency.php"
     format: flashalert_xml
+    enabled: true
+    source: config
+
+  - name: "TVFR Emergency Alerts"
+    url: "https://www.tvfr.com/RSSFeed.aspx?ModID=63&CID=Emergency-Alert-3"
+    format: rss
     enabled: true
     source: config
 
