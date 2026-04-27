@@ -48,19 +48,20 @@ class WeatherPoller(BasePoller):
         if not settings.airnow_api_key:
             return {}
             
-        lat = (settings.bbox_max_lat + settings.bbox_min_lat) / 2.0
-        lon = (settings.bbox_max_lon + settings.bbox_min_lon) / 2.0
+        lat = settings.region_lat
+        lon = settings.region_lon
         
-        url = "https://www.airnowapi.org/aq/observation/latLong/current/"
+        url = "http://www.airnowapi.org/aq/observation/latLong/current/"
         params = {
             "format": "application/json",
             "latitude": lat,
             "longitude": lon,
-            "distance": 25,
+            "distance": 50,
             "API_KEY": settings.airnow_api_key,
         }
+        logger.info("[weather] AirNow request: %s lat=%s lon=%s", url, lat, lon)
         try:
-            async with httpx.AsyncClient(timeout=15) as client:
+            async with httpx.AsyncClient(timeout=30, follow_redirects=True) as client:
                 resp = await client.get(url, params=params)
                 resp.raise_for_status()
             data = resp.json()
