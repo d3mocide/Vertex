@@ -8,7 +8,7 @@ Vertex is a local-first, real-time situational awareness dashboard. It fuses air
 
 ## Architecture
 
-Five core containers, plus optional SDR containers under `--profile sdr`:
+Five core containers:
 
 | Container | Role | Entry point |
 |-----------|------|-------------|
@@ -17,8 +17,6 @@ Five core containers, plus optional SDR containers under `--profile sdr`:
 | `backend` | FastAPI REST + WebSocket API | `backend/main.py` |
 | `poller` | 9 async background pollers | `poller/main.py` |
 | `frontend` | React + MapLibre GL, Nginx-served | `frontend/src/main.tsx` |
-
-Optional SDR containers: `ultrafeeder` (ADS-B), `op25` (P25 decoder), `audio-bridge` (UDP→Icecast), `icecast` (MP3 stream), `meshcore` (mesh radio).
 
 ---
 
@@ -56,10 +54,7 @@ frontend/
     panels/       5 info panels (entity, weather, traffic, alerts, audio)
 
 db/               PostgreSQL init SQL scripts
-op25/             OP25 config and launcher (SDR profile)
-audio-bridge/     UDP audio relay (SDR profile)
-icecast/          Icecast config (SDR profile)
-meshcore/         MeshCore integration (SDR profile)
+config/           sources.yml — canonical config for radio streams, news feeds, pollers, alert zones
 infra/            Redis config
 research/         Architecture notes and deep-dives
 ```
@@ -98,9 +93,6 @@ git diff --cached --name-only | grep '\.py$' | xargs -r python3 -m py_compile
 ```bash
 # Start core stack
 docker compose up -d
-
-# Start with SDR profile
-docker compose --env-file .env.local-sdr --profile sdr up -d
 
 # View logs
 docker compose logs -f backend
@@ -174,7 +166,7 @@ NWS_ZONE             NWS observation zone code
 NWS_ALERT_ZONES      Comma-separated NWS alert zone codes
 ```
 
-Copy `.env.example`, `.env.remote.example`, or `.env.local-sdr.example` as starting points.
+Copy `.env.example` as a starting point.
 
 ---
 
@@ -187,4 +179,3 @@ Copy `.env.example`, `.env.remote.example`, or `.env.local-sdr.example` as start
 | `asyncpg` connection refused | DB not healthy yet | Check `db` container health; backend has retry logic in `db/session.py` |
 | Redis pub/sub missing events | Channel name mismatch | Confirm channel names in `redis_bus.py` match poller's publish calls |
 | Geofence not triggering | PostGIS query issue | Check `poller/geofence.py` spatial query; requires PostGIS extension active |
-| OP25 no audio | Wrong SDR serial or freq | Verify `rtl_eeprom` serial assignment; check OP25 trunk config |
