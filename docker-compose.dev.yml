@@ -3,7 +3,7 @@
 #
 # Replaces the production nginx frontend with the Vite dev server so that
 # source changes hot-reload in the browser without rebuilding the image.
-# The Vite proxy config (vite.config.ts) handles /api, /ws, /stream/, /op25/.
+# The Vite proxy config (vite.config.ts) handles /api, /ws, and /stream/.
 
 services:
   frontend:
@@ -13,11 +13,8 @@ services:
     # Override the nginx image entrypoint with the Vite dev server
     command: npm run dev -- --host 0.0.0.0 --port 80
     environment:
-      VITE_RADIO_STREAM_URL: ${RADIO_STREAM_URL:-/stream/radio.mp3}
       VITE_RADAR_LAYER: ${VITE_RADAR_LAYER:-RTX-N0B-0}
       VITE_OBSERVATION_RANGE_KM: ${VITE_OBSERVATION_RANGE_KM:-50}
-      VITE_ICECAST_URL: ${ICECAST_URL:-http://icecast:8000/}
-      VITE_OP25_URL: ${OP25_URL:-http://op25:8080/}
       VITE_REGION_LAT: ${REGION_LAT:-45.3842}
       VITE_REGION_LON: ${REGION_LON:--122.7635}
     volumes:

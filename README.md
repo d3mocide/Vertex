@@ -16,7 +16,7 @@ Part of the [Sovereign Watch](https://github.com/d3mocide) family of local intel
 | **Infrastructure** | ODOT CCTV camera thumbnails, real-time road speeds, traffic incidents |
 | **Environment** | NWS weather observations, active alerts, AQI, radar overlay |
 | **Community** | Emergency alerts aggregated from FlashAlert, county EM, and city feeds |
-| **Tactical Audio** | Live P25 trunked radio stream (OP25 → Icecast → browser) |
+| **Tactical Audio** | Live P25 trunked radio stream via configurable remote sources |
 
 Geofences trigger entry/exit events. All entity positions are stored for 30-day trail history.
 
@@ -34,7 +34,7 @@ Five containers — minimal footprint, runs on a Raspberry Pi 5:
 | `poller` | All background data pollers |
 | `frontend` | React + MapLibre GL, served by Nginx |
 
-An optional `--profile sdr` brings up `ultrafeeder`, `op25`, `audio-bridge`, `icecast`, and `meshcore` for full off-grid operation with local hardware.
+Radio streams, news feeds, and other data sources are configured via `config/sources.yml`, editable at runtime without restarting containers.
 
 ---
 
@@ -43,57 +43,25 @@ An optional `--profile sdr` brings up `ultrafeeder`, `op25`, `audio-bridge`, `ic
 - Docker and Docker Compose
 - x86_64 or ARM64 (all images build native for both — no emulation on Pi 5)
 
-For the SDR profile:
-- One or two RTL-SDR dongles (ADS-B + P25)
-- Assign serial numbers before first use: `rtl_eeprom -d 0 -s adsb001`
-
 ---
 
 ## Quick Start
 
-### Core stack (internet feeds only)
-
 ```bash
 cp .env.example .env
 # Fill in API keys (see Configuration below)
+cp config/sources.example.yml config/sources.yml
+# Edit config/sources.yml to add radio streams, news feeds, and other sources
 docker compose up -d
 ```
 
 Open `http://localhost` (or your Pi's IP).
 
-### Remote radio mode
-
-Use this when OP25/Icecast run on a separate machine on your network:
-
-```bash
-cp .env.remote.example .env.remote
-# Set VITE_PROXY_OP25_TARGET and VITE_PROXY_ICECAST_TARGET to the remote host
-docker compose --env-file .env.remote up -d
-```
-
-### Full local SDR mode
-
-Runs everything including OP25, Icecast, Ultrafeeder, and AIS-catcher in the stack:
-
-```bash
-cp .env.local-sdr.example .env.local-sdr
-# Set SDR serial numbers and tuning parameters
-docker compose --env-file .env.local-sdr --profile sdr up -d
-```
-
-**PowerShell shortcuts (Windows):**
-```powershell
-.\up-remote.ps1           # Remote mode
-.\up-remote.ps1 -Build    # Remote mode with rebuild
-.\up-local-sdr.ps1        # Full SDR mode
-.\up-local-sdr.ps1 -Build # Full SDR mode with rebuild
-```
-
 ---
 
 ## Configuration
 
-Copy the appropriate example file and fill in your values. The `VERTEX_ENV_FILE` variable tells the backend and poller containers which file to load.
+Copy `.env.example` and fill in your values. Data sources (radio streams, news feeds, alert zones, poller URLs) are configured in `config/sources.yml` — see `config/sources.example.yml` for the full schema.
 
 ### API Keys
 
@@ -120,7 +88,7 @@ BBOX_MIN_LON=-123.5
 BBOX_MAX_LON=-121.8
 ```
 
-NWS zone codes (`NWS_ZONE`, `NWS_ALERT_ZONES`) and local RSS feed URLs in `poller/pollers/alerts.py` will also need updating for a different region. Full regional portability is a planned milestone.
+NWS zone codes (`NWS_ZONE`, `NWS_ALERT_ZONES`) will also need updating for a different region. Alert zone RSS feeds and news sources are managed via `config/sources.yml`. Full regional portability is a planned milestone.
 
 ---
 
@@ -138,8 +106,8 @@ All public, free, and operator-run. No cloud lock-in.
 | Traffic cameras | ODOT TripCheck API | on demand |
 | Traffic flow | ODOT Traffic Detector API | 60 s |
 | Emergency alerts | FlashAlert, WashCo EM, City RSS | 60 s |
-| P25 audio | OP25 + Icecast (local SDR) | live stream |
-| Mesh nodes | MeshCore (serial or network) | WebSocket |
+| P25 audio | Configurable remote stream URLs (sources.yml) | live stream |
+| Mesh nodes | Configurable remote MeshCore endpoints (sources.yml) | WebSocket |
 
 ---
 
@@ -147,8 +115,6 @@ All public, free, and operator-run. No cloud lock-in.
 
 - **RAM budget at idle**: ~520 MB (redis 50 + postgres 150 + backend 200 + poller 100 + nginx 20)
 - **Storage**: Mount `db_data` and `redis_data` volumes on SSD, not SD card
-- **USB SDRs**: Assign serial numbers with `rtl_eeprom` before deployment to prevent device conflicts across multiple dongles
-- **Ultrafeeder tmpfs**: High-frequency JSON state files write to tmpfs to protect flash storage
 - **Cross-compile**: `docker buildx build --platform linux/arm64` from an x86 dev machine for fast Pi builds
 
 ---
