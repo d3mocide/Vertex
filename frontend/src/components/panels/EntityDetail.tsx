@@ -13,9 +13,17 @@ const TYPE_ICONS: Record<string, string> = {
 }
 
 export function EntityDetail() {
-  const { entities, selectedEntityId, selectEntity } = useCivicStore()
+  const { entities, airports, selectedEntityId, selectEntity } = useCivicStore()
   const entity = selectedEntityId ? entities[selectedEntityId] : null
   if (!entity) return null
+
+  const identity = entity.identity ?? {}
+  const getIdentity = (key: string): string | undefined => {
+    const val = identity[key]
+    if (typeof val === 'string' && val.trim()) return val
+    if (typeof val === 'number') return String(val)
+    return undefined
+  }
 
   const colorClass = TYPE_COLORS[entity.entity_type] ?? 'text-amber-gold'
   const icon       = TYPE_ICONS[entity.entity_type]  ?? 'location_on'
@@ -23,10 +31,21 @@ export function EntityDetail() {
   const rows: [string, string | undefined][] = [
     ['Type',    entity.entity_type],
     ['Source',  entity.source],
+    ['ICAO24',  getIdentity('icao24')],
+    ['Callsign', getIdentity('callsign')],
+    ['Registration', getIdentity('registration')],
+    ['Operator', getIdentity('operator')],
+    ['Aircraft Type', getIdentity('type')],
+    ['ICAO Type', getIdentity('icao_type')],
+    ['Origin', getIdentity('origin')],
+    ['Destination', getIdentity('destination')],
+    ['Phase', getIdentity('phase')],
     ['Status',  entity.status],
     ['Alt',     entity.altitude != null ? `${Math.round(entity.altitude).toLocaleString()} ft` : undefined],
     ['Speed',   entity.speed    != null ? `${Math.round(entity.speed)} kts`    : undefined],
+    ['Vertical Rate', entity.vertical_rate != null ? `${Math.round(entity.vertical_rate)} ft/min` : undefined],
     ['Heading', entity.heading  != null ? `${Math.round(entity.heading)}°`     : undefined],
+    ['Distance', entity.distance_km != null ? `${entity.distance_km.toFixed(1)} km` : undefined],
     ['Lat',     entity.lat?.toFixed(5)],
     ['Lon',     entity.lon?.toFixed(5)],
     ['Last Seen', entity.last_seen
@@ -76,6 +95,34 @@ export function EntityDetail() {
             </span>
           </div>
         ))}
+
+        {entity.entity_type === 'aircraft' && (() => {
+          const origin = getIdentity('origin')
+          const destination = getIdentity('destination')
+          const originMetar = origin ? (airports[origin]?.metar as Record<string, unknown> | null | undefined) : undefined
+          const destinationMetar = destination ? (airports[destination]?.metar as Record<string, unknown> | null | undefined) : undefined
+          const originWx = originMetar && typeof originMetar.raw === 'string' ? originMetar.raw : undefined
+          const destinationWx = destinationMetar && typeof destinationMetar.raw === 'string' ? destinationMetar.raw : undefined
+
+          if (!originWx && !destinationWx) return null
+
+          return (
+            <div className="mt-2 border-t border-white/10 pt-2 space-y-1.5">
+              {originWx && (
+                <div className="flex flex-col gap-0.5">
+                  <span className="label-caps text-[8px]">Origin METAR ({origin})</span>
+                  <span className="font-mono text-[9px] text-on-surface-variant whitespace-pre-wrap break-words">{originWx}</span>
+                </div>
+              )}
+              {destinationWx && (
+                <div className="flex flex-col gap-0.5">
+                  <span className="label-caps text-[8px]">Destination METAR ({destination})</span>
+                  <span className="font-mono text-[9px] text-on-surface-variant whitespace-pre-wrap break-words">{destinationWx}</span>
+                </div>
+              )}
+            </div>
+          )
+        })()}
       </div>
 
       {/* Tags */}

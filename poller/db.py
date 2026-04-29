@@ -59,6 +59,12 @@ async def write_entity_observation(entity: dict):
             json.dumps(entity.get("tags") or []),
         )
 
+        mode = (settings.adsb_history_mode or "record").strip().lower()
+        if mode != "record":
+            if lat is not None and lon is not None:
+                await check_geofences(entity, conn)
+            return
+
         await conn.execute(
             """
             INSERT INTO observations

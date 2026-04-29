@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     # Home location (Tualatin)
     region_lat: float = 45.3842
     region_lon: float = -122.7635
+    region_name: str = "Tualatin Valley"
 
     # Tualatin/Portland Metro bounding box
     bbox_min_lat: float = 44.8
@@ -48,6 +49,27 @@ class Settings(BaseSettings):
 
     # AISstream.io public cloud fallback (used when no local ais sources in DB)
     aisstream_api_key: str = ""
+
+    # ADS-B ingest strategy
+    # When enabled, poller will start a BEAST TCP consumer task. During this
+    # initial rollout, HTTP polling can remain enabled as a fallback path.
+    adsb_enable_beast: bool = False
+    adsb_beast_host: str = "localhost"
+    adsb_beast_port: int = 30005
+    adsb_beast_reconnect_initial_seconds: int = 1
+    adsb_beast_reconnect_max_seconds: int = 30
+    adsb_beast_http_fallback: bool = True
+    adsb_publish_only_changes: bool = True
+
+    # Observation persistence mode
+    # record: persist every observation row (current behavior)
+    # live_only: keep live entity updates, skip observation inserts
+    adsb_history_mode: str = "record"
+    adsb_enrichment_cache_dir: str = "/data"
+    adsb_aircraft_db_path: str = "/data/aircraft_db.csv.gz"
+    adsb_airports_db_path: str = "/data/airports.csv"
+    adsb_airlines_db_path: str = "/data/airlines.dat"
+    adsb_navaids_db_path: str = "/data/navaids.csv"
 
     class Config:
         env_file = ".env"

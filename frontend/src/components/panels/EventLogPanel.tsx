@@ -1,5 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useCivicStore, SystemEvent } from '../../store'
+import { API_BASE } from '../../config'
+import { authHeaders, clearToken } from '../../auth'
 
 type SeverityFilter = 'all' | 'critical' | 'high' | 'medium' | 'low'
 
@@ -79,9 +81,38 @@ function EventRow({ event }: { event: SystemEvent }) {
 }
 
 export function EventLogPanel() {
-  const { systemEvents } = useCivicStore()
+  const { systemEvents, setSystemEvents } = useCivicStore()
   const [severityFilter, setSeverityFilter] = useState<SeverityFilter>('all')
   const [search, setSearch] = useState('')
+
+  useEffect(() => {
+    let cancelled = false
+
+    const loadEvents = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/events?hours=24`, { headers: authHeaders() })
+        if (res.status === 401) {
+          clearToken()
+          window.location.reload()
+          return
+        }
+        if (!res.ok) return
+        const data = await res.json() as SystemEvent[]
+        if (cancelled || !Array.isArray(data)) return
+        setSystemEvents(data)
+      } catch {
+        // Keep in-memory websocket events if history fetch fails.
+      }
+    }
+
+    loadEvents()
+    const timer = setInterval(loadEvents, 30000)
+
+    return () => {
+      cancelled = true
+      clearInterval(timer)
+    }
+  }, [setSystemEvents])
 
   const filtered = [...systemEvents]
     .reverse()

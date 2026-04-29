@@ -61,3 +61,14 @@ async def subscribe_updates():
     pubsub = r.pubsub()
     await pubsub.subscribe("civic:updates")
     return pubsub
+
+
+async def get_aircraft_snapshot() -> dict | None:
+    r = get_redis()
+    raw = await r.get("feed:aircraft_snapshot")
+    if not raw:
+        return None
+    try:
+        return json.loads(raw)
+    except (json.JSONDecodeError, TypeError):
+        return None

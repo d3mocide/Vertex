@@ -150,6 +150,32 @@ function WeatherCard() {
   )
 }
 
+function SummaryCard() {
+  const summary = useCivicStore((s) => s.summary)
+
+  return (
+    <div className="hud-panel p-4 bg-onyx-deep/40 relative overflow-hidden">
+      <div className="label-caps mb-3 flex items-center gap-2">
+        <span className="ms text-[14px] leading-none text-amber-gold" aria-hidden="true">psychology</span>
+        AI SITUATIONAL SUMMARY
+      </div>
+
+      <p className="text-[12px] leading-relaxed text-on-surface whitespace-pre-wrap">
+        {summary.summary || 'No summary available yet.'}
+      </p>
+
+      <div className="mt-3 pt-2 border-t border-white/5 flex items-center justify-between">
+        <span className="text-[8px] font-mono text-on-surface-variant uppercase tracking-widest">
+          {summary.model || 'model: n/a'}
+        </span>
+        <span className="text-[8px] font-mono text-on-surface-variant uppercase tracking-widest">
+          {summary.ts ? new Date(summary.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'No timestamp'}
+        </span>
+      </div>
+    </div>
+  )
+}
+
 function RadarMiniMap({ isFullHeight }: { isFullHeight?: boolean }) {
   const mapContainerRef = useRef<HTMLDivElement>(null)
   const [map, setMap] = useState<maplibregl.Map | null>(null)
@@ -369,6 +395,9 @@ export function EnvironmentPanel() {
 
           {/* Current Conditions */}
           <WeatherCard />
+
+          {/* AI Summary */}
+          <SummaryCard />
         </div>
 
         {/* RIGHT COLUMN: Expansive Radar */}

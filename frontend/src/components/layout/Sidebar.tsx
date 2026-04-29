@@ -66,17 +66,17 @@ function NewsRow({ source, age, title }: { source: string; age: string; title: s
 }
 
 export function Sidebar() {
-  const { alerts, news, health, entities, connected, cameras, weather } = useCivicStore()
+  const { alerts, news, health, entities, connected, cameras, weather, trafficIncidents } = useCivicStore()
 
   const aircraft  = Object.values(entities).filter((e) => e.entity_type === 'aircraft').length
   const vessels   = Object.values(entities).filter((e) => e.entity_type === 'vessel').length
   const meshNodes = Object.values(entities).filter((e) => e.entity_type === 'mesh_node').length
   const cams      = cameras.length
   const wAlerts   = weather.alerts.length
-  const activeInc = alerts.length
+  const activeInc = trafficIncidents.length
 
-  // Derive incidents from alerts (first 4)
-  const incidents = alerts.slice(0, 4)
+  // Use dedicated traffic incidents feed (first 4)
+  const incidents = trafficIncidents.slice(0, 4)
 
   // News items from store, fallback to empty
   // News items filtered for Regional News only
@@ -219,9 +219,9 @@ export function Sidebar() {
                 <IncidentCard
                   key={i}
                   id={`INC-${String(i + 1).padStart(4, '0')}`}
-                  time={formatIncidentTime(alert.published)}
+                  time={formatIncidentTime(alert.pubDate ?? '')}
                   title={alert.title}
-                  severity={i === 0 ? 'high' : 'low'}
+                  severity={/high|major|severe|critical/i.test(alert.severity ?? '') ? 'high' : 'low'}
                 />
               ))}
             </div>

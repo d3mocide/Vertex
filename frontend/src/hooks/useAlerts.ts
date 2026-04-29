@@ -15,7 +15,17 @@ async function fetchJson<T>(url: string): Promise<T | null> {
 }
 
 export function useAlerts() {
-  const { setAlerts, setNews, setWeather, setCameras, setTrafficFlow, setUtilityStatus, setOregonStatus } = useCivicStore()
+  const {
+    setAlerts,
+    setNews,
+    setWeather,
+    setCameras,
+    setTrafficFlow,
+    setTrafficIncidents,
+    setUtilityStatus,
+    setOregonStatus,
+    setSummary,
+  } = useCivicStore()
   const timers = useRef<ReturnType<typeof setInterval>[]>([])
 
   useEffect(() => {
@@ -65,6 +75,23 @@ export function useAlerts() {
       if (Array.isArray(data)) setTrafficFlow(data as any[])
     }
 
+    // Fetch incidents
+    const pollIncidents = async () => {
+      const data = await fetchJson<unknown[]>(`${API_BASE}/traffic/incidents`)
+      if (Array.isArray(data)) setTrafficIncidents(data as Parameters<typeof setTrafficIncidents>[0])
+    }
+
+    // Fetch AI situational summary
+    const pollSummary = async () => {
+      const data = await fetchJson<Record<string, unknown>>(`${API_BASE}/summary`)
+      if (!data) return
+      setSummary({
+        summary: typeof data.summary === 'string' ? data.summary : '',
+        ts: typeof data.ts === 'string' ? data.ts : null,
+        model: typeof data.model === 'string' ? data.model : null,
+      })
+    }
+
     // Fetch utilities
     const pollUtilities = async () => {
       const [pge, oregon] = await Promise.all([
@@ -81,7 +108,9 @@ export function useAlerts() {
     pollWeather()
     pollCameras()
     pollFlow()
+    pollIncidents()
     pollUtilities()
+    pollSummary()
 
     // Schedule polling
     timers.current = [
@@ -90,7 +119,9 @@ export function useAlerts() {
       setInterval(pollWeather, WEATHER_POLL_MS),
       setInterval(pollCameras, CAMERAS_POLL_MS),
       setInterval(pollFlow,    30000), // 30s for flow
+      setInterval(pollIncidents, 30000), // 30s for incidents
       setInterval(pollUtilities, 60000), // 60s for utilities
+      setInterval(pollSummary, 60000), // 60s for summary display freshness
     ]
 
     return () => timers.current.forEach(clearInterval)

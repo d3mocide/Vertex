@@ -12,10 +12,28 @@ export interface Entity {
   altitude?:    number
   heading?:     number
   speed?:       number
+  vertical_rate?: number
+  distance_km?: number
   status?:      string
   last_seen?:   string
   identity?:    Record<string, unknown>
   tags?:        string[]
+}
+
+export interface TrafficIncident {
+  title: string
+  description?: string
+  link?: string
+  pubDate?: string
+  lat?: number
+  lon?: number
+  severity?: string
+}
+
+export interface SummaryState {
+  summary: string
+  ts: string | null
+  model: string | null
 }
 
 // ─── Trail ────────────────────────────────────────────────────────────────────
@@ -45,6 +63,13 @@ export interface Track {
   trail:         TrailPt[]     // raw history, newest last, capped at 150 pts
   smoothedTrail: number[][]    // [[lon,lat],...] after 2× Chaikin
   predictedPath: [number, number][]
+}
+
+export interface AirportSnapshot {
+  name?: string
+  lat?: number
+  lon?: number
+  metar?: Record<string, unknown> | null
 }
 
 // ─── Alerts / News ────────────────────────────────────────────────────────────
@@ -169,9 +194,12 @@ interface CivicStore {
   radio:            RadioState
   cameras:          TrafficCamera[]
   trafficFlow:      any[]
+  trafficIncidents: TrafficIncident[]
   utilityStatus:    any
   oregonStatus:     any
   trail:            TrailPoint[]
+  airports:         Record<string, AirportSnapshot>
+  summary:          SummaryState
 
   // Event log (ring buffer, capped at 100)
   systemEvents:     SystemEvent[]
@@ -192,18 +220,23 @@ interface CivicStore {
 
   // Actions — data
   setEntities:      (entities: Entity[]) => void
+  setAircraftSnapshot: (entities: Entity[]) => void
   upsertEntity:     (entity: Entity) => void
   purgeStaleEntities: () => void
   appendSystemEvent: (event: SystemEvent) => void
+  setSystemEvents:  (events: SystemEvent[]) => void
   setAlerts:        (alerts: AlertItem[]) => void
   setNews:          (news: NewsItem[]) => void
   setWeather:       (weather: Partial<WeatherState>) => void
   setRadio:         (radio: RadioState) => void
   setCameras:       (cameras: TrafficCamera[]) => void
   setTrafficFlow:   (flow: any[]) => void
+  setTrafficIncidents: (incidents: TrafficIncident[]) => void
   setUtilityStatus: (status: any) => void
   setOregonStatus:  (status: any) => void
   setTrail:         (trail: TrailPoint[]) => void
+  setAirports:      (airports: Record<string, AirportSnapshot>) => void
+  setSummary:       (summary: Partial<SummaryState>) => void
 
   // Actions — connection
   setConnected:     (v: boolean) => void
@@ -298,10 +331,27 @@ function entityToTrack(entity: Entity, existing?: Track): Track | null {
     courseTrue,
     type:         isAir ? 'air' : 'sea',
     callsign:     entity.display_name,
-    category:     entity.tags?.[0],
+    category:     (entity.identity?.category as string | undefined) ?? entity.tags?.[0],
     trail,
     smoothedTrail,
     predictedPath,
+  }
+}
+
+function mergeEntityState(previous: Entity | undefined, incoming: Entity): Entity {
+  if (!previous) return incoming
+  if (incoming.entity_type !== 'aircraft') return incoming
+
+  return {
+    ...previous,
+    ...incoming,
+    // Keep cached enrichment keys between BEAST frame updates.
+    identity: {
+      ...(previous.identity ?? {}),
+      ...(incoming.identity ?? {}),
+    },
+    tags: incoming.tags ?? previous.tags,
+    distance_km: incoming.distance_km ?? previous.distance_km,
   }
 }
 
@@ -325,6 +375,12 @@ const defaultHealth: SystemHealth = {
   ok: false, redis: false, services: {},
 }
 
+const defaultSummary: SummaryState = {
+  summary: '',
+  ts: null,
+  model: null,
+}
+
 export const useCivicStore = create<CivicStore>((set) => ({
   // Data
   entities:         {},
@@ -336,9 +392,12 @@ export const useCivicStore = create<CivicStore>((set) => ({
   radio:            emptyRadio,
   cameras:          [],
   trafficFlow:      [],
+  trafficIncidents: [],
   utilityStatus:    null,
   oregonStatus:     null,
   trail:            [],
+  airports:         {},
+  summary:          defaultSummary,
 
   // Connection
   connected:        false,
@@ -383,11 +442,38 @@ export const useCivicStore = create<CivicStore>((set) => ({
     }
     set({ entities, tracks })
   },
+  setAircraftSnapshot: (list) =>
+    set((s) => {
+      const nextEntities: Record<string, Entity> = {}
+      const nextTracks: Record<string, Track> = {}
+
+      // Preserve non-aircraft state as-is.
+      for (const [id, entity] of Object.entries(s.entities)) {
+        if (entity.entity_type !== 'aircraft') {
+          nextEntities[id] = entity
+        }
+      }
+      for (const [id, track] of Object.entries(s.tracks)) {
+        if (track.type !== 'air') {
+          nextTracks[id] = track
+        }
+      }
+
+      // Replace aircraft subset, but preserve prior trail history for matching IDs.
+      for (const entity of list) {
+        nextEntities[entity.entity_id] = entity
+        const track = entityToTrack(entity, s.tracks[entity.entity_id])
+        if (track) nextTracks[entity.entity_id] = track
+      }
+
+      return { entities: nextEntities, tracks: nextTracks }
+    }),
   upsertEntity: (entity) =>
     set((s) => {
-      const track = entityToTrack(entity, s.tracks[entity.entity_id])
+      const merged = mergeEntityState(s.entities[entity.entity_id], entity)
+      const track = entityToTrack(merged, s.tracks[entity.entity_id])
       return {
-        entities: { ...s.entities, [entity.entity_id]: entity },
+        entities: { ...s.entities, [entity.entity_id]: merged },
         tracks: track ? { ...s.tracks, [entity.entity_id]: track } : s.tracks,
       }
     }),
@@ -419,18 +505,32 @@ export const useCivicStore = create<CivicStore>((set) => ({
       return { entities: next, tracks: nextTracks }
     }),
   appendSystemEvent: (event) =>
-    set((s) => ({
-      systemEvents: [...s.systemEvents, event].slice(-100),
-    })),
+    set((s) => {
+      const existing = s.systemEvents.find((ev) => ev.event_id === event.event_id)
+      if (existing) {
+        const updated = s.systemEvents.map((ev) => (ev.event_id === event.event_id ? event : ev))
+        return { systemEvents: updated.slice(-100) }
+      }
+      return { systemEvents: [...s.systemEvents, event].slice(-100) }
+    }),
+  setSystemEvents: (events) =>
+    set(() => {
+      const deduped = new Map<string, SystemEvent>()
+      for (const event of events) deduped.set(event.event_id, event)
+      return { systemEvents: Array.from(deduped.values()).slice(-100) }
+    }),
   setAlerts:    (alerts)  => set({ alerts }),
   setNews:      (news)    => set({ news }),
   setWeather:   (patch)   => set((s) => ({ weather: { ...s.weather, ...patch } })),
   setRadio:     (radio)   => set({ radio }),
   setCameras:   (cameras) => set({ cameras }),
   setTrafficFlow: (trafficFlow) => set({ trafficFlow }),
+  setTrafficIncidents: (trafficIncidents) => set({ trafficIncidents }),
   setUtilityStatus: (utilityStatus) => set({ utilityStatus }),
   setOregonStatus: (oregonStatus) => set({ oregonStatus }),
   setTrail:     (trail)   => set({ trail }),
+  setAirports:  (airports) => set({ airports }),
+  setSummary:   (patch)   => set((s) => ({ summary: { ...s.summary, ...patch } })),
 
   // Connection actions
   setConnected: (connected) => set({ connected }),

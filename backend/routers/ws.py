@@ -1,6 +1,6 @@
 import asyncio
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
-from redis_bus import subscribe_updates, get_all_entities
+from redis_bus import subscribe_updates, get_all_entities, get_aircraft_snapshot
 
 router = APIRouter(tags=["websocket"])
 
@@ -13,6 +13,10 @@ async def websocket_endpoint(ws: WebSocket):
         try:
             entities = await get_all_entities()
             await ws.send_json({"type": "snapshot", "data": entities})
+
+            aircraft_snapshot = await get_aircraft_snapshot()
+            if aircraft_snapshot:
+                await ws.send_json({"type": "aircraft_snapshot", "data": aircraft_snapshot})
 
             async def forward_redis():
                 try:

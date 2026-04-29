@@ -68,6 +68,12 @@ services:
       platforms:
         - linux/amd64
         - linux/arm64
+      args:
+        AIRCRAFT_DB_URL: ${AIRCRAFT_DB_URL:-https://raw.githubusercontent.com/wiedehopf/tar1090-db/refs/heads/csv/aircraft.csv.gz}
+        AIRPORTS_DB_URL: ${AIRPORTS_DB_URL:-https://davidmegginson.github.io/ourairports-data/airports.csv}
+        AIRLINES_DB_URL: ${AIRLINES_DB_URL:-https://raw.githubusercontent.com/jpatokal/openflights/master/data/airlines.dat}
+        NAVAIDS_DB_URL: ${NAVAIDS_DB_URL:-https://davidmegginson.github.io/ourairports-data/navaids.csv}
+        DATA_CACHEBUST: ${DATA_CACHEBUST:-static}
     restart: unless-stopped
     env_file: ${VERTEX_ENV_FILE:-.env}
     environment:

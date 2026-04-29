@@ -5,6 +5,184 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 
 ---
 
+## 2026-04-28 — Wired full data exposure path for traffic, weather alerts, summary, events, and ADS-B enrichment UI
+
+- Updated [poller/pollers/alerts.py](poller/pollers/alerts.py) to publish a dedicated `feed:weather:alerts` payload from NWS CAP data while preserving the combined `alerts:flash` feed.
+- Extended frontend store in [frontend/src/store.ts](frontend/src/store.ts) with:
+    - `trafficIncidents` state and setter
+    - `summary` state and setter
+    - `setSystemEvents(...)` for loading historical DB events
+    - dedupe-aware `appendSystemEvent(...)`
+    - additional entity fields (`vertical_rate`, `distance_km`) for enriched ADS-B display.
+- Updated [frontend/src/hooks/useAlerts.ts](frontend/src/hooks/useAlerts.ts) to poll and store:
+    - `/api/v1/traffic/incidents`
+    - `/api/v1/summary`
+    - existing weather/alerts/news/traffic/utilities feeds.
+- Updated [frontend/src/hooks/useWebSocket.ts](frontend/src/hooks/useWebSocket.ts) to consume all `feed_update` keys now emitted by pollers (`weather:current`, `weather:alerts`, `alerts:flash`, `news:local`, `traffic:cameras`, `traffic:flow`, `traffic:incidents`, `summary:latest`) instead of only radio/utilities.
+- Updated [frontend/src/components/panels/EventLogPanel.tsx](frontend/src/components/panels/EventLogPanel.tsx) to load `/api/v1/events` history on mount and refresh periodically, so refresh no longer loses event context.
+- Updated [frontend/src/components/layout/Sidebar.tsx](frontend/src/components/layout/Sidebar.tsx) to use real `trafficIncidents` data (with severity mapping) instead of deriving incidents from generic alerts.
+- Added AI summary rendering to [frontend/src/components/panels/EnvironmentPanel.tsx](frontend/src/components/panels/EnvironmentPanel.tsx).
+- Expanded ADS-B enrichment visibility in [frontend/src/components/panels/EntityDetail.tsx](frontend/src/components/panels/EntityDetail.tsx) to surface identity metadata (ICAO24, registration, operator, type, route, phase, vertical rate, distance) plus cached origin/destination METAR text when available.
+- Validation:
+    - `cd frontend && npx tsc --noEmit` passed
+    - `docker compose config --quiet` passed
+    - `python -m py_compile poller/pollers/alerts.py` passed
+    - `docker compose up -d --build poller frontend` completed with healthy backend/redis/db and started poller/frontend
+
+## 2026-04-28 — Hardened background METAR lookup task error handling
+
+- Updated [poller/enrichment/metar.py](poller/enrichment/metar.py) `lookup_many(...)` to catch transient `httpx.HTTPError` failures (including `ReadTimeout` and upstream 5xx) and fallback to stale cache values instead of propagating exceptions.
+- Added a defensive catch-all fallback in the same method so background METAR batch tasks do not emit `Task exception was never retrieved` stack traces on unexpected upstream failures.
+- Kept rate-limit behavior unchanged: `UpstreamRateLimitedError` still uses stale-cache fallback semantics.
+- Validation:
+    - `python -m py_compile poller/enrichment/metar.py` passed
+    - `docker compose restart poller` completed
+    - confirmed running container includes new handler block at `lookup_many(...)`
+
+## 2026-04-28 — Implemented single-writer BEAST work loop and Comm-B/EHS snapshot model
+
+- Refactored [poller/pollers/adsb.py](poller/pollers/adsb.py) BEAST path to a single-writer work-queue architecture with one bounded queue (`maxsize=16384`) carrying both `frame` and `tick` work items.
+- Added dedicated registry worker and 1 Hz tick producer so BEAST state mutation and snapshot emission run through a single processing loop.
+- Expanded [poller/normalizers/beast_decoder.py](poller/normalizers/beast_decoder.py) with best-effort DF4/5/11/20/21 handling and Comm-B/EHS inference for BDS 4,0 / 4,4 / 5,0 / 6,0.
+- Added freshness-gated `comm_b` snapshot payload fields (including observed/derived SAT/TAT logic) and squawk/altitude reply updates from surveillance replies.
+- Added local CPR decode tiers in [poller/normalizers/beast_decoder.py](poller/normalizers/beast_decoder.py): fallback against last-known aircraft position and configured receiver reference when even/odd global CPR pairing is unavailable.
+- Validation:
+    - `python -m py_compile poller/pollers/adsb.py poller/normalizers/beast_decoder.py poller/enrichment/cache.py poller/enrichment/adsbdb.py poller/enrichment/metar.py poller/enrichment/aircraft_db.py poller/enrichment/airports_db.py poller/enrichment/airlines_db.py poller/enrichment/navaids_db.py poller/enrichment/route_plausibility.py poller/config.py poller/main.py` passed
+    - `docker compose config --quiet` passed
+    - `docker compose restart poller` completed
+
+## 2026-04-28 — Added navaids enrichment and route plausibility filtering
+
+- Added [poller/enrichment/navaids_db.py](poller/enrichment/navaids_db.py), a local OurAirports `navaids.csv` loader with nearest-navaid lookup support.
+- Added [poller/enrichment/route_plausibility.py](poller/enrichment/route_plausibility.py) to reject obviously implausible origin/destination route assignments based on aircraft position and optional heading.
+- Updated [poller/pollers/adsb.py](poller/pollers/adsb.py) to:
+    - enrich `origin_info` and `dest_info` on aircraft identity from local airport metadata
+    - attach nearest navaid context where available
+    - drop route fields when plausibility checks fail
+    - reuse enriched airport references in snapshot `airports` map
+    - publish richer snapshot fields: `positioned`, `receiver`, `site_name`, `frames`
+    - compute per-aircraft `distance_km` from receiver location
+- Added `adsb_navaids_db_path` in [poller/config.py](poller/config.py) and documented `ADSB_NAVAIDS_DB_PATH` in [.env.example](.env.example).
+- Updated [poller/Dockerfile](poller/Dockerfile) and [docker-compose.yml](docker-compose.yml) to fetch/wire `navaids.csv` (`NAVAIDS_DB_URL`) at build time.
+- Validation:
+    - `python -m py_compile poller/enrichment/navaids_db.py poller/enrichment/route_plausibility.py poller/pollers/adsb.py poller/config.py` passed
+    - `docker compose config --quiet` passed
+
+## 2026-04-28 — Added stale-on-error and 429 cooldown handling for enrichment clients
+
+- Updated [poller/enrichment/cache.py](poller/enrichment/cache.py) with explicit `UpstreamRateLimitedError`, stale-value fallback on fetch errors, and throttle cooldown propagation.
+- Updated [poller/enrichment/adsbdb.py](poller/enrichment/adsbdb.py) to raise rate-limit exceptions on HTTP 429 (with `Retry-After` parsing), enabling shared cooldown and stale serving.
+- Updated [poller/enrichment/metar.py](poller/enrichment/metar.py) to use stale values for batch lookups during 429 windows and parse `Retry-After` for cooldown.
+- Validation:
+    - `python -m py_compile poller/enrichment/cache.py poller/enrichment/adsbdb.py poller/enrichment/metar.py poller/enrichment/navaids_db.py poller/enrichment/route_plausibility.py poller/pollers/adsb.py poller/config.py` passed
+    - `docker compose config --quiet` passed
+
+## 2026-04-28 — Added bounded BEAST frame queue with drop-oldest backpressure
+
+- Updated [poller/pollers/adsb.py](poller/pollers/adsb.py) to decouple BEAST TCP ingest from decode/publish work using a bounded `asyncio.Queue(maxsize=16384)`.
+- Added a dedicated BEAST frame worker loop (`_process_beast_frames`) so stream ingestion remains lightweight and decode/publish processing runs separately.
+- Implemented drop-oldest behavior when queue is full and added `frames_dropped` snapshot metadata for visibility.
+- Validation:
+    - `python -m py_compile poller/pollers/adsb.py poller/enrichment/cache.py poller/enrichment/adsbdb.py poller/enrichment/metar.py poller/enrichment/navaids_db.py poller/enrichment/route_plausibility.py poller/config.py` passed
+    - `docker compose config --quiet` passed
+
+## 2026-04-28 — Added stale-position dead-reckoning in BEAST snapshot output
+
+- Updated [poller/normalizers/beast_decoder.py](poller/normalizers/beast_decoder.py) to project stale aircraft positions forward when last position age exceeds 1.5s and heading/speed are available.
+- Added `position_stale` flag in emitted aircraft entities to indicate projected versus directly observed position.
+- Validation:
+    - `python -m py_compile poller/normalizers/beast_decoder.py poller/pollers/adsb.py poller/enrichment/cache.py poller/enrichment/adsbdb.py poller/enrichment/metar.py poller/enrichment/navaids_db.py poller/enrichment/route_plausibility.py poller/config.py` passed
+    - `docker compose config --quiet` passed
+
+## 2026-04-28 — Added OpenFlights airlines enrichment and alliance fallback
+
+- Added [poller/enrichment/airlines_db.py](poller/enrichment/airlines_db.py), a local OpenFlights `airlines.dat` loader keyed by ICAO prefix with `lookup_by_callsign(...)` support.
+- Updated [poller/pollers/adsb.py](poller/pollers/adsb.py) to enrich aircraft identity with fallback `operator`, `operator_country`, `operator_iata`, and `operator_alliance` values derived from callsign prefix when adsbdb metadata is missing.
+- Added `adsb_airlines_db_path` setting in [poller/config.py](poller/config.py) and documented `ADSB_AIRLINES_DB_PATH` in [.env.example](.env.example).
+- Updated [poller/Dockerfile](poller/Dockerfile) to download OpenFlights `airlines.dat` into `/data` at build time and updated [docker-compose.yml](docker-compose.yml) with `AIRLINES_DB_URL` build arg.
+- Validation:
+    - `python -m py_compile poller/enrichment/airlines_db.py poller/pollers/adsb.py poller/config.py` passed
+    - `docker compose config --quiet` passed
+
+## 2026-04-28 — Added airports metadata enrichment and build-time data fetch wiring
+
+- Added [poller/enrichment/airports_db.py](poller/enrichment/airports_db.py), a OurAirports CSV loader keyed by ICAO with airport metadata (`name`, `city`, `country`, `type`, `lat`, `lon`).
+- Updated [poller/pollers/adsb.py](poller/pollers/adsb.py) to enrich snapshot `airports` entries from local airport DB when route origin/destination ICAO codes are known.
+- Added `adsb_airports_db_path` setting in [poller/config.py](poller/config.py) and documented `ADSB_AIRPORTS_DB_PATH` in [.env.example](.env.example).
+- Updated [poller/Dockerfile](poller/Dockerfile) to fetch reference data into `/data` at build time:
+    - tar1090 aircraft DB (`aircraft_db.csv.gz`)
+    - OurAirports dataset (`airports.csv`)
+- Updated [docker-compose.yml](docker-compose.yml) poller build args for `AIRCRAFT_DB_URL`, `AIRPORTS_DB_URL`, and `DATA_CACHEBUST`.
+- Validation:
+    - `python -m py_compile poller/enrichment/airports_db.py poller/pollers/adsb.py poller/config.py` passed
+    - `docker compose config --quiet` passed
+
+## 2026-04-28 — Added local aircraft DB fallback enrichment
+
+- Added [poller/enrichment/aircraft_db.py](poller/enrichment/aircraft_db.py), a tar1090-style semicolon CSV loader with gzip support and ICAO-keyed lookup.
+- Wired [poller/pollers/adsb.py](poller/pollers/adsb.py) to use local aircraft DB values as fallback enrichment for `registration`, `icao_type`, and `type` when adsbdb data is missing or cold.
+- Added `adsb_aircraft_db_path` setting in [poller/config.py](poller/config.py) and documented `ADSB_AIRCRAFT_DB_PATH` in [.env.example](.env.example).
+- Validation: `python -m py_compile poller/enrichment/aircraft_db.py poller/pollers/adsb.py poller/config.py` passed.
+
+## 2026-04-28 — Added batched METAR scheduling, teleport guard, and disk-backed enrichment caches
+
+- Updated [poller/pollers/adsb.py](poller/pollers/adsb.py) to dedupe uncached callsign/ICAO fetches per snapshot and trigger one batched `lookup_many(...)` METAR request per snapshot cycle instead of one request task per airport.
+- Updated [poller/normalizers/beast_decoder.py](poller/normalizers/beast_decoder.py) with callsign normalization parity (`rstrip("_ ").strip()`) and a teleport guard (`max(10km, elapsed*0.5km/s)`) to suppress implausible CPR jump updates.
+- Propagated BEAST frame metadata from parser to decoder in [poller/pollers/adsb.py](poller/pollers/adsb.py) and [poller/normalizers/beast_decoder.py](poller/normalizers/beast_decoder.py), adding per-aircraft `msg_count`, `signal_peak`, and `mlat_ticks` fields.
+- Extended [poller/enrichment/cache.py](poller/enrichment/cache.py) with import/export APIs for fresh cache entries.
+- Added disk-backed cache persistence wiring to [poller/enrichment/adsbdb.py](poller/enrichment/adsbdb.py) and [poller/enrichment/metar.py](poller/enrichment/metar.py), loading from `/data` on startup and saving schema-versioned gzip JSON after cache updates.
+- Added `adsb_enrichment_cache_dir` in [poller/config.py](poller/config.py) for cache file location control.
+- Validation: `python -m py_compile` passed for all modified poller modules.
+
+## 2026-04-28 — Documented BEAST implementation tracker
+
+- Added [research/beast-update-implimentation-tracker.md](c:/Projects/Vertex/research/beast-update-implimentation-tracker.md) to capture the current BEAST/Ultrafeeder refactor status against the research plan.
+- Documented implemented features, partial gaps, runtime fixes, validation status, config flags, and recommended next steps so future work can resume from a single tracker file.
+
+## 2026-04-28 — Restored aircraft trails in BEAST snapshot mode
+
+- Identified that `aircraft_snapshot` handling in `frontend/src/hooks/useWebSocket.ts` was calling `setEntities(...)`, which replaced the full entity/track maps on every 1 Hz BEAST snapshot.
+- Added `setAircraftSnapshot(...)` in `frontend/src/store.ts` to replace only the aircraft subset while preserving non-aircraft entities and existing aircraft trail history.
+- Updated websocket handling to use the new merge path and verified with `npx tsc --noEmit`.
+
+## 2026-04-28 — Hardened METAR enrichment error handling
+
+- Updated `poller/enrichment/cache.py` to negative-cache failed enrichment fetches for the normal negative TTL window, reducing retry/log spam when an upstream response is bad.
+- Updated `poller/enrichment/metar.py` to send explicit JSON headers and handle non-JSON or malformed upstream responses gracefully, with a structured warning instead of repeated raw JSON parse failures.
+- Restarted `poller` and verified fresh logs show BEAST reconnecting cleanly without the prior immediate METAR warning storm.
+
+## 2026-04-27 — Fixed BEAST-only mode gating
+
+- Updated `poller/pollers/adsb.py` `poll()` control flow so when `ADSB_ENABLE_BEAST=true` and `ADSB_BEAST_HTTP_FALLBACK=false`, the poller runs BEAST transport only and skips HTTP/OpenSky polling entirely.
+- Verified syntax with `python -m py_compile poller/pollers/adsb.py`.
+
+## 2026-04-27 — Expanded ADS-B refactor implementation (BEAST decode + snapshot + enrichment)
+
+- **Implement BEAST decode path**: Added `poller/normalizers/beast_decoder.py` using `pyModeS` to decode DF17/18 ADS-B messages from BEAST frames, with CPR pair handling, velocity/callsign extraction, and entity normalization.
+- **Wire BEAST to live entity flow**: Updated `poller/pollers/adsb.py` to parse BEAST frame payloads, decode aircraft entities, publish live entity updates, and emit a periodic aircraft snapshot payload.
+- **Add enriched aircraft snapshot transport**: Added `set_aircraft_snapshot()` in `poller/bus.py`, plus `get_aircraft_snapshot()` in `backend/redis_bus.py` and websocket bootstrap publish in `backend/routers/ws.py`.
+- **Add backend aircraft snapshot endpoints**: Added `backend/routers/aircraft.py` with `/api/v1/aircraft/snapshot` and `/api/v1/aircraft/airports`, and registered router in `backend/main.py`.
+- **Add frontend compatibility for snapshot payloads**: Updated `frontend/src/hooks/useWebSocket.ts` to handle `aircraft_snapshot` events and `frontend/src/store.ts` to store airports map data.
+- **Add enrichment infrastructure**: Added generic cache/throttle/gzip helpers in `poller/enrichment/cache.py` and concrete clients in `poller/enrichment/adsbdb.py` and `poller/enrichment/metar.py`.
+- **Integrate cache-only enrichment into snapshot path**: `poller/pollers/adsb.py` now enriches snapshot entities from cached route/aircraft/METAR data and triggers async background fetches for missing keys, plus phase classification.
+- **Add change-detection publish optimization**: `poller/bus.py` now supports semantic change-only publish/write behavior controlled by `ADSB_PUBLISH_ONLY_CHANGES`.
+- **Dependencies/config**:
+    - Added `pyModeS==2.21.1` to `poller/requirements.txt`.
+    - Added/updated ADS-B env flags in `.env.example` and `poller/config.py`.
+- **Validation**:
+    - Python syntax checks passed for all changed backend/poller files.
+    - Frontend `npx tsc --noEmit` still reports pre-existing unrelated errors in `src/components/panels/TacticalAudio.tsx`.
+
+## 2026-04-27 — Started ADS-B refactor implementation (phase-1 groundwork)
+
+- **Add BEAST rollout settings**: Added new poller config flags in `poller/config.py` and documented them in `.env.example`: `ADSB_ENABLE_BEAST`, BEAST host/port/reconnect controls, HTTP fallback switch, and `ADSB_HISTORY_MODE`.
+- **Introduce BEAST transport scaffold**: Refactored `poller/pollers/adsb.py` to start and supervise a BEAST TCP consumer task with reconnect backoff and frame-boundary parsing, while retaining current HTTP ultrafeeder/OpenSky ingestion for safe rollout.
+- **Implement live-only persistence mode**: Updated `poller/db.py` so `ADSB_HISTORY_MODE=live_only` skips observation inserts but still upserts entity state and performs geofence checks from live positions.
+- **Fix aircraft category mapping in frontend**: Updated `frontend/src/store.ts` so `Track.category` reads `identity.category` first, then falls back to `tags[0]`.
+- **Validation**:
+    - Python syntax compile passed for changed poller files (`poller/config.py`, `poller/pollers/adsb.py`, `poller/db.py`).
+    - Frontend typecheck currently fails due pre-existing JSX typing issues in `src/components/panels/TacticalAudio.tsx` unrelated to this change set.
+
 ## 2026-04-27 — Fixed database schema inconsistencies and container errors
 
 - **Fix Missing Table**: Added the `AlertFeedConfig` model to `backend/db/models.py`, resolving the `UndefinedTableError` in the `poller` container.

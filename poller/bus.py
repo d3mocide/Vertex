@@ -17,9 +17,26 @@ async def get_bus() -> Redis:
 
 async def publish_entity(entity: dict, ttl: int = 120):
     r = await get_bus()
-    await r.set(f"entity:{entity['entity_id']}", json.dumps(entity), ex=ttl)
-    await r.publish("civic:updates", json.dumps({"type": "entity_update", "data": entity}))
+    key = f"entity:{entity['entity_id']}"
+
+    should_publish = True
+    if settings.adsb_publish_only_changes:
+        previous_raw = await r.get(key)
+        if previous_raw:
+            try:
+                previous = json.loads(previous_raw)
+                should_publish = _entity_changed(previous, entity)
+            except Exception:
+                should_publish = True
+
+    await r.set(key, json.dumps(entity), ex=ttl)
+    if should_publish:
+        await r.publish("civic:updates", json.dumps({"type": "entity_update", "data": entity}))
+
     from db import write_entity_observation  # lazy import — db imports geofence which imports bus
+    if not should_publish and settings.adsb_publish_only_changes:
+        return
+
     try:
         await write_entity_observation(entity)
     except Exception as exc:
@@ -36,8 +53,35 @@ async def set_feed(key: str, data):
     await r.publish("civic:updates", json.dumps({"type": msg_type, "key": key, "data": data}))
 
 
+async def set_aircraft_snapshot(snapshot: dict):
+    r = await get_bus()
+    await r.set("feed:aircraft_snapshot", json.dumps(snapshot))
+    await r.publish("civic:updates", json.dumps({"type": "aircraft_snapshot", "data": snapshot}))
+
+
 async def close():
     global _redis
     if _redis:
         await _redis.aclose()
         _redis = None
+
+
+def _entity_changed(previous: dict, current: dict) -> bool:
+    compare_keys = (
+        "entity_type",
+        "source",
+        "display_name",
+        "lat",
+        "lon",
+        "altitude",
+        "heading",
+        "speed",
+        "vertical_rate",
+        "status",
+        "identity",
+        "tags",
+    )
+    for key in compare_keys:
+        if previous.get(key) != current.get(key):
+            return True
+    return False

@@ -109,6 +109,7 @@ class AlertPoller(BasePoller):
 
     async def poll(self):
         items: list[dict] = []
+        weather_alerts: list[dict] = []
 
         # ── URL-based alert feeds ────────────────────────────────────────────
         async with httpx.AsyncClient(timeout=15, follow_redirects=True) as client:
@@ -121,7 +122,7 @@ class AlertPoller(BasePoller):
                     else:
                         items.extend(_parse_rss_feed(resp.text, feed["name"], feed["url"]))
                 except Exception as exc:
-                    logger.warning("[alerts] feed %r failed: %s", feed["name"], exc)
+                    logger.warning("[alerts] feed %r failed: %s: %s", feed["name"], type(exc).__name__, exc or "(no detail)")
 
         # ── NWS CAP alerts ───────────────────────────────────────────────────
         if self._zones:
@@ -130,18 +131,26 @@ class AlertPoller(BasePoller):
                 async with httpx.AsyncClient(timeout=15, headers=_NWS_HEADERS) as client:
                     resp = await client.get(url)
                     resp.raise_for_status()
-                for feature in resp.json().get("features", [])[:15]:
-                    props = feature.get("properties", {})
-                    items.append({
-                        "source":    "nws_cap",
-                        "title":     props.get("headline", props.get("event", "")),
-                        "summary":   props.get("description", ""),
-                        "link":      props.get("@id", ""),
-                        "published": props.get("effective", ""),
-                        "severity":  props.get("severity", ""),
-                        "certainty": props.get("certainty", ""),
-                    })
+                    for feature in resp.json().get("features", [])[:15]:
+                        props = feature.get("properties", {})
+                        weather_alerts.append({
+                            "event": props.get("event", ""),
+                            "headline": props.get("headline", props.get("event", "")),
+                            "description": props.get("description", ""),
+                            "severity": props.get("severity", ""),
+                            "expires": props.get("expires", ""),
+                        })
+                        items.append({
+                            "source":    "nws_cap",
+                            "title":     props.get("headline", props.get("event", "")),
+                            "summary":   props.get("description", ""),
+                            "link":      props.get("@id", ""),
+                            "published": props.get("effective", ""),
+                            "severity":  props.get("severity", ""),
+                            "certainty": props.get("certainty", ""),
+                        })
             except Exception as exc:
-                logger.warning("[alerts] nws_cap failed: %s", exc)
+                logger.warning("[alerts] nws_cap failed: %s: %s", type(exc).__name__, exc or "(no detail)")
 
+            await set_feed("weather:alerts", weather_alerts)
         await set_feed("alerts:flash", items)
