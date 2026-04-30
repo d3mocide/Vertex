@@ -126,14 +126,16 @@ export interface RadioState {
 
 // ─── Traffic Camera ───────────────────────────────────────────────────────────
 export interface TrafficCamera {
-  id:        string
-  name:      string
-  url:       string
-  ldi_url?:  string
-  lat?:      number
-  lon?:      number
-  dist_km?:  number
-  road?:     string
+  id:          string
+  name:        string
+  url:         string
+  ldi_url?:    string
+  lat?:        number
+  lon?:        number
+  dist_km?:    number
+  road?:       string
+  health?:     'ok' | 'warn' | 'down' | 'unknown'
+  last_ok_ts?: number | null
 }
 
 // ─── System Events ────────────────────────────────────────────────────────────
@@ -185,6 +187,16 @@ export interface ReplayData {
   start:    string
   end:      string
   entities: Record<string, ReplayEntityData>
+  events?:  ReplayEvent[]
+}
+
+export interface ReplayEvent {
+  event_id:   string
+  event_type: string
+  entity_id?: string | null
+  ts:         string
+  severity:   string
+  summary:    string
 }
 
 // ─── Store ────────────────────────────────────────────────────────────────────

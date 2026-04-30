@@ -59,6 +59,9 @@ export function useWebSocket() {
             upsertEntity(msg.data)
             break
           case 'aircraft_snapshot':
+            if (msg.data?.schema_version !== undefined && msg.data.schema_version !== 1) {
+              console.warn('[ws] aircraft_snapshot schema_version mismatch:', msg.data.schema_version)
+            }
             if (Array.isArray(msg.data?.aircraft)) {
               setAircraftSnapshot(msg.data.aircraft)
             }

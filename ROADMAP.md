@@ -12,7 +12,7 @@ Vertex is fully operational across all core systems:
 
 | System | Status |
 |--------|--------|
-| 9 async pollers (ADS-B, AIS, P25, weather, alerts, traffic, utilities, news, meshcore) | Production |
+| 10 async pollers (ADS-B, AIS, P25, weather, alerts, traffic, utilities, news, meshcore, seismic) | Production |
 | FastAPI REST + WebSocket backend (65+ endpoints) | Production |
 | React/MapLibre/Deck.gl frontend (10 panels, full map stack) | Production |
 | PostgreSQL + PostGIS persistence, Redis pub/sub | Production |
@@ -96,7 +96,7 @@ LOW IMPACT
   - New `seismic.py` poller — polls at 60s interval, stores as `Event` records (`event_type = "seismic"`)
   - Frontend: seismic event markers in `EventLogPanel.tsx` and map event layer
 - **Effort:** S
-- **Status:** Not Started
+- **Status:** Done
 
 ---
 
@@ -169,7 +169,7 @@ LOW IMPACT
   - Render event markers as colored tick marks on the scrubber rail
   - Click-to-seek to event timestamp
 - **Effort:** S
-- **Status:** Not Started
+- **Status:** Done
 
 ---
 
@@ -182,7 +182,7 @@ LOW IMPACT
   - Render lightweight SVG sparkline (no chart library required — ~40 lines of SVG math)
   - Show last 30 observations, color-coded by altitude band (aircraft) or speed (vessel)
 - **Effort:** S
-- **Status:** Not Started
+- **Status:** Done
 
 ---
 
@@ -221,7 +221,7 @@ LOW IMPACT
   - `traffic.py`: HEAD request each camera URL during poll cycle; record `last_ok` timestamp and HTTP status in Redis alongside camera metadata
   - Frontend: green/yellow/red health dot on each camera tile; tooltip shows last-ok time; "Offline" overlay on dead feeds
 - **Effort:** S
-- **Status:** Not Started
+- **Status:** Done
 
 ---
 
@@ -234,7 +234,7 @@ LOW IMPACT
   - `auth.py`: `POST /auth/users` endpoint for admin to create viewer accounts
   - Frontend: Settings panel hides config controls when `role === "viewer"`
 - **Effort:** S
-- **Status:** Not Started
+- **Status:** Done
 
 ---
 
@@ -264,7 +264,7 @@ LOW IMPACT
   - SettingsPanel: storage gauge + retention sliders (default 30 days, configurable 1–365)
   - `poller/main.py`: daily purge task already runs; make retention period dynamic from DB config
 - **Effort:** S
-- **Status:** Not Started
+- **Status:** Done
 
 ---
 
@@ -315,19 +315,19 @@ LOW IMPACT
 |----|------|----------|--------|--------|----------|--------|
 | A1 | Fire / Smoke Overlays | New Data Source | M | High | P1 | Not Started |
 | A2 | APRS / HAM Tracking | New Data Source | M | High | P1 | Not Started |
-| A3 | Seismic Feed (USGS) | New Data Source | S | Medium | P2 | Not Started |
+| A3 | Seismic Feed (USGS) | New Data Source | S | Medium | P2 | Done |
 | B1 | Outbound Webhooks / Alerting Rules | New Capability | M | High | P1 | Not Started |
 | B2 | TAK / CoT Output | New Capability | L | High | P2 | Not Started |
 | B3 | AI Anomaly Detection | New Capability | L | High | P2 | Not Started |
 | B4 | SitRep Export | New Capability | M | Medium | P3 | Not Started |
-| C1 | Playback Event Markers | Refinement | S | High | P1 | Not Started |
-| C2 | Entity Detail Sparklines | Refinement | S | Medium | P2 | Not Started |
+| C1 | Playback Event Markers | Refinement | S | High | P1 | Done |
+| C2 | Entity Detail Sparklines | Refinement | S | Medium | P2 | Done |
 | C3 | Geofence Circles + Dwell | Refinement | M | High | P1 | Not Started |
 | C4 | P25 Talkgroup Management | Refinement | M | Medium | P2 | Not Started |
-| C5 | Camera Health Monitoring | Refinement | S | High | P1 | Not Started |
-| C6 | Multi-Role Auth (Viewer) | Refinement | S | Medium | P2 | Not Started |
+| C5 | Camera Health Monitoring | Refinement | S | High | P1 | Done |
+| C6 | Multi-Role Auth (Viewer) | Refinement | S | Medium | P2 | Done |
 | D1 | Offline Map Tiles | Infrastructure | L | High | P2 | Not Started |
-| D2 | Data Retention UI | Infrastructure | S | High | P1 | Not Started |
+| D2 | Data Retention UI | Infrastructure | S | High | P1 | Done |
 | D3 | KML / GeoJSON Import | Infrastructure | M | Medium | P3 | Not Started |
 | D4 | Test Suite | Infrastructure | L | Medium | P2 | Not Started |
 | D5 | Grafana Dashboard | Infrastructure | M | Medium | P3 | Not Started |
@@ -337,13 +337,13 @@ LOW IMPACT
 ## Suggested Sprint Order
 
 ### Sprint 1 — Quick Wins (P1 High-Impact / Low-Effort)
-`C1` Playback event markers · `C5` Camera health monitoring · `C6` Multi-role auth · `A3` Seismic feed · `D2` Data retention UI
+Completed: `C1` Playback event markers · `C5` Camera health monitoring · `C6` Multi-role auth · `A3` Seismic feed · `D2` Data retention UI
 
 ### Sprint 2 — Core Enhancements (P1 Medium-Effort)
 `B1` Outbound webhooks · `C3` Geofence circles + dwell · `A1` Fire/smoke overlays · `A2` APRS tracking
 
 ### Sprint 3 — Depth & Refinement (P2)
-`C2` Entity detail sparklines · `C4` Talkgroup management · `B4` SitRep export · `D3` KML import · `D5` Grafana
+`C4` Talkgroup management · `B4` SitRep export · `D3` KML import · `D5` Grafana
 
 ### Sprint 4 — Strategic Capabilities (P2 High-Effort)
 `B2` TAK/CoT output · `B3` AI anomaly detection · `D1` Offline map tiles · `D4` Test suite

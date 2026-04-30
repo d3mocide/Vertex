@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { useCivicStore } from '../../store'
+import { useCivicStore, ReplayEvent } from '../../store'
 import { API_BASE } from '../../config'
 import { authHeaders } from '../../auth'
 
@@ -51,7 +51,7 @@ export function PlaybackController() {
     const start = new Date(end.getTime() - windowHours * 3_600_000)
     try {
       const res = await fetch(
-        `${API_BASE}/observations/replay?start=${start.toISOString()}&end=${end.toISOString()}`,
+        `${API_BASE}/observations/replay?start=${start.toISOString()}&end=${end.toISOString()}&include_events=true`,
         { headers: authHeaders() },
       )
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
@@ -204,6 +204,28 @@ export function PlaybackController() {
 
           {/* Scrubber */}
           <div className="relative">
+            {/* Event tick marks */}
+            {replayData?.events && durationMs > 0 && (
+              <div className="absolute left-0 right-0 top-0 h-1.5 pointer-events-none" aria-hidden="true">
+                {replayData.events.map((ev: ReplayEvent) => {
+                  const pct = ((Date.parse(ev.ts) - startMs) / durationMs) * 100
+                  if (pct < 0 || pct > 100) return null
+                  const color = ev.severity === 'critical' || ev.severity === 'high'
+                    ? 'bg-red-emergency'
+                    : ev.severity === 'medium'
+                    ? 'bg-amber-gold'
+                    : 'bg-on-surface-variant'
+                  return (
+                    <span
+                      key={ev.event_id}
+                      className={`absolute top-0 bottom-0 w-0.5 ${color} opacity-80`}
+                      style={{ left: `${pct}%` }}
+                      title={`${ev.event_type}: ${ev.summary}`}
+                    />
+                  )
+                })}
+              </div>
+            )}
             <div className="relative h-1.5 bg-surface-container rounded-full overflow-hidden">
               <div
                 className="absolute left-0 top-0 bottom-0 bg-amber-gold/40 rounded-full"

@@ -15,6 +15,7 @@ from pollers.utilities import UtilityPoller
 from pollers.p25 import P25Poller
 from pollers.meshcore import MeshCorePoller
 from pollers.summary import AISummaryPoller
+from pollers.seismic import SeismicPoller
 from bus import close
 from config_loader import load_sources_config
 from config_sync import sync_sources_to_db
@@ -60,6 +61,7 @@ async def main():
         P25Poller(),
         MeshCorePoller(),
         AISummaryPoller(),
+        SeismicPoller(),
     ]
     tasks = [asyncio.create_task(p.run()) for p in pollers]
     tasks.append(asyncio.create_task(_purge_loop()))

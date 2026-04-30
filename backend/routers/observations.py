@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from deps import get_db
-from db.models import Observation, Entity
+from db.models import Observation, Entity, Event
 from schemas.observation import ObservationSchema
 
 router = APIRouter(tags=["observations"])
@@ -30,6 +30,7 @@ async def get_replay(
     start: datetime = Query(..., description="Replay window start (ISO 8601)"),
     end: datetime = Query(None,  description="Replay window end (ISO 8601, default: now)"),
     entity_type: str | None = Query(None, description="Filter by entity type"),
+    include_events: bool = Query(False, description="Include system events in replay window"),
     db: AsyncSession = Depends(get_db),
 ):
     """Return all observations in a time window, grouped by entity_id.
@@ -76,8 +77,28 @@ async def get_replay(
             "speed":    obs.speed,
         })
 
-    return {
+    response: dict = {
         "start":    start.isoformat(),
         "end":      end.isoformat(),
         "entities": grouped,
     }
+
+    if include_events:
+        ev_result = await db.execute(
+            select(Event)
+            .where(Event.ts >= start, Event.ts <= end)
+            .order_by(Event.ts)
+        )
+        response["events"] = [
+            {
+                "event_id":   ev.event_id,
+                "event_type": ev.event_type,
+                "entity_id":  ev.entity_id,
+                "ts":         ev.ts.isoformat(),
+                "severity":   ev.severity,
+                "summary":    ev.summary,
+            }
+            for ev in ev_result.scalars()
+        ]
+
+    return response

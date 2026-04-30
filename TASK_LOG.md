@@ -5,6 +5,89 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 
 ---
 
+## 2026-04-30 — Marked Sprint 1 small-effort roadmap items complete and added live seismic event push
+
+- Updated [ROADMAP.md](ROADMAP.md) statuses for completed items: `A3`, `C1`, `C2`, `C5`, `C6`, and `D2` are now **Done** in both item sections and the tracking table.
+- Updated roadmap consistency details in [ROADMAP.md](ROADMAP.md): baseline now lists 10 pollers (including seismic), and Sprint 3 no longer lists already-completed `C2`.
+- Added live seismic publish path in [poller/pollers/seismic.py](poller/pollers/seismic.py): after persisting each seismic event, poller now emits a Redis pub/sub `{"type":"event"}` payload to `civic:updates`.
+- Updated [frontend/src/components/panels/EnvironmentPanel.tsx](frontend/src/components/panels/EnvironmentPanel.tsx) to merge websocket-delivered seismic events with polled 24-hour history, so the seismic card updates immediately while retaining historical context.
+- Validation:
+    - `cd frontend && npx tsc --noEmit` passed
+    - `python -m py_compile poller/pollers/seismic.py` passed
+    - `docker compose config --quiet` passed
+
+## 2026-04-30 — Phase 1 Item 1: Bounded enrichment worker pool
+
+- **Problem**: Three `asyncio.create_task()` fire-and-forget calls in `_enrich_aircraft_cache_only()` (route lookup, aircraft lookup, METAR fetch) were unsupervised — exceptions were silently swallowed and tasks could accumulate unboundedly under high traffic.
+- **Solution** in [poller/pollers/adsb.py](poller/pollers/adsb.py):
+  - Added `_enrichment_queue: asyncio.Queue` (maxsize=256) to `__init__`
+  - Added `_enrichment_worker_loop()` — serial drain loop that awaits each queued coroutine and logs exceptions
+  - Added `_schedule_enrichment(coro)` — `put_nowait` with graceful drop: calls `coro.close()` and logs a warning if queue is full
+  - Updated `_ensure_registry_tasks()` to spawn and supervise `_enrichment_worker_task`
+  - Updated `close()` to cancel/join `_enrichment_worker_task`
+  - Replaced all three `asyncio.create_task(...)` enrichment calls with `self._schedule_enrichment(...)`
+- **Behavior**: Enrichment requests are now bounded (max 256 queued), failures are logged, and the worker task restarts if it crashes (via `_ensure_registry_tasks` being called each poll cycle)
+- **Validation**: `python -m py_compile poller/pollers/adsb.py` ✓ passed
+- **Gap analysis doc**: Updated Phase 0 & Phase 1 sections to mark all completed items ✅
+
+## 2026-04-30 — Implemented Phase 0.4 & Phase 1.2/1.4: BEAST health metrics, task teardown, expanded change-detection
+
+**Phase 0 Item 4: BEAST Health Snapshot Fields**
+- Added three new metrics to the `aircraft_snapshot` envelope:
+  - `beast_connected` (bool): Whether the BEAST TCP task is running and not done
+  - `queue_depth` (int): Current size of the registry work queue (max 16384)
+  - `last_frame_age_s` (float | null): Seconds since last successful BEAST frame decode
+- Updated [poller/pollers/adsb.py](poller/pollers/adsb.py):
+  - Added `_beast_last_frame_ts` tracking field in `__init__`
+  - Updated frame ingest path to store `time.time()` on successful entity decode
+  - Modified `_publish_aircraft_snapshot()` to compute metrics and include in snapshot envelope
+- **Validation**: Passed Python syntax check on `poller/pollers/adsb.py`
+
+**Phase 1 Item 4: Explicit Task Teardown Control**
+- Added graceful shutdown path for BEAST background tasks:
+  - New `close()` method in [poller/pollers/adsb.py](poller/pollers/adsb.py) to cancel/join `_beast_task`, `_registry_worker_task`, `_registry_tick_task`
+  - Modified [poller/pollers/base.py](poller/pollers/base.py) `run()` method with try/finally block to invoke `close()` on shutdown
+- **Rationale**: Background BEAST consumer task, registry worker, and 1 Hz ticker need explicit cleanup to avoid resource leaks or hung processes during graceful shutdown
+- **Validation**: Passed Python syntax check on `poller/pollers/base.py`
+
+**Phase 1 Item 2: Expanded Change-Detection Field Comparison**
+- Updated [poller/bus.py](poller/bus.py) `_entity_changed()` function to include BEAST-evolving fields in the comparison key set:
+  - Added: `position_stale`, `signal_peak`, `msg_count`, `mlat_ticks`, `trail_pts`, `comm_b`
+  - Rationale: These fields represent meaningful state transitions (signal strength, staleness, trail updates, Comm-B presence) and should trigger entity_update publishes on the civic:updates channel
+- **Impact**: Frontend entity updates now reflect BEAST signal/trail evolution in addition to core positional state
+- **Validation**: Passed Python syntax check on `poller/bus.py`
+
+**Cross-Validation**:
+- `cd frontend && npx tsc --noEmit` ✓ passed (no TypeScript errors)
+- `docker compose config --quiet` ✓ passed (valid YAML)
+- `python -m py_compile poller/pollers/adsb.py poller/pollers/base.py poller/bus.py` ✓ passed
+
+## 2026-04-30 — Fixed BEAST freshness timestamp semantics, empty-snapshot behavior, and doc drift
+
+- Updated [poller/normalizers/beast_decoder.py](poller/normalizers/beast_decoder.py) `_to_entity()` to emit `last_seen` from aircraft message time (`ac.last_seen_ts`) instead of serialization time, preserving correct freshness semantics.
+- Updated [poller/pollers/adsb.py](poller/pollers/adsb.py) HTTP ingest paths (`_poll_ultrafeeder`, `_poll_opensky`) to always publish aircraft snapshots, including empty lists, preventing stale aircraft from lingering in Redis/frontend during temporary zero-aircraft upstream responses.
+- Updated [research/beast-update-implimentation-tracker.md](research/beast-update-implimentation-tracker.md) to remove contradictory architecture statements and refresh completion/status wording.
+- Updated [README.md](README.md) to align history retention wording with `ADSB_HISTORY_MODE` behavior.
+- Validation:
+    - `cd frontend && npx tsc --noEmit` passed
+    - `docker compose config --quiet` passed
+    - `python -m py_compile poller/normalizers/beast_decoder.py poller/pollers/adsb.py` passed
+
+## 2026-04-30 — Completed BEAST ingress/rendering audit and gap analysis documentation
+
+- Performed a full implementation-vs-plan audit across BEAST ingest, decode, snapshot transport, and frontend trail rendering paths.
+- Added [research/beast-ingress-rendering-gap-analysis-2026-04-30.md](research/beast-ingress-rendering-gap-analysis-2026-04-30.md), including:
+    - architecture parity matrix against [research/beast-ultrafeeder-research.md](research/beast-ultrafeeder-research.md)
+    - severity-ranked bug/risk findings with file-level evidence
+    - gap inventory and phased remediation roadmap
+    - validation checklist for follow-up implementation work
+- Key audit findings documented:
+    - BEAST `last_seen` timestamp semantics are currently inaccurate for freshness consumers
+    - HTTP poll path can retain stale aircraft snapshots when upstream returns zero aircraft
+    - change-only publish comparison omits several BEAST-evolving fields
+    - enrichment fire-and-forget tasks and task lifecycle supervision can be hardened
+    - tracker/README documentation drift and contradictions need cleanup
+
 ## 2026-04-30 — Removed dead-reckoning from BEAST display position (floating trail fix)
 
 - Root cause: `_to_entity()` in `beast_decoder.py` projected the display position forward using heading+speed whenever a CPR fix was >1.5 s old. This caused the entity icon to drift away from the actual CPR-fixed positions in `pos_history`, splitting the icon and trail to different geographic coordinates. The trail endpoint and icon endpoint rotated relative to each other as the map was panned (classic geographic coordinate divergence rendered at different positions).

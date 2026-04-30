@@ -1,6 +1,6 @@
 # BEAST Update Implimentation Tracker
 
-Last updated: 2026-04-28
+Last updated: 2026-04-30
 
 ## Purpose
 
@@ -14,10 +14,11 @@ Current status:
 - Basic snapshot transport from poller to backend to frontend is implemented.
 - Basic cache-backed enrichment exists for adsbdb routes/aircraft and METAR.
 - Frontend handling for BEAST snapshots is implemented and trail reset behavior was fixed.
-- The codebase does not yet implement the full single-writer registry/tick architecture from the research.
+- The core single-writer ingest + tick architecture is implemented in-process in the ADS-B poller.
+- Remaining gap is extraction into a fully isolated registry/domain service boundary.
 
 Approximate completion:
-- Full research architecture parity: about 92%
+- Full research architecture parity: about 85%
 - Practical BEAST ingestion and basic enrichment milestone: about 99%
 
 ## Implemented
@@ -171,7 +172,7 @@ Partial implementation:
 - cache misses trigger async background fetches
 
 Missing relative to research:
-- single-writer tick worker owns enrichment pipeline
+- extraction of the in-process single-writer tick worker into an isolated registry/domain module
 - richer origin/destination metadata objects
 - advanced route plausibility heuristics and scoring
 - navaids corridor and route-level joins
@@ -208,7 +209,7 @@ Partial implementation:
 - `airports`
 
 Missing relative to research:
-- trail arrays from backend snapshot
+- full research wire-format parity and schema-versioning guarantees
 - Comm-B snapshot block
 - richer airport metadata beyond current subset
 
@@ -227,7 +228,7 @@ Missing relative to research:
 
 ## Not Yet Implemented
 
-### 1. Single-writer Registry Worker
+### 1. Single-writer Registry Worker Extraction
 
 Not implemented:
 - no fully isolated registry domain module outside the poller class (current implementation is in-process within ADS-B poller)

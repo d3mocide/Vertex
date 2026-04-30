@@ -13,6 +13,20 @@ function CctvThumbnail({
   const [imgError, setImgError] = useState(false)
   const src = ldi && cam.ldi_url ? cam.ldi_url : cam.url
 
+  const healthDot: Record<string, string> = {
+    ok:      'bg-green-ais',
+    warn:    'bg-amber-gold animate-pulse',
+    down:    'bg-red-emergency animate-pulse',
+    unknown: 'bg-on-surface-variant',
+  }
+  const healthTitle: Record<string, string> = {
+    ok:      'Feed reachable',
+    warn:    'Feed returned error',
+    down:    'Feed unreachable',
+    unknown: 'Health unknown',
+  }
+  const dot = cam.health ? healthDot[cam.health] ?? healthDot.unknown : null
+
   return (
     <div
       className="cctv-thumb"
@@ -62,11 +76,20 @@ function CctvThumbnail({
         <span className="font-mono text-[9px] text-amber-gold uppercase truncate mr-1">
           {cam.name}
         </span>
-        {cam.dist_km && (
-          <span className="font-mono text-[8px] text-on-surface-variant shrink-0">
-            {cam.dist_km}km
-          </span>
-        )}
+        <div className="flex items-center gap-1.5 shrink-0">
+          {cam.dist_km && (
+            <span className="font-mono text-[8px] text-on-surface-variant">
+              {cam.dist_km}km
+            </span>
+          )}
+          {dot && (
+            <span
+              className={`w-1.5 h-1.5 rounded-full shrink-0 ${dot}`}
+              title={cam.health ? healthTitle[cam.health] : ''}
+              aria-label={cam.health ? healthTitle[cam.health] : ''}
+            />
+          )}
+        </div>
       </div>
       {ldi && cam.ldi_url && (
         <div className="absolute top-1 right-1 bg-amber-gold-muted px-1 py-0.5">

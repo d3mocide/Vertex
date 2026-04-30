@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
 from jose import jwt
 from passlib.context import CryptContext
@@ -35,11 +35,22 @@ class SetupRequest(BaseModel):
     password: str = Field(min_length=8, max_length=128)
 
 
+class CreateUserRequest(BaseModel):
+    username: str = Field(min_length=3, max_length=64, pattern=r"^[a-zA-Z0-9_-]+$")
+    password: str = Field(min_length=8, max_length=128)
+    role: str = Field(default="viewer", pattern=r"^(admin|viewer)$")
+
+
+class UserInfo(BaseModel):
+    username: str
+    role: str
+
+
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
-def _make_token(username: str) -> str:
+def _make_token(username: str, role: str = "admin") -> str:
     exp = datetime.now(timezone.utc) + timedelta(hours=settings.auth_token_expire_hours)
-    return jwt.encode({"sub": username, "exp": exp}, settings.auth_secret_key, algorithm=_ALGORITHM)
+    return jwt.encode({"sub": username, "role": role, "exp": exp}, settings.auth_secret_key, algorithm=_ALGORITHM)
 
 
 async def _user_count(db: AsyncSession) -> int:
@@ -92,4 +103,48 @@ async def login(form: OAuth2PasswordRequestForm = Depends(), db: AsyncSession = 
 
     user.last_login = datetime.now(timezone.utc)
     await db.commit()
-    return Token(access_token=_make_token(user.username))
+    return Token(access_token=_make_token(user.username, user.role))
+
+
+@router.get("/me", response_model=UserInfo)
+async def me(request: Request, db: AsyncSession = Depends(get_db)):
+    """Return the username and role of the currently authenticated user."""
+    if not settings.auth_enabled:
+        return UserInfo(username="local", role="admin")
+    header = request.headers.get("Authorization", "")
+    token = header[7:].strip() if header.startswith("Bearer ") else ""
+    try:
+        payload = jwt.decode(token, settings.auth_secret_key, algorithms=[_ALGORITHM])
+    except Exception:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+    username = payload.get("sub", "")
+    role = payload.get("role", "admin")  # legacy tokens without role default to admin
+    return UserInfo(username=username, role=role)
+
+
+@router.post("/users", response_model=UserInfo, status_code=status.HTTP_201_CREATED)
+async def create_user(body: CreateUserRequest, request: Request, db: AsyncSession = Depends(get_db)):
+    """Admin-only: create a new user account (admin or viewer role)."""
+    if not settings.auth_enabled:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    # Only admins may create users — role enforced by AuthMiddleware but double-check here
+    header = request.headers.get("Authorization", "")
+    token = header[7:].strip() if header.startswith("Bearer ") else ""
+    try:
+        payload = jwt.decode(token, settings.auth_secret_key, algorithms=[_ALGORITHM])
+    except Exception:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)
+    if payload.get("role", "admin") != "admin":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin role required")
+    existing = await db.scalar(select(User).where(User.username == body.username))
+    if existing:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Username already exists")
+    user = User(
+        username=body.username,
+        password_hash=_pwd.hash(body.password),
+        role=body.role,
+        created_at=datetime.now(timezone.utc),
+    )
+    db.add(user)
+    await db.commit()
+    return UserInfo(username=user.username, role=user.role)

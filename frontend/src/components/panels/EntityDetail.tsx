@@ -1,4 +1,7 @@
+import { useEffect, useState } from 'react'
 import { useCivicStore } from '../../store'
+import { API_BASE } from '../../config'
+import { authHeaders } from '../../auth'
 
 const TYPE_COLORS: Record<string, string> = {
   aircraft:  'text-cyan-adsb',
@@ -12,9 +15,53 @@ const TYPE_ICONS: Record<string, string> = {
   mesh_node: 'router',
 }
 
+/** Render a compact SVG sparkline from a numeric series. */
+function Sparkline({ values, color }: { values: number[]; color: string }) {
+  if (values.length < 2) return null
+  const min = Math.min(...values)
+  const max = Math.max(...values)
+  const range = max - min || 1
+  const w = 176
+  const h = 28
+  const pts = values.map((v, i) => {
+    const x = (i / (values.length - 1)) * w
+    const y = h - ((v - min) / range) * (h - 4) - 2
+    return `${x.toFixed(1)},${y.toFixed(1)}`
+  })
+  return (
+    <svg width={w} height={h} aria-hidden="true" className="block">
+      <polyline
+        points={pts.join(' ')}
+        fill="none"
+        stroke={color}
+        strokeWidth="1.5"
+        strokeLinejoin="round"
+        strokeLinecap="round"
+      />
+    </svg>
+  )
+}
+
 export function EntityDetail() {
   const { entities, airports, selectedEntityId, selectEntity } = useCivicStore()
   const entity = selectedEntityId ? entities[selectedEntityId] : null
+
+  // Fetch trail for sparklines (aircraft only)
+  const [trail, setTrail] = useState<{ altitude?: number | null; speed?: number | null }[]>([])
+  useEffect(() => {
+    if (!selectedEntityId || !entity || entity.entity_type !== 'aircraft') {
+      setTrail([])
+      return
+    }
+    let cancelled = false
+    fetch(`${API_BASE}/entities/${encodeURIComponent(selectedEntityId)}/trail?minutes=30`, { headers: authHeaders() })
+      .then((r) => r.ok ? r.json() : [])
+      .then((pts: { altitude?: number | null; speed?: number | null }[]) => {
+        if (!cancelled) setTrail(pts)
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [selectedEntityId, entity?.entity_type])
   if (!entity) return null
 
   const identity = entity.identity ?? {}
@@ -95,6 +142,28 @@ export function EntityDetail() {
             </span>
           </div>
         ))}
+
+        {entity.entity_type === 'aircraft' && (() => {
+          const altitudes = trail.map(p => p.altitude).filter((v): v is number => typeof v === 'number')
+          const speeds = trail.map(p => p.speed).filter((v): v is number => typeof v === 'number')
+          if (altitudes.length < 3 && speeds.length < 3) return null
+          return (
+            <div className="mt-2 border-t border-white/10 pt-2 space-y-2">
+              {altitudes.length >= 3 && (
+                <div>
+                  <span className="label-caps text-[8px] block mb-0.5">Altitude (30 min)</span>
+                  <Sparkline values={altitudes} color="rgb(var(--color-cyan-adsb, 0 200 255) / 0.9)" />
+                </div>
+              )}
+              {speeds.length >= 3 && (
+                <div>
+                  <span className="label-caps text-[8px] block mb-0.5">Speed (30 min)</span>
+                  <Sparkline values={speeds} color="rgb(var(--color-amber-gold, 255 184 0) / 0.7)" />
+                </div>
+              )}
+            </div>
+          )
+        })()}
 
         {entity.entity_type === 'aircraft' && (() => {
           const origin = getIdentity('origin')

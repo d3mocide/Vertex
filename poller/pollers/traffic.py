@@ -55,7 +55,9 @@ class TrafficPoller(BasePoller):
                 url = f"{_ODOT_API_BASE}{_ODOT_CCTV_PATH}"
                 resp = await client.get(url, headers=headers)
                 resp.raise_for_status()
-                await set_feed("traffic:cameras", _parse_odot_cameras(resp.json()))
+                cameras = _parse_odot_cameras(resp.json())
+                await _check_camera_health(cameras)
+                await set_feed("traffic:cameras", cameras)
             except Exception as exc:
                 logger.warning("[traffic] cctv fetch failed: %s", exc)
 
@@ -281,6 +283,33 @@ def _parse_odot_inventory(data: dict) -> dict:
     return mapping
 
 
+async def _check_camera_health(cameras: list[dict]) -> None:
+    """HEAD-check each camera URL and annotate with health status + last_ok_ts.
 
+    Health values: ``"ok"`` (200–399), ``"warn"`` (4xx), ``"down"`` (error/timeout).
+    Runs all checks concurrently with a short per-request timeout.
+    """
+    import asyncio
+    import time
 
+    async def _probe(cam: dict) -> None:
+        url = cam.get("url", "")
+        if not url:
+            cam["health"] = "unknown"
+            cam["last_ok_ts"] = None
+            return
+        try:
+            async with httpx.AsyncClient(timeout=4) as hc:
+                r = await hc.head(url)
+            if r.status_code < 400:
+                cam["health"] = "ok"
+                cam["last_ok_ts"] = int(time.time())
+            else:
+                cam["health"] = "warn"
+                cam["last_ok_ts"] = None
+        except Exception:
+            cam["health"] = "down"
+            cam["last_ok_ts"] = None
+
+    await asyncio.gather(*[_probe(cam) for cam in cameras])
 

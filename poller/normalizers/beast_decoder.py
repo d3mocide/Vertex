@@ -291,7 +291,8 @@ class BeastAircraftDecoder:
             return None
 
         now_ts = now if isinstance(now, (int, float)) else time.time()
-        last_seen = datetime.now(timezone.utc).isoformat()
+        last_seen_ts = ac.last_seen_ts if ac.last_seen_ts > 0 else now_ts
+        last_seen = datetime.fromtimestamp(last_seen_ts, tz=timezone.utc).isoformat()
         callsign = _normalize_callsign(ac.callsign)
 
         # Always display at the last actual CPR-fixed position.

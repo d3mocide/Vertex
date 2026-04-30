@@ -13,6 +13,7 @@ from enrichment.adsbdb import AdsbdbClient
 from enrichment.metar import MetarClient
 from enrichment.navaids_db import NavaidsDb
 from enrichment.route_plausibility import is_route_plausible
+from .beast_transport import BeastTransport
 from normalizers.beast_decoder import BeastAircraftDecoder
 from normalizers.aircraft import normalize_opensky, normalize_tar1090
 from .base import BasePoller
@@ -29,9 +30,11 @@ class AdsbPoller(BasePoller):
         self._beast_task: asyncio.Task | None = None
         self._registry_worker_task: asyncio.Task | None = None
         self._registry_tick_task: asyncio.Task | None = None
+        self._enrichment_worker_task: asyncio.Task | None = None
         self._registry_work_queue: asyncio.Queue[tuple[str, Any]] = asyncio.Queue(maxsize=16384)
-        self._beast_frames_seen: int = 0
+        self._enrichment_queue: asyncio.Queue[Any] = asyncio.Queue(maxsize=256)
         self._beast_frames_dropped: int = 0
+        self._transport = BeastTransport(on_frame=self._enqueue_beast_frame)
         self._beast_decoder = BeastAircraftDecoder()
         self._adsbdb = AdsbdbClient()
         self._metar = MetarClient()
@@ -50,6 +53,52 @@ class AdsbPoller(BasePoller):
             logger.info("[adsb] %d local source(s): %s", len(self._source_urls), self._source_urls)
         else:
             logger.info("[adsb] no local sources configured — falling back to OpenSky")
+        await self._hydrate_from_redis()
+
+    async def _hydrate_from_redis(self) -> None:
+        """Pre-populate the decoder registry from last-known Redis entity state.
+
+        Prevents a blank map on poller restart while waiting for fresh BEAST CPR
+        pairs to resolve (up to ~60 s for a cold start). Aircraft are seeded with
+        last-known position but ``last_seen_ts=0`` so they are immediately treated
+        as stale/no-fresh-data until a new fix arrives.
+        """
+        import json as _json
+        from bus import get_bus
+        from normalizers.beast_decoder import _AircraftState
+        try:
+            r = await get_bus()
+            keys = await r.keys("entity:*")
+            hydrated = 0
+            for key in keys:
+                raw = await r.get(key)
+                if not raw:
+                    continue
+                try:
+                    entity = _json.loads(raw)
+                except Exception:
+                    continue
+                if entity.get("entity_type") != "aircraft":
+                    continue
+                lat = entity.get("lat")
+                lon = entity.get("lon")
+                icao = (entity.get("identity") or {}).get("icao24", "")
+                if not icao or lat is None or lon is None:
+                    continue
+                ac = _AircraftState(icao=icao)
+                ac.lat = float(lat)
+                ac.lon = float(lon)
+                ac.altitude = entity.get("altitude")
+                ac.heading = entity.get("heading")
+                ac.speed = entity.get("speed")
+                ac.callsign = (entity.get("identity") or {}).get("callsign")
+                ac.last_seen_ts = 0.0  # forces position_stale until a fresh fix arrives
+                self._beast_decoder._aircraft[icao.lower()] = ac
+                hydrated += 1
+            if hydrated:
+                logger.info("[adsb] hydrated %d aircraft from Redis on startup", hydrated)
+        except Exception as exc:
+            logger.warning("[adsb] Redis hydration failed (non-fatal): %s", exc)
 
     async def poll(self):
         if settings.adsb_enable_beast:
@@ -76,7 +125,7 @@ class AdsbPoller(BasePoller):
         if self._beast_task and self._beast_task.done() and self._beast_task.exception():
             logger.warning("[adsb] BEAST task ended with error: %s", self._beast_task.exception())
 
-        self._beast_task = asyncio.create_task(self._consume_beast())
+        self._beast_task = asyncio.create_task(self._transport.run())
         self._ensure_registry_tasks()
 
     def _ensure_registry_tasks(self):
@@ -89,6 +138,15 @@ class AdsbPoller(BasePoller):
             if self._registry_tick_task and self._registry_tick_task.exception():
                 logger.warning("[adsb] registry tick task ended with error: %s", self._registry_tick_task.exception())
             self._registry_tick_task = asyncio.create_task(self._registry_tick_loop())
+
+        if not self._enrichment_worker_task or self._enrichment_worker_task.done():
+            if self._enrichment_worker_task and self._enrichment_worker_task.exception():
+                logger.warning("[adsb] enrichment worker task ended with error: %s", self._enrichment_worker_task.exception())
+            self._enrichment_worker_task = asyncio.create_task(self._enrichment_worker_loop())
+
+    def _enqueue_beast_frame(self, msg: bytes, mlat_ticks: int, signal: int) -> None:
+        """Callback wired into BeastTransport; routes frames to the registry queue."""
+        self._enqueue_registry_work("frame", (msg, mlat_ticks, signal))
 
     async def _process_registry_work(self):
         while True:
@@ -109,107 +167,42 @@ class AdsbPoller(BasePoller):
             await asyncio.sleep(1.0)
             self._enqueue_registry_work("tick", None)
 
-    async def _consume_beast(self):
-        backoff = max(1, settings.adsb_beast_reconnect_initial_seconds)
-        max_backoff = max(backoff, settings.adsb_beast_reconnect_max_seconds)
-        host = settings.adsb_beast_host
-        port = settings.adsb_beast_port
+    async def _enrichment_worker_loop(self):
+        """Drains the bounded enrichment queue, executing one coroutine at a time.
 
+        This replaces fire-and-forget asyncio.create_task() for enrichment calls,
+        ensuring failures are logged and the task count is controlled.
+        """
         while True:
-            writer = None
+            coro = await self._enrichment_queue.get()
             try:
-                reader, writer = await asyncio.open_connection(host, port)
-                logger.info("[adsb] BEAST connected to %s:%s", host, port)
-                backoff = max(1, settings.adsb_beast_reconnect_initial_seconds)
-                buffer = bytearray()
-
-                while True:
-                    chunk = await reader.read(4096)
-                    if not chunk:
-                        raise ConnectionError("BEAST stream closed")
-                    buffer.extend(chunk)
-                    consumed, messages = self._consume_beast_buffer(buffer)
-                    if consumed:
-                        del buffer[:consumed]
-                    if messages:
-                        self._beast_frames_seen += len(messages)
-                        for msg, mlat_ticks, signal in messages:
-                            self._enqueue_registry_work("frame", (msg, mlat_ticks, signal))
-            except asyncio.CancelledError:
-                raise
+                await coro
             except Exception as exc:
-                logger.warning("[adsb] BEAST connection error: %s (retry in %ss)", exc, backoff)
-                await asyncio.sleep(backoff)
-                backoff = min(backoff * 2, max_backoff)
+                logger.warning("[adsb] enrichment task error: %s", exc)
             finally:
+                self._enrichment_queue.task_done()
+
+    def _schedule_enrichment(self, coro: Any) -> None:
+        """Enqueue a coroutine for the supervised enrichment worker.
+
+        Drops the item (with a warning) if the queue is full to prevent
+        unbounded memory growth during high-traffic periods.
+        """
+        try:
+            self._enrichment_queue.put_nowait(coro)
+        except asyncio.QueueFull:
+            logger.warning("[adsb] enrichment queue full (%d), dropping enrichment request", self._enrichment_queue.maxsize)
+            coro.close()
+
+    async def close(self):
+        """Cancel all spawned BEAST/registry tasks for clean shutdown."""
+        for task in [self._beast_task, self._registry_worker_task, self._registry_tick_task, self._enrichment_worker_task]:
+            if task and not task.done():
+                task.cancel()
                 try:
-                    if writer is not None:
-                        writer.close()
-                        await writer.wait_closed()
-                except Exception:
+                    await task
+                except asyncio.CancelledError:
                     pass
-
-    def _consume_beast_buffer(self, buffer: bytearray) -> tuple[int, list[tuple[bytes, int, int]]]:
-        pos = 0
-        messages: list[tuple[bytes, int, int]] = []
-
-        while pos < len(buffer):
-            consumed, message = self._parse_one_beast_frame(memoryview(buffer)[pos:])
-            if consumed == 0:
-                break
-            if consumed < 0:
-                pos += abs(consumed)
-                continue
-            pos += consumed
-            if message:
-                messages.append(message)
-
-        return pos, messages
-
-    def _parse_one_beast_frame(self, view: memoryview) -> tuple[int, tuple[bytes, int, int] | None]:
-        if len(view) < 2:
-            return 0, None
-        if view[0] != 0x1A:
-            next_sync = bytes(view[1:]).find(b"\x1a")
-            if next_sync < 0:
-                return -len(view), None
-            return -(next_sync + 1), None
-
-        frame_type = view[1]
-        payload_len = {0x31: 2, 0x32: 7, 0x33: 14}.get(frame_type)
-        if payload_len is None:
-            return -1, None
-
-        needed = 6 + 1 + payload_len
-        i = 2
-        filled = 0
-        body = bytearray(needed)
-
-        while filled < needed:
-            if i >= len(view):
-                return 0, None
-            b = view[i]
-            if b == 0x1A:
-                if i + 1 >= len(view):
-                    return 0, None
-                if view[i + 1] == 0x1A:
-                    body[filled] = 0x1A
-                    i += 2
-                    filled += 1
-                else:
-                    return -i, None
-            else:
-                body[filled] = b
-                i += 1
-                filled += 1
-
-        if frame_type not in (0x32, 0x33):
-            return i, None
-
-        mlat_ticks = int.from_bytes(body[0:6], byteorder="big", signed=False)
-        signal = int(body[6])
-        message = bytes(body[7 : 7 + payload_len])
-        return i, (message, mlat_ticks, signal)
 
     def _enqueue_registry_work(self, kind: str, payload: Any):
         if self._registry_work_queue.full():
@@ -237,8 +230,9 @@ class AdsbPoller(BasePoller):
                 aircraft.append(entity)
                 await publish_entity(entity)
 
-        if aircraft:
-            await self._publish_aircraft_snapshot(aircraft)
+        # Always publish a snapshot, including empty lists, so stale aircraft
+        # do not linger in Redis/frontend when upstream temporarily returns none.
+        await self._publish_aircraft_snapshot(aircraft)
 
     async def _poll_opensky(self):
         url = (
@@ -261,15 +255,23 @@ class AdsbPoller(BasePoller):
                 aircraft.append(entity)
                 await publish_entity(entity)
 
-        if aircraft:
-            await self._publish_aircraft_snapshot(aircraft)
+        # Always publish a snapshot, including empty lists, so stale aircraft
+        # do not linger in Redis/frontend when upstream temporarily returns none.
+        await self._publish_aircraft_snapshot(aircraft)
 
     async def _publish_aircraft_snapshot(self, aircraft: list[dict]):
         enriched, airports = self._enrich_aircraft_cache_only(aircraft)
         positioned = sum(1 for item in enriched if isinstance(item.get("lat"), (int, float)) and isinstance(item.get("lon"), (int, float)))
+        now_ts = time.time()
+        beast_connected = self._beast_task is not None and not self._beast_task.done()
+        last_frame_age_s = (
+            now_ts - self._transport.last_frame_ts
+            if self._transport.last_frame_ts > 0 else None
+        )
 
         snapshot = {
-            "now": time.time(),
+            "schema_version": 1,
+            "now": now_ts,
             "count": len(enriched),
             "positioned": positioned,
             "receiver": {
@@ -278,8 +280,11 @@ class AdsbPoller(BasePoller):
                 "anon_km": 0,
             },
             "site_name": settings.region_name,
-            "frames": self._beast_frames_seen,
+            "frames": self._transport.frames_seen,
             "frames_dropped": self._beast_frames_dropped,
+            "beast_connected": beast_connected,
+            "queue_depth": self._registry_work_queue.qsize(),
+            "last_frame_age_s": last_frame_age_s,
             "aircraft": enriched,
             "airports": airports,
         }
@@ -406,13 +411,13 @@ class AdsbPoller(BasePoller):
                     missing_metar_codes.add(code)
 
         for callsign in missing_callsigns:
-            asyncio.create_task(self._adsbdb.lookup_route(callsign))
+            self._schedule_enrichment(self._adsbdb.lookup_route(callsign))
 
         for icao in missing_icaos:
-            asyncio.create_task(self._adsbdb.lookup_aircraft(icao))
+            self._schedule_enrichment(self._adsbdb.lookup_aircraft(icao))
 
         if missing_metar_codes:
-            asyncio.create_task(self._metar.lookup_many(sorted(missing_metar_codes)))
+            self._schedule_enrichment(self._metar.lookup_many(sorted(missing_metar_codes)))
 
         return enriched, airports
 

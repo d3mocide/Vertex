@@ -10,7 +10,7 @@ from config import settings
 from db.session import init_db
 from rate_limit import RateLimitMiddleware
 from redis_bus import init_redis, close_redis
-from routers import entities, observations, events, weather, alerts, news, traffic, health, ws, radio, utilities, summary, auth, geofences, sources, aircraft
+from routers import entities, observations, events, weather, alerts, news, traffic, health, ws, radio, utilities, summary, auth, geofences, sources, aircraft, admin
 
 logging.basicConfig(
     level=settings.log_level,
@@ -54,4 +54,5 @@ app.include_router(summary.router, prefix="/api/v1")
 app.include_router(aircraft.router, prefix="/api/v1")
 app.include_router(geofences.router, prefix="/api/v1")
 app.include_router(sources.router, prefix="/api/v1")
+app.include_router(admin.router, prefix="/api/v1")
 app.include_router(ws.router)

@@ -1,6 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useCivicStore } from '../../store'
 import { notificationPermission, requestNotificationPermission } from '../../notifications'
+import { getUserRole, clearToken, authHeaders } from '../../auth'
+import { API_BASE } from '../../config'
 
 export function SettingsPanel() {
   const {
@@ -13,6 +15,42 @@ export function SettingsPanel() {
   } = useCivicStore()
 
   const [notifPermission, setNotifPermission] = useState(() => notificationPermission())
+  const userRole = getUserRole()
+
+  // Data retention state (admin only)
+  const [storageStats, setStorageStats] = useState<{ observation_count: number; entity_count: number; retention_days: number } | null>(null)
+  const [retentionDays, setRetentionDays] = useState(30)
+  const [retentionSaving, setRetentionSaving] = useState(false)
+
+  const loadStorageStats = useCallback(async () => {
+    if (userRole !== 'admin') return
+    try {
+      const res = await fetch(`${API_BASE}/admin/storage`, { headers: authHeaders() })
+      if (res.ok) {
+        const data = await res.json()
+        setStorageStats(data)
+        setRetentionDays(data.retention_days)
+      }
+    } catch { /* non-fatal */ }
+  }, [userRole])
+
+  useEffect(() => {
+    if (settingsOpen) loadStorageStats()
+  }, [settingsOpen, loadStorageStats])
+
+  const saveRetention = async () => {
+    setRetentionSaving(true)
+    try {
+      await fetch(`${API_BASE}/admin/retention`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({ retention_days: retentionDays }),
+      })
+      await loadStorageStats()
+    } catch { /* non-fatal */ } finally {
+      setRetentionSaving(false)
+    }
+  }
 
   // Close on Escape
   useEffect(() => {
@@ -46,6 +84,9 @@ export function SettingsPanel() {
           <div className="flex items-center gap-2">
             <span className="ms text-[18px] text-amber-gold" aria-hidden="true">settings</span>
             <span className="font-bold text-[11px] tracking-[0.2em] uppercase text-amber-gold">SETTINGS</span>
+            <span className={`px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-widest border ${userRole === 'admin' ? 'border-amber-gold/40 text-amber-gold/70' : 'border-green-ais/40 text-green-ais/70'}`}>
+              {userRole}
+            </span>
           </div>
           <button
             onClick={() => setSettingsOpen(false)}
@@ -167,6 +208,67 @@ export function SettingsPanel() {
                 onChange={(v) => setEntityFilter({ mesh_node: v })}
               />
             </div>
+          </section>
+
+          {/* Data Retention — admin only */}
+          {userRole === 'admin' && (
+            <section>
+              <h2 className="label-caps mb-3">Data Retention</h2>
+              {storageStats ? (
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-2 text-[10px]">
+                    <div className="hud-panel p-2 text-center">
+                      <div className="font-mono text-on-surface font-bold">{storageStats.observation_count.toLocaleString()}</div>
+                      <div className="text-on-surface-variant uppercase tracking-wider text-[8px]">Observations</div>
+                    </div>
+                    <div className="hud-panel p-2 text-center">
+                      <div className="font-mono text-on-surface font-bold">{storageStats.entity_count.toLocaleString()}</div>
+                      <div className="text-on-surface-variant uppercase tracking-wider text-[8px]">Entities</div>
+                    </div>
+                  </div>
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-[10px] text-on-surface-variant">Keep observations for</span>
+                      <span className="font-mono text-[10px] text-amber-gold">{retentionDays}d</span>
+                    </div>
+                    <input
+                      type="range"
+                      min={1}
+                      max={365}
+                      step={1}
+                      value={retentionDays}
+                      onChange={(e) => setRetentionDays(Number(e.target.value))}
+                      className="w-full accent-amber-500"
+                      aria-label="Retention days"
+                    />
+                    <div className="flex justify-between text-[8px] text-on-surface-variant mt-0.5">
+                      <span>1d</span><span>365d</span>
+                    </div>
+                  </div>
+                  <button
+                    onClick={saveRetention}
+                    disabled={retentionSaving}
+                    className="w-full py-1.5 text-[9px] font-bold uppercase tracking-widest border border-amber-gold/40 text-amber-gold hover:bg-amber-gold/10 transition-colors disabled:opacity-50 focus:outline-none"
+                  >
+                    {retentionSaving ? 'Saving…' : 'Save'}
+                  </button>
+                </div>
+              ) : (
+                <p className="text-[10px] text-on-surface-variant">Loading…</p>
+              )}
+            </section>
+          )}
+
+          {/* Account */}
+          <section className="border-t border-white/10 pt-4">
+            <h2 className="label-caps mb-3">Account</h2>
+            <button
+              onClick={() => { clearToken(); window.location.reload() }}
+              className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant hover:text-red-emergency transition-colors focus:outline-none"
+            >
+              <span className="ms text-[16px] leading-none">logout</span>
+              Sign Out
+            </button>
           </section>
         </div>
       </div>

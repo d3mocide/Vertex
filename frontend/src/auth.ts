@@ -26,3 +26,17 @@ export function wsTokenParam(): string {
 export function isLoggedIn(): boolean {
   return Boolean(getToken())
 }
+
+/** Decode the JWT payload and return the user's role. Returns 'admin' when auth is disabled. */
+export function getUserRole(): 'admin' | 'viewer' {
+  const token = getToken()
+  if (!token) return 'admin'
+  try {
+    const parts = token.split('.')
+    if (parts.length !== 3) return 'admin'
+    const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')))
+    return payload.role === 'viewer' ? 'viewer' : 'admin'
+  } catch {
+    return 'admin'
+  }
+}

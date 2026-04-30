@@ -67,6 +67,7 @@ async def close():
 
 
 def _entity_changed(previous: dict, current: dict) -> bool:
+    # Core positional and state fields that should trigger updates
     compare_keys = (
         "entity_type",
         "source",
@@ -80,6 +81,13 @@ def _entity_changed(previous: dict, current: dict) -> bool:
         "status",
         "identity",
         "tags",
+        # BEAST-specific fields that represent meaningful state changes
+        "position_stale",
+        "signal_peak",
+        "msg_count",
+        "mlat_ticks",
+        "trail_pts",
+        "comm_b",
     )
     for key in compare_keys:
         if previous.get(key) != current.get(key):

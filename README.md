@@ -18,7 +18,7 @@ Part of the [Sovereign Watch](https://github.com/d3mocide) family of local intel
 | **Community** | Emergency alerts aggregated from FlashAlert, county EM, and city feeds |
 | **Tactical Audio** | Live P25 trunked radio stream via configurable remote sources |
 
-Geofences trigger entry/exit events. All entity positions are stored for 30-day trail history.
+Geofences trigger entry/exit events. Observation history is retained for 30 days by default (`ADSB_HISTORY_MODE=record`), with an optional live-only mode for lower write volume.
 
 ---
 

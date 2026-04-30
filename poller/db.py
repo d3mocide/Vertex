@@ -89,15 +89,30 @@ async def write_entity_observation(entity: dict):
 
 
 async def purge_observations() -> int:
-    """Delete observations older than 30 days. Returns the number of rows deleted."""
+    """Delete observations older than the configured retention window.
+
+    Retention days is read from Redis key ``config:retention_days`` (set by the
+    admin API). Falls back to 30 days when the key is absent.
+    """
     if _pool is None:
         return 0
+
+    retention_days = 30
+    try:
+        from bus import get_bus
+        r = await get_bus()
+        raw = await r.get("config:retention_days")
+        if raw:
+            retention_days = max(1, int(raw))
+    except Exception as exc:
+        logger.warning("[db] could not read retention config from Redis: %s", exc)
+
     async with _pool.acquire() as conn:
         result = await conn.execute(
-            "DELETE FROM observations WHERE ts < NOW() - INTERVAL '30 days'"
+            f"DELETE FROM observations WHERE ts < NOW() - INTERVAL '{retention_days} days'"
         )
     deleted = int(result.split()[-1])
-    logger.info("[db] purged %d old observations", deleted)
+    logger.info("[db] purged %d old observations (retention: %d days)", deleted, retention_days)
     return deleted
 
 
