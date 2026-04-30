@@ -168,7 +168,9 @@ function RadarMiniMap({ isFullHeight }: { isFullHeight?: boolean }) {
 
     m.on('load', () => {
       const canvas = m.getCanvas()
-      canvas.style.filter = 'grayscale(100%) saturate(0%) brightness(0.6) contrast(1.3)'
+      // Keep full colour — the NWS green/yellow/red palette is the key visual signal.
+      // Slight brightness reduction keeps it readable against the dark panel background.
+      canvas.style.filter = 'brightness(0.85) contrast(1.1)'
       setMap(m)
     })
 
@@ -178,7 +180,16 @@ function RadarMiniMap({ isFullHeight }: { isFullHeight?: boolean }) {
   }, [])
 
   return (
-    <div className={`relative w-full ${isFullHeight ? 'flex-1 min-h-0' : 'h-64'} bg-onyx-deep/60 rounded-sm overflow-hidden mb-4 border border-white/5`}>
+    <div
+      className={`relative w-full ${isFullHeight ? 'flex-1 min-h-0' : 'h-[420px]'} bg-onyx-deep/60 rounded-sm overflow-hidden mb-4 border border-white/5`}
+      style={{
+        // Fade the circular NEXRAD scan boundary so the hard edge disappears.
+        // The radar tile layer is a radial scan — without this mask you see the
+        // exact circle where the data ends against the dark map background.
+        maskImage: 'radial-gradient(ellipse 88% 88% at 50% 50%, black 45%, transparent 100%)',
+        WebkitMaskImage: 'radial-gradient(ellipse 88% 88% at 50% 50%, black 45%, transparent 100%)',
+      }}
+    >
       <div ref={mapContainerRef} className="absolute inset-0" />
       {map && <RadarLayer map={map} />}
       
@@ -279,104 +290,107 @@ export function EnvironmentPanel() {
         </div>
       </div>
 
-      <div className="flex-1 min-h-0 flex flex-col lg:flex-row gap-10 p-6">
+      {/* Scrollable body — overflow lives here so both columns size to content */}
+      <div className="flex-1 overflow-y-auto min-h-0">
+        <div className="flex flex-col lg:flex-row gap-10 p-6 items-start">
 
-        {/* LEFT COLUMN: Data Stream */}
-        <div className="flex-1 min-w-0 overflow-y-auto flex flex-col gap-8 pr-1">
-          {/* NWS Alerts */}
-          <section aria-labelledby="nws-heading">
-            {weather.alerts.length === 0 ? (
-              <div className="hud-panel p-8 flex flex-col items-center justify-center gap-4 bg-onyx-deep/40 border-dashed border-white/5">
-                <div className="relative">
-                  <div className="absolute inset-0 bg-green-ais/20 blur-xl rounded-full animate-pulse" />
-                  <span
-                    className="ms text-[48px] text-green-ais relative"
-                    aria-hidden="true"
-                    style={{ fontVariationSettings: "'FILL' 1" }}
-                  >
-                    verified_user
-                  </span>
-                </div>
-                <div className="flex flex-col items-center">
-                  <p className="font-mono text-[12px] text-on-surface font-bold uppercase tracking-[0.2em]">
-                    Systems Nominal
-                  </p>
-                  <p className="font-mono text-[9px] text-on-surface-variant uppercase tracking-widest mt-1">
-                    No active weather advisories for this region
-                  </p>
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {weather.alerts.map((alert, i) => (
-                  <WeatherAlertCard key={i} alert={alert} />
-                ))}
-              </div>
-            )}
-
-            {/* Hazard quick cards */}
-            <div className="mt-6">
-              <div className="label-caps text-[10px] text-on-surface-variant mb-3 flex items-center gap-2">
-                <span className="h-px flex-1 bg-white/5" />
-                HAZARD STATUS INDICATORS
-                <span className="h-px flex-1 bg-white/5" />
-              </div>
-              <div className="grid grid-cols-3 gap-3">
-                {[
-                  { icon: 'ac_unit',   label: 'Freeze',  active: weather.alerts.some((a) => /freeze|frost/i.test(a.event)) },
-                  { icon: 'water',     label: 'Flood',   active: weather.alerts.some((a) => /flood|surge/i.test(a.event))  },
-                  { icon: 'tornado',   label: 'Wind',    active: weather.alerts.some((a) => /wind|gust/i.test(a.event))   },
-                ].map((h) => (
-                  <div
-                    key={h.label}
-                    className={`
-                      relative p-4 border rounded-sm flex flex-col items-center gap-2 text-center transition-all duration-500
-                      ${h.active 
-                        ? 'border-amber-gold/30 bg-amber-gold/5 shadow-[0_0_15px_rgba(255,184,0,0.1)]' 
-                        : 'border-white/5 bg-white/[0.02] hover:bg-white/[0.04]'}
-                    `}
-                    role="status"
-                    aria-label={`${h.label} hazard: ${h.active ? 'active' : 'none'}`}
-                  >
-                    {h.active && (
-                      <div className="absolute top-1 right-1">
-                        <span className="w-1.5 h-1.5 rounded-full bg-amber-gold animate-ping" />
-                      </div>
-                    )}
+          {/* LEFT COLUMN: Data Stream */}
+          <div className="flex-1 min-w-0 flex flex-col gap-8 pr-1">
+            {/* NWS Alerts */}
+            <section aria-labelledby="nws-heading">
+              {weather.alerts.length === 0 ? (
+                <div className="hud-panel p-8 flex flex-col items-center justify-center gap-4 bg-onyx-deep/40 border-dashed border-white/5">
+                  <div className="relative">
+                    <div className="absolute inset-0 bg-green-ais/20 blur-xl rounded-full animate-pulse" />
                     <span
-                      className={`ms text-[24px] leading-none transition-colors ${h.active ? 'text-amber-gold' : 'text-on-surface-variant opacity-40'}`}
+                      className="ms text-[48px] text-green-ais relative"
                       aria-hidden="true"
-                      style={{ fontVariationSettings: `'FILL' ${h.active ? 1 : 0}` }}
+                      style={{ fontVariationSettings: "'FILL' 1" }}
                     >
-                      {h.icon}
+                      verified_user
                     </span>
-                    <div className="flex flex-col">
-                      <span className={`text-[10px] font-black uppercase tracking-tight ${h.active ? 'text-on-surface' : 'text-on-surface-variant/60'}`}>
-                        {h.label}
-                      </span>
-                      <span className={`font-mono text-[8px] font-bold mt-0.5 tracking-widest ${h.active ? 'text-amber-gold' : 'text-on-surface-variant/30'}`}>
-                        {h.active ? 'WATCH ACTIVE' : 'SECURE'}
-                      </span>
-                    </div>
                   </div>
-                ))}
+                  <div className="flex flex-col items-center">
+                    <p className="font-mono text-[12px] text-on-surface font-bold uppercase tracking-[0.2em]">
+                      Systems Nominal
+                    </p>
+                    <p className="font-mono text-[9px] text-on-surface-variant uppercase tracking-widest mt-1">
+                      No active weather advisories for this region
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {weather.alerts.map((alert, i) => (
+                    <WeatherAlertCard key={i} alert={alert} />
+                  ))}
+                </div>
+              )}
+
+              {/* Hazard quick cards */}
+              <div className="mt-6">
+                <div className="label-caps text-[10px] text-on-surface-variant mb-3 flex items-center gap-2">
+                  <span className="h-px flex-1 bg-white/5" />
+                  HAZARD STATUS INDICATORS
+                  <span className="h-px flex-1 bg-white/5" />
+                </div>
+                <div className="grid grid-cols-3 gap-3">
+                  {[
+                    { icon: 'ac_unit',   label: 'Freeze',  active: weather.alerts.some((a) => /freeze|frost/i.test(a.event)) },
+                    { icon: 'water',     label: 'Flood',   active: weather.alerts.some((a) => /flood|surge/i.test(a.event))  },
+                    { icon: 'tornado',   label: 'Wind',    active: weather.alerts.some((a) => /wind|gust/i.test(a.event))   },
+                  ].map((h) => (
+                    <div
+                      key={h.label}
+                      className={`
+                        relative p-4 border rounded-sm flex flex-col items-center gap-2 text-center transition-all duration-500
+                        ${h.active
+                          ? 'border-amber-gold/30 bg-amber-gold/5 shadow-[0_0_15px_rgba(255,184,0,0.1)]'
+                          : 'border-white/5 bg-white/[0.02] hover:bg-white/[0.04]'}
+                      `}
+                      role="status"
+                      aria-label={`${h.label} hazard: ${h.active ? 'active' : 'none'}`}
+                    >
+                      {h.active && (
+                        <div className="absolute top-1 right-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-amber-gold animate-ping" />
+                        </div>
+                      )}
+                      <span
+                        className={`ms text-[24px] leading-none transition-colors ${h.active ? 'text-amber-gold' : 'text-on-surface-variant opacity-40'}`}
+                        aria-hidden="true"
+                        style={{ fontVariationSettings: `'FILL' ${h.active ? 1 : 0}` }}
+                      >
+                        {h.icon}
+                      </span>
+                      <div className="flex flex-col">
+                        <span className={`text-[10px] font-black uppercase tracking-tight ${h.active ? 'text-on-surface' : 'text-on-surface-variant/60'}`}>
+                          {h.label}
+                        </span>
+                        <span className={`font-mono text-[8px] font-bold mt-0.5 tracking-widest ${h.active ? 'text-amber-gold' : 'text-on-surface-variant/30'}`}>
+                          {h.active ? 'WATCH ACTIVE' : 'SECURE'}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
-          </section>
+            </section>
 
-          {/* Air Quality */}
-          <AqiGauge aqi={weather.aqi} />
+            {/* Air Quality */}
+            <AqiGauge aqi={weather.aqi} />
 
-          {/* Current Conditions */}
-          <WeatherCard />
+            {/* Current Conditions */}
+            <WeatherCard />
+
+          </div>
+
+          {/* RIGHT COLUMN: Radar — self-start so it doesn't stretch past left column content */}
+          <div className="flex-1 min-w-0 flex flex-col self-start">
+            <RadarControls />
+          </div>
 
         </div>
-
-        {/* RIGHT COLUMN: Expansive Radar */}
-        <div className="flex-1 min-w-0 min-h-0 flex flex-col">
-          <RadarControls isFullHeight />
-        </div>
-
       </div>
     </div>
   )

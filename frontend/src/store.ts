@@ -329,11 +329,13 @@ function entityToTrack(entity: Entity, existing?: Track): Track | null {
     ])
 
     // Trim to the most recent continuous tracking segment.
-    // A gap > 30 s between consecutive positions means BEAST lost the aircraft
-    // and later reacquired it.  Keeping older segments causes the solid history
-    // trail to appear detached from the current icon ("ghost trail" artifact).
-    // We only keep points after the most recent such gap.
-    const MAX_TRAIL_GAP_SEC = 30
+    // A gap > MAX_TRAIL_GAP_SEC between consecutive positions means BEAST lost
+    // the aircraft and later reacquired it — older segments produce a ghost trail
+    // detached from the current icon.
+    // 60 s is chosen to accommodate high-altitude contacts at the fringe of BEAST
+    // range where inter-fix gaps of 35–50 s are common but do not represent a
+    // true tracking loss (the aircraft is still in range, just intermittently decoded).
+    const MAX_TRAIL_GAP_SEC = 60
     let segmentStart = 0
     for (let i = 1; i < entity.trail_pts.length; i++) {
       if (entity.trail_pts[i][3] - entity.trail_pts[i - 1][3] > MAX_TRAIL_GAP_SEC) {
