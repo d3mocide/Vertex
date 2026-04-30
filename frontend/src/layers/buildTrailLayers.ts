@@ -47,11 +47,16 @@ export function buildTrailLayers(
   })
 
   // ── Gap bridge: connect smoothed trail end → live position ───────────────
+  // Only bridged when the distance is small (Chaikin smoothing pulls the trail
+  // end a few metres back from the true last point). Large distances mean
+  // BEAST lost the aircraft between sessions — don't draw a cross-map line.
+  const MAX_GAP_BRIDGE_M = 5_000   // 5 km — anything larger is a tracking gap
   const gapData: GapBridge[] = []
   for (const t of trackArr) {
     if (!t.smoothedTrail.length) continue
     const last = t.smoothedTrail[t.smoothedTrail.length - 1]
-    if (getDistanceMeters(last[0], last[1], t.lon, t.lat) > 5) {
+    const gapM = getDistanceMeters(last[0], last[1], t.lon, t.lat)
+    if (gapM > 5 && gapM < MAX_GAP_BRIDGE_M) {
       gapData.push({
         from:  last,
         to:    [t.lon, t.lat, t.altMeters],

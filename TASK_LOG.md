@@ -5,6 +5,51 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 
 ---
 
+## 2026-04-30 — Removed dead-reckoning from BEAST display position (floating trail fix)
+
+- Root cause: `_to_entity()` in `beast_decoder.py` projected the display position forward using heading+speed whenever a CPR fix was >1.5 s old. This caused the entity icon to drift away from the actual CPR-fixed positions in `pos_history`, splitting the icon and trail to different geographic coordinates. The trail endpoint and icon endpoint rotated relative to each other as the map was panned (classic geographic coordinate divergence rendered at different positions).
+- **Fix**: Removed the dead-reckoning projection block entirely from `_to_entity()`. The entity always renders at `ac.lat / ac.lon` (last actual CPR fix). `position_stale` is now set when the last fix is >10 s old (threshold raised from 1.5 s to match display utility).
+- **Rationale**: The frontend already renders a dashed predicted-path layer extrapolated from current heading/speed — this covers the "smooth motion" UX need. Backend dead-reckoning only introduced the icon-trail split.
+- `_project_position()` helper is retained in the module (may be used for other purposes in future).
+- Validation:
+    - `python -m py_compile poller/normalizers/beast_decoder.py` passed
+    - `docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build poller` built and started successfully
+
+## 2026-04-30 — Fixed ghost trail and cross-map gap bridge from BEAST tracking loss
+
+- Root cause: when BEAST loses and reacquires an aircraft, `pos_history` accumulates positions from both sessions. The old session appears as a disconnected "ghost trail" far from the current icon, and the gap bridge drew a straight line across the map to connect them.
+- **`store.ts` — tracking-gap segmentation**: In the `trail_pts` conversion path, scan consecutive timestamps for gaps >30 s. If found, only use points from the most recent continuous segment (`segmentStart = i` on gap). This makes the history trail always anchored to the current icon position.
+- **`buildTrailLayers.ts` — gap bridge cap**: Added `MAX_GAP_BRIDGE_M = 5 000 m`. The bridge only fires when the smoothed trail endpoint is 5 m–5 km from the live icon (the normal Chaikin smoothing offset). Distances >5 km are a tracking-loss gap and are silently suppressed — no more cross-map lines.
+- Validation:
+    - `node node_modules/typescript/bin/tsc --noEmit` passed (zero errors)
+    - `docker compose up -d --build frontend` — built and started successfully
+
+## 2026-04-30 — Fixed CPR decode "hook" artifacts in BEAST flight trails
+
+- Root cause: Tier-2/3 local CPR decodes occasionally resolve a position in the right CPR zone but the wrong cell, producing a "hook" — the trail veers off-course and snaps back. The teleport guard (10 km budget) was not tight enough to catch these because the bad cell can be within 10 km of the true position.
+- **Backend fix** (`poller/normalizers/beast_decoder.py`): Added a heading-consistency guard in `_update_cpr()`. After the teleport guard, if the aircraft has a known heading and speed >50 kts, the bearing from the current position to the candidate is computed using a new `_bearing_deg()` helper. Candidates where the required bearing differs from the known heading by >90° are rejected as bad CPR decodes.
+- Added `_bearing_deg(lat1, lon1, lat2, lon2)` module-level helper (rhumb-line bearing, 0–360°).
+- **Frontend safety-net** (`frontend/src/layers/geoUtils.ts`): Added `filterTrailSpikes(pts, maxAngleDeg=120)`. Iterates the trail and removes any point where the inbound and outbound bearing differ by more than maxAngleDeg — a spike signature no real aircraft can produce. Returns the cleaned point list.
+- **Frontend wiring** (`frontend/src/store.ts`): Import and apply `filterTrailSpikes` on the raw trail coordinates before passing to `chaikinSmooth`. Pipeline is now: `trail_pts → filterTrailSpikes → chaikinSmooth`.
+- Validation:
+    - `python -m py_compile poller/normalizers/beast_decoder.py` passed
+    - `node node_modules/typescript/bin/tsc --noEmit` passed (zero errors)
+    - `docker compose up -d --build poller frontend` — all containers built and started
+
+## 2026-04-30 — Fixed jagged BEAST flight trails with server-side position ring buffer
+
+- Root-cause: `_AircraftState` in `beast_decoder.py` stored only the current position, so the frontend trail accumulated at most 1 point/second — too sparse for smooth rendering.
+- Added `pos_history: deque` (maxlen=150) to `_AircraftState`; populated on every successful CPR position resolve in `_update_cpr()`.
+- Each entry is `(lat, lon, alt_ft, unix_ts)` — compact tuple matching the frontend `TRAIL_CAP` constant.
+- Extended `_to_entity()` to serialise the ring buffer as `trail_pts: [[lat, lon, alt_ft, ts], ...]` in every emitted entity dict (both live entity_update events and 1 Hz snapshots).
+- Updated `frontend/src/store.ts` `Entity` interface with `trail_pts?: [number, number, number, number][]`.
+- Refactored `entityToTrack()` to prefer the server trail when `trail_pts` is present and larger than the client's accumulated trail, converting `[lat, lon, alt_ft, unix_ts]` → `TrailPt [lon, lat, altM, speedMs, ts]`. Falls back to client-side accumulation for non-BEAST sources.
+- Net effect: BEAST trails immediately have dense, closely-spaced points on load; Chaikin smoothing operates on a high-density input → smooth curves matching FlightJar quality.
+- Validation:
+    - `python -m py_compile poller/normalizers/beast_decoder.py poller/pollers/adsb.py` passed
+    - `node node_modules/typescript/bin/tsc --noEmit` passed (zero errors)
+    - `docker compose up -d --build poller frontend` — both containers built and started successfully
+
 ## 2026-04-29 — Fixed ODOT incidents schema drift causing blank incident cards
 
 - Diagnosed live `feed:traffic:incidents` payload in Redis and confirmed 132 records with empty title/description/location due to upstream schema drift.

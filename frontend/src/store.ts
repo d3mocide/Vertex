@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { chaikinSmooth, destinationPoint } from './layers/geoUtils'
+import { chaikinSmooth, filterTrailSpikes, destinationPoint } from './layers/geoUtils'
 
 // ─── Entity ───────────────────────────────────────────────────────────────────
 export interface Entity {
@@ -18,6 +18,9 @@ export interface Entity {
   last_seen?:   string
   identity?:    Record<string, unknown>
   tags?:        string[]
+  // Server-side position ring buffer emitted by the BEAST decoder.
+  // Each entry: [lat, lon, alt_ft, unix_ts_seconds]
+  trail_pts?:   [number, number, number, number][]
 }
 
 export interface TrafficIncident {
@@ -309,11 +312,50 @@ function entityToTrack(entity: Entity, existing?: Track): Track | null {
   const speedMs    = (entity.speed ?? 0) * SPD_KT_TO_MS
   const courseTrue = entity.heading ?? 0
 
-  const newPt: TrailPt = [entity.lon, entity.lat, altMeters, speedMs, entity.last_seen]
-  const trail = [...(existing?.trail ?? []), newPt].slice(-TRAIL_CAP)
+  // ── Build raw trail ──────────────────────────────────────────────────────
+  // Prefer the server-side position ring buffer (trail_pts) when available.
+  // It is emitted by the BEAST decoder and contains every resolved CPR fix,
+  // giving us a much denser history than the 1-pt/sec client accumulation.
+  let trail: TrailPt[]
+
+  if (entity.trail_pts && entity.trail_pts.length >= 2) {
+    // Convert server trail: [lat, lon, alt_ft, unix_ts] → TrailPt [lon, lat, altM, speedMs, ts]
+    const serverTrail: TrailPt[] = entity.trail_pts.map(p => [
+      p[1],                         // lon
+      p[0],                         // lat
+      p[2] * ALT_FT_TO_M,           // alt_ft → metres
+      speedMs,                      // speed not stored per-point; use current
+      new Date(p[3] * 1000).toISOString(), // unix_ts → ISO string
+    ])
+
+    // Trim to the most recent continuous tracking segment.
+    // A gap > 30 s between consecutive positions means BEAST lost the aircraft
+    // and later reacquired it.  Keeping older segments causes the solid history
+    // trail to appear detached from the current icon ("ghost trail" artifact).
+    // We only keep points after the most recent such gap.
+    const MAX_TRAIL_GAP_SEC = 30
+    let segmentStart = 0
+    for (let i = 1; i < entity.trail_pts.length; i++) {
+      if (entity.trail_pts[i][3] - entity.trail_pts[i - 1][3] > MAX_TRAIL_GAP_SEC) {
+        segmentStart = i
+      }
+    }
+    const continuousTrail = serverTrail.slice(segmentStart)
+
+    // Merge: adopt server trail when it is at least as dense as what we have.
+    if (!existing?.trail || continuousTrail.length >= existing.trail.length) {
+      trail = continuousTrail.slice(-TRAIL_CAP)
+    } else {
+      trail = existing.trail
+    }
+  } else {
+    // Fallback: client-side accumulation (non-BEAST sources, or startup).
+    const newPt: TrailPt = [entity.lon, entity.lat, altMeters, speedMs, entity.last_seen]
+    trail = [...(existing?.trail ?? []), newPt].slice(-TRAIL_CAP)
+  }
 
   const smoothedTrail = trail.length >= 2
-    ? chaikinSmooth(trail.map(p => [p[0], p[1]]), 2)
+    ? chaikinSmooth(filterTrailSpikes(trail.map(p => [p[0], p[1]])), 2)
     : []
 
   const predictedPath: [number, number][] = []

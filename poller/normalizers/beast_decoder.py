@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import math
 import time
+from collections import deque
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Optional
@@ -15,6 +16,11 @@ except Exception:  # pragma: no cover - runtime dependency guard
     pms = None
 
 logger = logging.getLogger(__name__)
+
+
+# Maximum number of historical positions to keep per aircraft.
+# Matches frontend TRAIL_CAP so the server and client are in sync.
+_POS_HISTORY_CAP = 150
 
 
 @dataclass
@@ -39,6 +45,12 @@ class _AircraftState:
     signal_peak: Optional[int] = None
     msg_count: int = 0
     last_seen_ts: float = 0.0
+
+    # Ring buffer of recent resolved positions: (lat, lon, alt_ft, unix_ts)
+    # Oldest entries are dropped automatically when maxlen is reached.
+    pos_history: deque = field(
+        default_factory=lambda: deque(maxlen=_POS_HISTORY_CAP)
+    )
 
     # Comm-B/EHS state (best-effort)
     selected_altitude_mcp_ft: Optional[float] = None
@@ -244,9 +256,35 @@ class BeastAircraftDecoder:
             if distance_km > budget_km:
                 return
 
+            # Heading-consistency guard: if the aircraft has a known track and the
+            # candidate position lies in a direction that's >90° off from that track,
+            # it is almost certainly a bad Tier-2/3 CPR decode (position is in the
+            # right CPR zone but on the wrong "cell"). Reject it.
+            # Skip this check when the aircraft is slow or on the ground (heading
+            # is unreliable at low speeds).
+            if (
+                distance_km > 0.1
+                and ac.heading is not None
+                and ac.speed is not None
+                and ac.speed > 50  # knots — ignore heading at low taxi speed
+            ):
+                candidate_bearing = _bearing_deg(ac.lat, ac.lon, candidate_lat, candidate_lon)
+                angle_diff = abs((candidate_bearing - ac.heading + 180) % 360 - 180)
+                if angle_diff > 90:
+                    return
+
         ac.lat = candidate_lat
         ac.lon = candidate_lon
         ac.last_position_ts = now
+
+        # Record this resolved position in the ring buffer.
+        # alt_ft may be None if the aircraft hasn't sent an altitude message yet.
+        ac.pos_history.append((
+            candidate_lat,
+            candidate_lon,
+            ac.altitude if ac.altitude is not None else 0.0,
+            now,
+        ))
 
     def _to_entity(self, ac: _AircraftState, now: float | None = None) -> Optional[dict]:
         if ac.lat is None or ac.lon is None:
@@ -256,22 +294,28 @@ class BeastAircraftDecoder:
         last_seen = datetime.now(timezone.utc).isoformat()
         callsign = _normalize_callsign(ac.callsign)
 
+        # Always display at the last actual CPR-fixed position.
+        # Dead reckoning (projecting forward with heading+speed) was previously
+        # used here but caused the icon to drift away from the trail_pts ring
+        # buffer, producing a "floating trail" artifact that rotated as the map
+        # was panned.  The frontend already renders a dashed predicted-path layer
+        # from the current heading/speed — that is sufficient for smooth UX.
         display_lat = ac.lat
         display_lon = ac.lon
-        position_stale = False
-        if ac.last_position_ts is not None and (now_ts - ac.last_position_ts) > 1.5:
-            projected = _project_position(
-                ac.lat,
-                ac.lon,
-                ac.heading,
-                ac.speed,
-                max(0.0, now_ts - ac.last_position_ts),
-            )
-            if projected is not None:
-                display_lat, display_lon = projected
-                position_stale = True
+        position_stale = (
+            ac.last_position_ts is not None
+            and (now_ts - ac.last_position_ts) > 10.0
+        )
 
         comm_b = self._build_comm_b_snapshot(ac, now_ts)
+
+        # Serialise position history as a compact list of [lat, lon, alt_ft, unix_ts].
+        # The frontend uses this to seed a dense trail immediately rather than
+        # waiting to accumulate points one-per-second client-side.
+        trail_pts = [
+            [p[0], p[1], p[2], p[3]]
+            for p in ac.pos_history
+        ]
 
         return {
             "entity_id": f"aircraft:{ac.icao}",
@@ -298,6 +342,7 @@ class BeastAircraftDecoder:
             "status": "on_ground" if ac.on_ground else "airborne",
             "last_seen": last_seen,
             "tags": ["aircraft"],
+            "trail_pts": trail_pts,
         }
 
     def _decode_altitude_reply(self, hex_msg: str) -> Optional[float]:
@@ -456,6 +501,16 @@ def _haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     )
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
     return earth_radius_km * c
+
+
+def _bearing_deg(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    """Return the initial bearing (0–360°) from (lat1,lon1) to (lat2,lon2)."""
+    φ1 = math.radians(lat1)
+    φ2 = math.radians(lat2)
+    Δλ = math.radians(lon2 - lon1)
+    Δψ = math.log(math.tan(φ2 / 2 + math.pi / 4) / math.tan(φ1 / 2 + math.pi / 4))
+    θ = math.atan2(Δλ, Δψ) * 180 / math.pi
+    return (θ + 360) % 360
 
 
 def _project_position(
