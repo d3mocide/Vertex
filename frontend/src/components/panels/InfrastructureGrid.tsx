@@ -118,7 +118,7 @@ const PLACEHOLDER_CAMERAS: TrafficCamera[] = [
 
 export function InfrastructureGrid() {
   const {
-    cameras, trafficFlow, utilityStatus, oregonStatus, ldiMode, setLdiMode,
+    cameras, trafficFlow, trafficIncidents, utilityStatus, oregonStatus, ldiMode, setLdiMode,
     selectedCamId, setSelectedCamId,
     favoriteCamIds, toggleFavoriteCam,
   } = useCivicStore()
@@ -313,6 +313,49 @@ export function InfrastructureGrid() {
             <UtilityStatusRow label="OR-99W"            {...getFlowStatus('99W')}   />
             <UtilityStatusRow label="Boones Ferry Rd"   {...getFlowStatus('Boones Ferry')}   />
           </div>
+
+          <h3 className="section-heading mt-5 mb-3">
+            <span className="ms text-[14px] leading-none" aria-hidden="true">report</span>
+            Incident Feed ({trafficIncidents.length})
+          </h3>
+          <div className="hud-panel p-3 max-h-64 overflow-y-auto space-y-2">
+            {trafficIncidents.length === 0 ? (
+              <p className="text-[11px] text-on-surface-variant italic">No active ODOT incidents.</p>
+            ) : (
+              trafficIncidents.map((incident, idx) => (
+                <article key={`${incident.title}-${idx}`} className="border border-amber-gold-muted/25 bg-onyx-black/40 p-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="text-[11px] text-on-surface font-semibold leading-snug">
+                      {deriveIncidentTitle(incident)}
+                    </p>
+                    <span className="font-mono text-[9px] text-on-surface-variant shrink-0">
+                      {incident.pubDate ? new Date(incident.pubDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'N/A'}
+                    </span>
+                  </div>
+                  {formatIncidentLocation(incident) && (
+                    <p className="text-[10px] text-amber-gold mt-1 leading-snug">
+                      {formatIncidentLocation(incident)}
+                    </p>
+                  )}
+                  {incident.description && (
+                    <p className="text-[10px] text-on-surface-variant mt-1 leading-relaxed whitespace-pre-wrap break-words">
+                      {incident.description}
+                    </p>
+                  )}
+                  {incident.link && (
+                    <a
+                      href={incident.link}
+                      target="_blank"
+                      rel="noreferrer noopener"
+                      className="inline-flex mt-1 font-mono text-[9px] uppercase tracking-widest text-amber-gold hover:text-white"
+                    >
+                      Open Source
+                    </a>
+                  )}
+                </article>
+              ))
+            )}
+          </div>
         </section>
 
         {/* Geofence management */}
@@ -326,4 +369,35 @@ export function InfrastructureGrid() {
       </div>
     </div>
   )
+}
+
+function formatIncidentLocation(incident: { location?: string; lat?: number; lon?: number }): string | undefined {
+  const location = incident.location?.trim()
+  if (location) return location
+
+  if (typeof incident.lat === 'number' && typeof incident.lon === 'number') {
+    return `${incident.lat.toFixed(4)}, ${incident.lon.toFixed(4)}`
+  }
+
+  return undefined
+}
+
+function deriveIncidentTitle(incident: {
+  title?: string
+  description?: string
+  location?: string
+  lat?: number
+  lon?: number
+}): string {
+  const title = (incident.title ?? '').trim()
+  const generic = /^traffic\s+incident$/i.test(title)
+  if (title && !generic) return title
+
+  const location = formatIncidentLocation(incident)
+  if (location) return `Incident near ${location}`
+
+  const description = (incident.description ?? '').trim()
+  if (description) return description
+
+  return 'Traffic incident'
 }

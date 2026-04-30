@@ -5,6 +5,37 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 
 ---
 
+## 2026-04-29 — Fixed ODOT incidents schema drift causing blank incident cards
+
+- Diagnosed live `feed:traffic:incidents` payload in Redis and confirmed 132 records with empty title/description/location due to upstream schema drift.
+- Updated [poller/pollers/traffic.py](poller/pollers/traffic.py) incident parser to support current ODOT TripCheck structure:
+    - uses nested hyphenated keys (`headline`, `comments`, `impact-desc`, `is-active`)
+    - reads nested location coordinates from `location.start-location.start-lat/start-long` with fallback
+    - filters inactive incidents and out-of-bbox incidents
+    - emits normalized `title`, `description`, `location`, `lat`, `lon`, `severity`, `pubDate`.
+- Verified live Redis feed now contains meaningful data (49 incidents in-region with populated title/location/coords).
+- Added frontend resilience for generic labels:
+    - [frontend/src/components/layout/Sidebar.tsx](frontend/src/components/layout/Sidebar.tsx)
+    - [frontend/src/components/panels/InfrastructureGrid.tsx](frontend/src/components/panels/InfrastructureGrid.tsx)
+  Both now derive a location-aware title when upstream title is generic.
+- Validation and deploy:
+    - `python -m py_compile poller/pollers/traffic.py` passed
+    - `cd frontend && npx tsc --noEmit` passed
+    - `docker compose up -d --build poller` completed
+    - `docker compose up -d --build frontend` completed
+
+## 2026-04-29 — Scoped traffic incidents to region bbox and surfaced incident location in UI
+
+- Updated [poller/pollers/traffic.py](poller/pollers/traffic.py) incident normalization to filter ODOT incidents by configured region bbox (`bbox_min/max_lat/lon`) when coordinates are present, preventing statewide spillover in local dashboards.
+- Added explicit `location` field to normalized traffic incidents from ODOT `locationDescription` and preserved coordinate fields for map-oriented fallbacks.
+- Extended incident typing in [frontend/src/store.ts](frontend/src/store.ts) with optional `location` for stronger UI rendering.
+- Updated [frontend/src/components/layout/Sidebar.tsx](frontend/src/components/layout/Sidebar.tsx) incident cards to display incident location (with `lat, lon` fallback when text location is unavailable).
+- Updated [frontend/src/components/panels/InfrastructureGrid.tsx](frontend/src/components/panels/InfrastructureGrid.tsx) to render explicit incident location above descriptions with coordinate fallback.
+- Validation:
+    - `python -m py_compile poller/pollers/traffic.py` passed
+    - `cd frontend && npx tsc --noEmit` passed
+    - `docker compose up -d --build poller frontend` completed; `poller`, `backend`, and `frontend` are healthy/started
+
 ## 2026-04-28 — Wired full data exposure path for traffic, weather alerts, summary, events, and ADS-B enrichment UI
 
 - Updated [poller/pollers/alerts.py](poller/pollers/alerts.py) to publish a dedicated `feed:weather:alerts` payload from NWS CAP data while preserving the combined `alerts:flash` feed.

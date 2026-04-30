@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useCivicStore } from '../../store'
 
 function GridStatusDots({ ok }: { ok: boolean }) {
@@ -14,20 +15,28 @@ function IncidentCard({
   id,
   time,
   title,
+  location,
+  summary,
+  link,
   severity,
 }: {
   id: string
   time: string
   title: string
+  location?: string
+  summary?: string
+  link?: string
   severity: 'high' | 'low'
 }) {
+  const [expanded, setExpanded] = useState(false)
   const isHigh = severity === 'high'
   return (
     <div
-      className="incident-card"
+      className="incident-card cursor-pointer"
       role="listitem"
       tabIndex={0}
       aria-label={`Incident ${id}: ${title}`}
+      onClick={() => setExpanded((v) => !v)}
     >
       <div className="flex justify-between items-start mb-2">
         <div className="flex items-center gap-2">
@@ -45,6 +54,27 @@ function IncidentCard({
         <span className="font-mono text-[10px] text-on-surface-variant">{time}</span>
       </div>
       <p className="text-[12px] text-on-surface leading-tight">{title}</p>
+      {location && (
+        <p className="text-[10px] text-on-surface-variant mt-1 leading-tight">{location}</p>
+      )}
+
+      {expanded && summary && (
+        <p className="text-[10px] text-on-surface-variant leading-relaxed mt-2 whitespace-pre-wrap break-words">
+          {summary}
+        </p>
+      )}
+
+      {expanded && link && (
+        <a
+          href={link}
+          target="_blank"
+          rel="noreferrer noopener"
+          className="inline-flex mt-2 font-mono text-[9px] uppercase tracking-widest text-amber-gold hover:text-white"
+          onClick={(e) => e.stopPropagation()}
+        >
+          Open Incident Source
+        </a>
+      )}
     </div>
   )
 }
@@ -66,7 +96,7 @@ function NewsRow({ source, age, title }: { source: string; age: string; title: s
 }
 
 export function Sidebar() {
-  const { alerts, news, health, entities, connected, cameras, weather, trafficIncidents } = useCivicStore()
+  const { alerts, news, health, entities, connected, cameras, weather, trafficIncidents, setActiveTab } = useCivicStore()
 
   const aircraft  = Object.values(entities).filter((e) => e.entity_type === 'aircraft').length
   const vessels   = Object.values(entities).filter((e) => e.entity_type === 'vessel').length
@@ -157,7 +187,7 @@ export function Sidebar() {
           <div className="flex items-center gap-3">
              <span className={`flex items-center text-[10px] font-mono ${activeInc > 0 ? 'text-red-emergency animate-pulse' : 'text-on-surface-variant opacity-20'}`} title="Active Incidents">
                <span className="ms text-[14px] mr-1" aria-hidden="true">warning</span>
-               {activeInc}
+               INC {activeInc}
              </span>
              <span className={`flex items-center text-[10px] font-mono ${wAlerts > 0 ? 'text-amber-gold' : 'text-on-surface-variant opacity-20'}`} title="Weather Alerts">
                <span className="ms text-[14px] mr-1" aria-hidden="true">cloud_alert</span>
@@ -211,17 +241,34 @@ export function Sidebar() {
             )}
           </h3>
 
+          {activeInc > incidents.length && (
+            <div className="mb-3 flex items-center justify-between">
+              <span className="text-[10px] text-on-surface-variant">
+                Showing {incidents.length} of {activeInc} incidents
+              </span>
+              <button
+                onClick={() => setActiveTab('infrastructure')}
+                className="font-mono text-[9px] uppercase tracking-widest text-amber-gold hover:text-white"
+              >
+                View All
+              </button>
+            </div>
+          )}
+
           {incidents.length === 0 ? (
             <p className="text-[11px] text-on-surface-variant italic">No active incidents.</p>
           ) : (
             <div className="space-y-3" role="list">
-              {incidents.map((alert, i) => (
+              {incidents.map((incident, i) => (
                 <IncidentCard
                   key={i}
                   id={`INC-${String(i + 1).padStart(4, '0')}`}
-                  time={formatIncidentTime(alert.pubDate ?? '')}
-                  title={alert.title}
-                  severity={/high|major|severe|critical/i.test(alert.severity ?? '') ? 'high' : 'low'}
+                  time={formatIncidentTime(incident.pubDate ?? '')}
+                  title={deriveIncidentTitle(incident)}
+                  location={formatIncidentLocation(incident)}
+                  summary={incident.description}
+                  link={incident.link}
+                  severity={/high|major|severe|critical|closure|crash/i.test(incident.severity ?? '') ? 'high' : 'low'}
                 />
               ))}
             </div>
@@ -282,4 +329,39 @@ function formatIncidentTime(iso: string): string {
   return new Date(ts).toLocaleTimeString('en-US', {
     hour: '2-digit', minute: '2-digit', timeZoneName: 'short',
   })
+}
+
+function formatIncidentLocation(incident: {
+  location?: string
+  lat?: number
+  lon?: number
+}): string | undefined {
+  const location = incident.location?.trim()
+  if (location) return location
+
+  if (typeof incident.lat === 'number' && typeof incident.lon === 'number') {
+    return `${incident.lat.toFixed(4)}, ${incident.lon.toFixed(4)}`
+  }
+
+  return undefined
+}
+
+function deriveIncidentTitle(incident: {
+  title?: string
+  description?: string
+  location?: string
+  lat?: number
+  lon?: number
+}): string {
+  const title = (incident.title ?? '').trim()
+  const generic = /^traffic\s+incident$/i.test(title)
+  if (title && !generic) return title
+
+  const location = formatIncidentLocation(incident)
+  if (location) return `Incident near ${location}`
+
+  const description = (incident.description ?? '').trim()
+  if (description) return description
+
+  return 'Traffic incident'
 }

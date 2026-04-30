@@ -77,20 +77,104 @@ class TrafficPoller(BasePoller):
 
 
 def _parse_odot_incidents(data: dict) -> list[dict]:
-    """Normalize ODOT TripCheck API incident response."""
+    """Normalize ODOT TripCheck API incident response.
+
+    Supports both legacy flat keys and current nested hyphenated keys.
+    """
     items: list[dict] = []
-    records = data.get("incidents", [])
+    h_lat = settings.region_lat
+    h_lon = settings.region_lon
+    records = data.get("incidents", []) if isinstance(data, dict) else (data or [])
     for inc in records:
+        # ODOT currently returns is-active as "true"/"false" strings.
+        active = inc.get("is-active")
+        if isinstance(active, str) and active.lower() != "true":
+            continue
+        if isinstance(active, bool) and not active:
+            continue
+
+        loc = inc.get("location") or {}
+        start_loc = loc.get("start-location") or {}
+        end_loc = loc.get("end-location") or {}
+
+        lat = _first_number(
+            inc.get("latitude"),
+            start_loc.get("start-lat"),
+            end_loc.get("end-lat"),
+        )
+        lon = _first_number(
+            inc.get("longitude"),
+            start_loc.get("start-long"),
+            end_loc.get("end-long"),
+        )
+
+        # Keep incidents local to the configured operating region.
+        if lat is not None and lon is not None:
+            if not (
+                settings.bbox_min_lat <= lat <= settings.bbox_max_lat
+                and settings.bbox_min_lon <= lon <= settings.bbox_max_lon
+            ):
+                continue
+        else:
+            # Incidents without usable coordinates cannot be region-scoped reliably.
+            continue
+
+        location = (
+            start_loc.get("location-desc")
+            or loc.get("location-name")
+            or inc.get("locationDescription", "")
+        )
+
+        title = (
+            inc.get("headline")
+            or inc.get("incidentSubType")
+            or inc.get("incidentType")
+            or inc.get("impact-desc")
+            or "Traffic incident"
+        )
+        description = inc.get("comments") or inc.get("description") or location
+        severity = inc.get("impact-desc") or inc.get("severity", "")
+
+        route = loc.get("route-id") or ""
+        direction = loc.get("direction") or ""
+        if route and direction and location:
+            location = f"{route} {direction} - {location}"
+        elif route and location:
+            location = f"{route} - {location}"
+
         items.append({
-            "title":       inc.get("incidentSubType", inc.get("incidentType", "")),
-            "description": inc.get("locationDescription", inc.get("description", "")),
-            "link":        "",
-            "pubDate":     inc.get("startTime", ""),
-            "lat":         inc.get("latitude"),
-            "lon":         inc.get("longitude"),
-            "severity":    inc.get("severity", ""),
+            "title":       title,
+            "description": description,
+            "location":    location,
+            "link":        inc.get("info-url", ""),
+            "pubDate":     inc.get("update-time", inc.get("create-time", inc.get("startTime", ""))),
+            "lat":         lat,
+            "lon":         lon,
+            "severity":    severity,
+            "dist_km":     round(_distance_km(h_lat, h_lon, lat, lon), 2),
         })
+
+    # Keep nearest incidents at the top, consistent with camera ordering.
+    items.sort(key=lambda x: x.get("dist_km", float("inf")))
     return items
+
+
+def _first_number(*values):
+    for value in values:
+        if isinstance(value, (int, float)):
+            return float(value)
+        if isinstance(value, str):
+            try:
+                return float(value)
+            except ValueError:
+                continue
+    return None
+
+
+def _distance_km(h_lat: float, h_lon: float, lat: float, lon: float) -> float:
+    dy = (lat - h_lat) * 111.0
+    dx = (lon - h_lon) * 78.0
+    return math.sqrt(dx**2 + dy**2)
 
 
 def _parse_odot_cameras(data: dict) -> list[dict]:

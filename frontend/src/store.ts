@@ -23,6 +23,7 @@ export interface Entity {
 export interface TrafficIncident {
   title: string
   description?: string
+  location?: string
   link?: string
   pubDate?: string
   lat?: number
