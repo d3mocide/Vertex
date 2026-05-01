@@ -124,28 +124,26 @@ export function Sidebar() {
       aria-label="Vertex sidebar"
     >
       {/* Brand header */}
-      <div className="h-16 flex items-center px-6 border-b border-white/5 bg-onyx-deep/40 backdrop-blur-md shrink-0">
+      <div className="h-16 flex items-center px-5 border-b border-white/5 bg-onyx-deep/40 backdrop-blur-md shrink-0">
         <div className="flex items-center gap-3">
-          <div className="relative h-8 w-8 flex-shrink-0">
-            <svg viewBox="0 0 32 32" className="h-full w-full fill-none stroke-amber-gold stroke-[2]" aria-hidden="true">
-              {/* Tactical Viewfinder / Crosshair */}
-              <path d="M4 12 V6 H12" />
-              <path d="M20 6 H28 V12" />
-              <path d="M28 20 V26 H20" />
-              <path d="M12 26 H4 V20" />
-              {/* Central Observation Point */}
-              <circle cx="16" cy="16" r="3" className="fill-amber-gold stroke-none" />
-              {/* Axis markers */}
-              <path d="M16 8 V11" className="opacity-40" />
-              <path d="M16 21 V24" className="opacity-40" />
-              <path d="M8 16 H11" className="opacity-40" />
-              <path d="M21 16 H24" className="opacity-40" />
-            </svg>
-          </div>
-          
-          <div className="flex items-baseline leading-none">
-            <span className="text-[18px] font-black tracking-[0.05em] text-white uppercase select-none">
+          {/* Scope mark — Direction 07 · adopted 2026-05-01 */}
+          <svg width="28" height="28" viewBox="0 0 32 32" aria-hidden="true" className="shrink-0 text-white">
+            <g fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="square">
+              <path d="M2 8 V2 H8"/>
+              <path d="M24 2 H30 V8"/>
+              <path d="M30 24 V30 H24"/>
+              <path d="M8 30 H2 V24"/>
+            </g>
+            <polygon points="16,7 25,16 16,25 7,16" fill="none" stroke="currentColor" strokeWidth="2"/>
+            <rect x="14" y="14" width="4" height="4" fill="#FFB800"/>
+          </svg>
+
+          <div className="flex flex-col leading-none gap-1">
+            <span className="text-[16px] font-black tracking-[0.05em] text-white uppercase select-none leading-none">
               VERTEX
+            </span>
+            <span className="font-mono text-[9px] tracking-[0.2em] text-amber-gold uppercase leading-none">
+              SITUATIONAL AWARENESS
             </span>
           </div>
         </div>

@@ -41,6 +41,7 @@ Update `TASK_LOG.md` using the `/update-task-log` skill or by appending an entry
 
 | Command | What it does |
 |---------|--------------|
+| `/design-system` | Loads the full Vertex Design System token reference — run before any frontend task |
 | `/typecheck` | Runs TypeScript type check on the frontend |
 | `/pre-commit-check` | Runs all validation checks (TS types, Docker config, Python syntax) |
 | `/docker-validate` | Validates Docker Compose YAML syntax |
@@ -106,6 +107,51 @@ poller → Redis pub/sub → backend → frontend (via WebSocket /ws)
 
 **Frontend state flow:**
 `useWebSocket.ts` → Zustand `store.ts` → `buildEntityLayers.ts` / `buildTrailLayers.ts` → Deck.gl → MapLibre GL
+
+---
+
+## Design System Rules — Mandatory for All Frontend Changes
+
+The Vertex Design System (`vertex-design-system.html`) is the source of truth for every visual decision. Run `/design-system` at the start of any frontend task to load the full token and component reference.
+
+### Before Writing Any Frontend Code
+
+1. Run `/design-system` to load the token and component reference into context.
+2. Confirm you are using Tailwind tokens from `tailwind.config.js` — never hardcode hex values in TSX (inline `style` gradient stops are the only exception).
+3. Check that your component uses an existing CSS class from `index.css` before inventing a new one.
+
+### Rules That Must Never Be Violated
+
+| Rule | Detail |
+|------|--------|
+| **0px radius** | Never use `rounded-sm`, `rounded-md`, `rounded-lg`, `rounded-xl`, `rounded-2xl`. Only `rounded-full` for circular indicators. |
+| **Color tokens only** | Use Tailwind token names (`text-amber-gold`, `bg-red-emergency`, etc.) not hex values in JSX. |
+| **Signal colors are semantic** | `cyan-adsb` = aircraft only · `green-ais` = vessels/nominal · `amber-p25` = radio · `red-emergency` = emergencies. Never decorative. |
+| **Amber-gold is accent, not decoration** | Every use of `#FFB800` must carry signal meaning (active state, live data, primary action). |
+| **Roboto Mono for data** | All numbers, coordinates, timestamps, IDs, callsigns must use `font-mono` (`font-family: 'Roboto Mono'`). |
+| **Logo mark is immutable** | The Scope mark SVG (Direction 07) lives canonically in `Sidebar.tsx`. Copy it exactly — do not approximate with CSS or emoji. |
+| **Dark only** | No light-mode code, no `dark:` class conditionals. The `dark` class is always present on `<html>`. |
+| **Material Symbols only** | No emoji in UI chrome. No other icon libraries. Use `<span className="ms">icon_name</span>` and `.ms-fill` for filled variants. |
+| **Buttons from index.css** | Use `.btn-primary`, `.btn-ghost`, or `.btn-danger`. Do not create ad-hoc button styles. |
+
+### Logo Wordmark Lockups
+
+Two approved compositions — use the correct one for the context:
+
+- **Horizontal lockup** (sidebar, header) — 28px Scope mark + "VERTEX" (Inter 900, 16px) + "SITUATIONAL AWARENESS" (Roboto Mono, 9px, amber-gold). Reference: `Sidebar.tsx`.
+- **Stacked lockup** (login, splash, boot) — 56px Scope mark above "VERTEX" (Inter 900, 22px) above "SITUATIONAL AWARENESS" (Roboto Mono, 9px, amber-gold). Reference: `LoginPage.tsx`.
+
+### Approved Component Pattern Library
+
+Always prefer an existing pattern over a new one:
+
+- **Glassmorphic panels** — `.hud-panel`, `.glass-morphism`
+- **HUD card with corner brackets** — see pattern in `LoginPage.tsx` Shell component
+- **Amber gradient header underline** — see pattern in `Header.tsx`
+- **Section headings** — `.section-heading`
+- **Data labels** — `.label-caps` + `.data-value`
+- **Status pills** — `.status-pill` with `.tl-green`, `.tl-yellow`, `.tl-red`
+- **Incident cards** — `.incident-card`
 
 ---
 
