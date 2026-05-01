@@ -37,6 +37,14 @@ class Settings(BaseSettings):
     # EPA AirNow AQI API (free key from airnowapi.org)
     airnow_api_key: str = ""
 
+    # Wildfire relevance controls
+    # Local fires within the configured bbox or alert radius remain alertable.
+    # Regional fires are retained for awareness, but older regional incidents
+    # are dropped to keep the feed operationally relevant.
+    fire_alert_radius_km: int = 150
+    fire_regional_radius_km: int = 1200
+    fire_regional_recent_hours: int = 336
+
     # AI situational summary — configure any LiteLLM-compatible model.
     # Examples:
     #   anthropic/claude-haiku-4-5-20251001  (requires SUMMARY_LLM_API_KEY)
@@ -49,6 +57,11 @@ class Settings(BaseSettings):
 
     # AISstream.io public cloud fallback (used when no local ais sources in DB)
     aisstream_api_key: str = ""
+
+    # APRS-IS fallback login/filter settings
+    aprs_callsign: str = "N0CALL"
+    aprs_passcode: str = "-1"
+    aprs_filter_radius_km: int = 80
 
     # ADS-B ingest strategy
     # When enabled, poller will start a BEAST TCP consumer task. During this

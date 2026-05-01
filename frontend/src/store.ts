@@ -61,7 +61,7 @@ export interface Track {
   altMeters:     number        // metres MSL (0 for vessels)
   speedMs:       number        // m/s
   courseTrue:    number        // 0–360°, true north
-  type:          'air' | 'sea'
+  type:          'air' | 'sea' | 'ground' | 'hazard'
   callsign?:     string
   category?:     string
   trail:         TrailPt[]     // raw history, newest last, capped at 150 pts
@@ -159,7 +159,13 @@ export interface SystemHealth {
 // ─── UI State ─────────────────────────────────────────────────────────────────
 export type AppMode  = 'calm' | 'critical'
 export type NavTab   = 'safety' | 'infrastructure' | 'environment' | 'community' | 'events'
-export type EntityTypeFilter = { aircraft: boolean; vessel: boolean; mesh_node: boolean }
+export type EntityTypeFilter = {
+  aircraft: boolean
+  vessel: boolean
+  mesh_node: boolean
+  aprs: boolean
+  fire_incident: boolean
+}
 
 // [min, max] — altitude in feet, speed in knots
 export type RangeFilter = [number, number]
@@ -265,6 +271,8 @@ interface CivicStore {
   setLdiMode:          (v: boolean) => void
   setRadarVisible:     (v: boolean) => void
   setRadarOpacity:     (v: number) => void
+  smokeVisible:        boolean
+  setSmokeVisible:     (v: boolean) => void
   setCamerasVisible:   (v: boolean) => void
   setGeofencesVisible: (v: boolean) => void
   mobileNavOpen:       boolean
@@ -282,8 +290,10 @@ interface CivicStore {
 
   // Geofence draw tool
   geofenceDrawing:      boolean
+  geofenceDrawMode:     'polygon' | 'circle'
   geofenceDrawPoints:   [number, number][]   // [lon, lat] pairs
   setGeofenceDrawing:   (v: boolean) => void
+  setGeofenceDrawMode:  (v: 'polygon' | 'circle') => void
   addGeofenceDrawPoint: (pt: [number, number]) => void
   clearGeofenceDrawPoints: () => void
 
@@ -318,7 +328,10 @@ const PRED_STEPS   = 3
 function entityToTrack(entity: Entity, existing?: Track): Track | null {
   if (entity.lat == null || entity.lon == null) return null
   const isAir = entity.entity_type === 'aircraft'
-  if (!isAir && entity.entity_type !== 'vessel') return null
+  const isSea = entity.entity_type === 'vessel'
+  const isAprs = entity.entity_type === 'aprs'
+  const isFire = entity.entity_type === 'fire_incident'
+  if (!isAir && !isSea && !isAprs && !isFire) return null
 
   const altMeters  = isAir ? (entity.altitude ?? 0) * ALT_FT_TO_M : 0
   const speedMs    = (entity.speed ?? 0) * SPD_KT_TO_MS
@@ -330,7 +343,7 @@ function entityToTrack(entity: Entity, existing?: Track): Track | null {
   // giving us a much denser history than the 1-pt/sec client accumulation.
   let trail: TrailPt[]
 
-  if (entity.trail_pts && entity.trail_pts.length >= 2) {
+  if (entity.trail_pts && entity.trail_pts.length >= 2 && isAir) {
     // Convert server trail: [lat, lon, alt_ft, unix_ts] → TrailPt [lon, lat, altM, speedMs, ts]
     const serverTrail: TrailPt[] = entity.trail_pts.map(p => [
       p[1],                         // lon
@@ -373,7 +386,7 @@ function entityToTrack(entity: Entity, existing?: Track): Track | null {
     : []
 
   const predictedPath: [number, number][] = []
-  if (speedMs >= 0.5) {
+  if (speedMs >= 0.5 && !isFire) {
     for (let i = 1; i <= PRED_STEPS; i++) {
       predictedPath.push(destinationPoint(entity.lon, entity.lat, courseTrue, speedMs * PRED_STEP_S * i))
     }
@@ -386,7 +399,7 @@ function entityToTrack(entity: Entity, existing?: Track): Track | null {
     altMeters,
     speedMs,
     courseTrue,
-    type:         isAir ? 'air' : 'sea',
+    type:         isAir ? 'air' : isSea ? 'sea' : isAprs ? 'ground' : 'hazard',
     callsign:     entity.display_name,
     category:     (entity.identity?.category as string | undefined) ?? entity.tags?.[0],
     trail,
@@ -467,19 +480,21 @@ export const useCivicStore = create<CivicStore>((set) => ({
   ldiMode:          false,
   radarVisible:     false,
   radarOpacity:     0.6,
+  smokeVisible:     false,
   camerasVisible:   false,
   geofencesVisible: true,
   selectedCamId:    null,
   favoriteCamIds:   loadFavoriteCamIds(),
   mobileNavOpen:    false,
   settingsOpen:     false,
-  entityFilter:     { aircraft: true, vessel: true, mesh_node: true },
+  entityFilter:     { aircraft: true, vessel: true, mesh_node: true, aprs: true, fire_incident: true },
   entitySearchQuery: '',
   entityAltRange:   ALT_RANGE_DEFAULT,
   entitySpeedRange: SPD_RANGE_DEFAULT,
 
   // Geofence draw
   geofenceDrawing:      false,
+  geofenceDrawMode:     'polygon',
   geofenceDrawPoints:   [],
 
   // Replay
@@ -601,6 +616,7 @@ export const useCivicStore = create<CivicStore>((set) => ({
   setLdiMode:        (ldiMode)        => set({ ldiMode }),
   setRadarVisible:   (radarVisible)   => set({ radarVisible }),
   setRadarOpacity:   (radarOpacity)   => set({ radarOpacity }),
+  setSmokeVisible:   (smokeVisible)   => set({ smokeVisible }),
   setCamerasVisible: (camerasVisible) => set({ camerasVisible }),
   setGeofencesVisible: (geofencesVisible) => set({ geofencesVisible }),
   setMobileNavOpen:  (mobileNavOpen)  => set({ mobileNavOpen }),
@@ -611,7 +627,20 @@ export const useCivicStore = create<CivicStore>((set) => ({
   setEntitySpeedRange: (entitySpeedRange)  => set({ entitySpeedRange }),
 
   setGeofenceDrawing:   (geofenceDrawing) => set({ geofenceDrawing }),
-  addGeofenceDrawPoint: (pt) => set((s) => ({ geofenceDrawPoints: [...s.geofenceDrawPoints, pt] })),
+  setGeofenceDrawMode:  (geofenceDrawMode) => set({ geofenceDrawMode }),
+  addGeofenceDrawPoint: (pt) =>
+    set((s) => {
+      if (s.geofenceDrawMode !== 'circle') {
+        return { geofenceDrawPoints: [...s.geofenceDrawPoints, pt] }
+      }
+      if (s.geofenceDrawPoints.length === 0) {
+        return { geofenceDrawPoints: [pt] }
+      }
+      if (s.geofenceDrawPoints.length === 1) {
+        return { geofenceDrawPoints: [s.geofenceDrawPoints[0], pt] }
+      }
+      return { geofenceDrawPoints: [s.geofenceDrawPoints[0], pt] }
+    }),
   clearGeofenceDrawPoints: () => set({ geofenceDrawPoints: [] }),
 
   setReplayMode:      (replayMode)      => set({ replayMode }),

@@ -92,6 +92,18 @@ poller_sources:
     enabled: true
     source: config
 
+  - type: fire             # Fire incidents — EONET open wildfires
+    name: "EONET Wildfires"
+    url: "https://eonet.gsfc.nasa.gov/api/v3/events?status=open&category=wildfires"
+    enabled: true
+    source: config
+
+  - type: aprs             # APRS-IS feed (host:port or tcp://host:port)
+    name: "APRS-IS"
+    url: "rotate.aprs2.net:14580"
+    enabled: true
+    source: config
+
 # ---------------------------------------------------------------------------
 # Alert zones — NWS zone codes for weather alerts.
 # Find yours at: https://www.weather.gov/pimar/PubZone

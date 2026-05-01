@@ -4,10 +4,14 @@ import { useCivicStore, ALT_RANGE_DEFAULT, SPD_RANGE_DEFAULT } from '../../store
 const TYPE_ICON: Record<string, string> = {
   aircraft: 'flight',
   vessel:   'directions_boat',
+  aprs:     'sensors',
+  fire_incident: 'local_fire_department',
 }
 const TYPE_COLOR: Record<string, string> = {
   aircraft: 'text-cyan-adsb',
   vessel:   'text-green-ais',
+  aprs: 'text-cyan-adsb',
+  fire_incident: 'text-red-emergency',
 }
 
 function RangeSlider({
@@ -73,14 +77,14 @@ export function EntitySearchPanel() {
     entityAltRange[1] !== ALT_RANGE_DEFAULT[1] ||
     entitySpeedRange[0] !== SPD_RANGE_DEFAULT[0] ||
     entitySpeedRange[1] !== SPD_RANGE_DEFAULT[1] ||
-    !entityFilter.aircraft || !entityFilter.vessel || !entityFilter.mesh_node
+    !entityFilter.aircraft || !entityFilter.vessel || !entityFilter.mesh_node || !entityFilter.aprs || !entityFilter.fire_incident
   )
 
   const resetFilters = () => {
     setEntitySearchQuery('')
     setEntityAltRange(ALT_RANGE_DEFAULT)
     setEntitySpeedRange(SPD_RANGE_DEFAULT)
-    setEntityFilter({ aircraft: true, vessel: true, mesh_node: true })
+    setEntityFilter({ aircraft: true, vessel: true, mesh_node: true, aprs: true, fire_incident: true })
   }
 
   const ALT_M_TO_FT = 3.28084
@@ -90,15 +94,16 @@ export function EntitySearchPanel() {
   const q = entitySearchQuery.toLowerCase()
 
   const matchedTracks = Object.values(tracks).filter((track) => {
-    const isAir = track.type === 'air'
-    if (isAir  && !entityFilter.aircraft) return false
-    if (!isAir && !entityFilter.vessel)   return false
+    if (track.type === 'air' && !entityFilter.aircraft) return false
+    if (track.type === 'sea' && !entityFilter.vessel) return false
+    if (track.type === 'ground' && !entityFilter.aprs) return false
+    if (track.type === 'hazard' && !entityFilter.fire_incident) return false
     if (q) {
       const name = (track.callsign ?? track.uid).toLowerCase()
       if (!name.includes(q) && !track.uid.toLowerCase().includes(q)) return false
     }
     const altFt = track.altMeters * ALT_M_TO_FT
-    if (isAir && (altFt < minAlt || altFt > maxAlt)) return false
+    if (track.type === 'air' && (altFt < minAlt || altFt > maxAlt)) return false
     const spdKt = track.speedMs * MS_TO_KT
     if (spdKt < minSpd || spdKt > maxSpd) return false
     return true
@@ -137,7 +142,7 @@ export function EntitySearchPanel() {
           <div>
             <span className="label-caps text-[9px] block mb-2">Entity Types</span>
             <div className="flex gap-2">
-              {(['aircraft', 'vessel'] as const).map((t) => (
+              {(['aircraft', 'vessel', 'aprs', 'fire_incident'] as const).map((t) => (
                 <button
                   key={t}
                   onClick={() => setEntityFilter({ [t]: !entityFilter[t] })}
@@ -149,7 +154,7 @@ export function EntitySearchPanel() {
                   aria-pressed={entityFilter[t]}
                 >
                   <span className="ms text-[12px] leading-none">{TYPE_ICON[t]}</span>
-                  {t === 'aircraft' ? 'Air' : 'Sea'}
+                  {t === 'aircraft' ? 'Air' : t === 'vessel' ? 'Sea' : t === 'aprs' ? 'APRS' : 'Fire'}
                 </button>
               ))}
               <button
@@ -205,8 +210,15 @@ export function EntitySearchPanel() {
               const isSelected = selectedEntityId === track.uid
               const altFt  = Math.round(track.altMeters * ALT_M_TO_FT)
               const spdKt  = Math.round(track.speedMs * MS_TO_KT)
-              const color  = track.type === 'air' ? TYPE_COLOR.aircraft : TYPE_COLOR.vessel
-              const icon   = track.type === 'air' ? TYPE_ICON.aircraft  : TYPE_ICON.vessel
+              const trackKey = track.type === 'air'
+                ? 'aircraft'
+                : track.type === 'sea'
+                ? 'vessel'
+                : track.type === 'ground'
+                ? 'aprs'
+                : 'fire_incident'
+              const color  = TYPE_COLOR[trackKey]
+              const icon   = TYPE_ICON[trackKey]
 
               return (
                 <button
@@ -223,7 +235,9 @@ export function EntitySearchPanel() {
                       {track.callsign ?? track.uid}
                     </div>
                     <div className="font-mono text-[9px] text-on-surface-variant">
-                      {track.type === 'air' ? `${altFt.toLocaleString()} ft` : ''}{track.type === 'air' && spdKt > 0 ? ' · ' : ''}{spdKt > 0 ? `${spdKt} kts` : ''}
+                      {track.type === 'air' ? `${altFt.toLocaleString()} ft` : ''}
+                      {track.type === 'air' && spdKt > 0 ? ' · ' : ''}
+                      {(track.type === 'air' || track.type === 'sea' || track.type === 'ground') && spdKt > 0 ? `${spdKt} kts` : ''}
                       {entity?.status ? ` · ${entity.status}` : ''}
                     </div>
                   </div>

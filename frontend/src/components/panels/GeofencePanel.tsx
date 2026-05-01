@@ -8,6 +8,11 @@ interface GeofenceRecord {
   name: string
   description?: string
   zone_type: string
+  geofence_shape?: 'polygon' | 'circle'
+  dwell_seconds?: number
+  center_lat?: number | null
+  center_lon?: number | null
+  radius_m?: number | null
   active: boolean
   geojson_polygon: object
 }
@@ -29,6 +34,7 @@ const ZONE_COLORS: Record<ZoneType, string> = {
 export function GeofencePanel() {
   const {
     geofenceDrawing, setGeofenceDrawing,
+    geofenceDrawMode, setGeofenceDrawMode,
     geofenceDrawPoints, clearGeofenceDrawPoints,
   } = useCivicStore()
 
@@ -41,7 +47,10 @@ export function GeofencePanel() {
   const [saveName, setSaveName]     = useState('')
   const [saveDesc, setSaveDesc]     = useState('')
   const [saveType, setSaveType]     = useState<ZoneType>('alert')
+  const [saveDwellSeconds, setSaveDwellSeconds] = useState(0)
   const [showSaveForm, setShowSaveForm] = useState(false)
+
+  const pointsNeeded = geofenceDrawMode === 'circle' ? 2 : 3
 
   const loadFences = useCallback(async () => {
     setLoading(true)
@@ -59,13 +68,15 @@ export function GeofencePanel() {
 
   useEffect(() => { loadFences() }, [loadFences])
 
-  const startDraw = () => {
+  const startDraw = (mode: 'polygon' | 'circle') => {
     clearGeofenceDrawPoints()
+    setGeofenceDrawMode(mode)
     setGeofenceDrawing(true)
     setShowSaveForm(false)
     setSaveName('')
     setSaveDesc('')
     setSaveType('alert')
+    setSaveDwellSeconds(0)
   }
 
   const cancelDraw = () => {
@@ -79,14 +90,32 @@ export function GeofencePanel() {
     setShowSaveForm(true)
   }
 
+  const haversineMeters = (a: [number, number], b: [number, number]) => {
+    const toRad = (d: number) => (d * Math.PI) / 180
+    const R = 6371000
+    const dLat = toRad(b[1] - a[1])
+    const dLon = toRad(b[0] - a[0])
+    const lat1 = toRad(a[1])
+    const lat2 = toRad(b[1])
+    const h = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) ** 2
+    return 2 * R * Math.asin(Math.sqrt(h))
+  }
+
   const saveGeofence = async () => {
     if (!saveName.trim()) { setError('Name required'); return }
-    if (geofenceDrawPoints.length < 3) { setError('Need at least 3 points'); return }
+    if (geofenceDrawPoints.length < pointsNeeded) {
+      setError(`Need at least ${pointsNeeded} points`)
+      return
+    }
 
     setSaving(true)
     setError(null)
     try {
+      const isCircle = geofenceDrawMode === 'circle'
       const closed = [...geofenceDrawPoints, geofenceDrawPoints[0]]
+      const center = geofenceDrawPoints[0]
+      const edge = geofenceDrawPoints[1]
+      const radiusM = isCircle && center && edge ? haversineMeters(center, edge) : null
       const res = await fetch(`${API_BASE}/geofences`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...authHeaders() },
@@ -94,8 +123,13 @@ export function GeofencePanel() {
           name: saveName.trim(),
           description: saveDesc.trim() || null,
           zone_type: saveType,
+          geofence_shape: geofenceDrawMode,
+          dwell_seconds: Math.max(0, saveDwellSeconds),
+          center_lat: isCircle && center ? center[1] : null,
+          center_lon: isCircle && center ? center[0] : null,
+          radius_m: isCircle ? radiusM : null,
           active: true,
-          geojson_polygon: {
+          geojson_polygon: isCircle ? null : {
             type: 'Polygon',
             coordinates: [closed],
           },
@@ -135,22 +169,31 @@ export function GeofencePanel() {
       {/* Draw toolbar */}
       <div className="flex items-center gap-2 flex-wrap">
         {!geofenceDrawing && !showSaveForm && (
-          <button
-            onClick={startDraw}
-            className="flex items-center gap-2 px-3 py-1.5 border border-amber-gold/60 text-amber-gold text-[10px] font-bold uppercase tracking-widest hover:bg-amber-gold/10 transition-colors focus:outline-none"
-          >
-            <span className="ms text-[14px] leading-none">pentagon</span>
-            Draw Zone
-          </button>
+          <>
+            <button
+              onClick={() => startDraw('polygon')}
+              className="flex items-center gap-2 px-3 py-1.5 border border-amber-gold/60 text-amber-gold text-[10px] font-bold uppercase tracking-widest hover:bg-amber-gold/10 transition-colors focus:outline-none"
+            >
+              <span className="ms text-[14px] leading-none">pentagon</span>
+              Draw Polygon
+            </button>
+            <button
+              onClick={() => startDraw('circle')}
+              className="flex items-center gap-2 px-3 py-1.5 border border-cyan-adsb/60 text-cyan-adsb text-[10px] font-bold uppercase tracking-widest hover:bg-cyan-adsb/10 transition-colors focus:outline-none"
+            >
+              <span className="ms text-[14px] leading-none">circle</span>
+              Draw Circle
+            </button>
+          </>
         )}
 
         {geofenceDrawing && (
           <>
             <div className="flex items-center gap-2 text-[10px] text-amber-gold border border-amber-gold/30 px-3 py-1.5 bg-amber-gold/5">
               <span className="ms text-[14px] leading-none animate-pulse">touch_app</span>
-              Click map to add points ({geofenceDrawPoints.length} so far)
+              Click map to add points ({geofenceDrawPoints.length}/{pointsNeeded})
             </div>
-            {geofenceDrawPoints.length >= 3 && (
+            {geofenceDrawPoints.length >= pointsNeeded && (
               <button
                 onClick={openSaveForm}
                 className="flex items-center gap-2 px-3 py-1.5 border border-amber-gold text-amber-gold text-[10px] font-bold uppercase tracking-widest bg-amber-gold/10 hover:bg-amber-gold/20 transition-colors focus:outline-none"
@@ -173,7 +216,9 @@ export function GeofencePanel() {
       {/* Save form */}
       {showSaveForm && (
         <div className="border border-amber-gold/30 bg-amber-gold/5 p-4 space-y-3">
-          <span className="label-caps text-[9px] text-amber-gold block">Save Geofence ({geofenceDrawPoints.length} vertices)</span>
+          <span className="label-caps text-[9px] text-amber-gold block">
+            Save Geofence ({geofenceDrawMode === 'circle' ? 'circle' : `${geofenceDrawPoints.length} vertices`})
+          </span>
 
           <input
             type="text"
@@ -189,6 +234,18 @@ export function GeofencePanel() {
             onChange={(e) => setSaveDesc(e.target.value)}
             className="w-full bg-onyx-deep border border-white/10 text-on-surface placeholder-on-surface-variant text-[11px] px-3 py-1.5 focus:outline-none focus:border-amber-gold/60 transition-colors"
           />
+
+          <div>
+            <span className="text-[9px] text-on-surface-variant uppercase tracking-widest">Dwell Seconds</span>
+            <input
+              type="number"
+              min={0}
+              step={5}
+              value={saveDwellSeconds}
+              onChange={(e) => setSaveDwellSeconds(Number(e.target.value || 0))}
+              className="w-full mt-1 bg-onyx-deep border border-white/10 text-on-surface text-[11px] px-3 py-1.5 focus:outline-none focus:border-amber-gold/60 transition-colors"
+            />
+          </div>
 
           <div className="flex gap-1">
             {ZONE_TYPES.map((zt) => (
@@ -252,6 +309,9 @@ export function GeofencePanel() {
                   {f.description && (
                     <div className="text-[10px] text-on-surface-variant truncate">{f.description}</div>
                   )}
+                  <div className="text-[9px] text-on-surface-variant uppercase tracking-widest mt-0.5">
+                    {(f.geofence_shape ?? 'polygon')} · dwell {Math.max(0, f.dwell_seconds ?? 0)}s
+                  </div>
                 </div>
                 <button
                   onClick={() => deleteGeofence(f.id)}

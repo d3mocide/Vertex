@@ -19,6 +19,12 @@ async def init_db():
     global _pool
     dsn = settings.database_url.replace("postgresql+asyncpg://", "postgresql://")
     _pool = await asyncpg.create_pool(dsn, min_size=2, max_size=8)
+    async with _pool.acquire() as conn:
+        await conn.execute("ALTER TABLE geofences ADD COLUMN IF NOT EXISTS geofence_shape VARCHAR(16) NOT NULL DEFAULT 'polygon'")
+        await conn.execute("ALTER TABLE geofences ADD COLUMN IF NOT EXISTS center_lat DOUBLE PRECISION")
+        await conn.execute("ALTER TABLE geofences ADD COLUMN IF NOT EXISTS center_lon DOUBLE PRECISION")
+        await conn.execute("ALTER TABLE geofences ADD COLUMN IF NOT EXISTS radius_m DOUBLE PRECISION")
+        await conn.execute("ALTER TABLE geofences ADD COLUMN IF NOT EXISTS dwell_seconds INTEGER NOT NULL DEFAULT 0")
     logger.info("DB pool initialized")
 
 

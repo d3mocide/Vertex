@@ -1,5 +1,5 @@
 import { Layer, type LayerContext } from '@deck.gl/core'
-import { IconLayer, ScatterplotLayer } from '@deck.gl/layers'
+import { IconLayer, ScatterplotLayer, TextLayer } from '@deck.gl/layers'
 import type { Track } from '../store'
 import { getIconAtlas } from './iconAtlas'
 import { entityColor } from './colorUtils'
@@ -74,7 +74,7 @@ export function buildEntityLayers(
     data:        trackArr,
     iconAtlas:   atlas.url,
     iconMapping: atlas.mapping,
-    getIcon:     (t) => t.type === 'sea' ? 'vessel' : 'aircraft',
+    getIcon:     (t) => t.type === 'sea' ? 'vessel' : t.type === 'ground' ? 'aprs' : t.type === 'hazard' ? 'fire' : 'aircraft',
     getPosition: (t) => [t.lon, t.lat],
     getAngle:    (t) => -t.courseTrue,
     getColor:    (t) => entityColor(t),
@@ -89,5 +89,19 @@ export function buildEntityLayers(
     },
   })
 
-  return [haloLayer, selectionRingLayer, iconLayer]
+  const aprsLabelLayer = new TextLayer<Track>({
+    id: 'aprs-labels',
+    data: trackArr.filter((t) => t.type === 'ground'),
+    getPosition: (t) => [t.lon, t.lat],
+    getText: (t) => t.callsign ?? t.uid,
+    getSize: 10,
+    sizeUnits: 'pixels',
+    getColor: [180, 255, 255, 220],
+    getPixelOffset: [0, 12],
+    getTextAnchor: 'middle',
+    getAlignmentBaseline: 'top',
+    fontFamily: 'monospace',
+  })
+
+  return [haloLayer, selectionRingLayer, iconLayer, aprsLabelLayer]
 }

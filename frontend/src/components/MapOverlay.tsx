@@ -76,7 +76,7 @@ export function MapOverlay({ map }: Props) {
   const camerasRef        = useRef<TrafficCamera[]>([])
   const selectedCamRef    = useRef<string | null>(null)
   const activeTabRef      = useRef<string>('safety')
-  const entityFilterRef   = useRef<EntityTypeFilter>({ aircraft: true, vessel: true, mesh_node: true })
+  const entityFilterRef   = useRef<EntityTypeFilter>({ aircraft: true, vessel: true, mesh_node: true, aprs: true, fire_incident: true })
   const searchQueryRef    = useRef<string>('')
   const altRangeRef       = useRef<RangeFilter>([0, 60_000])
   const speedRangeRef     = useRef<RangeFilter>([0, 600])
@@ -304,9 +304,10 @@ export function MapOverlay({ map }: Props) {
 
         rawTracks = {}
         for (const [uid, track] of Object.entries(allTracks)) {
-          const isAir = track.type === 'air'
-          if (isAir  && !ef.aircraft) continue
-          if (!isAir && !ef.vessel)   continue
+          if (track.type === 'air' && !ef.aircraft) continue
+          if (track.type === 'sea' && !ef.vessel) continue
+          if (track.type === 'ground' && !ef.aprs) continue
+          if (track.type === 'hazard' && !ef.fire_incident) continue
 
           if (q) {
             const name = (track.callsign ?? uid).toLowerCase()
@@ -314,7 +315,7 @@ export function MapOverlay({ map }: Props) {
           }
 
           const altFt = track.altMeters * ALT_M_TO_FT
-          if (isAir && (altFt < minAlt || altFt > maxAlt)) continue
+          if (track.type === 'air' && (altFt < minAlt || altFt > maxAlt)) continue
 
           const spdKt = track.speedMs * MS_TO_KT
           if (spdKt < minSpd || spdKt > maxSpd) continue

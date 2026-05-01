@@ -5,6 +5,60 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 
 ---
 
+## 2026-04-30 — Added region-aware wildfire relevance and environment panel fire status
+
+- Updated [poller/pollers/fire.py](poller/pollers/fire.py) to classify wildfires as `local` or `regional` using the configured bbox, alert radius, and regional radius.
+- Added freshness gating for regional wildfire retention in [poller/pollers/fire.py](poller/pollers/fire.py) so stale distant fires do not linger in the awareness feed.
+- Added new wildfire relevance settings in [poller/config.py](poller/config.py) and documented them in [.env.example](.env.example).
+- Added a new fire/smoke section in [frontend/src/components/panels/EnvironmentPanel.tsx](frontend/src/components/panels/EnvironmentPanel.tsx) showing:
+    - local alertable fires
+    - regional wildfire watch items
+    - AQI-linked smoke impact context
+- Validation:
+    - `python -m py_compile poller/config.py poller/pollers/fire.py` passed
+    - `cd frontend && npx tsc --noEmit` passed
+
+## 2026-04-30 — Completed Sprint 2 (B1, C3, A1, A2)
+
+- **B1 Outbound webhooks / alerting rules**
+    - Added `AlertRule` model in [backend/db/models.py](backend/db/models.py).
+    - Added CRUD API at [backend/routers/alertrules.py](backend/routers/alertrules.py) and registered router in [backend/main.py](backend/main.py).
+    - Added websocket-driven dispatcher in [backend/webhook_dispatcher.py](backend/webhook_dispatcher.py) to evaluate matching rules and execute webhook/log actions.
+    - Added admin UI section in [frontend/src/components/layout/SettingsPanel.tsx](frontend/src/components/layout/SettingsPanel.tsx) for create/toggle/delete.
+
+- **C3 Geofence circles + dwell conditions**
+    - Extended geofence schema/model with `geofence_shape`, `center_lat`, `center_lon`, `radius_m`, `dwell_seconds` in [backend/db/models.py](backend/db/models.py) and [db/init/01_schema.sql](db/init/01_schema.sql).
+    - Implemented circle and dwell-capable payload handling in [backend/routers/geofences.py](backend/routers/geofences.py).
+    - Implemented dwell-gated geofence transitions in [poller/geofence.py](poller/geofence.py): emits entry only after dwell threshold; exit emitted only after entry was emitted.
+    - Added frontend circle draw workflow + dwell input in [frontend/src/components/panels/GeofencePanel.tsx](frontend/src/components/panels/GeofencePanel.tsx) and preview rendering in [frontend/src/components/layers/GeofenceLayer.tsx](frontend/src/components/layers/GeofenceLayer.tsx).
+
+- **A1 Fire/smoke overlays**
+    - Added wildfire ingest poller [poller/pollers/fire.py](poller/pollers/fire.py) (EONET feed) and wired into [poller/main.py](poller/main.py).
+    - Fire entities now publish as `entity_type=fire_incident` and render in map overlay stack.
+    - Added smoke raster WMS overlay layer [frontend/src/components/layers/SmokeLayer.tsx](frontend/src/components/layers/SmokeLayer.tsx), wired into [frontend/src/components/Map.tsx](frontend/src/components/Map.tsx), with toggle in [frontend/src/components/layout/SettingsPanel.tsx](frontend/src/components/layout/SettingsPanel.tsx).
+
+- **A2 APRS/HAM tracking**
+    - Added APRS-IS stream poller [poller/pollers/aprs.py](poller/pollers/aprs.py), wired into [poller/main.py](poller/main.py), with settings in [poller/config.py](poller/config.py).
+    - Added source type support for `fire` and `aprs` in [poller/config_loader.py](poller/config_loader.py), [backend/config_loader.py](backend/config_loader.py), and [backend/routers/sources.py](backend/routers/sources.py).
+    - Added default source examples in [config/sources.yml](config/sources.yml) and [config/sources.example.yml](config/sources.example.yml).
+    - Frontend rendering updated for APRS/fire entity tracks and APRS labels in [frontend/src/layers/buildEntityLayers.ts](frontend/src/layers/buildEntityLayers.ts), [frontend/src/layers/iconAtlas.ts](frontend/src/layers/iconAtlas.ts), [frontend/src/layers/colorUtils.ts](frontend/src/layers/colorUtils.ts), [frontend/src/components/MapOverlay.tsx](frontend/src/components/MapOverlay.tsx), [frontend/src/components/panels/EntitySearchPanel.tsx](frontend/src/components/panels/EntitySearchPanel.tsx), and [frontend/src/store.ts](frontend/src/store.ts).
+
+- **Roadmap tracking updated**
+    - Marked Sprint 2 items (`B1`, `C3`, `A1`, `A2`) as **Done** and updated Sprint 2 validation evidence in [ROADMAP.md](ROADMAP.md).
+
+- **Validation**
+    - `cd frontend && npx tsc --noEmit` passed
+    - `python -m py_compile` on all touched backend/poller Python files passed
+    - `docker compose config --quiet` passed
+    - `docker compose up -d --build backend poller frontend` passed (services started)
+    - Follow-up backend init hardening in [backend/db/session.py](backend/db/session.py) to tolerate multi-worker startup DDL race on `alert_rules` sequence; backend redeploy succeeded
+
+## 2026-04-30 — Sprint 2 kickoff and roadmap validation tracker
+
+- Updated [ROADMAP.md](ROADMAP.md) to start Sprint 2 tracking with explicit validation gates.
+- Marked `B1` (Outbound webhooks / alerting rules) as **In Progress** as the active Sprint 2 work item.
+- Added a new "Sprint 2 Progress Tracker (Validation)" table covering `B1`, `C3`, `A1`, and `A2` with status and evidence columns for release validation.
+
 ## 2026-04-30 — Marked Sprint 1 small-effort roadmap items complete and added live seismic event push
 
 - Updated [ROADMAP.md](ROADMAP.md) statuses for completed items: `A3`, `C1`, `C2`, `C5`, `C6`, and `D2` are now **Done** in both item sections and the tracking table.

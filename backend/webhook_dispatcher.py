@@ -1,0 +1,110 @@
+import json
+import logging
+
+import httpx
+from sqlalchemy import select
+
+from db.models import AlertRule
+from db.session import async_session_factory
+from redis_bus import subscribe_updates
+
+logger = logging.getLogger(__name__)
+
+_SEVERITY_RANK = {
+    "low": 1,
+    "medium": 2,
+    "high": 3,
+    "critical": 4,
+}
+
+
+def _matches_rule(rule: AlertRule, event: dict) -> bool:
+    if not rule.enabled:
+        return False
+
+    event_type = str(event.get("event_type") or "")
+    severity = str(event.get("severity") or "low").lower()
+    details = event.get("details") if isinstance(event.get("details"), dict) else {}
+    rule_filter = rule.rule_filter or {}
+
+    if rule.trigger_type == "geofence_entry":
+        if event_type != "geofence_entry":
+            return False
+        target_zone = rule_filter.get("zone_type")
+        if target_zone and details.get("zone_type") != target_zone:
+            return False
+        return True
+
+    if rule.trigger_type == "severity_threshold":
+        min_sev = str(rule_filter.get("min_severity") or "high").lower()
+        return _SEVERITY_RANK.get(severity, 1) >= _SEVERITY_RANK.get(min_sev, 3)
+
+    if rule.trigger_type == "entity_type":
+        want = str(rule_filter.get("entity_type") or "").strip().lower()
+        if not want:
+            return False
+        return str(details.get("entity_type") or "").strip().lower() == want
+
+    return False
+
+
+async def _dispatch_webhook(rule: AlertRule, event: dict) -> None:
+    cfg = rule.action_config or {}
+    url = cfg.get("url")
+    if not url:
+        return
+
+    headers = cfg.get("headers") if isinstance(cfg.get("headers"), dict) else {}
+    timeout = float(cfg.get("timeout_s") or 10)
+    payload = {
+        "rule": {
+            "id": rule.id,
+            "name": rule.name,
+            "trigger_type": rule.trigger_type,
+        },
+        "event": event,
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            resp = await client.post(url, json=payload, headers=headers)
+            resp.raise_for_status()
+        logger.info("[webhook] delivered rule=%s event=%s", rule.id, event.get("event_id"))
+    except Exception as exc:
+        logger.warning("[webhook] delivery failed rule=%s event=%s: %s", rule.id, event.get("event_id"), exc)
+
+
+async def run_webhook_dispatcher() -> None:
+    pubsub = await subscribe_updates()
+    logger.info("[webhook] dispatcher started")
+    try:
+        async for message in pubsub.listen():
+            if message.get("type") != "message":
+                continue
+            raw = message.get("data")
+            if not raw:
+                continue
+            try:
+                msg = json.loads(raw)
+            except Exception:
+                continue
+
+            if msg.get("type") != "event" or not isinstance(msg.get("data"), dict):
+                continue
+
+            event = msg["data"]
+            async with async_session_factory() as db:
+                result = await db.execute(select(AlertRule).where(AlertRule.enabled == True))  # noqa: E712
+                rules = result.scalars().all()
+
+            for rule in rules:
+                if not _matches_rule(rule, event):
+                    continue
+                if rule.action_type == "log":
+                    logger.info("[webhook] log-rule matched id=%s event=%s", rule.id, event.get("event_id"))
+                else:
+                    await _dispatch_webhook(rule, event)
+    finally:
+        await pubsub.unsubscribe("civic:updates")
+        await pubsub.aclose()
+        logger.info("[webhook] dispatcher stopped")

@@ -12,7 +12,7 @@ Vertex is fully operational across all core systems:
 
 | System | Status |
 |--------|--------|
-| 10 async pollers (ADS-B, AIS, P25, weather, alerts, traffic, utilities, news, meshcore, seismic) | Production |
+| 12 async pollers (ADS-B, AIS, P25, weather, alerts, traffic, utilities, news, meshcore, seismic, fire, aprs) | Production |
 | FastAPI REST + WebSocket backend (65+ endpoints) | Production |
 | React/MapLibre/Deck.gl frontend (10 panels, full map stack) | Production |
 | PostgreSQL + PostGIS persistence, Redis pub/sub | Production |
@@ -71,7 +71,7 @@ LOW IMPACT
   - Store incidents as `entity_type = "fire_incident"` in existing entity model
   - Frontend: fire marker layer in `buildEntityLayers.ts`, smoke opacity overlay via WMS tile layer in `Map.tsx`
 - **Effort:** M
-- **Status:** Not Started
+- **Status:** Done
 
 ---
 
@@ -84,7 +84,7 @@ LOW IMPACT
   - Normalize to existing Entity model (`entity_type = "aprs"`)
   - Frontend: APRS icon style in `iconAtlas.ts`, callsign label in entity layer
 - **Effort:** M
-- **Status:** Not Started
+- **Status:** Done
 
 ---
 
@@ -113,7 +113,7 @@ LOW IMPACT
   - New backend router `/api/v1/alertrules` — CRUD for rules
   - Frontend: Alert Rules section in Settings panel
 - **Effort:** M
-- **Status:** Not Started
+- **Status:** Done
 
 ---
 
@@ -196,7 +196,7 @@ LOW IMPACT
   - `GeofencePanel.tsx`: add circle draw mode (click center, drag radius)
   - `geofence.py`: track dwell timer per entity per geofence; only emit event after dwell threshold
 - **Effort:** M
-- **Status:** Not Started
+- **Status:** Done
 
 ---
 
@@ -313,16 +313,16 @@ LOW IMPACT
 
 | ID | Item | Category | Effort | Impact | Priority | Status |
 |----|------|----------|--------|--------|----------|--------|
-| A1 | Fire / Smoke Overlays | New Data Source | M | High | P1 | Not Started |
-| A2 | APRS / HAM Tracking | New Data Source | M | High | P1 | Not Started |
+| A1 | Fire / Smoke Overlays | New Data Source | M | High | P1 | Done |
+| A2 | APRS / HAM Tracking | New Data Source | M | High | P1 | Done |
 | A3 | Seismic Feed (USGS) | New Data Source | S | Medium | P2 | Done |
-| B1 | Outbound Webhooks / Alerting Rules | New Capability | M | High | P1 | Not Started |
+| B1 | Outbound Webhooks / Alerting Rules | New Capability | M | High | P1 | Done |
 | B2 | TAK / CoT Output | New Capability | L | High | P2 | Not Started |
 | B3 | AI Anomaly Detection | New Capability | L | High | P2 | Not Started |
 | B4 | SitRep Export | New Capability | M | Medium | P3 | Not Started |
 | C1 | Playback Event Markers | Refinement | S | High | P1 | Done |
 | C2 | Entity Detail Sparklines | Refinement | S | Medium | P2 | Done |
-| C3 | Geofence Circles + Dwell | Refinement | M | High | P1 | Not Started |
+| C3 | Geofence Circles + Dwell | Refinement | M | High | P1 | Done |
 | C4 | P25 Talkgroup Management | Refinement | M | Medium | P2 | Not Started |
 | C5 | Camera Health Monitoring | Refinement | S | High | P1 | Done |
 | C6 | Multi-Role Auth (Viewer) | Refinement | S | Medium | P2 | Done |
@@ -340,7 +340,18 @@ LOW IMPACT
 Completed: `C1` Playback event markers · `C5` Camera health monitoring · `C6` Multi-role auth · `A3` Seismic feed · `D2` Data retention UI
 
 ### Sprint 2 — Core Enhancements (P1 Medium-Effort)
-`B1` Outbound webhooks · `C3` Geofence circles + dwell · `A1` Fire/smoke overlays · `A2` APRS tracking
+Completed: `B1` Outbound webhooks · `C3` Geofence circles + dwell · `A1` Fire/smoke overlays · `A2` APRS tracking
+
+### Sprint 2 Progress Tracker (Validation)
+
+| Item | Status | Owner Focus | Validation Gate | Evidence |
+|------|--------|-------------|-----------------|----------|
+| B1 Outbound webhooks | Done | Completed | Backend route + rule evaluation + webhook delivery path working | `/api/v1/alertrules` CRUD + websocket-driven webhook dispatcher implemented |
+| C3 Geofence circles + dwell | Done | Completed | Circle create/edit + dwell-triggered events validated in replay/log | Geofence API supports circle + dwell_seconds; poller emits dwell-gated entry/exit events |
+| A1 Fire/smoke overlays | Done | Completed | Fire entities in map/list + smoke layer toggle renders | `fire` poller publishes `fire_incident` entities; map smoke WMS overlay toggle added |
+| A2 APRS tracking | Done | Completed | APRS entities ingest and render with callsign labels | `aprs` poller connected to APRS-IS; APRS entities rendered with map labels |
+
+Current Sprint 2 focus: complete.
 
 ### Sprint 3 — Depth & Refinement (P2)
 `C4` Talkgroup management · `B4` SitRep export · `D3` KML import · `D5` Grafana

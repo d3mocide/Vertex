@@ -5,8 +5,11 @@ from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
 
-# entity_id -> set of geofence ids the entity was last known to be inside
-_entity_state: dict[str, set[int]] = {}
+# entity_id -> geofence_id -> state
+# state fields:
+#   entered_at: datetime when entity first entered geofence
+#   entry_emitted: whether geofence_entry has been emitted
+_entity_state: dict[str, dict[int, dict[str, object]]] = {}
 
 
 async def check_geofences(entity: dict, conn) -> None:
@@ -21,7 +24,7 @@ async def check_geofences(entity: dict, conn) -> None:
 
     current_rows = await conn.fetch(
         """
-        SELECT id, name, zone_type
+        SELECT id, name, zone_type, geofence_shape, dwell_seconds
         FROM geofences
         WHERE active = TRUE
           AND ST_Contains(geom, ST_SetSRID(ST_MakePoint($1::float, $2::float), 4326))
@@ -30,39 +33,60 @@ async def check_geofences(entity: dict, conn) -> None:
         lat,
     )
 
-    current_ids = {r["id"] for r in current_rows}
-    previous_ids = _entity_state.get(entity_id)
+    now = datetime.now(timezone.utc)
+    current_by_id = {r["id"]: dict(r) for r in current_rows}
+    current_ids = set(current_by_id.keys())
+    previous_state = _entity_state.get(entity_id)
 
-    if previous_ids is None:
+    if previous_state is None:
         # First observation for this entity since startup — initialize state silently
         # to avoid a false-positive entry storm after a poller restart.
-        _entity_state[entity_id] = current_ids
+        _entity_state[entity_id] = {
+            fid: {"entered_at": now, "entry_emitted": True}
+            for fid in current_ids
+        }
         return
 
-    entered_ids = current_ids - previous_ids
-    exited_ids = previous_ids - current_ids
-
-    _entity_state[entity_id] = current_ids
-
-    if not entered_ids and not exited_ids:
-        return
+    state = previous_state
+    entered_ids = current_ids - set(state.keys())
+    exited_ids = set(state.keys()) - current_ids
 
     display = entity.get("display_name") or entity_id
-    current_by_id = {r["id"]: r for r in current_rows}
 
     transitions: list[tuple[str, dict, str, str]] = []
 
     for fid in entered_ids:
+        state[fid] = {"entered_at": now, "entry_emitted": False}
+
+    for fid in current_ids:
         fence = current_by_id[fid]
-        transitions.append(("geofence_entry", dict(fence), f"{display} entered {fence['name']}", "info"))
+        dwell_seconds = int(fence.get("dwell_seconds") or 0)
+        entry_emitted = bool(state[fid].get("entry_emitted"))
+        entered_at = state[fid].get("entered_at")
+        if not isinstance(entered_at, datetime):
+            entered_at = now
+            state[fid]["entered_at"] = entered_at
+
+        if entry_emitted:
+            continue
+
+        elapsed = (now - entered_at).total_seconds()
+        if dwell_seconds <= 0 or elapsed >= dwell_seconds:
+            transitions.append(("geofence_entry", fence, f"{display} entered {fence['name']}", "info"))
+            state[fid]["entry_emitted"] = True
 
     if exited_ids:
         exited_rows = await conn.fetch(
-            "SELECT id, name, zone_type FROM geofences WHERE id = ANY($1::int[])",
+            "SELECT id, name, zone_type, geofence_shape, dwell_seconds FROM geofences WHERE id = ANY($1::int[])",
             list(exited_ids),
         )
         for row in exited_rows:
-            transitions.append(("geofence_exit", dict(row), f"{display} exited {row['name']}", "info"))
+            prev = state.get(row["id"], {})
+            if prev.get("entry_emitted"):
+                transitions.append(("geofence_exit", dict(row), f"{display} exited {row['name']}", "info"))
+            state.pop(row["id"], None)
+
+    _entity_state[entity_id] = state
 
     from bus import get_bus  # lazy import — breaks the db→geofence→bus→db cycle
 
@@ -75,6 +99,8 @@ async def check_geofences(entity: dict, conn) -> None:
             "geofence_id":   fence["id"],
             "geofence_name": fence["name"],
             "zone_type":     fence["zone_type"],
+            "geofence_shape": fence.get("geofence_shape", "polygon"),
+            "dwell_seconds": int(fence.get("dwell_seconds") or 0),
         }
 
         await conn.execute(

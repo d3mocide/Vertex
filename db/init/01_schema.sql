@@ -71,12 +71,34 @@ CREATE TABLE IF NOT EXISTS geofences (
     name        VARCHAR(128) NOT NULL,
     description TEXT,
     zone_type   VARCHAR(32)  NOT NULL DEFAULT 'alert',
+    geofence_shape VARCHAR(16) NOT NULL DEFAULT 'polygon',
+    center_lat  DOUBLE PRECISION,
+    center_lon  DOUBLE PRECISION,
+    radius_m    DOUBLE PRECISION,
+    dwell_seconds INTEGER NOT NULL DEFAULT 0,
     geom        GEOMETRY(POLYGON, 4326) NOT NULL,
     active      BOOLEAN      NOT NULL DEFAULT TRUE,
     created_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS ix_geofences_geom ON geofences USING GIST (geom);
+
+-- -------------------------------------------------------------------------
+-- alert_rules: event-driven outbound actions (webhook/log)
+-- -------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS alert_rules (
+    id            SERIAL       PRIMARY KEY,
+    name          VARCHAR(128) NOT NULL,
+    enabled       BOOLEAN      NOT NULL DEFAULT TRUE,
+    trigger_type  VARCHAR(32)  NOT NULL,
+    rule_filter   JSONB,
+    action_type   VARCHAR(32)  NOT NULL DEFAULT 'webhook_post',
+    action_config JSONB        NOT NULL,
+    created_at    TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    updated_at    TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS ix_alert_rules_trigger ON alert_rules (trigger_type);
 
 -- -------------------------------------------------------------------------
 -- maintenance: purge observations older than 30 days

@@ -25,12 +25,60 @@ const ZONE_COLORS: Record<string, string> = {
 
 function zoneColor(zt: string) { return ZONE_COLORS[zt] ?? ZONE_COLORS.alert }
 
-function buildDrawGeoJSON(points: [number, number][]): GeoJSON.FeatureCollection {
+function buildCirclePolygon(center: [number, number], edge: [number, number], steps = 48): [number, number][] {
+  const [centerLon, centerLat] = center
+  const [edgeLon, edgeLat] = edge
+  const toRad = (d: number) => (d * Math.PI) / 180
+  const dLat = toRad(edgeLat - centerLat)
+  const dLon = toRad(edgeLon - centerLon)
+  const lat1 = toRad(centerLat)
+  const lat2 = toRad(edgeLat)
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) ** 2
+  const radiusM = 2 * 6371000 * Math.asin(Math.sqrt(h))
+
+  const latScale = 1 / 111_320.0
+  const lonScale = 1 / Math.max(111_320.0 * Math.cos(toRad(centerLat)), 1e-6)
+  const pts: [number, number][] = []
+  for (let i = 0; i < steps; i++) {
+    const a = 2 * Math.PI * (i / steps)
+    const dLatM = Math.sin(a) * radiusM
+    const dLonM = Math.cos(a) * radiusM
+    pts.push([centerLon + dLonM * lonScale, centerLat + dLatM * latScale])
+  }
+  pts.push(pts[0])
+  return pts
+}
+
+function buildDrawGeoJSON(points: [number, number][], mode: 'polygon' | 'circle'): GeoJSON.FeatureCollection {
   if (points.length === 0) {
     return { type: 'FeatureCollection', features: [] }
   }
 
   const features: GeoJSON.Feature[] = []
+
+  if (mode === 'circle') {
+    for (const pt of points) {
+      features.push({
+        type: 'Feature',
+        geometry: { type: 'Point', coordinates: pt },
+        properties: {},
+      })
+    }
+    if (points.length >= 2) {
+      const ring = buildCirclePolygon(points[0], points[1])
+      features.push({
+        type: 'Feature',
+        geometry: { type: 'Polygon', coordinates: [ring] },
+        properties: {},
+      })
+      features.push({
+        type: 'Feature',
+        geometry: { type: 'LineString', coordinates: [points[0], points[1]] },
+        properties: {},
+      })
+    }
+    return { type: 'FeatureCollection', features }
+  }
 
   // Line connecting the points
   if (points.length >= 2) {
@@ -70,6 +118,7 @@ function buildDrawGeoJSON(points: [number, number][]): GeoJSON.FeatureCollection
 
 export function GeofenceLayer({ map }: Props) {
   const geofenceDrawing    = useCivicStore((s) => s.geofenceDrawing)
+  const geofenceDrawMode   = useCivicStore((s) => s.geofenceDrawMode)
   const geofenceDrawPoints = useCivicStore((s) => s.geofenceDrawPoints)
   const geofencesVisible   = useCivicStore((s) => s.geofencesVisible)
   const addGeofenceDrawPoint = useCivicStore((s) => s.addGeofenceDrawPoint)
@@ -143,7 +192,7 @@ export function GeofenceLayer({ map }: Props) {
 
   // Draw preview layer
   useEffect(() => {
-    const drawGeoJSON = buildDrawGeoJSON(geofenceDrawPoints)
+    const drawGeoJSON = buildDrawGeoJSON(geofenceDrawPoints, geofenceDrawMode)
 
     if (!map.getSource(SRC_DRAW)) {
       map.addSource(SRC_DRAW, { type: 'geojson', data: drawGeoJSON })
@@ -176,7 +225,7 @@ export function GeofenceLayer({ map }: Props) {
     } else {
       (map.getSource(SRC_DRAW) as maplibregl.GeoJSONSource).setData(drawGeoJSON)
     }
-  }, [geofenceDrawPoints, map])
+  }, [geofenceDrawPoints, geofenceDrawMode, map])
 
   // Map click handler for draw mode
   const handleMapClick = useCallback((e: maplibregl.MapMouseEvent) => {

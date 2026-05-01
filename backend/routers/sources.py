@@ -26,7 +26,7 @@ router = APIRouter(prefix="/sources", tags=["sources"])
 # ---------------------------------------------------------------------------
 
 class PollerSourceCreate(BaseModel):
-    type: Literal["adsb", "ais", "p25", "meshcore"]
+    type: Literal["adsb", "ais", "p25", "meshcore", "fire", "aprs"]
     name: str
     url: str
     enabled: bool = True

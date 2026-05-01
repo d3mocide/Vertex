@@ -1,4 +1,5 @@
 import logging
+import asyncio
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -10,7 +11,8 @@ from config import settings
 from db.session import init_db
 from rate_limit import RateLimitMiddleware
 from redis_bus import init_redis, close_redis
-from routers import entities, observations, events, weather, alerts, news, traffic, health, ws, radio, utilities, summary, auth, geofences, sources, aircraft, admin
+from routers import entities, observations, events, weather, alerts, news, traffic, health, ws, radio, utilities, summary, auth, geofences, sources, aircraft, admin, alertrules
+from webhook_dispatcher import run_webhook_dispatcher
 
 logging.basicConfig(
     level=settings.log_level,
@@ -22,7 +24,13 @@ logging.basicConfig(
 async def lifespan(app: FastAPI):
     await init_db()
     await init_redis()
+    dispatcher_task = asyncio.create_task(run_webhook_dispatcher())
     yield
+    dispatcher_task.cancel()
+    try:
+        await dispatcher_task
+    except BaseException:
+        pass
     await close_redis()
 
 
@@ -55,4 +63,5 @@ app.include_router(aircraft.router, prefix="/api/v1")
 app.include_router(geofences.router, prefix="/api/v1")
 app.include_router(sources.router, prefix="/api/v1")
 app.include_router(admin.router, prefix="/api/v1")
+app.include_router(alertrules.router, prefix="/api/v1")
 app.include_router(ws.router)

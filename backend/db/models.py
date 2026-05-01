@@ -76,6 +76,11 @@ class Geofence(Base):
     name: Mapped[str] = mapped_column(String(128))
     description: Mapped[Optional[str]] = mapped_column(Text)
     zone_type: Mapped[str] = mapped_column(String(32), default="alert")
+    geofence_shape: Mapped[str] = mapped_column(String(16), default="polygon")
+    center_lat: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    center_lon: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    radius_m: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    dwell_seconds: Mapped[int] = mapped_column(default=0)
     geom: Mapped[object] = mapped_column(Geometry("POLYGON", srid=4326))
     active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
@@ -140,5 +145,19 @@ class AlertFeedConfig(Base):
     format: Mapped[str] = mapped_column(String(32), default="rss")
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     source: Mapped[str] = mapped_column(String(16), default="config")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
+class AlertRule(Base):
+    __tablename__ = "alert_rules"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(128), index=True)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    trigger_type: Mapped[str] = mapped_column(String(32), index=True)
+    rule_filter: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    action_type: Mapped[str] = mapped_column(String(32), default="webhook_post")
+    action_config: Mapped[dict] = mapped_column(JSON)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
