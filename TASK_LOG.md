@@ -505,3 +505,8 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 - Created `.claude/commands/docker-validate.md`: `/docker-validate` skill to validate Docker Compose YAML.
 - Created `.claude/commands/update-task-log.md`: `/update-task-log` skill to append entries to this file.
 - **Motivation**: Coding agents were not running type/lint checks before committing, causing Docker frontend builds to fail. Documentation was missing so agents re-ran codebase discovery on every session start.
+  
+## 2026-05-01 - Fix Stale Radar Cache  
+  
+- Fixed an issue where MapLibre GL JS setTiles updated the URL template but did not clear the currently loaded tiles from the active viewport.  
+- Added an explicit clearTiles() and 	riggerRepaint() call to the sourceCache to force the map to immediately fetch new imagery, preventing stale radar data. 

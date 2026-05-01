@@ -88,6 +88,16 @@ function refreshSourceTiles(
 
   if (source?.setTiles) {
     source.setTiles([nextTile])
+    
+    // maplibre-gl's setTiles updates the URL template but does not immediately clear
+    // the currently loaded tiles for the active viewport. Explicitly clear the cache
+    // so the fresh tiles are fetched immediately, preventing "stale" imagery.
+    const sourceCache = (map as any).style?.sourceCaches?.[sourceId]
+    if (sourceCache?.clearTiles) {
+      sourceCache.clearTiles()
+      map.triggerRepaint()
+    }
+    
     return
   }
 
