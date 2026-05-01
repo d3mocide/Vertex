@@ -14,7 +14,15 @@
     font-family: 'Inter', system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    /* Subtle tactical grid/scanline atmosphere */
+    background-image:
+      linear-gradient(180deg, rgba(255,184,0,0.018) 0%, transparent 50%, rgba(0,0,0,0.4) 100%),
+      repeating-linear-gradient(0deg, transparent 0px, transparent 39px, rgba(255,255,255,0.012) 40px),
+      repeating-linear-gradient(90deg, transparent 0px, transparent 39px, rgba(255,255,255,0.012) 40px);
   }
+
+  /* Amber text selection */
+  ::selection { background: #FFB800; color: #050505; }
 
   /* Thin amber scrollbar */
   ::-webkit-scrollbar         { width: 3px; height: 3px; }
@@ -133,6 +141,20 @@
     vertical-align: middle;
   }
 
+  /* Filled variant of Material Symbols */
+  .ms-fill {
+    font-variation-settings: 'FILL' 1;
+  }
+
+  /* Danger / destructive button */
+  .btn-danger {
+    @apply bg-red-emergency text-white font-bold text-[11px] py-2 px-4
+           uppercase tracking-[0.15em] transition-colors
+           focus:outline-none focus-visible:ring-2 focus-visible:ring-red-emergency;
+    box-shadow: 0 0 20px rgba(198,40,40,0.4);
+  }
+  .btn-danger:hover { background-color: #e23535; }
+
   /* Dot divider */
   .divider-v {
     @apply w-px h-3 bg-amber-gold-muted/50 shrink-0;
@@ -179,6 +201,12 @@
   .tl-green  { @apply bg-green-ais text-onyx-black; }
   .tl-yellow { @apply bg-amber-gold text-onyx-black; }
   .tl-red    { @apply bg-red-emergency text-white; }
+}
+
+/* Live dot pulse (used in header/login) */
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.35; }
 }
 
 /* Waveform animation for audio bars */

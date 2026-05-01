@@ -104,14 +104,23 @@ export function Header() {
     <header
       className={`
         border-b flex justify-between items-center w-full px-6 h-14 shrink-0
-        transition-all duration-500 relative overflow-hidden
+        transition-all duration-500 relative overflow-visible
         ${mode === 'critical'
           ? 'bg-red-emergency/5 border-red-emergency/20 backdrop-blur-md'
-          : 'bg-white/[0.03] border-white/10 backdrop-blur-md shadow-[0_4px_30px_rgba(0,0,0,0.5)]'}
+          : 'bg-white/[0.03] border-white/[0.06] backdrop-blur-md shadow-[0_4px_30px_rgba(0,0,0,0.5)]'}
       `}
     >
       {/* Glass reflection effect */}
       <div className="absolute inset-0 bg-gradient-to-b from-white/5 to-transparent pointer-events-none" />
+
+      {/* Amber gradient underline */}
+      {mode !== 'critical' && (
+        <div
+          className="absolute left-0 right-0 bottom-[-1px] h-px pointer-events-none"
+          style={{ background: 'linear-gradient(90deg, transparent, #FFB800 20%, #FFB800 80%, transparent)', opacity: 0.35 }}
+          aria-hidden="true"
+        />
+      )}
 
       {/* Navigation tabs */}
       <nav
