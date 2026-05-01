@@ -11,7 +11,7 @@
 
 **Real-time situational awareness. Local-first. No cloud required.**
 
-Part of the [Sovereign Watch](https://github.com/d3mocide) family of local intelligence tools.
+Part of the [Sovereign Watch](https://github.com/d3mocide/Sovereign_Watch) family of local intelligence tools.
 
 </div>
 
