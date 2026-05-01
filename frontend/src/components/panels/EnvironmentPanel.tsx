@@ -657,14 +657,15 @@ export function EnvironmentPanel() {
               aqiLabel={weather.aqi_label}
             />
 
-            {/* Current Conditions */}
-            <WeatherCard />
-
           </div>
 
           {/* RIGHT COLUMN: Radar — self-start so it doesn't stretch past left column content */}
           <div className="flex-1 min-w-0 flex flex-col self-start gap-6">
             <RadarControls />
+
+            {/* Current Conditions */}
+            <WeatherCard />
+
             <SeismicCard events={mergedSeismicEvents} />
           </div>
 

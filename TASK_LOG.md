@@ -5,6 +5,19 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 
 ---
 
+## 2026-04-30 — Split documentation into a dedicated docs tree
+
+- Added a new documentation hub at [docs/README.md](docs/README.md) to keep long-form project documentation out of the top-level README.
+- Added focused guides for:
+    - [docs/getting-started.md](docs/getting-started.md)
+    - [docs/architecture/overview.md](docs/architecture/overview.md)
+    - [docs/features/overview.md](docs/features/overview.md)
+    - [docs/configuration/environment.md](docs/configuration/environment.md)
+    - [docs/configuration/sources.md](docs/configuration/sources.md)
+- Reduced [README.md](README.md) to a concise project overview with links into the new docs structure.
+- Validation:
+    - Markdown diagnostics on the touched documentation files reported no errors
+
 ## 2026-04-30 — Added region-aware wildfire relevance and environment panel fire status
 
 - Updated [poller/pollers/fire.py](poller/pollers/fire.py) to classify wildfires as `local` or `regional` using the configured bbox, alert radius, and regional radius.

@@ -2,123 +2,40 @@
 
 > See your neighborhood sharper
 
-Vertex is a local-first, real-time situational awareness dashboard. It fuses aircraft, vessel, weather, traffic, emergency alert, and P25 radio data into a single map-centric interface — running on hardware you own, in your home.
+Vertex is a local-first, real-time situational awareness dashboard. It combines aircraft, vessels, traffic, weather, alerts, radio, and community feeds into a single map-centric interface designed to run on hardware you control.
 
 Part of the [Sovereign Watch](https://github.com/d3mocide) family of local intelligence tools.
 
----
+## Documentation
 
-## What It Does
+Detailed documentation lives in the [docs](docs/README.md) directory.
 
-| Panel | What you see |
-|-------|-------------|
-| **Map** | Live aircraft positions and vessel tracks on a MapLibre GL map |
-| **Infrastructure** | ODOT CCTV camera thumbnails, real-time road speeds, traffic incidents |
-| **Environment** | NWS weather observations, active alerts, AQI, radar overlay |
-| **Community** | Emergency alerts aggregated from FlashAlert, county EM, and city feeds |
-| **Tactical Audio** | Live P25 trunked radio stream via configurable remote sources |
+- [Getting Started](docs/getting-started.md)
+- [Architecture Overview](docs/architecture/overview.md)
+- [Feature Overview](docs/features/overview.md)
+- [Environment Configuration](docs/configuration/environment.md)
+- [Source Configuration](docs/configuration/sources.md)
 
-Geofences trigger entry/exit events. Observation history is retained for 30 days by default (`ADSB_HISTORY_MODE=record`), with an optional live-only mode for lower write volume.
+## At A Glance
 
----
-
-## Architecture
-
-Five containers — minimal footprint, runs on a Raspberry Pi 5:
-
-| Container | Role |
-|-----------|------|
-| `db` | PostgreSQL 16 + PostGIS |
-| `redis` | Hot state cache + pub/sub event bus |
-| `backend` | FastAPI REST + WebSocket API |
-| `poller` | All background data pollers |
-| `frontend` | React + MapLibre GL, served by Nginx |
-
-Radio streams, news feeds, and other data sources are configured via `config/sources.yml`, editable at runtime without restarting containers.
-
----
-
-## Requirements
-
-- Docker and Docker Compose
-- x86_64 or ARM64 (all images build native for both — no emulation on Pi 5)
-
----
+- Five-container local stack: PostgreSQL/PostGIS, Redis, backend, poller, frontend
+- Map-centric UI with live entities, trails, overlays, and side panels
+- Config split between `.env` and `config/sources.yml`
+- Supports local-first integrations such as Ultrafeeder, AIS-catcher, OP25, and MeshCore
+- Optional automation features including geofences, auth, summaries, and webhooks
 
 ## Quick Start
 
 ```bash
 cp .env.example .env
-# Fill in API keys (see Configuration below)
 cp config/sources.example.yml config/sources.yml
-# Edit config/sources.yml to add radio streams, news feeds, and other sources
 docker compose up -d
 ```
 
-Open `http://localhost` (or your Pi's IP).
+Then open `http://localhost`.
 
----
-
-## Configuration
-
-Copy `.env.example` and fill in your values. Data sources (radio streams, news feeds, alert zones, poller URLs) are configured in `config/sources.yml` — see `config/sources.example.yml` for the full schema.
-
-### API Keys
-
-| Key | Source | Required |
-|-----|--------|----------|
-| `ODOT_API_KEY` | [developer.odot.state.or.us](https://developer.odot.state.or.us) — free, instant activation | Traffic feeds |
-| `AISSTREAM_API_KEY` | [aisstream.io](https://aisstream.io) — free tier | Vessel tracking (if no local AIS-catcher) |
-| `AIRNOW_API_KEY` | [airnowapi.org](https://www.airnowapi.org) — free | AQI display |
-
-Aircraft tracking via OpenSky Network requires no key (rate-limited). A local Ultrafeeder removes that dependency entirely.
-
-### Region
-
-The default region is the Tualatin/Portland metro (45.38°N, 122.76°W). To relocate, update these vars in your `.env` file:
-
-```env
-REGION_LAT=45.3842
-REGION_LON=-122.7635
-REGION_ALT=100ft
-REGION_NAME=Tualatin Valley
-BBOX_MIN_LAT=44.8
-BBOX_MAX_LAT=45.9
-BBOX_MIN_LON=-123.5
-BBOX_MAX_LON=-121.8
-```
-
-NWS zone codes (`NWS_ZONE`, `NWS_ALERT_ZONES`) will also need updating for a different region. Alert zone RSS feeds and news sources are managed via `config/sources.yml`. Full regional portability is a planned milestone.
-
----
-
-## Data Sources
-
-All public, free, and operator-run. No cloud lock-in.
-
-| Feed | Source | Interval |
-|------|--------|----------|
-| Aircraft | OpenSky Network or local Ultrafeeder | 5 s |
-| Vessels | AISstream.io or local AIS-catcher | WebSocket |
-| Weather | NWS `api.weather.gov` | 5 min |
-| Weather alerts | NWS CAP (multi-county) | 5 min |
-| Traffic incidents | ODOT TripCheck API | 60 s |
-| Traffic cameras | ODOT TripCheck API | on demand |
-| Traffic flow | ODOT Traffic Detector API | 60 s |
-| Emergency alerts | FlashAlert, WashCo EM, City RSS | 60 s |
-| P25 audio | Configurable remote stream URLs (sources.yml) | live stream |
-| Mesh nodes | Configurable remote MeshCore endpoints (sources.yml) | WebSocket |
-
----
-
-## Raspberry Pi 5 Notes
-
-- **RAM budget at idle**: ~520 MB (redis 50 + postgres 150 + backend 200 + poller 100 + nginx 20)
-- **Storage**: Mount `db_data` and `redis_data` volumes on SSD, not SD card
-- **Cross-compile**: `docker buildx build --platform linux/arm64` from an x86 dev machine for fast Pi builds
-
----
+For setup details and configuration guidance, continue in [docs/getting-started.md](docs/getting-started.md).
 
 ## License
 
-GPL-3.0 — see [LICENSE](LICENSE).
+GPL-3.0. See [LICENSE](LICENSE).
