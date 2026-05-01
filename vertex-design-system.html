@@ -1,0 +1,2633 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>VERTEX // DESIGN SYSTEM v0.1</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&family=Roboto+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
+
+<style>
+  /* ---------- TOKENS (mirrors tailwind.config.js) ---------- */
+  :root{
+    --onyx-black:#050505;
+    --onyx-deep:#0a0a0a;
+    --surface-container:#0F0F0F;
+    --surface-container-low:#080808;
+    --surface-container-high:#141414;
+    --surface-container-highest:#1A1A1A;
+
+    --amber-gold:#FFB800;
+    --amber-gold-dim:#B88600;
+    --amber-gold-muted:#4D3800;
+
+    --on-surface:#F2F2F2;
+    --on-surface-variant:#8C8C8C;
+    --outline-variant:#333333;
+
+    --cyan-adsb:#00BFFF;
+    --cyan-adsb-muted:#004D6B;
+    --green-ais:#00C853;
+    --green-ais-muted:#00401A;
+    --amber-p25:#FF8F00;
+    --amber-p25-muted:#4D2B00;
+    --red-emergency:#C62828;
+    --red-emergency-muted:#4A0000;
+
+    --gold-glow: 0 0 20px rgba(255,184,0,0.25);
+    --gold-sm:   0 0 8px  rgba(255,184,0,0.4);
+    --red-glow:  0 0 20px rgba(198,40,40,0.4);
+  }
+
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--onyx-black);
+    color:var(--on-surface);
+    font-family:'Inter',system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased;
+    font-size:14px;
+    line-height:1.5;
+    /* Subtle grid/scanline atmosphere — matches the tactical aesthetic without being noisy */
+    background-image:
+      linear-gradient(180deg, rgba(255,184,0,0.018) 0%, transparent 50%, rgba(0,0,0,0.4) 100%),
+      repeating-linear-gradient(0deg, transparent 0px, transparent 39px, rgba(255,255,255,0.012) 40px),
+      repeating-linear-gradient(90deg, transparent 0px, transparent 39px, rgba(255,255,255,0.012) 40px);
+  }
+
+  ::selection{background:var(--amber-gold);color:var(--onyx-black)}
+
+  ::-webkit-scrollbar{width:3px;height:3px}
+  ::-webkit-scrollbar-track{background:var(--onyx-deep)}
+  ::-webkit-scrollbar-thumb{background:var(--amber-gold);border-radius:0}
+
+  .ms{
+    font-family:'Material Symbols Outlined';
+    font-weight:normal;font-style:normal;line-height:1;
+    display:inline-block;white-space:nowrap;direction:ltr;
+    -webkit-font-feature-settings:'liga';font-feature-settings:'liga';
+    user-select:none;vertical-align:middle;
+  }
+  .ms-fill{font-variation-settings:'FILL' 1}
+
+  .mono{font-family:'Roboto Mono',monospace}
+  .label-caps{
+    font-family:'Inter',sans-serif;
+    font-weight:700;font-size:10px;
+    letter-spacing:0.18em;text-transform:uppercase;
+    color:var(--on-surface-variant);
+  }
+  .data-value{font-family:'Roboto Mono',monospace;font-size:11px;color:var(--amber-gold)}
+
+  a{color:var(--amber-gold);text-decoration:none}
+  a:hover{color:#fff}
+
+  /* ---------- LAYOUT FRAME ---------- */
+  .frame{
+    max-width:1440px;margin:0 auto;
+    padding:0 32px 80px;
+  }
+
+  /* ---------- HEADER (operations bar) ---------- */
+  .ops-header{
+    position:sticky;top:0;z-index:50;
+    background:rgba(5,5,5,0.85);
+    backdrop-filter:blur(20px) saturate(180%);
+    -webkit-backdrop-filter:blur(20px) saturate(180%);
+    border-bottom:1px solid rgba(255,255,255,0.06);
+    margin-bottom:48px;
+  }
+  .ops-header::after{
+    content:"";position:absolute;left:0;right:0;bottom:-1px;height:1px;
+    background:linear-gradient(90deg,transparent,var(--amber-gold) 20%,var(--amber-gold) 80%,transparent);
+    opacity:0.35;
+  }
+  .ops-header-inner{
+    max-width:1440px;margin:0 auto;
+    display:flex;align-items:center;gap:24px;
+    padding:0 32px;height:56px;
+  }
+  .brand{display:flex;align-items:center;gap:12px}
+  .brand svg{width:28px;height:28px;color:#fff}
+  .brand-name{font-weight:900;letter-spacing:0.05em;font-size:16px;color:#fff}
+  .brand-sub{
+    font-family:'Roboto Mono',monospace;font-size:10px;
+    letter-spacing:0.2em;color:var(--amber-gold);text-transform:uppercase;
+    padding-left:12px;border-left:1px solid var(--amber-gold-muted);
+  }
+  .ops-meta{
+    margin-left:auto;display:flex;align-items:center;gap:20px;
+    font-family:'Roboto Mono',monospace;font-size:10px;
+    letter-spacing:0.18em;text-transform:uppercase;color:var(--on-surface-variant);
+  }
+  .ops-meta .live{display:flex;align-items:center;gap:6px;color:var(--green-ais)}
+  .live-dot{width:6px;height:6px;background:var(--green-ais);
+    box-shadow:0 0 8px var(--green-ais);
+    animation:pulse-dot 1.6s ease-in-out infinite}
+  @keyframes pulse-dot{0%,100%{opacity:1}50%{opacity:0.35}}
+
+  /* ---------- HERO ---------- */
+  .hero{
+    display:grid;grid-template-columns:1.4fr 1fr;gap:32px;
+    margin-bottom:64px;align-items:stretch;
+  }
+  .hero-title{
+    font-weight:900;font-size:64px;line-height:0.95;letter-spacing:-0.02em;
+    margin:0 0 16px;
+    text-wrap:balance;
+  }
+  .hero-title .accent{color:var(--amber-gold)}
+  .hero-title .stroke{
+    -webkit-text-stroke:1px var(--amber-gold);
+    color:transparent;
+  }
+  .hero-lede{
+    font-size:15px;line-height:1.6;color:var(--on-surface-variant);
+    max-width:46ch;margin-bottom:24px;
+  }
+  .hero-meta{
+    display:grid;grid-template-columns:repeat(4,1fr);gap:0;
+    border-top:1px solid var(--amber-gold-muted);
+    border-bottom:1px solid var(--amber-gold-muted);
+  }
+  .hero-meta-cell{
+    padding:14px 16px 12px;
+    border-right:1px solid var(--amber-gold-muted);
+  }
+  .hero-meta-cell:last-child{border-right:none}
+  .hero-meta-cell .label-caps{display:block;font-size:9px;margin-bottom:6px}
+  .hero-meta-cell .val{
+    font-family:'Roboto Mono',monospace;font-size:13px;color:var(--amber-gold);
+  }
+
+  /* HUD card on right of hero */
+  .hud-card{
+    background:rgba(5,5,5,0.8);
+    backdrop-filter:blur(20px) saturate(180%);
+    border:1px solid rgba(255,255,255,0.05);
+    box-shadow:0 8px 32px rgba(0,0,0,0.8);
+    position:relative;overflow:hidden;
+  }
+  .hud-card::before{
+    content:"";position:absolute;inset:0;pointer-events:none;
+    background:
+      linear-gradient(135deg, rgba(255,184,0,0.04), transparent 40%);
+  }
+  .hud-card-head{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:10px 14px;border-bottom:1px solid var(--amber-gold-muted);
+    background:rgba(10,10,10,0.6);
+  }
+  .hud-card-head .label-caps{color:var(--amber-gold)}
+
+  .crosshair-frame{
+    position:relative;height:100%;min-height:280px;
+    padding:20px;display:flex;flex-direction:column;justify-content:space-between;
+  }
+  .crosshair-corners::before,
+  .crosshair-corners::after,
+  .crosshair-corners > .c1,
+  .crosshair-corners > .c2{
+    content:"";position:absolute;width:18px;height:18px;
+    border:1px solid var(--amber-gold);
+  }
+  .crosshair-corners::before{top:8px;left:8px;border-right:none;border-bottom:none}
+  .crosshair-corners::after{top:8px;right:8px;border-left:none;border-bottom:none}
+  .crosshair-corners > .c1{bottom:8px;left:8px;border-right:none;border-top:none}
+  .crosshair-corners > .c2{bottom:8px;right:8px;border-left:none;border-top:none}
+
+  .target-readout{
+    font-family:'Roboto Mono',monospace;font-size:10px;color:var(--on-surface-variant);
+    line-height:1.7;letter-spacing:0.08em;text-transform:uppercase;
+  }
+  .target-readout .v{color:var(--amber-gold)}
+  .target-readout .ok{color:var(--green-ais)}
+  .target-center{
+    align-self:center;font-weight:900;font-size:36px;
+    letter-spacing:0.08em;color:#fff;
+    border-top:1px solid var(--amber-gold-muted);
+    border-bottom:1px solid var(--amber-gold-muted);
+    padding:8px 24px;
+  }
+
+  /* ---------- SECTION FRAME ---------- */
+  section{margin-bottom:80px;scroll-margin-top:80px}
+  .sec-head{
+    display:flex;align-items:flex-end;justify-content:space-between;
+    border-bottom:1px solid var(--amber-gold-muted);
+    padding-bottom:12px;margin-bottom:32px;
+  }
+  .sec-id{
+    font-family:'Roboto Mono',monospace;font-size:10px;
+    color:var(--amber-gold);letter-spacing:0.2em;text-transform:uppercase;
+    margin-bottom:4px;display:flex;align-items:center;gap:8px;
+  }
+  .sec-id::before{content:"";width:6px;height:6px;background:var(--amber-gold);box-shadow:var(--gold-sm)}
+  .sec-title{font-size:32px;font-weight:900;letter-spacing:-0.01em;margin:0;line-height:1}
+  .sec-meta{
+    font-family:'Roboto Mono',monospace;font-size:10px;
+    color:var(--on-surface-variant);letter-spacing:0.18em;text-transform:uppercase;
+    text-align:right;
+  }
+  .sec-meta strong{color:var(--amber-gold);font-weight:700}
+
+  /* ---------- COLOR SECTION ---------- */
+  .swatch-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+  .swatch-grid.rows-3{grid-template-columns:repeat(3,1fr)}
+  .swatch{
+    background:var(--surface-container);
+    border:1px solid var(--outline-variant);
+    transition:border-color 0.15s ease;
+  }
+  .swatch:hover{border-color:var(--amber-gold)}
+  .swatch-tile{height:96px;position:relative;overflow:hidden}
+  .swatch-tile::after{
+    content:"";position:absolute;inset:0;
+    background:linear-gradient(135deg,rgba(255,255,255,0.04),transparent 60%);
+    pointer-events:none;
+  }
+  .swatch-meta{padding:12px 14px;border-top:1px solid var(--outline-variant)}
+  .swatch-name{font-weight:700;font-size:12px;letter-spacing:0.05em;text-transform:uppercase;margin-bottom:4px}
+  .swatch-hex{font-family:'Roboto Mono',monospace;font-size:11px;color:var(--amber-gold)}
+  .swatch-token{font-family:'Roboto Mono',monospace;font-size:9px;color:var(--on-surface-variant);margin-top:6px;letter-spacing:0.04em}
+
+  .signal-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+  .signal-card{
+    border:1px solid var(--outline-variant);
+    background:var(--surface-container);
+    padding:16px;display:flex;flex-direction:column;gap:10px;
+    position:relative;
+  }
+  .signal-card .ms{font-size:24px}
+  .signal-row{display:flex;align-items:center;gap:10px}
+  .signal-pulse{
+    width:10px;height:10px;border-radius:9999px;
+  }
+  .signal-pulse.adsb{background:var(--cyan-adsb);box-shadow:0 0 10px var(--cyan-adsb)}
+  .signal-pulse.ais{background:var(--green-ais);box-shadow:0 0 10px var(--green-ais)}
+  .signal-pulse.p25{background:var(--amber-p25);box-shadow:0 0 10px var(--amber-p25)}
+  .signal-pulse.emerg{background:var(--red-emergency);box-shadow:0 0 10px var(--red-emergency)}
+  .signal-name{font-weight:700;letter-spacing:0.08em;text-transform:uppercase;font-size:12px}
+  .signal-card .mono{font-size:10px;color:var(--on-surface-variant)}
+  .signal-bar{height:4px;background:var(--surface-container-highest);position:relative;overflow:hidden}
+  .signal-bar > span{position:absolute;left:0;top:0;bottom:0;width:60%}
+
+  /* ---------- TYPE SECTION ---------- */
+  .type-grid{display:grid;grid-template-columns:1fr 1fr;gap:32px}
+  .type-spec{
+    border:1px solid var(--outline-variant);
+    padding:24px;
+    background:var(--surface-container-low);
+  }
+  .type-spec .label-caps{display:block;margin-bottom:12px;color:var(--amber-gold)}
+  .type-sample{margin-bottom:16px;color:#fff}
+  .type-meta{
+    font-family:'Roboto Mono',monospace;font-size:11px;
+    color:var(--on-surface-variant);
+    border-top:1px dashed var(--outline-variant);padding-top:12px;
+  }
+  .type-meta span{color:var(--amber-gold)}
+
+  .scale{
+    border:1px solid var(--outline-variant);
+    padding:24px;background:var(--surface-container-low);
+  }
+  .scale-row{
+    display:grid;grid-template-columns:90px 1fr 120px;
+    align-items:baseline;gap:16px;
+    padding:12px 0;border-bottom:1px dashed rgba(77,56,0,0.5);
+  }
+  .scale-row:last-child{border-bottom:none}
+  .scale-row .tag{
+    font-family:'Roboto Mono',monospace;font-size:10px;
+    color:var(--amber-gold);letter-spacing:0.1em;
+  }
+  .scale-row .meta{
+    font-family:'Roboto Mono',monospace;font-size:10px;
+    color:var(--on-surface-variant);text-align:right;
+  }
+
+  /* ---------- COMPONENTS ---------- */
+  .comp-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:24px}
+  .comp{
+    border:1px solid var(--outline-variant);
+    background:var(--surface-container-low);
+    position:relative;
+  }
+  .comp-head{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:10px 14px;border-bottom:1px solid var(--outline-variant);
+    background:var(--onyx-deep);
+  }
+  .comp-name{
+    font-family:'Roboto Mono',monospace;font-size:10px;
+    letter-spacing:0.18em;text-transform:uppercase;color:var(--amber-gold);
+  }
+  .comp-tag{
+    font-family:'Roboto Mono',monospace;font-size:9px;
+    color:var(--on-surface-variant);letter-spacing:0.12em;text-transform:uppercase;
+  }
+  .comp-body{padding:24px;min-height:120px;display:flex;flex-wrap:wrap;gap:16px;align-items:center}
+  .comp-body.col{flex-direction:column;align-items:flex-start}
+
+  /* Buttons */
+  .btn-primary{
+    background:var(--amber-gold);color:var(--onyx-black);
+    font-weight:700;font-size:11px;padding:8px 16px;
+    text-transform:uppercase;letter-spacing:0.15em;
+    border:none;cursor:pointer;transition:background 0.15s ease;
+  }
+  .btn-primary:hover{background:#fff}
+  .btn-ghost{
+    border:1px solid var(--amber-gold);color:var(--amber-gold);
+    background:transparent;font-weight:700;font-size:10px;
+    text-transform:uppercase;letter-spacing:0.18em;
+    padding:6px 12px;cursor:pointer;transition:all 0.15s ease;
+  }
+  .btn-ghost:hover{background:var(--amber-gold);color:var(--onyx-black)}
+  .btn-danger{
+    background:var(--red-emergency);color:#fff;
+    font-weight:700;font-size:11px;padding:8px 16px;
+    text-transform:uppercase;letter-spacing:0.15em;
+    border:none;cursor:pointer;
+    box-shadow:0 0 20px rgba(198,40,40,0.4);
+  }
+  .btn-danger:hover{background:#e23535}
+  .btn-icon{
+    background:transparent;border:1px solid var(--amber-gold-muted);
+    color:var(--on-surface-variant);width:32px;height:32px;
+    display:inline-flex;align-items:center;justify-content:center;cursor:pointer;
+    transition:all 0.15s ease;
+  }
+  .btn-icon:hover{border-color:var(--amber-gold);color:var(--amber-gold)}
+
+  /* Mode toggle (CALM / CRITICAL) */
+  .mode-toggle{
+    display:inline-flex;border:1px solid var(--amber-gold-muted);
+    background:rgba(10,10,10,0.8);padding:4px;
+  }
+  .mode-toggle button{
+    background:transparent;border:none;cursor:pointer;
+    font-weight:700;font-size:10px;padding:3px 14px;
+    text-transform:uppercase;letter-spacing:0.18em;color:var(--on-surface-variant);
+  }
+  .mode-toggle button[aria-pressed="true"].calm{background:var(--amber-gold);color:var(--onyx-black)}
+  .mode-toggle button[aria-pressed="true"].crit{background:var(--red-emergency);color:#fff}
+
+  /* Status pills */
+  .pill{
+    font-family:'Roboto Mono',monospace;font-size:9px;
+    text-transform:uppercase;letter-spacing:0.18em;font-weight:700;
+    padding:2px 6px;display:inline-flex;align-items:center;gap:6px;
+  }
+  .pill.tl-green{background:var(--green-ais);color:var(--onyx-black)}
+  .pill.tl-yellow{background:var(--amber-gold);color:var(--onyx-black)}
+  .pill.tl-red{background:var(--red-emergency);color:#fff}
+  .pill.outline{
+    background:transparent;border:1px solid var(--amber-gold-muted);
+    color:var(--amber-gold-dim);
+  }
+
+  /* Tag chips */
+  .tag-chip{
+    font-family:'Roboto Mono',monospace;font-size:9px;
+    text-transform:uppercase;letter-spacing:0.18em;font-weight:700;
+    padding:2px 8px;background:rgba(77,56,0,0.4);color:var(--amber-gold-dim);
+  }
+
+  /* Field input */
+  .field{
+    display:flex;flex-direction:column;gap:6px;width:100%;
+  }
+  .field input{
+    background:var(--onyx-black);
+    border:1px solid var(--outline-variant);
+    color:var(--on-surface);font-family:'Roboto Mono',monospace;
+    font-size:12px;padding:10px 12px;outline:none;
+    transition:border-color 0.15s ease,box-shadow 0.15s ease;
+  }
+  .field input:focus{border-color:var(--amber-gold);box-shadow:var(--gold-sm)}
+  .field-hint{font-family:'Roboto Mono',monospace;font-size:9px;color:var(--on-surface-variant);letter-spacing:0.1em;text-transform:uppercase}
+
+  /* Incident card (mirrors .incident-card) */
+  .incident-card{
+    background:rgba(15,15,15,0.6);
+    border:1px solid var(--amber-gold-muted);
+    padding:12px;cursor:pointer;
+    transition:border-color 0.15s ease;width:100%;
+  }
+  .incident-card:hover{border-color:var(--amber-gold)}
+  .incident-head{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:8px}
+  .incident-head .ms{font-size:14px}
+  .incident-id{font-family:'Roboto Mono',monospace;font-size:11px;color:var(--amber-gold)}
+  .incident-time{font-family:'Roboto Mono',monospace;font-size:10px;color:var(--on-surface-variant)}
+  .incident-title{font-size:12px;line-height:1.35;color:var(--on-surface);margin:0}
+
+  /* Entity HUD (mini) */
+  .entity-hud{
+    width:100%;
+    background:rgba(5,5,5,0.85);
+    border:1px solid var(--amber-gold);
+    box-shadow:0 0 15px rgba(255,184,0,0.15), inset 0 0 10px rgba(255,184,0,0.05);
+  }
+  .entity-hud-head{
+    display:flex;align-items:center;justify-content:space-between;gap:8px;
+    padding:10px 12px;
+    border-bottom:1px solid var(--amber-gold-muted);
+    background:rgba(10,10,10,0.6);
+  }
+  .entity-hud-head .name{font-weight:700;font-size:12px;text-transform:uppercase;color:#fff}
+  .entity-hud-rows{padding:10px 12px;display:flex;flex-direction:column;gap:6px}
+  .entity-hud-row{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+  .entity-hud-row .label-caps{font-size:9px}
+  .entity-hud-row .val{font-family:'Roboto Mono',monospace;font-size:10px;color:var(--on-surface)}
+
+  /* Marker showcase */
+  .marker-row{display:flex;gap:24px;align-items:center}
+  .marker{position:relative;width:32px;height:32px;display:flex;align-items:center;justify-content:center}
+  .marker-dot{width:10px;height:10px;border-radius:9999px;border:1px solid #fff}
+  .marker .ring{position:absolute;inset:0;border-radius:9999px;border:1px solid}
+  .marker .pulse{position:absolute;inset:0;border-radius:9999px;animation:ping 2s cubic-bezier(0,0,0.2,1) infinite}
+  @keyframes ping{0%{transform:scale(1);opacity:0.7}80%,100%{transform:scale(2.2);opacity:0}}
+
+  .marker.adsb .marker-dot{background:var(--cyan-adsb);box-shadow:0 0 10px rgba(0,191,255,0.6)}
+  .marker.adsb .ring{border-color:rgba(0,191,255,0.4)}
+  .marker.adsb .pulse{background:rgba(0,191,255,0.2)}
+
+  .marker.ais .marker-dot{background:var(--green-ais);box-shadow:0 0 10px rgba(0,200,83,0.6)}
+  .marker.ais .ring{border-color:rgba(0,200,83,0.4)}
+  .marker.ais .pulse{background:rgba(0,200,83,0.2)}
+
+  .marker.p25 .marker-dot{background:var(--amber-p25);box-shadow:0 0 10px rgba(255,143,0,0.7)}
+  .marker.p25 .ring{border-color:rgba(255,143,0,0.4)}
+  .marker.p25 .pulse{background:rgba(255,143,0,0.25)}
+
+  .marker.emerg .marker-dot{background:var(--red-emergency);box-shadow:0 0 12px rgba(198,40,40,0.7)}
+  .marker.emerg .ring{border-color:rgba(198,40,40,0.5)}
+  .marker.emerg .pulse{background:rgba(198,40,40,0.3)}
+
+  /* Waveform */
+  .waveform{display:flex;align-items:flex-end;gap:3px;height:32px}
+  .waveform .wave-bar{
+    width:3px;height:100%;background:var(--amber-gold);
+    transform-origin:bottom;
+    animation:waveform 1.2s ease-in-out infinite;
+  }
+  @keyframes waveform{0%,100%{transform:scaleY(0.3)}50%{transform:scaleY(1)}}
+  .waveform .wave-bar:nth-child(1){animation-delay:0s}
+  .waveform .wave-bar:nth-child(2){animation-delay:0.1s}
+  .waveform .wave-bar:nth-child(3){animation-delay:0.2s}
+  .waveform .wave-bar:nth-child(4){animation-delay:0.3s}
+  .waveform .wave-bar:nth-child(5){animation-delay:0.4s}
+  .waveform .wave-bar:nth-child(6){animation-delay:0.2s}
+  .waveform .wave-bar:nth-child(7){animation-delay:0.1s}
+  .waveform .wave-bar:nth-child(8){animation-delay:0s}
+
+  /* Nav links */
+  .nav-link{
+    font-weight:700;font-size:10px;text-transform:uppercase;letter-spacing:0.2em;
+    color:var(--on-surface-variant);cursor:pointer;display:inline-flex;align-items:center;gap:6px;
+    padding:8px 0;transition:color 0.15s ease;
+  }
+  .nav-link:hover{color:var(--amber-gold)}
+  .nav-link.active{color:var(--amber-gold);border-bottom:1px solid var(--amber-gold)}
+
+  /* CCTV */
+  .cctv{
+    aspect-ratio:16/9;width:100%;
+    border:1px solid var(--amber-gold-muted);
+    background:
+      repeating-linear-gradient(0deg, rgba(255,255,255,0.02) 0px, rgba(255,255,255,0.02) 1px, transparent 1px, transparent 4px),
+      linear-gradient(135deg, #0a0a0a, #1a1a1a);
+    position:relative;overflow:hidden;
+  }
+  .cctv::before{
+    content:"";position:absolute;inset:0;
+    background:radial-gradient(ellipse at center, transparent 30%, rgba(0,0,0,0.6) 100%);
+  }
+  .cctv-meta{
+    position:absolute;left:8px;top:8px;
+    font-family:'Roboto Mono',monospace;font-size:9px;color:var(--amber-gold);
+    letter-spacing:0.15em;text-transform:uppercase;display:flex;align-items:center;gap:6px;
+  }
+  .cctv-rec{width:6px;height:6px;border-radius:9999px;background:var(--red-emergency);
+    box-shadow:0 0 8px var(--red-emergency);animation:pulse-dot 1.4s ease-in-out infinite}
+  .cctv-ts{
+    position:absolute;right:8px;bottom:8px;
+    font-family:'Roboto Mono',monospace;font-size:9px;color:var(--amber-gold-dim);
+  }
+  .cctv-grid{
+    position:absolute;inset:20%;
+    border:1px solid rgba(255,184,0,0.2);
+  }
+  .cctv-grid::before,.cctv-grid::after{
+    content:"";position:absolute;background:rgba(255,184,0,0.2);
+  }
+  .cctv-grid::before{left:50%;top:0;bottom:0;width:1px}
+  .cctv-grid::after{top:50%;left:0;right:0;height:1px}
+
+  /* ICONS strip */
+  .icon-strip{display:grid;grid-template-columns:repeat(8,1fr);gap:1px;background:var(--outline-variant);border:1px solid var(--outline-variant)}
+  .icon-cell{
+    background:var(--surface-container-low);
+    aspect-ratio:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;
+    color:var(--amber-gold);
+  }
+  .icon-cell .ms{font-size:22px}
+  .icon-cell .lbl{
+    font-family:'Roboto Mono',monospace;font-size:9px;
+    color:var(--on-surface-variant);letter-spacing:0.05em;
+  }
+
+  /* SPACING */
+  .space-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+  .space-card{
+    border:1px solid var(--outline-variant);background:var(--surface-container-low);
+    padding:20px;
+  }
+  .space-bar{
+    background:var(--amber-gold);height:4px;margin-bottom:12px;
+    box-shadow:var(--gold-sm);
+  }
+  .space-card .label-caps{display:block;margin-bottom:4px;color:var(--amber-gold)}
+  .space-card .mono{font-size:11px;color:var(--on-surface)}
+
+  /* PATTERNS */
+  .pattern-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+  .pattern{
+    border:1px solid var(--outline-variant);
+    background:var(--surface-container-low);
+    padding:20px;
+  }
+  .pattern h4{
+    margin:0 0 8px;font-family:'Roboto Mono',monospace;font-size:11px;
+    text-transform:uppercase;letter-spacing:0.15em;color:var(--amber-gold);
+  }
+  .pattern p{margin:0;font-size:12px;color:var(--on-surface-variant);line-height:1.55}
+
+  /* MOTION */
+  .motion-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+  .motion-card{
+    border:1px solid var(--outline-variant);
+    background:var(--surface-container-low);
+    padding:24px;display:flex;flex-direction:column;gap:16px;align-items:center;
+  }
+  .motion-demo{height:60px;display:flex;align-items:center;justify-content:center}
+  .ping-target{
+    position:relative;width:14px;height:14px;border-radius:9999px;background:var(--amber-gold);
+    box-shadow:var(--gold-sm);
+  }
+  .ping-target::after{
+    content:"";position:absolute;inset:-4px;border-radius:9999px;
+    border:1px solid var(--amber-gold);
+    animation:ping 2s cubic-bezier(0,0,0.2,1) infinite;
+  }
+  .pulse-fast-target{
+    width:14px;height:14px;border-radius:9999px;background:var(--red-emergency);
+    box-shadow:var(--red-glow);animation:pulse-fast 1.2s cubic-bezier(0.4,0,0.6,1) infinite;
+  }
+  @keyframes pulse-fast{0%{transform:scale(0.9);opacity:0.8}50%{transform:scale(1.1);opacity:1}100%{transform:scale(0.9);opacity:0.8}}
+  .spin-target{
+    width:24px;height:24px;border:1px solid var(--amber-gold-muted);
+    border-top-color:var(--amber-gold);border-radius:9999px;
+    animation:spin-slow 1.6s linear infinite;
+  }
+  @keyframes spin-slow{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+  .motion-meta{
+    font-family:'Roboto Mono',monospace;font-size:10px;color:var(--on-surface-variant);
+    text-align:center;line-height:1.6;letter-spacing:0.05em;
+  }
+  .motion-meta strong{color:var(--amber-gold);font-weight:700}
+
+  /* FOOTER */
+  footer{
+    border-top:1px solid var(--amber-gold-muted);
+    padding-top:24px;margin-top:64px;
+    display:flex;justify-content:space-between;align-items:center;
+    font-family:'Roboto Mono',monospace;font-size:10px;
+    color:var(--on-surface-variant);letter-spacing:0.18em;text-transform:uppercase;
+  }
+  footer span.amber{color:var(--amber-gold)}
+
+  /* ---------- LOGO · SCOPE SECTION ---------- */
+  .logo-hero{
+    display:grid;grid-template-columns:1.25fr 1fr;gap:24px;
+    margin-bottom:32px;
+  }
+  .scope-stage{
+    position:relative;
+    border:1px solid var(--amber-gold-muted);
+    background:
+      radial-gradient(ellipse at center, rgba(255,184,0,0.06), transparent 60%),
+      repeating-linear-gradient(0deg, transparent 0 23px, rgba(255,184,0,0.05) 23px 24px),
+      repeating-linear-gradient(90deg, transparent 0 23px, rgba(255,184,0,0.05) 23px 24px),
+      var(--surface-container-low);
+    aspect-ratio:5/4;
+    display:flex;align-items:center;justify-content:center;
+    overflow:hidden;
+  }
+  .scope-stage::before,
+  .scope-stage::after,
+  .scope-stage > .corner-tl,
+  .scope-stage > .corner-tr,
+  .scope-stage > .corner-bl,
+  .scope-stage > .corner-br{ content:""; position:absolute; width:24px; height:24px; border:1px solid var(--amber-gold); }
+  .scope-stage > .corner-tl{ top:10px; left:10px; border-right:none; border-bottom:none; }
+  .scope-stage > .corner-tr{ top:10px; right:10px; border-left:none; border-bottom:none; }
+  .scope-stage > .corner-bl{ bottom:10px; left:10px; border-right:none; border-top:none; }
+  .scope-stage > .corner-br{ bottom:10px; right:10px; border-left:none; border-top:none; }
+  .scope-stage::before{ border:none; left:50%; top:0; bottom:0; width:1px; height:auto; background:rgba(255,184,0,0.12); }
+  .scope-stage::after{ border:none; top:50%; left:0; right:0; height:1px; width:auto; background:rgba(255,184,0,0.12); }
+
+  .scope-stage-meta-tl,
+  .scope-stage-meta-tr,
+  .scope-stage-meta-bl,
+  .scope-stage-meta-br{
+    position:absolute; z-index:2;
+    font-family:'Roboto Mono',monospace; font-size:9px;
+    color:var(--amber-gold); letter-spacing:0.18em; text-transform:uppercase;
+  }
+  .scope-stage-meta-tl{ top:18px; left:42px; }
+  .scope-stage-meta-tr{ top:18px; right:42px; color:var(--on-surface-variant); }
+  .scope-stage-meta-bl{ bottom:18px; left:42px; color:var(--on-surface-variant); }
+  .scope-stage-meta-br{ bottom:18px; right:42px; }
+
+  .scope-hero-mark{ position:relative; z-index:1; color:#fff; filter:drop-shadow(0 0 24px rgba(255,184,0,0.18)); }
+
+  .logo-rationale{
+    border:1px solid var(--amber-gold-muted);
+    background:var(--surface-container-low);
+    padding:24px; display:flex; flex-direction:column; gap:18px;
+  }
+  .logo-rationale .lr-head{
+    display:flex; align-items:baseline; justify-content:space-between;
+    border-bottom:1px solid var(--amber-gold-muted); padding-bottom:10px;
+  }
+  .logo-rationale .lr-head .name{ font-weight:900; font-size:22px; letter-spacing:0.04em; color:#fff; }
+  .logo-rationale .lr-head .code{ font-family:'Roboto Mono',monospace; font-size:10px; color:var(--amber-gold); letter-spacing:0.18em; }
+  .logo-rationale .lr-body{ font-size:13px; line-height:1.6; color:var(--on-surface-variant); }
+  .logo-rationale .lr-body strong{ color:#fff; font-weight:600; }
+  .logo-rationale .lr-meta{
+    margin-top:auto;
+    display:grid; grid-template-columns:1fr 1fr; gap:0;
+    border-top:1px solid var(--amber-gold-muted);
+  }
+  .logo-rationale .lr-meta-cell{
+    padding:10px 0;
+    border-right:1px solid var(--amber-gold-muted);
+    padding-right:12px;
+  }
+  .logo-rationale .lr-meta-cell:last-child{ border-right:none; padding-right:0; padding-left:12px; }
+  .logo-rationale .lr-meta-cell .label-caps{ display:block; margin-bottom:4px; font-size:9px; }
+  .logo-rationale .lr-meta-cell .v{ font-family:'Roboto Mono',monospace; font-size:11px; color:var(--amber-gold); }
+
+  /* ---- Sub-block heads inside the section ---- */
+  .logo-block{ margin-bottom:32px; }
+  .logo-block-head{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:10px 14px; border:1px solid var(--outline-variant);
+    border-bottom:none; background:var(--onyx-deep);
+  }
+  .logo-block-head .name{
+    font-family:'Roboto Mono',monospace; font-size:10px;
+    letter-spacing:0.18em; text-transform:uppercase; color:var(--amber-gold);
+  }
+  .logo-block-head .tag{
+    font-family:'Roboto Mono',monospace; font-size:9px;
+    color:var(--on-surface-variant); letter-spacing:0.12em; text-transform:uppercase;
+  }
+  .logo-block-body{
+    border:1px solid var(--outline-variant);
+    background:var(--surface-container-low);
+    padding:28px;
+  }
+
+  /* ---- Scale ladder ---- */
+  .scale-ladder{
+    display:flex; align-items:flex-end; justify-content:space-between; gap:20px;
+    padding:8px 0 20px;
+    border-bottom:1px dashed rgba(77,56,0,0.6);
+    overflow-x:auto;
+  }
+  .scale-rung{
+    display:flex; flex-direction:column; align-items:center; gap:14px;
+    min-width:fit-content;
+    position:relative;
+  }
+  .scale-rung .rung-mark{
+    color:#fff; display:flex; align-items:flex-end; justify-content:center;
+    transition:color 0.15s ease;
+  }
+  .scale-rung.below-min .rung-mark{ color:var(--on-surface-variant); opacity:0.5; }
+  .scale-rung .rung-mark svg{ display:block; }
+  .scale-rung .rung-meta{
+    font-family:'Roboto Mono',monospace; font-size:10px;
+    color:var(--amber-gold); letter-spacing:0.1em;
+    text-align:center; line-height:1.5;
+  }
+  .scale-rung .rung-meta .px{ color:#fff; font-weight:700; }
+  .scale-rung .rung-meta .ctx{ display:block; color:var(--on-surface-variant); font-size:9px; letter-spacing:0.15em; text-transform:uppercase; margin-top:2px; }
+  .scale-rung.min-flag::before{
+    content:""; position:absolute; left:-10px; right:-10px; top:-4px; bottom:24px;
+    border:1px dashed var(--amber-gold);
+    pointer-events:none;
+  }
+  .scale-rung.min-flag::after{
+    content:"MIN · 16PX"; position:absolute; top:-16px; left:50%; transform:translateX(-50%);
+    font-family:'Roboto Mono',monospace; font-size:8px; letter-spacing:0.18em;
+    color:var(--amber-gold); background:var(--surface-container-low); padding:0 6px;
+    white-space:nowrap;
+  }
+  .scale-legend{
+    display:flex; align-items:center; justify-content:space-between; gap:16px;
+    margin-top:18px;
+    font-family:'Roboto Mono',monospace; font-size:10px;
+    color:var(--on-surface-variant); letter-spacing:0.12em; text-transform:uppercase;
+  }
+  .scale-legend .k{ color:var(--amber-gold); }
+  .scale-legend-rules{ display:flex; gap:24px; }
+
+  /* ---- Wordmark lockups ---- */
+  .lockup-grid{
+    display:grid; grid-template-columns:repeat(3,1fr); gap:1px;
+    background:var(--outline-variant); border:1px solid var(--outline-variant);
+  }
+  .lockup-cell{
+    background:var(--surface-container-low);
+    padding:32px 24px;
+    display:flex; flex-direction:column; align-items:center; justify-content:space-between;
+    gap:24px; min-height:200px; position:relative;
+  }
+  .lockup-cell.inverted{ background:var(--amber-gold); color:var(--onyx-black); }
+  .lockup-cell.mono{ background:var(--surface-container-highest); }
+  .lockup-stage{ flex:1; display:flex; align-items:center; justify-content:center; min-height:80px; width:100%; }
+  .lockup-foot{
+    width:100%;
+    display:flex; align-items:center; justify-content:space-between;
+    border-top:1px solid var(--amber-gold-muted);
+    padding-top:10px;
+    font-family:'Roboto Mono',monospace; font-size:9px;
+    letter-spacing:0.15em; text-transform:uppercase;
+  }
+  .lockup-foot .ttl{ color:var(--amber-gold); }
+  .lockup-cell.inverted .lockup-foot{ border-top-color:rgba(5,5,5,0.4); }
+  .lockup-cell.inverted .lockup-foot .ttl{ color:var(--onyx-black); }
+  .lockup-cell.inverted .lockup-foot .id{ color:rgba(5,5,5,0.7); }
+  .lockup-foot .id{ color:var(--on-surface-variant); }
+
+  .lockup-horiz{ display:flex; align-items:center; gap:14px; }
+  .lockup-horiz .divider{ width:1px; align-self:stretch; background:var(--amber-gold-muted); }
+  .lockup-cell.inverted .lockup-horiz .divider{ background:rgba(5,5,5,0.35); }
+  .lockup-vert{ display:flex; flex-direction:column; align-items:center; gap:10px; }
+  .lockup-wordmark{
+    font-family:'Inter',sans-serif; font-weight:900; letter-spacing:0.08em;
+    color:#fff; line-height:1;
+  }
+  .lockup-cell.inverted .lockup-wordmark{ color:var(--onyx-black); }
+  .lockup-tag{
+    font-family:'Roboto Mono',monospace; font-size:9px; letter-spacing:0.25em;
+    color:var(--amber-gold); text-transform:uppercase;
+  }
+  .lockup-cell.inverted .lockup-tag{ color:rgba(5,5,5,0.7); }
+
+  /* ---- Construction grid ---- */
+  .construction-grid{
+    display:grid; grid-template-columns:1.1fr 1fr; gap:20px;
+  }
+  .construction-frame{
+    position:relative; aspect-ratio:1;
+    background:
+      repeating-linear-gradient(0deg, transparent 0 calc((100% - 1px)/16 - 1px), rgba(255,184,0,0.08) calc((100% - 1px)/16 - 1px) calc((100% - 1px)/16)),
+      repeating-linear-gradient(90deg, transparent 0 calc((100% - 1px)/16 - 1px), rgba(255,184,0,0.08) calc((100% - 1px)/16 - 1px) calc((100% - 1px)/16)),
+      var(--onyx-deep);
+    border:1px solid var(--amber-gold-muted);
+    display:flex; align-items:center; justify-content:center;
+    padding:12.5%; /* 4/32 safe area */
+  }
+  .construction-frame .clear-area{
+    position:absolute; inset:12.5%;
+    border:1px dashed var(--amber-gold);
+    opacity:0.5;
+  }
+  .construction-frame .x-marker{
+    position:absolute; bottom:6px; left:6px;
+    font-family:'Roboto Mono',monospace; font-size:9px;
+    color:var(--amber-gold); letter-spacing:0.18em;
+  }
+  .construction-frame .x-marker .swatch{
+    display:inline-block; width:10px; height:10px; background:var(--amber-gold);
+    vertical-align:-1px; margin-right:6px;
+  }
+  .construction-notes{
+    display:flex; flex-direction:column; gap:14px;
+  }
+  .construction-note{
+    border-left:1px solid var(--amber-gold);
+    padding:6px 14px;
+  }
+  .construction-note .nh{
+    font-family:'Roboto Mono',monospace; font-size:10px;
+    color:var(--amber-gold); letter-spacing:0.18em; text-transform:uppercase;
+    margin-bottom:4px;
+  }
+  .construction-note .nb{
+    font-size:12px; line-height:1.5; color:var(--on-surface-variant);
+  }
+  .construction-note .nb code{
+    font-family:'Roboto Mono',monospace; color:var(--amber-gold);
+    background:rgba(77,56,0,0.4); padding:1px 5px;
+  }
+
+  /* ---- Animation cards ---- */
+  .anim-grid{
+    display:grid; grid-template-columns:repeat(3,1fr); gap:1px;
+    background:var(--outline-variant); border:1px solid var(--outline-variant);
+  }
+  .anim-card{
+    background:var(--surface-container-low);
+    padding:0;
+    display:flex; flex-direction:column;
+  }
+  .anim-stage{
+    position:relative; aspect-ratio:1; min-height:200px;
+    background:
+      radial-gradient(ellipse at center, rgba(255,184,0,0.04), transparent 60%),
+      repeating-linear-gradient(0deg, transparent 0 19px, rgba(255,184,0,0.04) 19px 20px),
+      repeating-linear-gradient(90deg, transparent 0 19px, rgba(255,184,0,0.04) 19px 20px),
+      var(--onyx-deep);
+    display:flex; align-items:center; justify-content:center;
+    overflow:hidden;
+    border-bottom:1px solid var(--outline-variant);
+  }
+  .anim-stage::before,
+  .anim-stage::after{
+    content:""; position:absolute; background:rgba(255,184,0,0.08);
+  }
+  .anim-stage::before{ left:50%; top:0; bottom:0; width:1px; }
+  .anim-stage::after{ top:50%; left:0; right:0; height:1px; }
+
+  .anim-meta{
+    padding:14px 16px;
+    display:flex; flex-direction:column; gap:6px;
+  }
+  .anim-meta .anim-name{
+    font-family:'Inter',sans-serif; font-weight:700; font-size:13px;
+    letter-spacing:0.08em; text-transform:uppercase; color:#fff;
+    display:flex; align-items:center; justify-content:space-between;
+  }
+  .anim-meta .anim-name .anim-id{
+    font-family:'Roboto Mono',monospace; font-size:9px;
+    color:var(--amber-gold); letter-spacing:0.18em;
+  }
+  .anim-meta .anim-spec{
+    font-family:'Roboto Mono',monospace; font-size:10px;
+    color:var(--amber-gold); letter-spacing:0.08em;
+  }
+  .anim-meta .anim-desc{
+    font-size:11px; color:var(--on-surface-variant); line-height:1.5;
+  }
+  .anim-meta .anim-use{
+    margin-top:6px; padding-top:8px;
+    border-top:1px dashed rgba(77,56,0,0.6);
+    font-family:'Roboto Mono',monospace; font-size:9px;
+    color:var(--on-surface-variant); letter-spacing:0.12em; text-transform:uppercase;
+  }
+  .anim-meta .anim-use strong{ color:var(--amber-gold); font-weight:700; }
+
+  /* Animation 1 — ACQUIRE: brackets close in, diamond fades, pip locks */
+  @keyframes acq-bracket-tl { 0%{transform:translate(-12px,-12px);opacity:0} 40%{transform:translate(-12px,-12px);opacity:1} 70%,100%{transform:translate(0,0);opacity:1} }
+  @keyframes acq-bracket-tr { 0%{transform:translate(12px,-12px);opacity:0} 40%{transform:translate(12px,-12px);opacity:1} 70%,100%{transform:translate(0,0);opacity:1} }
+  @keyframes acq-bracket-bl { 0%{transform:translate(-12px,12px);opacity:0} 40%{transform:translate(-12px,12px);opacity:1} 70%,100%{transform:translate(0,0);opacity:1} }
+  @keyframes acq-bracket-br { 0%{transform:translate(12px,12px);opacity:0} 40%{transform:translate(12px,12px);opacity:1} 70%,100%{transform:translate(0,0);opacity:1} }
+  @keyframes acq-diamond { 0%,40%{opacity:0;transform:scale(1.2)} 75%{opacity:1;transform:scale(1)} 100%{opacity:1;transform:scale(1)} }
+  @keyframes acq-pip { 0%,75%{opacity:0;transform:scale(0.4)} 90%,100%{opacity:1;transform:scale(1)} }
+  @keyframes acq-pip-glow { 0%,75%{filter:drop-shadow(0 0 0 rgba(255,184,0,0))} 90%{filter:drop-shadow(0 0 6px rgba(255,184,0,0.8))} 100%{filter:drop-shadow(0 0 4px rgba(255,184,0,0.5))} }
+
+  .anim-acquire .a-brk{ transform-origin:center; animation:none 2.4s cubic-bezier(0.2,0.8,0.2,1) infinite; }
+  .anim-acquire .a-brk.tl{ animation-name:acq-bracket-tl; }
+  .anim-acquire .a-brk.tr{ animation-name:acq-bracket-tr; }
+  .anim-acquire .a-brk.bl{ animation-name:acq-bracket-bl; }
+  .anim-acquire .a-brk.br{ animation-name:acq-bracket-br; }
+  .anim-acquire .a-diamond{ transform-origin:center; transform-box:fill-box; animation:acq-diamond 2.4s cubic-bezier(0.2,0.8,0.2,1) infinite; }
+  .anim-acquire .a-pip{ transform-origin:center; transform-box:fill-box; animation:acq-pip 2.4s cubic-bezier(0.2,0.8,0.2,1) infinite; }
+  .anim-acquire-wrap{ animation:acq-pip-glow 2.4s ease-in-out infinite; }
+
+  /* Animation 2 — SWEEP: rotating sweep ray over a steady mark */
+  @keyframes scope-sweep { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+  @keyframes scope-sweep-pulse { 0%{opacity:0} 5%{opacity:1} 50%{opacity:0.4} 100%{opacity:0} }
+  .sweep-stage-svg{ overflow:visible; }
+  .sweep-rotor{ transform-origin:50% 50%; animation:scope-sweep 3s linear infinite; }
+  .sweep-trail-stop{ animation:scope-sweep-pulse 3s linear infinite; }
+
+  /* Animation 3 — BREATHE: pip breathes amber glow, diamond rotates 1° */
+  @keyframes scope-breathe-pip {
+    0%,100%{ transform:scale(1); filter:drop-shadow(0 0 4px rgba(255,184,0,0.4)); }
+    50%{ transform:scale(1.06); filter:drop-shadow(0 0 10px rgba(255,184,0,0.7)); }
+  }
+  @keyframes scope-breathe-ring {
+    0%,100%{ opacity:0.85; }
+    50%{ opacity:1; }
+  }
+  .breathe-pip{ transform-origin:center; transform-box:fill-box; animation:scope-breathe-pip 3.2s ease-in-out infinite; }
+  .breathe-diamond{ animation:scope-breathe-ring 3.2s ease-in-out infinite; }
+
+  /* TOC strip */
+  .toc{
+    display:flex;gap:24px;flex-wrap:wrap;
+    padding:14px 0;border-top:1px dashed var(--amber-gold-muted);
+    border-bottom:1px dashed var(--amber-gold-muted);
+    margin-bottom:48px;
+  }
+  .toc a{
+    font-family:'Roboto Mono',monospace;font-size:10px;
+    letter-spacing:0.18em;text-transform:uppercase;color:var(--on-surface-variant);
+    display:inline-flex;align-items:center;gap:8px;
+  }
+  .toc a:hover{color:var(--amber-gold)}
+  .toc a span.num{color:var(--amber-gold)}
+
+  /* RESPONSIVE */
+  @media (max-width: 980px){
+    .hero{grid-template-columns:1fr}
+    .hero-title{font-size:44px}
+    .swatch-grid,.signal-grid{grid-template-columns:repeat(2,1fr)}
+    .comp-grid,.type-grid,.pattern-grid,.motion-grid{grid-template-columns:1fr}
+    .icon-strip{grid-template-columns:repeat(4,1fr)}
+    .space-grid{grid-template-columns:repeat(2,1fr)}
+  }
+</style>
+</head>
+<body>
+
+<!-- ============ OPS HEADER ============ -->
+<header class="ops-header">
+  <div class="ops-header-inner">
+    <div class="brand">
+      <!-- Logo · Scope (Direction 07 · adopted 2026-05-01) -->
+      <svg viewBox="0 0 32 32" aria-hidden="true">
+        <g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square">
+          <path d="M2 8 V2 H8"/>
+          <path d="M24 2 H30 V8"/>
+          <path d="M30 24 V30 H24"/>
+          <path d="M8 30 H2 V24"/>
+        </g>
+        <polygon points="16,7 25,16 16,25 7,16" fill="none" stroke="currentColor" stroke-width="2"/>
+        <rect x="14" y="14" width="4" height="4" fill="var(--amber-gold)"/>
+      </svg>
+      <span class="brand-name">VERTEX</span>
+      <span class="brand-sub">Design System</span>
+    </div>
+    <div class="ops-meta">
+      <span>v0.1.0</span>
+      <span>SECTOR · 47.6N 122.3W</span>
+      <span class="live"><span class="live-dot"></span>SYSTEM NOMINAL</span>
+    </div>
+  </div>
+</header>
+
+<div class="frame">
+
+  <!-- ============ HERO ============ -->
+  <section class="hero" aria-label="Introduction">
+    <div>
+      <div class="sec-id" style="margin-bottom:18px">
+        <span>// 00 · BRIEF</span>
+      </div>
+      <h1 class="hero-title">
+        Tactical clarity<br/>
+        <span class="accent">for situational</span><br/>
+        <span class="stroke">awareness.</span>
+      </h1>
+      <p class="hero-lede">
+        Vertex is a real-time situational awareness dashboard. The visual system inherits from operations rooms and tactical HUDs:
+        onyx surfaces, amber-gold signal accents, sharp corners, monospace data, and glassmorphic panels layered over a desaturated map.
+        Color is never decoration — it is a signal.
+      </p>
+      <div class="hero-meta">
+        <div class="hero-meta-cell">
+          <span class="label-caps">Domain</span>
+          <span class="val">PUBLIC SAFETY</span>
+        </div>
+        <div class="hero-meta-cell">
+          <span class="label-caps">Density</span>
+          <span class="val">HIGH · DATA-FIRST</span>
+        </div>
+        <div class="hero-meta-cell">
+          <span class="label-caps">Theme</span>
+          <span class="val">DARK ONLY</span>
+        </div>
+        <div class="hero-meta-cell">
+          <span class="label-caps">Radius</span>
+          <span class="val">0px · ALL</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- HUD CARD -->
+    <div class="hud-card">
+      <div class="hud-card-head">
+        <span class="label-caps">TARGET ACQUIRED</span>
+        <span class="mono" style="font-size:10px;color:var(--on-surface-variant);letter-spacing:0.15em">04 25 · 14:22:07Z</span>
+      </div>
+      <div class="crosshair-frame crosshair-corners">
+        <div class="c1"></div><div class="c2"></div>
+        <div class="target-readout">
+          <div>BEARING <span class="v">047.2°</span></div>
+          <div>RANGE <span class="v">14.6 NM</span></div>
+          <div>STATUS <span class="ok">TRACKING</span></div>
+        </div>
+        <div class="target-center">VRTX-001</div>
+        <div class="target-readout" style="text-align:right">
+          <div>ALT <span class="v">FL340</span></div>
+          <div>SPD <span class="v">462 KTS</span></div>
+          <div>SRC <span class="v">ADS-B · MLAT</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ TOC ============ -->
+  <nav class="toc" aria-label="Table of contents">
+    <a href="#logo"><span class="num">00</span>LOGO · SCOPE</a>
+    <a href="#colors"><span class="num">01</span>COLORS</a>
+    <a href="#signal"><span class="num">02</span>SIGNAL</a>
+    <a href="#type"><span class="num">03</span>TYPOGRAPHY</a>
+    <a href="#space"><span class="num">04</span>SPACING</a>
+    <a href="#components"><span class="num">05</span>COMPONENTS</a>
+    <a href="#panels"><span class="num">06</span>PANELS</a>
+    <a href="#icons"><span class="num">07</span>ICONS</a>
+    <a href="#motion"><span class="num">08</span>MOTION</a>
+    <a href="#layouts"><span class="num">09</span>LAYOUTS</a>
+    <a href="#store"><span class="num">10</span>STORE</a>
+    <a href="#patterns"><span class="num">11</span>PATTERNS</a>
+  </nav>
+
+  <!-- ============ 00 LOGO · SCOPE ============ -->
+  <section id="logo">
+    <div class="sec-head">
+      <div>
+        <div class="sec-id"><span>// 00 · LOGO · SCOPE</span></div>
+        <h2 class="sec-title">The Mark</h2>
+      </div>
+      <div class="sec-meta">
+        DIRECTION · <strong>07 · SCOPE</strong><br/>
+        ADOPTED · <strong>2026-05-01</strong>
+      </div>
+    </div>
+
+    <!-- HERO + RATIONALE -->
+    <div class="logo-hero">
+      <div class="scope-stage">
+        <div class="corner-tl"></div><div class="corner-tr"></div>
+        <div class="corner-bl"></div><div class="corner-br"></div>
+        <div class="scope-stage-meta-tl">VRTX-LOGO · 07</div>
+        <div class="scope-stage-meta-tr">32 × 32 · BASE GRID</div>
+        <div class="scope-stage-meta-bl">SAFE · 4PX</div>
+        <div class="scope-stage-meta-br">PRIMARY MARK</div>
+
+        <!-- Big Scope mark -->
+        <svg class="scope-hero-mark" width="320" height="320" viewBox="0 0 32 32" aria-label="Vertex Scope logo">
+          <g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square">
+            <path d="M2 8 V2 H8"/>
+            <path d="M24 2 H30 V8"/>
+            <path d="M30 24 V30 H24"/>
+            <path d="M8 30 H2 V24"/>
+          </g>
+          <polygon points="16,7 25,16 16,25 7,16" fill="none" stroke="currentColor" stroke-width="2"/>
+          <rect x="14" y="14" width="4" height="4" fill="var(--amber-gold)"/>
+        </svg>
+      </div>
+
+      <aside class="logo-rationale">
+        <div class="lr-head">
+          <span class="name">SCOPE</span>
+          <span class="code">// DIR-07 · ADOPTED</span>
+        </div>
+        <p class="lr-body">
+          The mark is a <strong>viewfinder closing on a vertex</strong>: four corner brackets
+          frame an inner diamond — the apex — locked by a single amber pip. It collapses
+          three earlier finalists (<em>Bracket Reticle</em>, <em>Waypoint Node</em>, <em>V Monogram</em>)
+          into one: tactical framing, navigational geometry, and the literal vertex of a
+          plotted target. Every element is on the 32×32 grid; nothing rounds.
+        </p>
+        <div class="lr-meta">
+          <div class="lr-meta-cell">
+            <span class="label-caps">Grid</span>
+            <span class="v">32 × 32 · 1px units</span>
+          </div>
+          <div class="lr-meta-cell">
+            <span class="label-caps">Stroke</span>
+            <span class="v">1.5px frame · 2px diamond</span>
+          </div>
+          <div class="lr-meta-cell">
+            <span class="label-caps">Pip</span>
+            <span class="v">4 × 4 · #FFB800</span>
+          </div>
+          <div class="lr-meta-cell">
+            <span class="label-caps">Min</span>
+            <span class="v">16px · digital floor</span>
+          </div>
+        </div>
+      </aside>
+    </div>
+
+    <!-- SCALE LADDER -->
+    <div class="logo-block">
+      <div class="logo-block-head">
+        <span class="name">SCALE LADDER</span>
+        <span class="tag">16 → 96 PX · DIGITAL</span>
+      </div>
+      <div class="logo-block-body">
+        <div class="scale-ladder">
+          <!-- 16 -->
+          <div class="scale-rung min-flag">
+            <div class="rung-mark"><svg width="16" height="16" viewBox="0 0 32 32"><g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square"><path d="M2 8 V2 H8"/><path d="M24 2 H30 V8"/><path d="M30 24 V30 H24"/><path d="M8 30 H2 V24"/></g><polygon points="16,7 25,16 16,25 7,16" fill="none" stroke="currentColor" stroke-width="2"/><rect x="14" y="14" width="4" height="4" fill="#FFB800"/></svg></div>
+            <div class="rung-meta"><span class="px">16</span><span class="ctx">Favicon</span></div>
+          </div>
+          <!-- 20 -->
+          <div class="scale-rung">
+            <div class="rung-mark"><svg width="20" height="20" viewBox="0 0 32 32"><g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square"><path d="M2 8 V2 H8"/><path d="M24 2 H30 V8"/><path d="M30 24 V30 H24"/><path d="M8 30 H2 V24"/></g><polygon points="16,7 25,16 16,25 7,16" fill="none" stroke="currentColor" stroke-width="2"/><rect x="14" y="14" width="4" height="4" fill="#FFB800"/></svg></div>
+            <div class="rung-meta"><span class="px">20</span><span class="ctx">Inline UI</span></div>
+          </div>
+          <!-- 24 -->
+          <div class="scale-rung">
+            <div class="rung-mark"><svg width="24" height="24" viewBox="0 0 32 32"><g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square"><path d="M2 8 V2 H8"/><path d="M24 2 H30 V8"/><path d="M30 24 V30 H24"/><path d="M8 30 H2 V24"/></g><polygon points="16,7 25,16 16,25 7,16" fill="none" stroke="currentColor" stroke-width="2"/><rect x="14" y="14" width="4" height="4" fill="#FFB800"/></svg></div>
+            <div class="rung-meta"><span class="px">24</span><span class="ctx">Avatar</span></div>
+          </div>
+          <!-- 28 (header) -->
+          <div class="scale-rung">
+            <div class="rung-mark"><svg width="28" height="28" viewBox="0 0 32 32"><g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square"><path d="M2 8 V2 H8"/><path d="M24 2 H30 V8"/><path d="M30 24 V30 H24"/><path d="M8 30 H2 V24"/></g><polygon points="16,7 25,16 16,25 7,16" fill="none" stroke="currentColor" stroke-width="2"/><rect x="14" y="14" width="4" height="4" fill="#FFB800"/></svg></div>
+            <div class="rung-meta"><span class="px">28</span><span class="ctx">Ops Header</span></div>
+          </div>
+          <!-- 40 -->
+          <div class="scale-rung">
+            <div class="rung-mark"><svg width="40" height="40" viewBox="0 0 32 32"><g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square"><path d="M2 8 V2 H8"/><path d="M24 2 H30 V8"/><path d="M30 24 V30 H24"/><path d="M8 30 H2 V24"/></g><polygon points="16,7 25,16 16,25 7,16" fill="none" stroke="currentColor" stroke-width="2"/><rect x="14" y="14" width="4" height="4" fill="#FFB800"/></svg></div>
+            <div class="rung-meta"><span class="px">40</span><span class="ctx">Splash</span></div>
+          </div>
+          <!-- 56 -->
+          <div class="scale-rung">
+            <div class="rung-mark"><svg width="56" height="56" viewBox="0 0 32 32"><g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square"><path d="M2 8 V2 H8"/><path d="M24 2 H30 V8"/><path d="M30 24 V30 H24"/><path d="M8 30 H2 V24"/></g><polygon points="16,7 25,16 16,25 7,16" fill="none" stroke="currentColor" stroke-width="2"/><rect x="14" y="14" width="4" height="4" fill="#FFB800"/></svg></div>
+            <div class="rung-meta"><span class="px">56</span><span class="ctx">Lockup</span></div>
+          </div>
+          <!-- 72 -->
+          <div class="scale-rung">
+            <div class="rung-mark"><svg width="72" height="72" viewBox="0 0 32 32"><g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square"><path d="M2 8 V2 H8"/><path d="M24 2 H30 V8"/><path d="M30 24 V30 H24"/><path d="M8 30 H2 V24"/></g><polygon points="16,7 25,16 16,25 7,16" fill="none" stroke="currentColor" stroke-width="2"/><rect x="14" y="14" width="4" height="4" fill="#FFB800"/></svg></div>
+            <div class="rung-meta"><span class="px">72</span><span class="ctx">Marketing</span></div>
+          </div>
+          <!-- 96 -->
+          <div class="scale-rung">
+            <div class="rung-mark"><svg width="96" height="96" viewBox="0 0 32 32"><g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square"><path d="M2 8 V2 H8"/><path d="M24 2 H30 V8"/><path d="M30 24 V30 H24"/><path d="M8 30 H2 V24"/></g><polygon points="16,7 25,16 16,25 7,16" fill="none" stroke="currentColor" stroke-width="2"/><rect x="14" y="14" width="4" height="4" fill="#FFB800"/></svg></div>
+            <div class="rung-meta"><span class="px">96</span><span class="ctx">Hero</span></div>
+          </div>
+        </div>
+
+        <div class="scale-legend">
+          <div>FLOOR · <span class="k">16PX</span> &nbsp; CEILING · <span class="k">UNCAPPED</span></div>
+          <div class="scale-legend-rules">
+            <span>STROKE · <span class="k">CONSTANT 1.5 / 2 PX</span></span>
+            <span>NEVER SCALE STROKES</span>
+            <span>SVG ONLY · NO RASTER UNDER 96PX</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- WORDMARK / LOCKUPS -->
+    <div class="logo-block">
+      <div class="logo-block-head">
+        <span class="name">WORDMARK &amp; LOCKUPS</span>
+        <span class="tag">INTER 900 · TRACKING +0.08em</span>
+      </div>
+      <div class="logo-block-body" style="padding:0">
+        <div class="lockup-grid">
+
+          <!-- Horizontal -->
+          <div class="lockup-cell">
+            <div class="lockup-stage">
+              <div class="lockup-horiz">
+                <svg width="44" height="44" viewBox="0 0 32 32"><g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square" style="color:#fff"><path d="M2 8 V2 H8"/><path d="M24 2 H30 V8"/><path d="M30 24 V30 H24"/><path d="M8 30 H2 V24"/></g><polygon points="16,7 25,16 16,25 7,16" fill="none" stroke="#fff" stroke-width="2"/><rect x="14" y="14" width="4" height="4" fill="#FFB800"/></svg>
+                <div class="divider"></div>
+                <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-start">
+                  <span class="lockup-wordmark" style="font-size:28px">VERTEX</span>
+                  <span class="lockup-tag">SITUATIONAL AWARENESS</span>
+                </div>
+              </div>
+            </div>
+            <div class="lockup-foot">
+              <span class="ttl">A · HORIZONTAL</span>
+              <span class="id">PRIMARY · ON-ONYX</span>
+            </div>
+          </div>
+
+          <!-- Stacked -->
+          <div class="lockup-cell">
+            <div class="lockup-stage">
+              <div class="lockup-vert">
+                <svg width="56" height="56" viewBox="0 0 32 32"><g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square" style="color:#fff"><path d="M2 8 V2 H8"/><path d="M24 2 H30 V8"/><path d="M30 24 V30 H24"/><path d="M8 30 H2 V24"/></g><polygon points="16,7 25,16 16,25 7,16" fill="none" stroke="#fff" stroke-width="2"/><rect x="14" y="14" width="4" height="4" fill="#FFB800"/></svg>
+                <span class="lockup-wordmark" style="font-size:22px">VERTEX</span>
+                <span class="lockup-tag" style="letter-spacing:0.32em">SECTOR · 47.6N 122.3W</span>
+              </div>
+            </div>
+            <div class="lockup-foot">
+              <span class="ttl">B · STACKED</span>
+              <span class="id">SPLASH · BOOT</span>
+            </div>
+          </div>
+
+          <!-- Inverted (on amber) -->
+          <div class="lockup-cell inverted">
+            <div class="lockup-stage">
+              <div class="lockup-horiz">
+                <svg width="44" height="44" viewBox="0 0 32 32"><g fill="none" stroke="#050505" stroke-width="1.5" stroke-linecap="square"><path d="M2 8 V2 H8"/><path d="M24 2 H30 V8"/><path d="M30 24 V30 H24"/><path d="M8 30 H2 V24"/></g><polygon points="16,7 25,16 16,25 7,16" fill="none" stroke="#050505" stroke-width="2"/><rect x="14" y="14" width="4" height="4" fill="#050505"/></svg>
+                <div class="divider"></div>
+                <span class="lockup-wordmark" style="font-size:28px">VERTEX</span>
+              </div>
+            </div>
+            <div class="lockup-foot">
+              <span class="ttl">C · INVERTED</span>
+              <span class="id">ON AMBER · ALERT</span>
+            </div>
+          </div>
+
+          <!-- Mark only -->
+          <div class="lockup-cell mono">
+            <div class="lockup-stage">
+              <svg width="80" height="80" viewBox="0 0 32 32"><g fill="none" stroke="#fff" stroke-width="1.5" stroke-linecap="square"><path d="M2 8 V2 H8"/><path d="M24 2 H30 V8"/><path d="M30 24 V30 H24"/><path d="M8 30 H2 V24"/></g><polygon points="16,7 25,16 16,25 7,16" fill="none" stroke="#fff" stroke-width="2"/><rect x="14" y="14" width="4" height="4" fill="#FFB800"/></svg>
+            </div>
+            <div class="lockup-foot">
+              <span class="ttl">D · MARK ONLY</span>
+              <span class="id">FAVICON · APP TILE</span>
+            </div>
+          </div>
+
+          <!-- Wordmark only -->
+          <div class="lockup-cell">
+            <div class="lockup-stage">
+              <div class="lockup-vert">
+                <span class="lockup-wordmark" style="font-size:38px">VERTEX</span>
+                <span class="lockup-tag">DESIGN SYSTEM v0.1</span>
+              </div>
+            </div>
+            <div class="lockup-foot">
+              <span class="ttl">E · WORDMARK</span>
+              <span class="id">DOCUMENT TITLES</span>
+            </div>
+          </div>
+
+          <!-- Mono / single-color -->
+          <div class="lockup-cell mono">
+            <div class="lockup-stage">
+              <div class="lockup-horiz">
+                <svg width="44" height="44" viewBox="0 0 32 32"><g fill="none" stroke="#8C8C8C" stroke-width="1.5" stroke-linecap="square"><path d="M2 8 V2 H8"/><path d="M24 2 H30 V8"/><path d="M30 24 V30 H24"/><path d="M8 30 H2 V24"/></g><polygon points="16,7 25,16 16,25 7,16" fill="none" stroke="#8C8C8C" stroke-width="2"/><rect x="14" y="14" width="4" height="4" fill="#8C8C8C"/></svg>
+                <div class="divider" style="background:#333"></div>
+                <span class="lockup-wordmark" style="font-size:28px;color:#8C8C8C">VERTEX</span>
+              </div>
+            </div>
+            <div class="lockup-foot">
+              <span class="ttl" style="color:#8C8C8C">F · MONOCHROME</span>
+              <span class="id">PRINT · LOW-INK</span>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- CONSTRUCTION & CLEARSPACE -->
+    <div class="logo-block">
+      <div class="logo-block-head">
+        <span class="name">CONSTRUCTION &amp; CLEARSPACE</span>
+        <span class="tag">X = PIP UNIT · 4PX</span>
+      </div>
+      <div class="logo-block-body">
+        <div class="construction-grid">
+          <div class="construction-frame">
+            <div class="clear-area"></div>
+            <svg width="100%" height="100%" viewBox="0 0 32 32" style="max-width:320px">
+              <g fill="none" stroke="#fff" stroke-width="1.5" stroke-linecap="square">
+                <path d="M2 8 V2 H8"/>
+                <path d="M24 2 H30 V8"/>
+                <path d="M30 24 V30 H24"/>
+                <path d="M8 30 H2 V24"/>
+              </g>
+              <polygon points="16,7 25,16 16,25 7,16" fill="none" stroke="#fff" stroke-width="2"/>
+              <rect x="14" y="14" width="4" height="4" fill="#FFB800"/>
+            </svg>
+            <div class="x-marker"><span class="swatch"></span>1X = 4PX</div>
+          </div>
+          <div class="construction-notes">
+            <div class="construction-note">
+              <div class="nh">// CLEARSPACE</div>
+              <div class="nb">Maintain <code>1X</code> minimum clearance on every side. Inside the dashed boundary the mark is sovereign — no type, no UI chrome, no cropping.</div>
+            </div>
+            <div class="construction-note">
+              <div class="nh">// GRID</div>
+              <div class="nb">All vertices snap to the <code>32 × 32</code> integer grid. Bracket arms are <code>6X long × 1X stroke</code>. Diamond vertices at <code>(16,7)·(25,16)·(16,25)·(7,16)</code>.</div>
+            </div>
+            <div class="construction-note">
+              <div class="nh">// PIP</div>
+              <div class="nb">The amber pip is <code>4 × 4</code> centered at the optical vertex. It is the <strong>only</strong> filled shape and the <strong>only</strong> use of <code>--amber-gold</code> in the mark.</div>
+            </div>
+            <div class="construction-note">
+              <div class="nh">// DON'T</div>
+              <div class="nb">Don't recolor the pip · don't round corners · don't add a background plate · don't outline the wordmark · don't combine with the legacy V monogram.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ANIMATION STYLES -->
+    <div class="logo-block">
+      <div class="logo-block-head">
+        <span class="name">ANIMATION STYLES</span>
+        <span class="tag">3 REFERENCE TREATMENTS</span>
+      </div>
+      <div class="logo-block-body" style="padding:0">
+        <div class="anim-grid">
+
+          <!-- ACQUIRE -->
+          <div class="anim-card">
+            <div class="anim-stage">
+              <div class="anim-acquire-wrap">
+              <svg class="anim-acquire" width="180" height="180" viewBox="0 0 32 32">
+                <g fill="none" stroke="#fff" stroke-width="1.5" stroke-linecap="square">
+                  <path class="a-brk tl" d="M2 8 V2 H8"/>
+                  <path class="a-brk tr" d="M24 2 H30 V8"/>
+                  <path class="a-brk br" d="M30 24 V30 H24"/>
+                  <path class="a-brk bl" d="M8 30 H2 V24"/>
+                </g>
+                <polygon class="a-diamond" points="16,7 25,16 16,25 7,16" fill="none" stroke="#fff" stroke-width="2"/>
+                <rect class="a-pip" x="14" y="14" width="4" height="4" fill="#FFB800"/>
+              </svg>
+              </div>
+            </div>
+            <div class="anim-meta">
+              <div class="anim-name"><span>ACQUIRE</span><span class="anim-id">M-01</span></div>
+              <div class="anim-spec">2400ms · cubic-bezier(0.2, 0.8, 0.2, 1)</div>
+              <div class="anim-desc">Brackets fly in from corners, the diamond fades, the pip locks last with a single glow tick. The mark assembles itself.</div>
+              <div class="anim-use"><strong>USE</strong> · BOOT · APP-LAUNCH · LOGIN HANDSHAKE</div>
+            </div>
+          </div>
+
+          <!-- SWEEP -->
+          <div class="anim-card">
+            <div class="anim-stage">
+              <svg class="sweep-stage-svg" width="180" height="180" viewBox="0 0 32 32">
+                <defs>
+                  <linearGradient id="sweepTrail" x1="0" y1="0" x2="1" y2="0">
+                    <stop offset="0%" stop-color="#FFB800" stop-opacity="0"/>
+                    <stop offset="100%" stop-color="#FFB800" stop-opacity="0.5"/>
+                  </linearGradient>
+                </defs>
+                <!-- Static mark -->
+                <g fill="none" stroke="#fff" stroke-width="1.5" stroke-linecap="square">
+                  <path d="M2 8 V2 H8"/>
+                  <path d="M24 2 H30 V8"/>
+                  <path d="M30 24 V30 H24"/>
+                  <path d="M8 30 H2 V24"/>
+                </g>
+                <polygon points="16,7 25,16 16,25 7,16" fill="none" stroke="#fff" stroke-width="2"/>
+                <rect x="14" y="14" width="4" height="4" fill="#FFB800"/>
+                <!-- Rotating sweep ray -->
+                <g class="sweep-rotor">
+                  <path d="M16 16 L16 4 A12 12 0 0 1 27 12 Z" fill="url(#sweepTrail)" opacity="0.7"/>
+                  <line x1="16" y1="16" x2="16" y2="4" stroke="#FFB800" stroke-width="0.6"/>
+                </g>
+              </svg>
+            </div>
+            <div class="anim-meta">
+              <div class="anim-name"><span>SWEEP</span><span class="anim-id">M-02</span></div>
+              <div class="anim-spec">3000ms · linear · loop</div>
+              <div class="anim-desc">Mark holds steady; an amber ray sweeps clockwise inside the diamond — a radar pass over a fixed target. Reads as <em>active</em> without flashing.</div>
+              <div class="anim-use"><strong>USE</strong> · LOADING · SCANNING · LIVE DATA REFRESH</div>
+            </div>
+          </div>
+
+          <!-- BREATHE -->
+          <div class="anim-card">
+            <div class="anim-stage">
+              <svg width="180" height="180" viewBox="0 0 32 32">
+                <g fill="none" stroke="#fff" stroke-width="1.5" stroke-linecap="square">
+                  <path d="M2 8 V2 H8"/>
+                  <path d="M24 2 H30 V8"/>
+                  <path d="M30 24 V30 H24"/>
+                  <path d="M8 30 H2 V24"/>
+                </g>
+                <polygon class="breathe-diamond" points="16,7 25,16 16,25 7,16" fill="none" stroke="#fff" stroke-width="2"/>
+                <rect class="breathe-pip" x="14" y="14" width="4" height="4" fill="#FFB800"/>
+              </svg>
+            </div>
+            <div class="anim-meta">
+              <div class="anim-name"><span>BREATHE</span><span class="anim-id">M-03</span></div>
+              <div class="anim-spec">3200ms · ease-in-out · loop</div>
+              <div class="anim-desc">Pip pulses with amber glow at heart-rate cadence. The diamond stroke breathes opacity in sync. Quiet, alive — never demanding attention.</div>
+              <div class="anim-use"><strong>USE</strong> · IDLE · STANDBY · BACKGROUND TAB</div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 01 COLORS ============ -->
+  <section id="colors">
+    <div class="sec-head">
+      <div>
+        <div class="sec-id"><span>// 01 · COLORS</span></div>
+        <h2 class="sec-title">Surface &amp; Foreground</h2>
+      </div>
+      <div class="sec-meta">
+        BASE · <strong>ONYX</strong><br/>
+        ACCENT · <strong>AMBER-GOLD</strong>
+      </div>
+    </div>
+
+    <div class="swatch-grid" style="margin-bottom:32px">
+      <div class="swatch">
+        <div class="swatch-tile" style="background:#050505"></div>
+        <div class="swatch-meta">
+          <div class="swatch-name">Onyx Black</div>
+          <div class="swatch-hex">#050505</div>
+          <div class="swatch-token">--onyx-black · --surface</div>
+        </div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-tile" style="background:#0a0a0a"></div>
+        <div class="swatch-meta">
+          <div class="swatch-name">Onyx Deep</div>
+          <div class="swatch-hex">#0A0A0A</div>
+          <div class="swatch-token">--onyx-deep</div>
+        </div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-tile" style="background:#0F0F0F"></div>
+        <div class="swatch-meta">
+          <div class="swatch-name">Surface Container</div>
+          <div class="swatch-hex">#0F0F0F</div>
+          <div class="swatch-token">--surface-container</div>
+        </div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-tile" style="background:#1A1A1A"></div>
+        <div class="swatch-meta">
+          <div class="swatch-name">Container Highest</div>
+          <div class="swatch-hex">#1A1A1A</div>
+          <div class="swatch-token">--surface-container-highest</div>
+        </div>
+      </div>
+
+      <div class="swatch">
+        <div class="swatch-tile" style="background:#FFB800;box-shadow:inset 0 0 40px rgba(255,255,255,0.1)"></div>
+        <div class="swatch-meta">
+          <div class="swatch-name" style="color:var(--amber-gold)">Amber Gold</div>
+          <div class="swatch-hex">#FFB800</div>
+          <div class="swatch-token">--amber-gold · primary</div>
+        </div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-tile" style="background:#B88600"></div>
+        <div class="swatch-meta">
+          <div class="swatch-name">Amber Dim</div>
+          <div class="swatch-hex">#B88600</div>
+          <div class="swatch-token">--amber-gold-dim</div>
+        </div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-tile" style="background:#4D3800"></div>
+        <div class="swatch-meta">
+          <div class="swatch-name">Amber Muted</div>
+          <div class="swatch-hex">#4D3800</div>
+          <div class="swatch-token">--amber-gold-muted · borders</div>
+        </div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-tile" style="background:#F2F2F2"></div>
+        <div class="swatch-meta">
+          <div class="swatch-name">On Surface</div>
+          <div class="swatch-hex">#F2F2F2</div>
+          <div class="swatch-token">--on-surface · primary text</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="swatch-grid rows-3">
+      <div class="swatch">
+        <div class="swatch-tile" style="background:#8C8C8C"></div>
+        <div class="swatch-meta">
+          <div class="swatch-name">On Surface Variant</div>
+          <div class="swatch-hex">#8C8C8C</div>
+          <div class="swatch-token">--on-surface-variant · secondary text</div>
+        </div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-tile" style="background:#333333"></div>
+        <div class="swatch-meta">
+          <div class="swatch-name">Outline Variant</div>
+          <div class="swatch-hex">#333333</div>
+          <div class="swatch-token">--outline-variant · neutral border</div>
+        </div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-tile" style="background:linear-gradient(135deg,#050505,#1A1A1A)"></div>
+        <div class="swatch-meta">
+          <div class="swatch-name">Glass HUD</div>
+          <div class="swatch-hex">rgba(5,5,5,0.8) + blur(20px)</div>
+          <div class="swatch-token">.hud-panel · glassmorphic surface</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 02 SIGNAL COLORS ============ -->
+  <section id="signal">
+    <div class="sec-head">
+      <div>
+        <div class="sec-id"><span>// 02 · SIGNAL</span></div>
+        <h2 class="sec-title">Signal Colors</h2>
+      </div>
+      <div class="sec-meta">
+        SEMANTIC · NEVER DECORATIVE<br/>
+        <strong>4 CHANNELS</strong>
+      </div>
+    </div>
+
+    <div class="signal-grid">
+      <!-- ADSB -->
+      <div class="signal-card">
+        <div class="signal-row">
+          <span class="ms ms-fill" style="color:var(--cyan-adsb)">flight</span>
+          <span class="signal-name" style="color:var(--cyan-adsb)">ADS-B</span>
+          <span class="signal-pulse adsb" style="margin-left:auto"></span>
+        </div>
+        <div class="signal-bar"><span style="background:var(--cyan-adsb);box-shadow:0 0 8px var(--cyan-adsb)"></span></div>
+        <div class="mono">AIRCRAFT · MLAT · CYAN</div>
+        <div class="mono" style="color:var(--cyan-adsb)">#00BFFF</div>
+      </div>
+      <!-- AIS -->
+      <div class="signal-card">
+        <div class="signal-row">
+          <span class="ms ms-fill" style="color:var(--green-ais)">directions_boat</span>
+          <span class="signal-name" style="color:var(--green-ais)">AIS</span>
+          <span class="signal-pulse ais" style="margin-left:auto"></span>
+        </div>
+        <div class="signal-bar"><span style="background:var(--green-ais);box-shadow:0 0 8px var(--green-ais)"></span></div>
+        <div class="mono">VESSELS · MARITIME · GREEN</div>
+        <div class="mono" style="color:var(--green-ais)">#00C853</div>
+      </div>
+      <!-- P25 -->
+      <div class="signal-card">
+        <div class="signal-row">
+          <span class="ms ms-fill" style="color:var(--amber-p25)">router</span>
+          <span class="signal-name" style="color:var(--amber-p25)">P25 / MESH</span>
+          <span class="signal-pulse p25" style="margin-left:auto"></span>
+        </div>
+        <div class="signal-bar"><span style="background:var(--amber-p25);box-shadow:0 0 8px var(--amber-p25)"></span></div>
+        <div class="mono">RADIO · MESH NODES · ORANGE</div>
+        <div class="mono" style="color:var(--amber-p25)">#FF8F00</div>
+      </div>
+      <!-- EMERG -->
+      <div class="signal-card">
+        <div class="signal-row">
+          <span class="ms ms-fill" style="color:var(--red-emergency)">warning</span>
+          <span class="signal-name" style="color:var(--red-emergency)">EMERGENCY</span>
+          <span class="signal-pulse emerg" style="margin-left:auto"></span>
+        </div>
+        <div class="signal-bar"><span style="background:var(--red-emergency);box-shadow:0 0 8px var(--red-emergency)"></span></div>
+        <div class="mono">CRITICAL · INCIDENTS · RED</div>
+        <div class="mono" style="color:var(--red-emergency)">#C62828</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 03 TYPOGRAPHY ============ -->
+  <section id="type">
+    <div class="sec-head">
+      <div>
+        <div class="sec-id"><span>// 03 · TYPOGRAPHY</span></div>
+        <h2 class="sec-title">Type System</h2>
+      </div>
+      <div class="sec-meta">
+        BODY · <strong>INTER</strong><br/>
+        DATA · <strong>ROBOTO MONO</strong>
+      </div>
+    </div>
+
+    <div class="type-grid" style="margin-bottom:24px">
+      <div class="type-spec">
+        <span class="label-caps">DISPLAY · INTER 900</span>
+        <div class="type-sample" style="font-weight:900;font-size:48px;line-height:1;letter-spacing:-0.02em">VERTEX 01</div>
+        <div class="type-meta">family <span>Inter</span> · weight <span>900</span> · size <span>48px</span> · tracking <span>-2%</span></div>
+      </div>
+      <div class="type-spec">
+        <span class="label-caps">MONO · ROBOTO MONO 500</span>
+        <div class="type-sample" style="font-family:'Roboto Mono',monospace;font-weight:500;font-size:32px;color:var(--amber-gold)">047.2°N</div>
+        <div class="type-meta">family <span>Roboto Mono</span> · weight <span>500</span> · size <span>32px</span> · tabular</div>
+      </div>
+    </div>
+
+    <div class="scale">
+      <div class="scale-row">
+        <span class="tag">DISPLAY</span>
+        <span style="font-weight:900;font-size:48px;line-height:1;letter-spacing:-0.02em">Tactical Clarity</span>
+        <span class="meta">48 / 900 · -2%</span>
+      </div>
+      <div class="scale-row">
+        <span class="tag">H1</span>
+        <span style="font-weight:900;font-size:32px;line-height:1.05">Section Heading</span>
+        <span class="meta">32 / 900 · -1%</span>
+      </div>
+      <div class="scale-row">
+        <span class="tag">H2</span>
+        <span style="font-weight:700;font-size:20px">Panel Subhead</span>
+        <span class="meta">20 / 700</span>
+      </div>
+      <div class="scale-row">
+        <span class="tag">BODY</span>
+        <span style="font-size:14px">Default body copy is rare in tactical UI — keep prose terse, density high.</span>
+        <span class="meta">14 / 400 · 1.5</span>
+      </div>
+      <div class="scale-row">
+        <span class="tag">SMALL</span>
+        <span style="font-size:12px;color:var(--on-surface)">Card body / incident summary text.</span>
+        <span class="meta">12 / 400</span>
+      </div>
+      <div class="scale-row">
+        <span class="tag">LABEL</span>
+        <span class="label-caps">SECTION HEADING · LABEL CAPS</span>
+        <span class="meta">10 / 700 · +18%</span>
+      </div>
+      <div class="scale-row">
+        <span class="tag">DATA</span>
+        <span style="font-family:'Roboto Mono',monospace;font-size:11px;color:var(--amber-gold)">FL340 · 462 KTS · 047°</span>
+        <span class="meta">11 / 500 · MONO</span>
+      </div>
+      <div class="scale-row">
+        <span class="tag">STATUS</span>
+        <span style="font-family:'Roboto Mono',monospace;font-size:9px;letter-spacing:0.18em;text-transform:uppercase;color:var(--on-surface-variant)">LIVE · 12 ENTITIES · 04:25</span>
+        <span class="meta">9 / 700 · +18%</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 04 SPACING / RADIUS ============ -->
+  <section id="space">
+    <div class="sec-head">
+      <div>
+        <div class="sec-id"><span>// 04 · SPACING</span></div>
+        <h2 class="sec-title">Geometry &amp; Spacing</h2>
+      </div>
+      <div class="sec-meta">
+        RADIUS · <strong>0PX</strong><br/>
+        BASE UNIT · <strong>4PX</strong>
+      </div>
+    </div>
+
+    <div class="space-grid">
+      <div class="space-card">
+        <div class="space-bar" style="width:8px"></div>
+        <span class="label-caps">XS · 8px</span>
+        <div class="mono">Inline gaps · pill padding</div>
+      </div>
+      <div class="space-card">
+        <div class="space-bar" style="width:16px"></div>
+        <span class="label-caps">SM · 16px</span>
+        <div class="mono">Card internal · row gap</div>
+      </div>
+      <div class="space-card">
+        <div class="space-bar" style="width:24px"></div>
+        <span class="label-caps">MD · 24px</span>
+        <div class="mono">Panel padding · grid gap</div>
+      </div>
+      <div class="space-card">
+        <div class="space-bar" style="width:32px"></div>
+        <span class="label-caps">LG · 32px</span>
+        <div class="mono">Section · frame margin</div>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:20px">
+      <div class="space-card">
+        <span class="label-caps">CORNER RADIUS</span>
+        <div style="display:flex;gap:12px;align-items:center;margin-top:12px">
+          <div style="width:40px;height:40px;background:var(--amber-gold);border-radius:0"></div>
+          <div class="mono" style="font-size:11px;color:var(--on-surface)">0px · sharp · all surfaces</div>
+        </div>
+      </div>
+      <div class="space-card">
+        <span class="label-caps">CORNER RADIUS · DOT</span>
+        <div style="display:flex;gap:12px;align-items:center;margin-top:12px">
+          <div style="width:40px;height:40px;background:var(--amber-gold);border-radius:9999px"></div>
+          <div class="mono" style="font-size:11px;color:var(--on-surface)">9999px · dots/markers only</div>
+        </div>
+      </div>
+      <div class="space-card">
+        <span class="label-caps">BORDERS</span>
+        <div style="display:flex;flex-direction:column;gap:6px;margin-top:12px">
+          <div style="height:1px;background:var(--amber-gold)"></div>
+          <div class="mono" style="font-size:10px;color:var(--on-surface-variant)">1px · amber-gold · primary</div>
+          <div style="height:1px;background:var(--amber-gold-muted);margin-top:6px"></div>
+          <div class="mono" style="font-size:10px;color:var(--on-surface-variant)">1px · amber-gold-muted · secondary</div>
+          <div style="height:1px;background:var(--outline-variant);margin-top:6px"></div>
+          <div class="mono" style="font-size:10px;color:var(--on-surface-variant)">1px · outline-variant · neutral</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 05 COMPONENTS ============ -->
+  <section id="components">
+    <div class="sec-head">
+      <div>
+        <div class="sec-id"><span>// 05 · COMPONENTS</span></div>
+        <h2 class="sec-title">Controls &amp; Atoms</h2>
+      </div>
+      <div class="sec-meta">
+        REACT · TAILWIND<br/>
+        <strong>ATOMIC</strong>
+      </div>
+    </div>
+
+    <div class="comp-grid">
+      <!-- BUTTONS -->
+      <div class="comp">
+        <div class="comp-head"><span class="comp-name">BUTTON · PRIMARY</span><span class="comp-tag">.btn-primary</span></div>
+        <div class="comp-body">
+          <button class="btn-primary">DEPLOY</button>
+          <button class="btn-primary">CONFIRM ACTION</button>
+          <button class="btn-primary" disabled style="opacity:0.4;cursor:not-allowed">DISABLED</button>
+        </div>
+      </div>
+      <div class="comp">
+        <div class="comp-head"><span class="comp-name">BUTTON · GHOST</span><span class="comp-tag">.btn-ghost</span></div>
+        <div class="comp-body">
+          <button class="btn-ghost">DETAILS</button>
+          <button class="btn-ghost">ACK</button>
+          <button class="btn-ghost">CANCEL</button>
+        </div>
+      </div>
+      <div class="comp">
+        <div class="comp-head"><span class="comp-name">BUTTON · DANGER</span><span class="comp-tag">EMERGENCY</span></div>
+        <div class="comp-body">
+          <button class="btn-danger">DECLARE CRITICAL</button>
+          <button class="btn-icon" title="alert" style="border-color:var(--red-emergency);color:var(--red-emergency)"><span class="ms" style="font-size:18px">warning</span></button>
+        </div>
+      </div>
+      <div class="comp">
+        <div class="comp-head"><span class="comp-name">ICON BUTTONS</span><span class="comp-tag">32×32 · 1PX BORDER</span></div>
+        <div class="comp-body">
+          <button class="btn-icon"><span class="ms" style="font-size:18px">notifications</span></button>
+          <button class="btn-icon"><span class="ms" style="font-size:18px">settings</span></button>
+          <button class="btn-icon"><span class="ms" style="font-size:18px">filter_alt</span></button>
+          <button class="btn-icon"><span class="ms" style="font-size:18px">layers</span></button>
+          <button class="btn-icon"><span class="ms" style="font-size:18px">history</span></button>
+          <button class="btn-icon"><span class="ms" style="font-size:18px">close</span></button>
+        </div>
+      </div>
+
+      <!-- MODE TOGGLE -->
+      <div class="comp">
+        <div class="comp-head"><span class="comp-name">MODE TOGGLE</span><span class="comp-tag">CALM · CRITICAL</span></div>
+        <div class="comp-body">
+          <div class="mode-toggle" role="group" aria-label="Mode">
+            <button class="calm" aria-pressed="true">CALM</button>
+            <button class="crit" aria-pressed="false">CRITICAL</button>
+          </div>
+          <div class="mode-toggle" role="group" aria-label="Mode 2">
+            <button class="calm" aria-pressed="false">CALM</button>
+            <button class="crit" aria-pressed="true">CRITICAL</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- PILLS -->
+      <div class="comp">
+        <div class="comp-head"><span class="comp-name">STATUS PILLS</span><span class="comp-tag">.tl-* · TRAFFIC LIGHT</span></div>
+        <div class="comp-body">
+          <span class="pill tl-green">NOMINAL</span>
+          <span class="pill tl-yellow">ELEVATED</span>
+          <span class="pill tl-red">CRITICAL</span>
+          <span class="pill outline">STANDBY</span>
+        </div>
+      </div>
+
+      <!-- TAG CHIPS -->
+      <div class="comp">
+        <div class="comp-head"><span class="comp-name">TAG CHIPS</span><span class="comp-tag">ENTITY METADATA</span></div>
+        <div class="comp-body">
+          <span class="tag-chip">MILITARY</span>
+          <span class="tag-chip">FRIENDLY</span>
+          <span class="tag-chip">TRACKED</span>
+          <span class="tag-chip">PRIORITY</span>
+          <span class="tag-chip">SAR</span>
+        </div>
+      </div>
+
+      <!-- INPUT -->
+      <div class="comp">
+        <div class="comp-head"><span class="comp-name">INPUT FIELD</span><span class="comp-tag">FOCUS · GOLD GLOW</span></div>
+        <div class="comp-body col">
+          <div class="field">
+            <span class="label-caps">CALLSIGN</span>
+            <input type="text" value="VRTX-001" />
+            <span class="field-hint">UPPERCASE · A-Z 0-9 · MAX 12</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- NAV -->
+      <div class="comp">
+        <div class="comp-head"><span class="comp-name">NAV LINKS</span><span class="comp-tag">HEADER · 56PX</span></div>
+        <div class="comp-body">
+          <a class="nav-link active"><span class="ms" style="font-size:14px">dashboard</span>OVERVIEW</a>
+          <a class="nav-link"><span class="ms" style="font-size:14px">traffic</span>INFRASTRUCTURE</a>
+          <a class="nav-link"><span class="ms" style="font-size:14px">eco</span>ENVIRONMENT</a>
+          <a class="nav-link"><span class="ms" style="font-size:14px">groups</span>COMMUNITY</a>
+          <a class="nav-link"><span class="ms" style="font-size:14px">history</span>EVENT LOG</a>
+        </div>
+      </div>
+
+      <!-- MAP MARKERS -->
+      <div class="comp">
+        <div class="comp-head"><span class="comp-name">MAP MARKERS</span><span class="comp-tag">DOT · RING · PULSE</span></div>
+        <div class="comp-body">
+          <div class="marker-row">
+            <div class="marker adsb"><div class="pulse"></div><div class="ring"></div><div class="marker-dot"></div></div>
+            <div class="marker ais"><div class="pulse"></div><div class="ring"></div><div class="marker-dot"></div></div>
+            <div class="marker p25"><div class="pulse"></div><div class="ring"></div><div class="marker-dot"></div></div>
+            <div class="marker emerg"><div class="pulse"></div><div class="ring"></div><div class="marker-dot"></div></div>
+          </div>
+          <div class="mono" style="font-size:10px;color:var(--on-surface-variant);letter-spacing:0.1em;text-transform:uppercase">ADS-B · AIS · MESH · EMERGENCY</div>
+        </div>
+      </div>
+
+      <!-- WAVEFORM -->
+      <div class="comp">
+        <div class="comp-head"><span class="comp-name">AUDIO WAVEFORM</span><span class="comp-tag">P25 · LIVE</span></div>
+        <div class="comp-body">
+          <div style="display:flex;align-items:center;gap:14px">
+            <span class="ms ms-fill" style="color:var(--amber-gold);font-size:22px">graphic_eq</span>
+            <div class="waveform">
+              <div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div>
+              <div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div>
+            </div>
+            <span class="mono" style="font-size:10px;color:var(--amber-gold);letter-spacing:0.1em">453.2125 MHz</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- GRID STATUS DOTS -->
+      <div class="comp">
+        <div class="comp-head"><span class="comp-name">GRID STATUS</span><span class="comp-tag">3-DOT INDICATOR</span></div>
+        <div class="comp-body col">
+          <div style="display:flex;gap:12px;align-items:center">
+            <div style="display:flex;gap:8px">
+              <div style="width:10px;height:10px;border-radius:9999px;border:1px solid var(--amber-gold-muted);opacity:0.2"></div>
+              <div style="width:10px;height:10px;border-radius:9999px;border:1px solid var(--amber-gold-muted);opacity:0.2"></div>
+              <div style="width:10px;height:10px;border-radius:9999px;background:var(--amber-gold);box-shadow:var(--gold-sm)"></div>
+            </div>
+            <span class="mono" style="font-size:11px;color:var(--amber-gold);text-transform:uppercase">NOMINAL</span>
+          </div>
+          <div style="display:flex;gap:12px;align-items:center">
+            <div style="display:flex;gap:8px">
+              <div style="width:10px;height:10px;border-radius:9999px;border:1px solid var(--red-emergency);opacity:0.6"></div>
+              <div style="width:10px;height:10px;border-radius:9999px;border:1px solid var(--amber-gold-muted);opacity:0.2"></div>
+              <div style="width:10px;height:10px;border-radius:9999px;background:var(--red-emergency)"></div>
+            </div>
+            <span class="mono" style="font-size:11px;color:var(--red-emergency);text-transform:uppercase;font-weight:700">DEGRADED</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 06 PANELS ============ -->
+  <section id="panels">
+    <div class="sec-head">
+      <div>
+        <div class="sec-id"><span>// 06 · PANELS</span></div>
+        <h2 class="sec-title">HUD &amp; Cards</h2>
+      </div>
+      <div class="sec-meta">
+        GLASSMORPHIC · BLUR(20)<br/>
+        <strong>1PX BORDER</strong>
+      </div>
+    </div>
+
+    <div class="comp-grid">
+      <!-- INCIDENT CARD -->
+      <div class="comp">
+        <div class="comp-head"><span class="comp-name">INCIDENT CARD</span><span class="comp-tag">.incident-card</span></div>
+        <div class="comp-body col">
+          <div class="incident-card">
+            <div class="incident-head">
+              <div style="display:flex;align-items:center;gap:8px">
+                <span class="ms" style="font-size:14px;color:var(--amber-gold)">warning</span>
+                <span class="incident-id">INC-0001</span>
+              </div>
+              <span class="incident-time">14:22 PDT</span>
+            </div>
+            <p class="incident-title">Aircraft squawking 7700 — emergency declared, vectoring to KSEA.</p>
+          </div>
+          <div class="incident-card" style="border-color:var(--outline-variant)">
+            <div class="incident-head">
+              <div style="display:flex;align-items:center;gap:8px">
+                <span class="ms" style="font-size:14px;color:var(--on-surface-variant)">info</span>
+                <span class="incident-id" style="color:var(--on-surface-variant)">INC-0002</span>
+              </div>
+              <span class="incident-time">14:18 PDT</span>
+            </div>
+            <p class="incident-title">Vessel AIS dropout near Sector 4 — tracking via radar fallback.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- ENTITY HUD -->
+      <div class="comp">
+        <div class="comp-head"><span class="comp-name">ENTITY HUD</span><span class="comp-tag">.hud-panel · GLOW</span></div>
+        <div class="comp-body col">
+          <div class="entity-hud">
+            <div class="entity-hud-head">
+              <div style="display:flex;align-items:center;gap:8px;min-width:0">
+                <span class="ms ms-fill" style="font-size:18px;color:var(--cyan-adsb)">flight</span>
+                <span class="name">N12345 · CESSNA 172</span>
+              </div>
+              <button class="btn-icon" style="width:24px;height:24px;border:none;background:transparent;color:var(--on-surface-variant)"><span class="ms" style="font-size:16px">close</span></button>
+            </div>
+            <div class="entity-hud-rows">
+              <div class="entity-hud-row"><span class="label-caps">TYPE</span><span class="val">aircraft</span></div>
+              <div class="entity-hud-row"><span class="label-caps">SOURCE</span><span class="val">ADS-B</span></div>
+              <div class="entity-hud-row"><span class="label-caps">ALT</span><span class="val">3,500 ft</span></div>
+              <div class="entity-hud-row"><span class="label-caps">SPEED</span><span class="val">112 kts</span></div>
+              <div class="entity-hud-row"><span class="label-caps">HEADING</span><span class="val">217°</span></div>
+              <div class="entity-hud-row"><span class="label-caps">LAT</span><span class="val">47.62194</span></div>
+              <div class="entity-hud-row"><span class="label-caps">LON</span><span class="val">-122.34931</span></div>
+            </div>
+            <div style="padding:0 12px 12px;display:flex;flex-wrap:wrap;gap:6px">
+              <span class="tag-chip">GA</span>
+              <span class="tag-chip">TRACKED</span>
+              <span class="tag-chip">VFR</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CCTV -->
+      <div class="comp">
+        <div class="comp-head"><span class="comp-name">CCTV THUMB</span><span class="comp-tag">16:9 · CRT TEXTURE</span></div>
+        <div class="comp-body col" style="padding:16px">
+          <div class="cctv">
+            <div class="cctv-grid"></div>
+            <div class="cctv-meta"><span class="cctv-rec"></span>CAM-04 · I-5 NB</div>
+            <div class="cctv-ts">2026·04·25 · 14:22:07</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- GRID STATUS PANEL -->
+      <div class="comp">
+        <div class="comp-head"><span class="comp-name">GRID STATUS PANEL</span><span class="comp-tag">SIDEBAR HEADER</span></div>
+        <div class="comp-body col" style="padding:16px">
+          <div style="width:100%;border:1px solid var(--amber-gold-muted);background:rgba(10,10,10,0.6);padding:14px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+              <span class="label-caps">GRID STATUS</span>
+              <div style="display:flex;align-items:center;gap:6px">
+                <span class="ms ms-fill" style="font-size:14px;color:var(--amber-gold)">monitor_heart</span>
+                <span style="width:8px;height:8px;border-radius:9999px;background:var(--green-ais);animation:pulse-dot 1.6s ease-in-out infinite"></span>
+              </div>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+              <div style="display:flex;align-items:center;gap:14px">
+                <div style="display:flex;gap:6px">
+                  <div style="width:10px;height:10px;border-radius:9999px;border:1px solid var(--amber-gold-muted);opacity:0.2"></div>
+                  <div style="width:10px;height:10px;border-radius:9999px;border:1px solid var(--amber-gold-muted);opacity:0.2"></div>
+                  <div style="width:10px;height:10px;border-radius:9999px;background:var(--amber-gold);box-shadow:var(--gold-sm)"></div>
+                </div>
+                <span class="mono" style="color:var(--amber-gold);font-size:12px;text-transform:uppercase">Nominal</span>
+              </div>
+            </div>
+            <div style="display:flex;justify-content:space-between;border-top:1px solid rgba(255,255,255,0.05);padding-top:12px">
+              <span class="mono" style="color:var(--cyan-adsb);font-size:10px;display:flex;align-items:center;gap:4px"><span class="ms" style="font-size:14px">flight</span>14</span>
+              <span class="mono" style="color:var(--green-ais);font-size:10px;display:flex;align-items:center;gap:4px"><span class="ms" style="font-size:14px">directions_boat</span>8</span>
+              <span class="mono" style="color:var(--amber-gold);font-size:10px;display:flex;align-items:center;gap:4px"><span class="ms" style="font-size:14px">videocam</span>32</span>
+              <span class="mono" style="color:var(--amber-p25);font-size:10px;display:flex;align-items:center;gap:4px"><span class="ms" style="font-size:14px">router</span>6</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 07 ICONS ============ -->
+  <section id="icons">
+    <div class="sec-head">
+      <div>
+        <div class="sec-id"><span>// 07 · ICONS</span></div>
+        <h2 class="sec-title">Iconography</h2>
+      </div>
+      <div class="sec-meta">
+        MATERIAL SYMBOLS · OUTLINED<br/>
+        <strong>WGHT 400 · OPSZ 24</strong>
+      </div>
+    </div>
+
+    <div class="icon-strip">
+      <div class="icon-cell"><span class="ms">dashboard</span><span class="lbl">dashboard</span></div>
+      <div class="icon-cell"><span class="ms">traffic</span><span class="lbl">traffic</span></div>
+      <div class="icon-cell"><span class="ms">eco</span><span class="lbl">eco</span></div>
+      <div class="icon-cell"><span class="ms">groups</span><span class="lbl">groups</span></div>
+      <div class="icon-cell"><span class="ms">history</span><span class="lbl">history</span></div>
+      <div class="icon-cell"><span class="ms">flight</span><span class="lbl">flight</span></div>
+      <div class="icon-cell"><span class="ms">directions_boat</span><span class="lbl">vessel</span></div>
+      <div class="icon-cell"><span class="ms">router</span><span class="lbl">router</span></div>
+      <div class="icon-cell"><span class="ms">videocam</span><span class="lbl">videocam</span></div>
+      <div class="icon-cell"><span class="ms">monitor_heart</span><span class="lbl">monitor</span></div>
+      <div class="icon-cell"><span class="ms">warning</span><span class="lbl">warning</span></div>
+      <div class="icon-cell"><span class="ms">cloud_alert</span><span class="lbl">cloud_alert</span></div>
+      <div class="icon-cell"><span class="ms">notifications</span><span class="lbl">bell</span></div>
+      <div class="icon-cell"><span class="ms">settings</span><span class="lbl">settings</span></div>
+      <div class="icon-cell"><span class="ms">filter_alt</span><span class="lbl">filter</span></div>
+      <div class="icon-cell"><span class="ms">layers</span><span class="lbl">layers</span></div>
+    </div>
+  </section>
+
+  <!-- ============ 08 MOTION ============ -->
+  <section id="motion">
+    <div class="sec-head">
+      <div>
+        <div class="sec-id"><span>// 08 · MOTION</span></div>
+        <h2 class="sec-title">Motion &amp; Feedback</h2>
+      </div>
+      <div class="sec-meta">
+        EASE · CUBIC-BEZIER<br/>
+        <strong>SUBTLE &amp; FUNCTIONAL</strong>
+      </div>
+    </div>
+
+    <div class="motion-grid">
+      <div class="motion-card">
+        <div class="motion-demo"><div class="ping-target"></div></div>
+        <div class="motion-meta"><strong>PING-SLOW</strong><br/>2s · cubic-bezier(0,0,0.2,1)<br/>map markers · live signals</div>
+      </div>
+      <div class="motion-card">
+        <div class="motion-demo"><div class="pulse-fast-target"></div></div>
+        <div class="motion-meta"><strong>PULSE-FAST</strong><br/>1.2s · cubic-bezier(0.4,0,0.6,1)<br/>critical mode · emergencies</div>
+      </div>
+      <div class="motion-card">
+        <div class="motion-demo"><div class="spin-target"></div></div>
+        <div class="motion-meta"><strong>SPIN-SLOW</strong><br/>1.6s · linear<br/>data fetching · radar sweep</div>
+      </div>
+      <div class="motion-card">
+        <div class="motion-demo">
+          <div class="waveform">
+            <div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div>
+            <div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div>
+          </div>
+        </div>
+        <div class="motion-meta"><strong>WAVEFORM</strong><br/>1.2s · ease-in-out<br/>audio · staggered 0.1s delay</div>
+      </div>
+      <div class="motion-card">
+        <div class="motion-demo">
+          <span class="live-dot" style="display:inline-block"></span>
+        </div>
+        <div class="motion-meta"><strong>LIVE-DOT</strong><br/>1.6s · ease-in-out<br/>connection status · live feeds</div>
+      </div>
+      <div class="motion-card">
+        <div class="motion-demo">
+          <span style="color:var(--amber-gold);font-family:'Roboto Mono',monospace;font-size:14px;letter-spacing:0.15em" id="cursor-blink">VRTX_</span>
+        </div>
+        <div class="motion-meta"><strong>HOVER · COLOR</strong><br/>0.15s · linear<br/>variant → amber-gold</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 09 LAYOUTS ============ -->
+  <section id="layouts">
+    <div class="sec-head">
+      <div>
+        <div class="sec-id"><span>// 09 · LAYOUTS</span></div>
+        <h2 class="sec-title">App Composition</h2>
+      </div>
+      <div class="sec-meta">
+        SHELL · MAP · OVERLAYS<br/>
+        <strong>5 LAYERS · Z-STACK</strong>
+      </div>
+    </div>
+
+    <!-- App Shell Diagram -->
+    <div style="border:1px solid var(--amber-gold-muted);background:var(--surface-container-low);overflow:hidden">
+      <div class="hud-card-head">
+        <span class="label-caps">FIG 09.1 · DASHBOARD SHELL · authenticated route</span>
+        <span class="mono" style="font-size:10px;color:var(--on-surface-variant);letter-spacing:0.15em">App.tsx · &lt;Dashboard /&gt;</span>
+      </div>
+
+      <div style="display:grid;grid-template-columns:240px 1fr;height:520px;background:var(--onyx-deep);position:relative">
+        <!-- Sidebar mock -->
+        <div style="background:var(--onyx-black);border-right:1px solid var(--amber-gold-muted);display:flex;flex-direction:column">
+          <div style="height:48px;display:flex;align-items:center;gap:8px;padding:0 16px;border-bottom:1px solid rgba(255,255,255,0.05);background:rgba(10,10,10,0.6)">
+            <svg viewBox="0 0 32 32" style="width:18px;height:18px;color:var(--amber-gold)" aria-hidden="true">
+              <g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square">
+                <path d="M2 8 V2 H8"/><path d="M24 2 H30 V8"/><path d="M30 24 V30 H24"/><path d="M8 30 H2 V24"/>
+              </g>
+              <polygon points="16,7 25,16 16,25 7,16" fill="none" stroke="currentColor" stroke-width="2"/>
+              <rect x="14" y="14" width="4" height="4" fill="currentColor"/>
+            </svg>
+            <span style="font-weight:900;font-size:11px;letter-spacing:0.05em;color:#fff">VERTEX</span>
+          </div>
+          <div style="padding:12px;border-bottom:1px solid var(--amber-gold-muted)">
+            <div class="label-caps" style="margin-bottom:8px">GRID STATUS</div>
+            <div class="mono" style="font-size:10px;color:var(--amber-gold);text-transform:uppercase">NOMINAL</div>
+            <div style="display:flex;gap:8px;margin-top:8px">
+              <span class="mono" style="font-size:9px;color:var(--cyan-adsb)">14 ✈</span>
+              <span class="mono" style="font-size:9px;color:var(--green-ais)">8 ⛴</span>
+              <span class="mono" style="font-size:9px;color:var(--amber-p25)">6 ⌬</span>
+            </div>
+          </div>
+          <div style="padding:12px;flex:1;display:flex;flex-direction:column;gap:10px">
+            <div class="label-caps" style="color:var(--amber-gold);font-size:9px">// ACTIVE INCIDENTS</div>
+            <div style="border:1px solid var(--amber-gold-muted);padding:8px">
+              <div class="mono" style="font-size:9px;color:var(--amber-gold)">INC-0001</div>
+              <div style="font-size:10px;color:var(--on-surface);margin-top:2px;line-height:1.3">Aircraft squawk 7700</div>
+            </div>
+            <div class="label-caps" style="color:var(--on-surface-variant);font-size:9px;margin-top:8px">// NEWS FEED</div>
+            <div style="display:flex;gap:6px"><div style="width:2px;background:var(--amber-gold);flex-shrink:0"></div><div style="font-size:9px;color:var(--on-surface);line-height:1.3">Local Gov · 14m ago</div></div>
+          </div>
+        </div>
+
+        <!-- Main column -->
+        <div style="position:relative;overflow:hidden">
+          <!-- AlertStatusBar mock -->
+          <div style="position:absolute;top:0;left:0;right:0;height:24px;background:var(--red-emergency);color:#fff;display:flex;align-items:center;padding:0 16px;font-family:'Roboto Mono',monospace;font-size:9px;letter-spacing:0.18em;z-index:50">
+            ⚠ NWS · SEVERE WX ADVISORY · ACTIVE 14:22 → 16:00 PDT
+          </div>
+          <!-- Header mock -->
+          <div style="position:absolute;top:24px;left:0;right:0;height:48px;background:rgba(5,5,5,0.85);backdrop-filter:blur(12px);border-bottom:1px solid rgba(255,255,255,0.1);display:flex;align-items:center;padding:0 20px;gap:24px;z-index:40">
+            <a class="nav-link active" style="font-size:9px">OVERVIEW</a>
+            <a class="nav-link" style="font-size:9px">INFRASTRUCTURE</a>
+            <a class="nav-link" style="font-size:9px">ENVIRONMENT</a>
+            <a class="nav-link" style="font-size:9px">EVENT LOG</a>
+            <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
+              <div class="mode-toggle"><button class="calm" aria-pressed="true" style="font-size:8px;padding:2px 8px">CALM</button><button class="crit" aria-pressed="false" style="font-size:8px;padding:2px 8px">CRIT</button></div>
+              <span class="ms" style="font-size:14px;color:var(--on-surface-variant)">notifications</span>
+              <span class="ms" style="font-size:14px;color:var(--on-surface-variant)">settings</span>
+            </div>
+          </div>
+          <!-- EnvBar mock -->
+          <div style="position:absolute;top:72px;left:0;right:0;height:28px;background:rgba(10,10,10,0.7);backdrop-filter:blur(8px);border-bottom:1px solid var(--amber-gold-muted);display:flex;align-items:center;padding:0 16px;gap:16px;z-index:40;font-family:'Roboto Mono',monospace;font-size:9px;color:var(--on-surface-variant);letter-spacing:0.12em">
+            <span>52°F</span><span>WIND 8 NW</span><span>AQI <span style="color:var(--green-ais)">42</span></span><span>HUM 68%</span><span style="margin-left:auto;color:var(--amber-gold)">453.2125 MHz · LIVE</span>
+          </div>
+
+          <!-- Map plate -->
+          <div style="position:absolute;inset:100px 0 0 0;background:
+            repeating-linear-gradient(0deg, rgba(255,255,255,0.025) 0px, rgba(255,255,255,0.025) 1px, transparent 1px, transparent 28px),
+            repeating-linear-gradient(90deg, rgba(255,255,255,0.025) 0px, rgba(255,255,255,0.025) 1px, transparent 1px, transparent 28px),
+            radial-gradient(ellipse at 30% 50%, #1a1a1a 0%, #0a0a0a 70%);">
+            <!-- markers -->
+            <div class="marker adsb" style="position:absolute;left:24%;top:30%"><div class="pulse"></div><div class="ring"></div><div class="marker-dot"></div></div>
+            <div class="marker adsb" style="position:absolute;left:55%;top:18%"><div class="pulse"></div><div class="ring"></div><div class="marker-dot"></div></div>
+            <div class="marker ais" style="position:absolute;left:42%;top:65%"><div class="pulse"></div><div class="ring"></div><div class="marker-dot"></div></div>
+            <div class="marker ais" style="position:absolute;left:18%;top:78%"><div class="pulse"></div><div class="ring"></div><div class="marker-dot"></div></div>
+            <div class="marker p25" style="position:absolute;left:62%;top:50%"><div class="pulse"></div><div class="ring"></div><div class="marker-dot"></div></div>
+            <div class="marker emerg" style="position:absolute;left:38%;top:42%"><div class="pulse"></div><div class="ring"></div><div class="marker-dot"></div></div>
+            <!-- Trail -->
+            <svg style="position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none" preserveAspectRatio="none" viewBox="0 0 100 100">
+              <path d="M 10 50 Q 20 35 25 32 T 38 28" stroke="rgba(0,191,255,0.5)" stroke-width="0.4" fill="none" stroke-dasharray="0.5 0.5"/>
+              <path d="M 38 28 L 50 22 L 60 18" stroke="rgba(0,191,255,0.25)" stroke-width="0.4" fill="none" stroke-dasharray="1 1"/>
+            </svg>
+
+            <!-- EntitySearchPanel mock (top-left over map) -->
+            <div style="position:absolute;left:16px;top:16px;width:180px;background:rgba(5,5,5,0.85);backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.08);padding:10px">
+              <div class="label-caps" style="color:var(--amber-gold);font-size:9px;margin-bottom:8px">// ENTITY FILTER</div>
+              <input type="text" placeholder="SEARCH CALLSIGN…" style="width:100%;background:var(--onyx-black);border:1px solid var(--outline-variant);color:var(--on-surface);font-family:'Roboto Mono',monospace;font-size:10px;padding:6px 8px;outline:none" />
+              <div style="display:flex;gap:6px;margin-top:8px">
+                <span class="tag-chip" style="font-size:8px">✈ AIR</span>
+                <span class="tag-chip" style="font-size:8px">⛴ SEA</span>
+                <span class="tag-chip" style="font-size:8px;opacity:0.4">⌬ MESH</span>
+              </div>
+            </div>
+
+            <!-- EntityDetail mock (top-right) -->
+            <div class="entity-hud" style="position:absolute;right:16px;top:16px;width:180px">
+              <div class="entity-hud-head" style="padding:8px 10px">
+                <div style="display:flex;align-items:center;gap:6px"><span class="ms ms-fill" style="font-size:14px;color:var(--cyan-adsb)">flight</span><span class="name" style="font-size:10px">N12345</span></div>
+                <span class="ms" style="font-size:14px;color:var(--on-surface-variant)">close</span>
+              </div>
+              <div class="entity-hud-rows" style="padding:8px 10px;gap:4px">
+                <div class="entity-hud-row"><span class="label-caps" style="font-size:8px">ALT</span><span class="val" style="font-size:9px">3,500 ft</span></div>
+                <div class="entity-hud-row"><span class="label-caps" style="font-size:8px">SPD</span><span class="val" style="font-size:9px">112 kts</span></div>
+                <div class="entity-hud-row"><span class="label-caps" style="font-size:8px">HDG</span><span class="val" style="font-size:9px">217°</span></div>
+              </div>
+            </div>
+
+            <!-- TacticalAudio mock (bottom-left) -->
+            <div style="position:absolute;left:16px;bottom:16px;width:200px;background:rgba(5,5,5,0.85);backdrop-filter:blur(20px);border:1px solid var(--amber-gold-muted);padding:10px">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+                <span class="ms ms-fill" style="font-size:14px;color:var(--amber-p25)">graphic_eq</span>
+                <span class="label-caps" style="color:var(--amber-p25);font-size:9px">P25 · TG-1234</span>
+                <span class="signal-pulse p25" style="margin-left:auto;width:8px;height:8px"></span>
+              </div>
+              <div class="waveform" style="height:24px">
+                <div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div>
+                <div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div>
+              </div>
+            </div>
+
+            <!-- PlaybackController mock (bottom-center) -->
+            <div style="position:absolute;left:50%;transform:translateX(-50%);bottom:16px;width:240px;background:rgba(5,5,5,0.85);backdrop-filter:blur(20px);border:1px solid var(--amber-gold-muted);padding:8px 12px;display:flex;align-items:center;gap:8px">
+              <span class="ms" style="font-size:14px;color:var(--amber-gold)">play_arrow</span>
+              <div style="flex:1;height:3px;background:var(--surface-container-highest);position:relative">
+                <div style="position:absolute;left:0;top:0;bottom:0;width:35%;background:var(--amber-gold)"></div>
+              </div>
+              <span class="mono" style="font-size:9px;color:var(--amber-gold)">×2</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Z-stack layer breakdown -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:32px">
+      <div style="border:1px solid var(--outline-variant);background:var(--surface-container-low);padding:20px">
+        <div class="label-caps" style="color:var(--amber-gold);margin-bottom:14px">// Z-STACK · TOP DOWN</div>
+        <div style="display:flex;flex-direction:column;gap:8px;font-family:'Roboto Mono',monospace;font-size:11px">
+          <div style="display:flex;justify-content:space-between;padding:8px 12px;background:rgba(255,184,0,0.08);border-left:2px solid var(--amber-gold)"><span style="color:var(--amber-gold)">z-50</span><span>SettingsPanel · MobileNav · Modals</span></div>
+          <div style="display:flex;justify-content:space-between;padding:8px 12px;background:var(--surface-container);border-left:2px solid var(--amber-gold-dim)"><span style="color:var(--amber-gold-dim)">z-40</span><span>Header · EnvBar · AlertStatusBar</span></div>
+          <div style="display:flex;justify-content:space-between;padding:8px 12px;background:var(--surface-container);border-left:2px solid var(--on-surface-variant)"><span style="color:var(--on-surface-variant)">z-30</span><span>Sidebar · EntityDetail · HUD overlays</span></div>
+          <div style="display:flex;justify-content:space-between;padding:8px 12px;background:var(--surface-container);border-left:2px solid var(--cyan-adsb)"><span style="color:var(--cyan-adsb)">z-10</span><span>Tab content panels (non-safety)</span></div>
+          <div style="display:flex;justify-content:space-between;padding:8px 12px;background:var(--surface-container);border-left:2px solid var(--green-ais)"><span style="color:var(--green-ais)">z-0</span><span>Map canvas · deck.gl layers</span></div>
+        </div>
+      </div>
+
+      <div style="border:1px solid var(--outline-variant);background:var(--surface-container-low);padding:20px">
+        <div class="label-caps" style="color:var(--amber-gold);margin-bottom:14px">// SHELL · DIMENSIONS</div>
+        <div style="display:flex;flex-direction:column;gap:10px;font-family:'Roboto Mono',monospace;font-size:11px;color:var(--on-surface)">
+          <div style="display:flex;justify-content:space-between"><span style="color:var(--on-surface-variant)">SIDEBAR WIDTH</span><span>w-80 · 320px</span></div>
+          <div style="display:flex;justify-content:space-between"><span style="color:var(--on-surface-variant)">BRAND HEADER</span><span>h-16 · 64px</span></div>
+          <div style="display:flex;justify-content:space-between"><span style="color:var(--on-surface-variant)">OPS HEADER</span><span>h-14 · 56px</span></div>
+          <div style="display:flex;justify-content:space-between"><span style="color:var(--on-surface-variant)">ENV BAR</span><span>h-7 · 28px</span></div>
+          <div style="display:flex;justify-content:space-between"><span style="color:var(--on-surface-variant)">ALERT BAR</span><span>h-6 · 24px (conditional)</span></div>
+          <div style="display:flex;justify-content:space-between"><span style="color:var(--on-surface-variant)">MOBILE BREAK</span><span>lg · 1024px</span></div>
+          <div style="display:flex;justify-content:space-between"><span style="color:var(--on-surface-variant)">ENTITY HUD</span><span>w-56 · 224px · top-28 right-4</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab routing -->
+    <div style="border:1px solid var(--outline-variant);background:var(--surface-container-low);margin-top:24px">
+      <div class="hud-card-head">
+        <span class="label-caps">FIG 09.2 · TAB ROUTING · activeTab → panel</span>
+        <span class="mono" style="font-size:10px;color:var(--on-surface-variant);letter-spacing:0.15em">store.activeTab : NavTab</span>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:1px;background:var(--outline-variant)">
+        <div style="background:var(--surface-container-low);padding:18px;display:flex;flex-direction:column;gap:8px">
+          <span class="ms" style="font-size:22px;color:var(--amber-gold)">dashboard</span>
+          <span class="mono" style="font-size:10px;color:var(--amber-gold);letter-spacing:0.15em;text-transform:uppercase">safety</span>
+          <span style="font-size:11px;color:var(--on-surface);line-height:1.4">Map z-0 · EntitySearch · EntityDetail · Playback</span>
+        </div>
+        <div style="background:var(--surface-container-low);padding:18px;display:flex;flex-direction:column;gap:8px">
+          <span class="ms" style="font-size:22px;color:var(--on-surface-variant)">traffic</span>
+          <span class="mono" style="font-size:10px;color:var(--on-surface-variant);letter-spacing:0.15em;text-transform:uppercase">infrastructure</span>
+          <span style="font-size:11px;color:var(--on-surface);line-height:1.4">InfrastructureGrid over dimmed map</span>
+        </div>
+        <div style="background:var(--surface-container-low);padding:18px;display:flex;flex-direction:column;gap:8px">
+          <span class="ms" style="font-size:22px;color:var(--on-surface-variant)">eco</span>
+          <span class="mono" style="font-size:10px;color:var(--on-surface-variant);letter-spacing:0.15em;text-transform:uppercase">environment</span>
+          <span style="font-size:11px;color:var(--on-surface);line-height:1.4">EnvironmentPanel · weather + AQI</span>
+        </div>
+        <div style="background:var(--surface-container-low);padding:18px;display:flex;flex-direction:column;gap:8px">
+          <span class="ms" style="font-size:22px;color:var(--on-surface-variant)">groups</span>
+          <span class="mono" style="font-size:10px;color:var(--on-surface-variant);letter-spacing:0.15em;text-transform:uppercase">community</span>
+          <span style="font-size:11px;color:var(--on-surface);line-height:1.4">CommunityPanel · alerts + news</span>
+        </div>
+        <div style="background:var(--surface-container-low);padding:18px;display:flex;flex-direction:column;gap:8px">
+          <span class="ms" style="font-size:22px;color:var(--on-surface-variant)">history</span>
+          <span class="mono" style="font-size:10px;color:var(--on-surface-variant);letter-spacing:0.15em;text-transform:uppercase">events</span>
+          <span style="font-size:11px;color:var(--on-surface);line-height:1.4">EventLogPanel · ring buffer 100</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 10 STORE ============ -->
+  <section id="store">
+    <div class="sec-head">
+      <div>
+        <div class="sec-id"><span>// 10 · STATE</span></div>
+        <h2 class="sec-title">Zustand Store</h2>
+      </div>
+      <div class="sec-meta">
+        <strong>useCivicStore</strong> · single source<br/>
+        store.ts · ~17KB
+      </div>
+    </div>
+
+    <!-- Store map -->
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:20px">
+      <!-- LIVE DATA -->
+      <div style="border:1px solid var(--cyan-adsb-muted);background:var(--surface-container-low)">
+        <div style="padding:12px 14px;border-bottom:1px solid var(--cyan-adsb-muted);background:rgba(0,77,107,0.15);display:flex;align-items:center;gap:8px">
+          <span class="signal-pulse adsb" style="width:8px;height:8px"></span>
+          <span class="label-caps" style="color:var(--cyan-adsb);letter-spacing:0.18em">// LIVE DATA · WS-FED</span>
+        </div>
+        <div style="padding:14px;font-family:'Roboto Mono',monospace;font-size:11px;display:flex;flex-direction:column;gap:8px">
+          <div><span style="color:var(--cyan-adsb)">entities</span><span style="color:var(--on-surface-variant)"> : Record&lt;id, Entity&gt;</span></div>
+          <div><span style="color:var(--cyan-adsb)">tracks</span><span style="color:var(--on-surface-variant)"> : Record&lt;id, Track&gt;</span></div>
+          <div><span style="color:var(--cyan-adsb)">alerts</span><span style="color:var(--on-surface-variant)"> : AlertItem[]</span></div>
+          <div><span style="color:var(--cyan-adsb)">news</span><span style="color:var(--on-surface-variant)"> : NewsItem[]</span></div>
+          <div><span style="color:var(--cyan-adsb)">weather</span><span style="color:var(--on-surface-variant)"> : WeatherState</span></div>
+          <div><span style="color:var(--cyan-adsb)">radio</span><span style="color:var(--on-surface-variant)"> : RadioState</span></div>
+          <div><span style="color:var(--cyan-adsb)">cameras</span><span style="color:var(--on-surface-variant)"> : TrafficCamera[]</span></div>
+          <div><span style="color:var(--cyan-adsb)">trafficFlow</span><span style="color:var(--on-surface-variant)"> : any[]</span></div>
+          <div><span style="color:var(--cyan-adsb)">utilityStatus</span><span style="color:var(--on-surface-variant)"> : any</span></div>
+          <div><span style="color:var(--cyan-adsb)">systemEvents</span><span style="color:var(--on-surface-variant)"> : ring(100)</span></div>
+        </div>
+      </div>
+
+      <!-- CONNECTION -->
+      <div style="border:1px solid var(--green-ais-muted);background:var(--surface-container-low)">
+        <div style="padding:12px 14px;border-bottom:1px solid var(--green-ais-muted);background:rgba(0,64,26,0.15);display:flex;align-items:center;gap:8px">
+          <span class="signal-pulse ais" style="width:8px;height:8px"></span>
+          <span class="label-caps" style="color:var(--green-ais);letter-spacing:0.18em">// CONNECTION · HEALTH</span>
+        </div>
+        <div style="padding:14px;font-family:'Roboto Mono',monospace;font-size:11px;display:flex;flex-direction:column;gap:8px">
+          <div><span style="color:var(--green-ais)">connected</span><span style="color:var(--on-surface-variant)"> : boolean</span></div>
+          <div><span style="color:var(--green-ais)">health.ok</span><span style="color:var(--on-surface-variant)"> : boolean</span></div>
+          <div><span style="color:var(--green-ais)">health.redis</span><span style="color:var(--on-surface-variant)"> : boolean</span></div>
+          <div><span style="color:var(--green-ais)">health.services</span><span style="color:var(--on-surface-variant)"> : Record&lt;name, "up" | "down" | "degraded"&gt;</span></div>
+          <div style="margin-top:6px;padding-top:8px;border-top:1px dashed rgba(0,64,26,0.5)">
+            <span style="color:var(--on-surface-variant);font-size:10px">used by</span><br/>
+            <span style="color:var(--green-ais);font-size:10px">useWebSocket · useSystemHealth</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- UI -->
+      <div style="border:1px solid var(--amber-gold-muted);background:var(--surface-container-low)">
+        <div style="padding:12px 14px;border-bottom:1px solid var(--amber-gold-muted);background:rgba(77,56,0,0.2);display:flex;align-items:center;gap:8px">
+          <span style="width:8px;height:8px;border-radius:9999px;background:var(--amber-gold);box-shadow:var(--gold-sm)"></span>
+          <span class="label-caps" style="color:var(--amber-gold);letter-spacing:0.18em">// UI · CLIENT-LOCAL</span>
+        </div>
+        <div style="padding:14px;font-family:'Roboto Mono',monospace;font-size:11px;display:flex;flex-direction:column;gap:8px">
+          <div><span style="color:var(--amber-gold)">mode</span><span style="color:var(--on-surface-variant)"> : "calm" | "critical"</span></div>
+          <div><span style="color:var(--amber-gold)">activeTab</span><span style="color:var(--on-surface-variant)"> : NavTab</span></div>
+          <div><span style="color:var(--amber-gold)">selectedEntityId</span><span style="color:var(--on-surface-variant)"> : id | null</span></div>
+          <div><span style="color:var(--amber-gold)">entityFilter</span><span style="color:var(--on-surface-variant)"> : { air, sea, mesh }</span></div>
+          <div><span style="color:var(--amber-gold)">entityAltRange</span><span style="color:var(--on-surface-variant)"> : [0, 60k] ft</span></div>
+          <div><span style="color:var(--amber-gold)">entitySpeedRange</span><span style="color:var(--on-surface-variant)"> : [0, 600] kt</span></div>
+          <div><span style="color:var(--amber-gold)">radarVisible / Opacity</span></div>
+          <div><span style="color:var(--amber-gold)">camerasVisible · ldiMode</span></div>
+          <div><span style="color:var(--amber-gold)">geofencesVisible · geofenceDrawing</span></div>
+          <div><span style="color:var(--amber-gold)">replayMode · Playing · Speed</span></div>
+          <div><span style="color:var(--amber-gold)">favoriteCamIds</span><span style="color:var(--on-surface-variant)"> · localStorage</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Data flow diagram -->
+    <div style="border:1px solid var(--amber-gold-muted);background:var(--surface-container-low);margin-top:32px">
+      <div class="hud-card-head">
+        <span class="label-caps">FIG 10.1 · DATA FLOW · WS → STORE → COMPONENT</span>
+        <span class="mono" style="font-size:10px;color:var(--on-surface-variant);letter-spacing:0.15em">unidirectional</span>
+      </div>
+      <div style="padding:32px;display:grid;grid-template-columns:1fr 40px 1fr 40px 1fr;gap:0;align-items:stretch">
+        <!-- SOURCE -->
+        <div style="border:1px solid var(--cyan-adsb-muted);padding:16px;background:rgba(0,77,107,0.08)">
+          <div class="mono" style="font-size:9px;color:var(--cyan-adsb);letter-spacing:0.15em;margin-bottom:8px">// SOURCE</div>
+          <div style="display:flex;flex-direction:column;gap:8px;font-family:'Roboto Mono',monospace;font-size:11px;color:var(--on-surface)">
+            <div>WebSocket · /ws</div>
+            <div>REST · /api/alerts</div>
+            <div>REST · /api/cameras</div>
+            <div>REST · /api/health</div>
+            <div style="color:var(--on-surface-variant);font-size:10px;margin-top:4px">5–15s polling</div>
+          </div>
+        </div>
+        <!-- arrow -->
+        <div style="display:flex;align-items:center;justify-content:center;font-family:'Roboto Mono',monospace;color:var(--amber-gold);font-size:18px">→</div>
+        <!-- HOOKS -->
+        <div style="border:1px solid var(--amber-gold-muted);padding:16px;background:rgba(77,56,0,0.1)">
+          <div class="mono" style="font-size:9px;color:var(--amber-gold);letter-spacing:0.15em;margin-bottom:8px">// HOOKS · ACTIONS</div>
+          <div style="display:flex;flex-direction:column;gap:6px;font-family:'Roboto Mono',monospace;font-size:11px;color:var(--on-surface)">
+            <div>useWebSocket()</div>
+            <div>useAlerts()</div>
+            <div>useEntities()</div>
+            <div>useSystemHealth()</div>
+            <div style="color:var(--amber-gold);font-size:10px;margin-top:4px">→ upsertEntity()</div>
+            <div style="color:var(--amber-gold);font-size:10px">→ setAlerts()</div>
+            <div style="color:var(--amber-gold);font-size:10px">→ purgeStaleEntities()</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:center;font-family:'Roboto Mono',monospace;color:var(--amber-gold);font-size:18px">→</div>
+        <!-- COMPONENTS -->
+        <div style="border:1px solid var(--green-ais-muted);padding:16px;background:rgba(0,64,26,0.08)">
+          <div class="mono" style="font-size:9px;color:var(--green-ais);letter-spacing:0.15em;margin-bottom:8px">// SUBSCRIBERS</div>
+          <div style="display:flex;flex-direction:column;gap:6px;font-family:'Roboto Mono',monospace;font-size:11px;color:var(--on-surface)">
+            <div>&lt;Map /&gt;</div>
+            <div>&lt;Sidebar /&gt;</div>
+            <div>&lt;Header /&gt;</div>
+            <div>&lt;EntityDetail /&gt;</div>
+            <div>&lt;TacticalAudio /&gt;</div>
+            <div style="color:var(--on-surface-variant);font-size:10px;margin-top:4px">selective subscription via useCivicStore()</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Entity → Track derivation -->
+    <div style="display:grid;grid-template-columns:1.4fr 1fr;gap:24px;margin-top:32px">
+      <div style="border:1px solid var(--outline-variant);background:var(--surface-container-low)">
+        <div class="hud-card-head">
+          <span class="label-caps" style="color:var(--amber-gold)">FIG 10.2 · entityToTrack() · DERIVATION</span>
+          <span class="mono" style="font-size:10px;color:var(--on-surface-variant);letter-spacing:0.15em">store.ts · L155</span>
+        </div>
+        <div style="padding:20px;font-family:'Roboto Mono',monospace;font-size:11px;line-height:1.7;color:var(--on-surface)">
+          <div><span style="color:var(--on-surface-variant)">// units</span></div>
+          <div>ALT_FT_TO_M  = <span style="color:var(--amber-gold)">0.3048</span></div>
+          <div>SPD_KT_TO_MS = <span style="color:var(--amber-gold)">0.5144</span></div>
+          <div>TRAIL_CAP    = <span style="color:var(--amber-gold)">150</span> <span style="color:var(--on-surface-variant)">// pts</span></div>
+          <div>PRED_STEP_S  = <span style="color:var(--amber-gold)">20</span> <span style="color:var(--on-surface-variant)">// seconds</span></div>
+          <div>PRED_STEPS   = <span style="color:var(--amber-gold)">3</span></div>
+          <div style="margin-top:14px;padding-top:10px;border-top:1px dashed var(--outline-variant)"></div>
+          <div><span style="color:var(--cyan-adsb)">Entity</span> <span style="color:var(--amber-gold)">→</span> <span style="color:var(--green-ais)">Track</span></div>
+          <div style="padding-left:14px;color:var(--on-surface-variant);font-size:10px">
+            • lon/lat preserved<br/>
+            • altitude·ft → metres<br/>
+            • speed·kt → m/s<br/>
+            • trail · push · slice(-150)<br/>
+            • <span style="color:var(--amber-gold)">chaikinSmooth(trail, 2)</span><br/>
+            • predictedPath · 3 × 20s steps<br/>
+            • dropped if entity_type ∉ {aircraft, vessel}
+          </div>
+        </div>
+      </div>
+
+      <div style="border:1px solid var(--outline-variant);background:var(--surface-container-low)">
+        <div class="hud-card-head">
+          <span class="label-caps" style="color:var(--amber-gold)">FIG 10.3 · STALE PURGE · TTL by type</span>
+          <span class="mono" style="font-size:10px;color:var(--on-surface-variant);letter-spacing:0.15em">purgeStaleEntities()</span>
+        </div>
+        <div style="padding:20px">
+          <div style="display:flex;flex-direction:column;gap:14px">
+            <div style="display:flex;align-items:center;gap:12px">
+              <span class="ms ms-fill" style="font-size:18px;color:var(--cyan-adsb);width:24px;text-align:center">flight</span>
+              <div style="flex:1">
+                <div class="mono" style="font-size:10px;color:var(--cyan-adsb);text-transform:uppercase;letter-spacing:0.15em">aircraft</div>
+                <div style="height:4px;background:var(--surface-container-highest);margin-top:4px;position:relative"><div style="position:absolute;left:0;top:0;bottom:0;width:1.5%;background:var(--cyan-adsb);box-shadow:0 0 6px var(--cyan-adsb)"></div></div>
+              </div>
+              <span class="mono" style="font-size:11px;color:var(--amber-gold)">60s</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px">
+              <span class="ms ms-fill" style="font-size:18px;color:var(--green-ais);width:24px;text-align:center">directions_boat</span>
+              <div style="flex:1">
+                <div class="mono" style="font-size:10px;color:var(--green-ais);text-transform:uppercase;letter-spacing:0.15em">vessel</div>
+                <div style="height:4px;background:var(--surface-container-highest);margin-top:4px;position:relative"><div style="position:absolute;left:0;top:0;bottom:0;width:16%;background:var(--green-ais);box-shadow:0 0 6px var(--green-ais)"></div></div>
+              </div>
+              <span class="mono" style="font-size:11px;color:var(--amber-gold)">10m</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px">
+              <span class="ms ms-fill" style="font-size:18px;color:var(--amber-p25);width:24px;text-align:center">router</span>
+              <div style="flex:1">
+                <div class="mono" style="font-size:10px;color:var(--amber-p25);text-transform:uppercase;letter-spacing:0.15em">mesh_node</div>
+                <div style="height:4px;background:var(--surface-container-highest);margin-top:4px;position:relative"><div style="position:absolute;left:0;top:0;bottom:0;width:100%;background:var(--amber-p25);box-shadow:0 0 6px var(--amber-p25)"></div></div>
+              </div>
+              <span class="mono" style="font-size:11px;color:var(--amber-gold)">1h</span>
+            </div>
+          </div>
+          <div class="mono" style="font-size:10px;color:var(--on-surface-variant);margin-top:18px;padding-top:12px;border-top:1px dashed var(--outline-variant);line-height:1.5">
+            // TTL bars are scaled to <span style="color:var(--amber-gold)">1h</span> max.<br/>
+            // Entity dropped if (now − last_seen) &gt; TTL[type].
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Hook usage -->
+    <div style="border:1px solid var(--outline-variant);background:var(--surface-container-low);margin-top:24px">
+      <div class="hud-card-head">
+        <span class="label-caps" style="color:var(--amber-gold)">FIG 10.4 · HOOK USAGE · selective subscription</span>
+        <span class="mono" style="font-size:10px;color:var(--on-surface-variant);letter-spacing:0.15em">prefer destructured slices</span>
+      </div>
+      <div style="padding:20px;font-family:'Roboto Mono',monospace;font-size:12px;line-height:1.7;color:var(--on-surface);overflow-x:auto">
+<pre style="margin:0;white-space:pre-wrap"><span style="color:var(--on-surface-variant)">// ✓ DO — destructure only what you read; component re-renders only on those keys</span>
+<span style="color:var(--amber-gold)">const</span> { entities, selectedEntityId, selectEntity } = <span style="color:var(--cyan-adsb)">useCivicStore</span>()
+
+<span style="color:var(--on-surface-variant)">// ✓ DO — scoped selector when you need just one slice</span>
+<span style="color:var(--amber-gold)">const</span> mode = <span style="color:var(--cyan-adsb)">useCivicStore</span>(s =&gt; s.mode)
+
+<span style="color:var(--on-surface-variant)">// ✓ DO — actions are stable references</span>
+<span style="color:var(--amber-gold)">const</span> { setMode, selectEntity, upsertEntity } = <span style="color:var(--cyan-adsb)">useCivicStore</span>()
+
+<span style="color:var(--red-emergency)">// ✗ DON'T — pulling the whole store re-renders on every change</span>
+<span style="color:var(--red-emergency)">const</span> store = <span style="color:var(--cyan-adsb)">useCivicStore</span>()</pre>
+      </div>
+    </div>
+
+    <!-- Persistence -->
+    <div style="border:1px solid var(--amber-gold-muted);background:rgba(77,56,0,0.08);margin-top:24px;padding:18px;display:flex;align-items:center;gap:16px">
+      <span class="ms ms-fill" style="font-size:22px;color:var(--amber-gold)">save</span>
+      <div>
+        <div class="label-caps" style="color:var(--amber-gold);margin-bottom:4px">PERSISTENCE · LOCALSTORAGE</div>
+        <div style="font-family:'Roboto Mono',monospace;font-size:11px;color:var(--on-surface);line-height:1.6">
+          Only <span style="color:var(--amber-gold)">favoriteCamIds</span> persists across sessions.
+          All other state is in-memory and rebuilt from WS on reconnect.
+          Auth token lives in <span style="color:var(--amber-gold)">auth.ts</span>, not the store.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 11 PATTERNS ============ -->
+  <section id="patterns">
+    <div class="sec-head">
+      <div>
+        <div class="sec-id"><span>// 11 · PATTERNS</span></div>
+        <h2 class="sec-title">Principles &amp; Do/Don't</h2>
+      </div>
+      <div class="sec-meta">
+        OPS-ROOM ETHOS<br/>
+        <strong>DENSITY ≠ NOISE</strong>
+      </div>
+    </div>
+
+    <div class="pattern-grid" style="margin-bottom:24px">
+      <div class="pattern">
+        <h4>// COLOR IS A SIGNAL</h4>
+        <p>Amber-gold is reserved for primary action and live data. Cyan, green, orange, red are semantic — never aesthetic. If a color appears, it means something specific.</p>
+      </div>
+      <div class="pattern">
+        <h4>// SHARP &amp; FLAT</h4>
+        <p>Zero corner radius across the system. Rounded only for status dots and map markers. Avoid drop shadows except for amber/red glow on live or critical elements.</p>
+      </div>
+      <div class="pattern">
+        <h4>// MONO FOR DATA</h4>
+        <p>Roboto Mono for all numeric values, timestamps, callsigns, coordinates. Inter for prose, labels, and headings. Tabular alignment in data rows.</p>
+      </div>
+      <div class="pattern">
+        <h4>// TIGHT TRACKING</h4>
+        <p>Caps labels track at +18%. Display headings track at -2%. Body copy is neutral. Density is achieved through small type and tight gaps, not by removing whitespace.</p>
+      </div>
+      <div class="pattern">
+        <h4>// LAYER OVER MAP</h4>
+        <p>Map canvas is desaturated to 0% with brightness 0.6 and contrast 1.3. All HUD chrome floats above with backdrop blur. The map is context, the panels are content.</p>
+      </div>
+      <div class="pattern">
+        <h4>// CALM → CRITICAL</h4>
+        <p>The CRITICAL mode tints the header red, switches priority elements to red-emergency, and amplifies pulse motion. The system has two emotional states — never more.</p>
+      </div>
+    </div>
+
+    <!-- DO / DON'T -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px">
+      <div style="border:1px solid var(--green-ais-muted);background:rgba(0,64,26,0.15);padding:20px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
+          <span class="ms ms-fill" style="color:var(--green-ais)">check_circle</span>
+          <span class="label-caps" style="color:var(--green-ais)">DO</span>
+        </div>
+        <ul style="margin:0;padding-left:18px;font-size:12px;color:var(--on-surface);line-height:1.7">
+          <li>Use mono for every number, callsign, timestamp, coordinate.</li>
+          <li>Reserve amber-gold for primary action and live signal.</li>
+          <li>Keep panels glassmorphic over map; opaque over solid surfaces.</li>
+          <li>Use 1px borders in amber-gold-muted for panel edges.</li>
+        </ul>
+      </div>
+      <div style="border:1px solid var(--red-emergency-muted);background:rgba(74,0,0,0.15);padding:20px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
+          <span class="ms ms-fill" style="color:var(--red-emergency)">cancel</span>
+          <span class="label-caps" style="color:var(--red-emergency)">DON'T</span>
+        </div>
+        <ul style="margin:0;padding-left:18px;font-size:12px;color:var(--on-surface);line-height:1.7">
+          <li>Don't introduce rounded corners or soft shadows.</li>
+          <li>Don't use signal colors decoratively — they have meaning.</li>
+          <li>Don't use Inter for numeric data tables; lose tabular alignment.</li>
+          <li>Don't over-animate — motion is for liveness and alerts only.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <span><span class="amber">VERTEX</span> · DESIGN SYSTEM · v0.1.0</span>
+    <span>BUILT FROM <span class="amber">/frontend/src</span> · INTERNAL USE</span>
+    <span>2026 · 04 · 25</span>
+  </footer>
+
+</div>
+
+<script>
+  // Tiny blinking cursor for the hover pattern demo card
+  (function(){
+    var el = document.getElementById('cursor-blink');
+    if(!el) return;
+    var on = true;
+    setInterval(function(){
+      on = !on;
+      el.style.opacity = on ? '1' : '0.25';
+    }, 500);
+  })();
+</script>
+
+</body>
+</html>
