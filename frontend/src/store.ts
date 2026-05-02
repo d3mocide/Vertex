@@ -149,6 +149,16 @@ export interface SystemEvent {
   details?:   Record<string, unknown>
 }
 
+// ─── Custom Layers (KML / GeoJSON import) ────────────────────────────────────
+export interface CustomLayerItem {
+  id: number
+  name: string
+  geojson: object
+  style: { color?: string; opacity?: number; line_color?: string; line_width?: number } | null
+  visible: boolean
+  created_at: string
+}
+
 // ─── System Health ────────────────────────────────────────────────────────────
 export interface SystemHealth {
   ok:       boolean
@@ -316,6 +326,10 @@ interface CivicStore {
   // Camera favorites (persisted to localStorage)
   favoriteCamIds:    string[]
   toggleFavoriteCam: (id: string) => void
+
+  // Custom layers (KML / GeoJSON import)
+  customLayers:     CustomLayerItem[]
+  setCustomLayers:  (layers: CustomLayerItem[]) => void
 }
 
 // ─── Entity → Track conversion ────────────────────────────────────────────────
@@ -485,6 +499,7 @@ export const useCivicStore = create<CivicStore>((set) => ({
   geofencesVisible: true,
   selectedCamId:    null,
   favoriteCamIds:   loadFavoriteCamIds(),
+  customLayers:     [],
   mobileNavOpen:    false,
   settingsOpen:     false,
   entityFilter:     { aircraft: true, vessel: true, mesh_node: true, aprs: true, fire_incident: true },
@@ -649,6 +664,7 @@ export const useCivicStore = create<CivicStore>((set) => ({
   setReplayPlaying:   (replayPlaying)   => set({ replayPlaying }),
   setReplaySpeed:     (replaySpeed)     => set({ replaySpeed }),
   setSelectedCamId: (selectedCamId) => set({ selectedCamId }),
+  setCustomLayers: (customLayers) => set({ customLayers }),
   toggleFavoriteCam: (id) =>
     set((s) => {
       const next = s.favoriteCamIds.includes(id)

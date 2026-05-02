@@ -3,6 +3,19 @@ import { useCivicStore, SystemEvent } from '../../store'
 import { API_BASE } from '../../config'
 import { authHeaders, clearToken } from '../../auth'
 
+async function downloadSitRep(hours: number) {
+  const res = await fetch(`${API_BASE}/sitrep?hours=${hours}`, { headers: authHeaders() })
+  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+  const blob = await res.blob()
+  const filename = res.headers.get('Content-Disposition')?.match(/filename="(.+)"/)?.[1] ?? 'sitrep.md'
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
 type SeverityFilter = 'all' | 'critical' | 'high' | 'medium' | 'low'
 
 const SEVERITY_COLORS: Record<string, string> = {
@@ -84,6 +97,23 @@ export function EventLogPanel() {
   const { systemEvents, setSystemEvents } = useCivicStore()
   const [severityFilter, setSeverityFilter] = useState<SeverityFilter>('all')
   const [search, setSearch] = useState('')
+  const [sitrepHours, setSitrepHours] = useState(24)
+  const [sitrepExporting, setSitrepExporting] = useState(false)
+  const [sitrepError, setSitrepError] = useState<string | null>(null)
+  const [showSitrepMenu, setShowSitrepMenu] = useState(false)
+
+  const handleExportSitRep = async () => {
+    setSitrepExporting(true)
+    setSitrepError(null)
+    try {
+      await downloadSitRep(sitrepHours)
+      setShowSitrepMenu(false)
+    } catch (e) {
+      setSitrepError(e instanceof Error ? e.message : 'Export failed')
+    } finally {
+      setSitrepExporting(false)
+    }
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -136,11 +166,59 @@ export function EventLogPanel() {
       {/* Header */}
       <div className="flex items-center gap-3">
         <span className="ms text-[20px] text-amber-gold leading-none" aria-hidden="true">history</span>
-        <div>
+        <div className="flex-1">
           <h2 className="font-bold text-[11px] tracking-[0.2em] uppercase text-amber-gold">Event Log</h2>
           <p className="text-[10px] text-on-surface-variant mt-0.5">
             {systemEvents.length} event{systemEvents.length !== 1 ? 's' : ''} · last 100 retained
           </p>
+        </div>
+
+        {/* SitRep Export */}
+        <div className="relative">
+          <button
+            onClick={() => setShowSitrepMenu((v) => !v)}
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 border text-[9px] font-bold uppercase tracking-widest transition-colors focus:outline-none ${
+              showSitrepMenu
+                ? 'bg-amber-gold text-onyx-black border-amber-gold'
+                : 'border-amber-gold/40 text-amber-gold hover:bg-amber-gold/10'
+            }`}
+          >
+            <span className="ms text-[14px] leading-none">download</span>
+            SitRep
+          </button>
+
+          {showSitrepMenu && (
+            <div className="absolute right-0 top-full mt-1 w-48 bg-onyx-deep border border-white/10 z-30 shadow-xl">
+              <div className="p-3 space-y-2">
+                <div className="text-[9px] text-on-surface-variant uppercase tracking-widest">Time window</div>
+                <div className="flex gap-1">
+                  {[6, 12, 24, 48, 72].map((h) => (
+                    <button
+                      key={h}
+                      onClick={() => setSitrepHours(h)}
+                      className={`flex-1 py-1 text-[9px] font-mono border transition-colors focus:outline-none ${
+                        sitrepHours === h
+                          ? 'bg-amber-gold text-onyx-black border-amber-gold'
+                          : 'border-white/10 text-on-surface-variant hover:border-white/30'
+                      }`}
+                    >
+                      {h}h
+                    </button>
+                  ))}
+                </div>
+                {sitrepError && (
+                  <p className="text-[9px] text-red-emergency">{sitrepError}</p>
+                )}
+                <button
+                  onClick={handleExportSitRep}
+                  disabled={sitrepExporting}
+                  className="w-full py-1.5 bg-amber-gold/10 border border-amber-gold/60 text-amber-gold text-[10px] font-bold uppercase tracking-widest hover:bg-amber-gold/20 transition-colors focus:outline-none disabled:opacity-50"
+                >
+                  {sitrepExporting ? 'Generating…' : 'Download .md'}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

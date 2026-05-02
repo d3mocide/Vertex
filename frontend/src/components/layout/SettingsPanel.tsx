@@ -18,10 +18,26 @@ export function SettingsPanel() {
   const [notifPermission, setNotifPermission] = useState(() => notificationPermission())
   const userRole = getUserRole()
 
-  // Data retention state (admin only)
-  const [storageStats, setStorageStats] = useState<{ observation_count: number; entity_count: number; retention_days: number } | null>(null)
-  const [retentionDays, setRetentionDays] = useState(30)
-  const [retentionSaving, setRetentionSaving] = useState(false)
+
+  // System metrics (admin only)
+  type MetricsData = {
+    available: boolean
+    req_rate: number
+    error_pct: number
+    memory_mb: number
+    cpu_pct: number
+    p95_ms: number
+    history: Array<{ ts: number; req_rate: number; error_pct: number; memory_mb: number; p95_ms: number }>
+  }
+  const [metricsData, setMetricsData] = useState<MetricsData | null>(null)
+
+  const loadMetrics = useCallback(async () => {
+    if (userRole !== 'admin') return
+    try {
+      const res = await fetch(`${API_BASE}/admin/metrics`, { headers: authHeaders() })
+      if (res.ok) setMetricsData(await res.json())
+    } catch { /* non-fatal */ }
+  }, [userRole])
 
   // Alert rules (admin only)
   const [alertRules, setAlertRules] = useState<Array<{
@@ -37,18 +53,6 @@ export function SettingsPanel() {
   const [newRuleAction, setNewRuleAction] = useState<'webhook_post' | 'log'>('webhook_post')
   const [newRuleUrl, setNewRuleUrl] = useState('')
 
-  const loadStorageStats = useCallback(async () => {
-    if (userRole !== 'admin') return
-    try {
-      const res = await fetch(`${API_BASE}/admin/storage`, { headers: authHeaders() })
-      if (res.ok) {
-        const data = await res.json()
-        setStorageStats(data)
-        setRetentionDays(data.retention_days)
-      }
-    } catch { /* non-fatal */ }
-  }, [userRole])
-
   const loadAlertRules = useCallback(async () => {
     if (userRole !== 'admin') return
     try {
@@ -61,24 +65,10 @@ export function SettingsPanel() {
 
   useEffect(() => {
     if (settingsOpen) {
-      loadStorageStats()
       loadAlertRules()
+      loadMetrics()
     }
-  }, [settingsOpen, loadStorageStats, loadAlertRules])
-
-  const saveRetention = async () => {
-    setRetentionSaving(true)
-    try {
-      await fetch(`${API_BASE}/admin/retention`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...authHeaders() },
-        body: JSON.stringify({ retention_days: retentionDays }),
-      })
-      await loadStorageStats()
-    } catch { /* non-fatal */ } finally {
-      setRetentionSaving(false)
-    }
-  }
+  }, [settingsOpen, loadAlertRules, loadMetrics])
 
   const createAlertRule = async () => {
     if (!newRuleName.trim()) return
@@ -302,54 +292,6 @@ export function SettingsPanel() {
           </section>
 
           {/* Data Retention — admin only */}
-          {userRole === 'admin' && (
-            <section>
-              <h2 className="label-caps mb-3">Data Retention</h2>
-              {storageStats ? (
-                <div className="space-y-3">
-                  <div className="grid grid-cols-2 gap-2 text-[10px]">
-                    <div className="hud-panel p-2 text-center">
-                      <div className="font-mono text-on-surface font-bold">{storageStats.observation_count.toLocaleString()}</div>
-                      <div className="text-on-surface-variant uppercase tracking-wider text-[8px]">Observations</div>
-                    </div>
-                    <div className="hud-panel p-2 text-center">
-                      <div className="font-mono text-on-surface font-bold">{storageStats.entity_count.toLocaleString()}</div>
-                      <div className="text-on-surface-variant uppercase tracking-wider text-[8px]">Entities</div>
-                    </div>
-                  </div>
-                  <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-[10px] text-on-surface-variant">Keep observations for</span>
-                      <span className="font-mono text-[10px] text-amber-gold">{retentionDays}d</span>
-                    </div>
-                    <input
-                      type="range"
-                      min={1}
-                      max={365}
-                      step={1}
-                      value={retentionDays}
-                      onChange={(e) => setRetentionDays(Number(e.target.value))}
-                      className="w-full accent-amber-500"
-                      aria-label="Retention days"
-                    />
-                    <div className="flex justify-between text-[8px] text-on-surface-variant mt-0.5">
-                      <span>1d</span><span>365d</span>
-                    </div>
-                  </div>
-                  <button
-                    onClick={saveRetention}
-                    disabled={retentionSaving}
-                    className="w-full py-1.5 text-[9px] font-bold uppercase tracking-widest border border-amber-gold/40 text-amber-gold hover:bg-amber-gold/10 transition-colors disabled:opacity-50 focus:outline-none"
-                  >
-                    {retentionSaving ? 'Saving…' : 'Save'}
-                  </button>
-                </div>
-              ) : (
-                <p className="text-[10px] text-on-surface-variant">Loading…</p>
-              )}
-            </section>
-          )}
-
           {/* Alert Rules — admin only */}
           {userRole === 'admin' && (
             <section>
@@ -429,6 +371,63 @@ export function SettingsPanel() {
             </section>
           )}
 
+          {/* Admin Dashboard link */}
+          {userRole === 'admin' && (
+            <section>
+              <a
+                href="/admin"
+                className="flex items-center justify-between w-full py-2 px-3 border border-amber-gold/30 text-amber-gold/80 hover:bg-amber-gold/10 transition-colors text-[10px] uppercase tracking-widest"
+              >
+                <span>Admin Dashboard</span>
+                <span className="ms text-[14px]">open_in_new</span>
+              </a>
+            </section>
+          )}
+
+          {/* System Metrics — admin only */}
+          {userRole === 'admin' && (
+            <section>
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="label-caps">System Metrics</h2>
+                <button
+                  onClick={loadMetrics}
+                  className="ms text-[14px] text-on-surface-variant hover:text-on-surface transition-colors leading-none focus:outline-none"
+                  title="Refresh"
+                >
+                  sync
+                </button>
+              </div>
+              {!metricsData ? (
+                <p className="text-[10px] text-on-surface-variant">Loading…</p>
+              ) : !metricsData.available ? (
+                <p className="text-[10px] text-on-surface-variant">
+                  No data yet — metrics collect every 10s after startup.
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-2">
+                    <MetricCard label="Req / s" value={metricsData.req_rate.toFixed(1)} unit="" icon="arrow_forward" />
+                    <MetricCard
+                      label="Error %"
+                      value={metricsData.error_pct.toFixed(1)}
+                      unit="%"
+                      icon="warning"
+                      warn={metricsData.error_pct > 2}
+                    />
+                    <MetricCard label="P95 Latency" value={metricsData.p95_ms.toFixed(0)} unit="ms" icon="timer" warn={metricsData.p95_ms > 500} />
+                    <MetricCard label="Memory" value={metricsData.memory_mb.toFixed(0)} unit="MB" icon="memory" warn={metricsData.memory_mb > 400} />
+                  </div>
+                  {metricsData.history.length >= 2 && (
+                    <div>
+                      <div className="text-[8px] text-on-surface-variant uppercase tracking-widest mb-1">Req/s — last 6 min</div>
+                      <Sparkline values={metricsData.history.map((h) => h.req_rate)} />
+                    </div>
+                  )}
+                </div>
+              )}
+            </section>
+          )}
+
           {/* Account */}
           <section className="border-t border-white/10 pt-4">
             <h2 className="label-caps mb-3">Account</h2>
@@ -443,6 +442,43 @@ export function SettingsPanel() {
         </div>
       </div>
     </div>
+  )
+}
+
+function MetricCard({ label, value, unit, icon, warn = false }: {
+  label: string; value: string; unit: string; icon: string; warn?: boolean
+}) {
+  return (
+    <div className="hud-panel p-2 text-center space-y-0.5">
+      <span className={`ms text-[14px] leading-none ${warn ? 'text-red-emergency' : 'text-amber-gold'}`} aria-hidden="true">
+        {icon}
+      </span>
+      <div className={`font-mono text-[13px] font-bold leading-tight ${warn ? 'text-red-emergency' : 'text-on-surface'}`}>
+        {value}<span className="text-[9px] text-on-surface-variant ml-0.5">{unit}</span>
+      </div>
+      <div className="text-on-surface-variant uppercase tracking-wider text-[7px]">{label}</div>
+    </div>
+  )
+}
+
+function Sparkline({ values }: { values: number[] }) {
+  if (values.length < 2) return null
+  const w = 220
+  const h = 28
+  const max = Math.max(...values)
+  const min = Math.min(...values)
+  const range = max - min || 1
+  const pts = values
+    .map((v, i) => {
+      const x = (i / (values.length - 1)) * w
+      const y = h - ((v - min) / range) * (h - 4) - 2
+      return `${x.toFixed(1)},${y.toFixed(1)}`
+    })
+    .join(' ')
+  return (
+    <svg width={w} height={h} className="w-full overflow-visible" viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none">
+      <polyline points={pts} fill="none" stroke="#FFB800" strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" />
+    </svg>
   )
 }
 

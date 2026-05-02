@@ -5,6 +5,25 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 
 ---
 
+## 2026-05-02 — Implemented Sprint 3: talkgroup management, SitRep export, KML import, Grafana
+
+- **C4 P25 Talkgroup Management**: Added `Talkgroup` DB model (`tgid`, `name`, `priority` 1–5, `color`, `scan_enabled`) to `backend/db/models.py`.
+- **C4**: Added CRUD endpoints at `GET/POST/PUT/DELETE /api/v1/radio/talkgroups` in `backend/routers/radio.py`.
+- **C4**: Overhauled the talkgroups tab in `frontend/src/components/panels/TacticalAudio.tsx` — inline name editing (click-to-rename), color-coded priority badge (P1–P5) with dropdown selector, scan toggle, auto-register button for TGIDs seen in the 24h call log, and delete.
+- **B4 SitRep Export**: New `backend/routers/sitrep.py` — `GET /api/v1/sitrep?hours=N` aggregates entity counts by type, recent events, weather alerts from Redis, and the AI summary into a downloadable Markdown situation report.
+- **B4**: Added "SitRep" button to `frontend/src/components/panels/EventLogPanel.tsx` header — opens a time-window selector (6h / 12h / 24h / 48h / 72h) and triggers a direct `.md` file download via Blob URL.
+- **D3 KML/GeoJSON Import**: Added `CustomLayer` DB model (`name`, `geojson`, `style`, `visible`) to `backend/db/models.py`; new CRUD router at `GET/POST/PUT/DELETE /api/v1/layers` in `backend/routers/layers.py`.
+- **D3**: Rewrote `frontend/src/components/panels/GeofencePanel.tsx` with a tabbed layout (Geofences / Custom Layers); the Custom Layers tab has a drag-and-drop file drop zone accepting `.kml`, `.geojson`, `.json`, a browser-side KML→GeoJSON converter using `DOMParser` (no npm dependency), layer name form, visibility toggle, and delete.
+- **D3**: New `frontend/src/components/layers/CustomLayersLayer.tsx` — renders each visible `CustomLayer` as MapLibre `fill` + `line` + `circle` sub-layers; polls the API every 30s and syncs to the Zustand store; mounted in `frontend/src/components/Map.tsx`.
+- **D3**: Added `CustomLayerItem` type and `customLayers`/`setCustomLayers` to `frontend/src/store.ts`.
+- **D5 Grafana Dashboard**: Added `prometheus` and `grafana` services to `docker-compose.yml` under `--profile monitoring` (Prometheus `:9090`, Grafana `:3001`).
+- **D5**: Created `infra/prometheus/prometheus.yml` (scrapes backend `/metrics` every 15s); `infra/grafana/provisioning/` with auto-provisioned Prometheus datasource and dashboard loader; `infra/grafana/dashboards/vertex.json` pre-built dashboard covering request rate, error rate, p50/p95/p99 latency, CPU, and memory.
+- Registered `sitrep` and `layers` routers in `backend/main.py`.
+- All checks passed: `npx tsc --noEmit`, `docker compose config --quiet`, `python3 -m py_compile` on all modified `.py` files.
+- **Motivation**: Completed all four Sprint 3 (Depth & Refinement) roadmap items — C4, B4, D3, D5 — advancing Vertex from a passive display to an operator-configurable platform with radio identity management, exportable documentation, flexible map overlays, and production observability.
+
+---
+
 ## 2026-04-30 — Split documentation into a dedicated docs tree
 
 - Added a new documentation hub at [docs/README.md](docs/README.md) to keep long-form project documentation out of the top-level README.

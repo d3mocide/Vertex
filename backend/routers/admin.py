@@ -1,10 +1,13 @@
+import json
+
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
-from sqlalchemy import func, select, text
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from db.models import Entity, Observation
 from deps import get_db, get_redis_client
+from metrics_collector import p95_from_buckets
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -49,3 +52,63 @@ async def set_retention(body: RetentionConfig):
     r = get_redis_client()
     await r.set(_RETENTION_KEY, body.retention_days)
     return body
+
+
+_METRICS_HISTORY_KEY = "metrics:history"
+
+
+@router.get("/metrics")
+async def get_metrics():
+    """Operational metrics with 6-minute sparkline history."""
+    r = get_redis_client()
+    raw_list = await r.lrange(_METRICS_HISTORY_KEY, 0, -1)
+
+    if not raw_list:
+        return {"available": False}
+
+    snaps = [json.loads(s) for s in raw_list]
+    latest = snaps[-1]
+    oldest = snaps[0]
+
+    interval = latest["ts"] - oldest["ts"] if len(snaps) > 1 else 10.0
+
+    def delta(key: str) -> float:
+        return latest.get(key, 0.0) - oldest.get(key, 0.0)
+
+    total_reqs = delta("req_total")
+    req_rate = total_reqs / interval if interval > 0 else 0.0
+    total_5xx = delta("req_5xx")
+    error_pct = (total_5xx / total_reqs * 100) if total_reqs > 0 else 0.0
+
+    cpu_delta = delta("cpu_seconds")
+    cpu_pct = (cpu_delta / interval * 100) if interval > 0 else 0.0
+
+    memory_mb = latest.get("memory_bytes", 0.0) / 1_048_576
+    p95_ms = p95_from_buckets(latest.get("latency_buckets", []))
+
+    history = []
+    for i in range(1, len(snaps)):
+        prev = snaps[i - 1]
+        curr = snaps[i]
+        dt = curr["ts"] - prev["ts"]
+        if dt <= 0:
+            continue
+        d_req = curr.get("req_total", 0.0) - prev.get("req_total", 0.0)
+        d_5xx = curr.get("req_5xx", 0.0) - prev.get("req_5xx", 0.0)
+        history.append({
+            "ts": curr["ts"],
+            "req_rate": round(d_req / dt, 3),
+            "error_pct": round((d_5xx / d_req * 100) if d_req > 0 else 0.0, 1),
+            "memory_mb": round(curr.get("memory_bytes", 0.0) / 1_048_576, 1),
+            "p95_ms": round(p95_from_buckets(curr.get("latency_buckets", [])), 1),
+        })
+
+    return {
+        "available": True,
+        "req_rate": round(req_rate, 2),
+        "error_pct": round(error_pct, 1),
+        "memory_mb": round(memory_mb, 1),
+        "cpu_pct": round(cpu_pct, 1),
+        "p95_ms": round(p95_ms, 1),
+        "history": history,
+    }

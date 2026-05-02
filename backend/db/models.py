@@ -161,3 +161,27 @@ class AlertRule(Base):
     action_config: Mapped[dict] = mapped_column(JSON)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
+class Talkgroup(Base):
+    __tablename__ = "talkgroups"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    tgid: Mapped[int] = mapped_column(unique=True, index=True)
+    name: Mapped[str] = mapped_column(String(128))
+    priority: Mapped[int] = mapped_column(default=3)
+    color: Mapped[str] = mapped_column(String(16), default="#FFB800")
+    scan_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
+class CustomLayer(Base):
+    __tablename__ = "custom_layers"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(128))
+    geojson: Mapped[dict] = mapped_column(JSON)
+    style: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    visible: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

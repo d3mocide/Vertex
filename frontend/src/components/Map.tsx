@@ -7,6 +7,7 @@ import { SmokeLayer }           from './layers/SmokeLayer'
 import { MeshLayer }            from './layers/MeshLayer'
 import { GeofenceLayer }        from './layers/GeofenceLayer'
 import { ObservationRingLayer } from './layers/ObservationRingLayer'
+import { CustomLayersLayer }    from './layers/CustomLayersLayer'
 import { MapOverlay }           from './MapOverlay'
 import { useWebSocket }  from '../hooks/useWebSocket'
 
@@ -74,6 +75,7 @@ export function Map() {
           <SmokeLayer            map={map} />
           <MeshLayer             map={map} />
           <GeofenceLayer         map={map} />
+          <CustomLayersLayer     map={map} />
           <ObservationRingLayer  map={map} />
           <MapOverlay            map={map} />
         </>
