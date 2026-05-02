@@ -162,7 +162,7 @@ export function EventLogPanel() {
   const severities: SeverityFilter[] = ['all', 'critical', 'high', 'medium', 'low']
 
   return (
-    <div className="p-4 md:p-6 space-y-4">
+    <div className="p-4 md:p-6 pb-24 md:pb-24 space-y-4">
       {/* Header */}
       <div className="flex items-center gap-3">
         <span className="ms text-[20px] text-amber-gold leading-none" aria-hidden="true">history</span>

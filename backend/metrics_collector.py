@@ -1,43 +1,59 @@
 """
 Background task that snapshots Prometheus metrics every 10 seconds and
-stores them in Redis as a rolling 6-minute history for the admin panel.
+stores them in Redis as a rolling 60-minute history for the admin panel.
 """
 import asyncio
 import json
 import time
 
 _HISTORY_KEY = "metrics:history"
-_HISTORY_LEN = 36  # 36 × 10 s = 6 minutes
+_HISTORY_LEN = 360  # 360 × 10 s = 60 minutes
+
+# WebSocket client counter — mutated by routers/ws.py
+_ws_client_count: int = 0
+
+
+def ws_client_connect() -> None:
+    global _ws_client_count
+    _ws_client_count += 1
+
+
+def ws_client_disconnect() -> None:
+    global _ws_client_count
+    _ws_client_count = max(0, _ws_client_count - 1)
+
+
+def get_ws_client_count() -> int:
+    return _ws_client_count
 
 
 def collect_snapshot() -> dict:
     from prometheus_client import REGISTRY
 
-    snap: dict = {"ts": time.time()}
+    snap: dict = {"ts": time.time(), "ws_clients": _ws_client_count}
 
     for metric in REGISTRY.collect():
         name = metric.name
         samples = metric.samples
-
-        if name == "http_requests_total":
-            total = 0.0
-            e5xx = 0.0
-            for s in samples:
-                total += s.value
-                if s.labels.get("status_code", "").startswith("5"):
-                    e5xx += s.value
-            snap["req_total"] = total
-            snap["req_5xx"] = e5xx
-
-        elif name == "http_request_duration_seconds":
+        if name == "http_request_duration_seconds":
             buckets: list[list] = []
+            req_count = 0.0
+            e5xx = 0.0
             for s in samples:
                 if s.name.endswith("_bucket"):
                     le = float(s.labels.get("le", "inf"))
                     buckets.append([le, s.value])
+                elif s.name.endswith("_count"):
+                    req_count += s.value
+                    status = s.labels.get("status") or s.labels.get("status_code") or ""
+                    if str(status).startswith("5"):
+                        e5xx += s.value
+
             if buckets:
                 buckets.sort(key=lambda x: x[0])
                 snap["latency_buckets"] = buckets
+            snap["req_total"] = req_count
+            snap["req_5xx"] = e5xx
 
         elif name == "process_resident_memory_bytes":
             if samples:

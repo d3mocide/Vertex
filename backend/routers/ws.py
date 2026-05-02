@@ -1,6 +1,7 @@
 import asyncio
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from redis_bus import subscribe_updates, get_all_entities, get_aircraft_snapshot
+from metrics_collector import ws_client_connect, ws_client_disconnect
 
 router = APIRouter(tags=["websocket"])
 
@@ -9,6 +10,7 @@ router = APIRouter(tags=["websocket"])
 async def websocket_endpoint(ws: WebSocket):
     try:
         await ws.accept()
+        ws_client_connect()
         pubsub = await subscribe_updates()
         try:
             entities = await get_all_entities()
@@ -51,6 +53,7 @@ async def websocket_endpoint(ws: WebSocket):
                     except (asyncio.CancelledError, Exception):
                         pass
         finally:
+            ws_client_disconnect()
             await pubsub.unsubscribe("civic:updates")
             await pubsub.aclose()
     except (WebSocketDisconnect, asyncio.CancelledError):

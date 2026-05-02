@@ -7,6 +7,7 @@ const TABS: { id: NavTab; label: string; icon: string }[] = [
   { id: 'environment',    label: 'Environment',     icon: 'eco'            },
   { id: 'community',      label: 'Community',       icon: 'groups'         },
   { id: 'events',         label: 'Event Log',       icon: 'history'        },
+  { id: 'incidents',      label: 'Incidents',       icon: 'report'         },
 ]
 
 

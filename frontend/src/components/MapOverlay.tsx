@@ -2,10 +2,11 @@ import { useEffect, useRef } from 'react'
 import maplibregl from 'maplibre-gl'
 import { Deck } from '@deck.gl/core'
 import { useCivicStore } from '../store'
-import type { Track, TrafficCamera, EntityTypeFilter, RangeFilter, ReplayData } from '../store'
+import type { Track, TrafficCamera, EntityTypeFilter, RangeFilter, ReplayData, SystemEvent } from '../store'
 import { buildEntityLayers } from '../layers/buildEntityLayers'
 import { buildTrailLayers } from '../layers/buildTrailLayers'
 import { buildCameraLayer } from '../layers/buildCameraLayer'
+import { buildEventLayers } from '../layers/buildEventLayers'
 import { applyPVB, type PVBState } from '../layers/pvb'
 
 interface Props {
@@ -100,6 +101,7 @@ export function MapOverlay({ map }: Props) {
   const replayMode        = useCivicStore((s) => s.replayMode)
   const replayData        = useCivicStore((s) => s.replayData)
   const replayCurrentTs   = useCivicStore((s) => s.replayCurrentTs)
+  const systemEvents      = useCivicStore((s) => s.systemEvents)
   const selectEntity      = useCivicStore((s) => s.selectEntity)
   const setSelectedCamId  = useCivicStore((s) => s.setSelectedCamId)
   const setActiveTab      = useCivicStore((s) => s.setActiveTab)
@@ -115,6 +117,9 @@ export function MapOverlay({ map }: Props) {
   useEffect(() => { replayModeRef.current = replayMode          }, [replayMode])
   useEffect(() => { replayDataRef.current = replayData          }, [replayData])
   useEffect(() => { replayTsRef.current = replayCurrentTs       }, [replayCurrentTs])
+  
+  const systemEventsRef = useRef<SystemEvent[]>([])
+  useEffect(() => { systemEventsRef.current = systemEvents }, [systemEvents])
   const camerasVisibleRef = useRef(false)
   useEffect(() => { camerasVisibleRef.current = camerasVisible  }, [camerasVisible])
   useEffect(() => { activeTabRef.current = activeTab            }, [activeTab])
@@ -205,6 +210,31 @@ export function MapOverlay({ map }: Props) {
                 <div class="text-[10px] text-slate-400 italic flex justify-between">
                   <span>${cam.road ? 'Traffic Cam' : (cam as any).provider || 'Regional Network'}</span>
                   ${cam.dist_km ? `<span>${cam.dist_km.toFixed(1)} km</span>` : ''}
+                </div>
+              </div>
+            </div>
+          `
+        } else if (layer.id === 'event-points') {
+          const ev = object as SystemEvent
+          const ageHours = Math.max(0, (Date.now() - Date.parse(ev.ts)) / 3600_000)
+          const ageStr = ageHours < 1 ? '< 1h ago' : `${Math.floor(ageHours)}h ago`
+          
+          let color = 'text-slate-400'
+          if (ev.severity === 'high') color = 'text-red-400'
+          else if (ev.severity === 'medium') color = 'text-amber-400'
+          else if (ev.severity === 'low') color = 'text-cyan-400'
+
+          html = `
+            <div class="p-2 min-w-[200px] bg-slate-900/95 border border-slate-700 rounded-lg shadow-2xl backdrop-blur-md">
+              <div class="flex items-center gap-2 text-[11px] font-bold text-white mb-1.5">
+                 <span class="material-symbols-outlined text-[16px] ${color}">crisis_alert</span>
+                 <span class="truncate uppercase">${ev.event_type}</span>
+              </div>
+              <div class="space-y-1">
+                <div class="text-[10px] text-slate-300">${ev.summary}</div>
+                <div class="text-[10px] text-slate-400 italic flex justify-between mt-1 pt-1 border-t border-slate-700/50">
+                  <span class="uppercase">${ev.severity}</span>
+                  <span>${ageStr}</span>
                 </div>
               </div>
             </div>
@@ -354,6 +384,7 @@ export function MapOverlay({ map }: Props) {
         layers: [
           ...buildTrailLayers(rawTracks, sel),
           ...buildEntityLayers(pvbTracks, sel, cycleRef.current),
+          ...buildEventLayers(systemEventsRef.current, now),
           ...(camerasVisibleRef.current
             ? [buildCameraLayer(camerasRef.current, selectedCamRef.current)]
             : []),

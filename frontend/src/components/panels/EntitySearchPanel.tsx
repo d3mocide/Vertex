@@ -141,7 +141,7 @@ export function EntitySearchPanel() {
           {/* Type toggles */}
           <div>
             <span className="label-caps text-[9px] block mb-2">Entity Types</span>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               {(['aircraft', 'vessel', 'aprs', 'fire_incident'] as const).map((t) => (
                 <button
                   key={t}

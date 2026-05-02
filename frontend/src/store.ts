@@ -146,7 +146,13 @@ export interface SystemEvent {
   ts:         string
   severity:   string
   summary:    string
-  details?:   Record<string, unknown>
+  details?:   {
+    lat?: number
+    lon?: number
+    magnitude?: number
+    depth_km?: number
+    [key: string]: any
+  }
 }
 
 // ─── Custom Layers (KML / GeoJSON import) ────────────────────────────────────
@@ -168,7 +174,7 @@ export interface SystemHealth {
 
 // ─── UI State ─────────────────────────────────────────────────────────────────
 export type AppMode  = 'calm' | 'critical'
-export type NavTab   = 'safety' | 'infrastructure' | 'environment' | 'community' | 'events'
+export type NavTab   = 'safety' | 'infrastructure' | 'environment' | 'community' | 'events' | 'incidents'
 export type EntityTypeFilter = {
   aircraft: boolean
   vessel: boolean

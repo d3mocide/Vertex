@@ -561,7 +561,7 @@ export function EnvironmentPanel() {
       </div>
 
       {/* Scrollable body — overflow lives here so both columns size to content */}
-      <div className="flex-1 overflow-y-auto min-h-0">
+      <div className="flex-1 overflow-y-auto min-h-0 pb-24">
         <div className="flex flex-col lg:flex-row gap-10 p-6 items-start">
 
           {/* LEFT COLUMN: Data Stream */}

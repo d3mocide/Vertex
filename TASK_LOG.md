@@ -5,6 +5,44 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 
 ---
 
+## 2026-05-02 — Added Geospatial Event Mapping (Seismic)
+
+- **Frontend `SystemEvent` Type**: Upgraded `frontend/src/store.ts` so the `details` field explicitly types `lat`, `lon`, and `magnitude`.
+- **New `buildEventLayers.ts`**: Created a Deck.gl `ScatterplotLayer` that filters the live `systemEvents` feed for entries with coordinates. Events are drawn with semantic colors by severity, scaled by magnitude, and dynamically fade in opacity over a 24-hour window.
+- **Map Integration & Tooltips**: Injected `buildEventLayers` into the `MapOverlay.tsx` render loop. Added hover picking support so clicking/hovering a seismic event on the map displays a customized popover showing its summary, severity, and relative age.
+- **Seismic Gating**: Added haversine distance filtering to `poller/pollers/seismic.py`. Local events (< 300km) are ingested regardless of magnitude. Regional events (< 1500km) require magnitude >= 3.0. Global events require magnitude >= 5.0.
+- **UI Tweaks**: Added `flex-wrap` to `EntitySearchPanel.tsx` to prevent entity type filter buttons from overflowing the container.
+- **Tooling**: Added a root `Makefile` to simplify starting the project (`make dev`, `make prod`, `make build`, etc.).
+- **Validation**: Passed strict type checking `npx tsc --noEmit`.
+
+---
+
+## 2026-05-02 — Metrics dashboard overhaul — all 10 improvements implemented
+
+- **Poller heartbeat system**: Modified `poller/pollers/base.py` to write a heartbeat (`ts`, `status`, `last_error`) to `metrics:poller_heartbeats` Redis hash after every poll cycle (success or error), enabling live visibility into all 13 pollers.
+- **Wider metrics history**: Expanded `backend/metrics_collector.py` from 36 → 360 snapshots (6 min → 60 min rolling window). Added `ws_client_count` module-level counter and WS client helpers.
+- **WebSocket client counter**: Updated `backend/routers/ws.py` to call `ws_client_connect()` / `ws_client_disconnect()` on every WS session lifecycle, tracking live client count in real time.
+- **Extended `/admin/metrics`**: Now returns `ws_clients`, `db_ping_ms`, `redis_ping_ms` on each call; history points include `cpu_pct` and `ws_clients`.
+- **Extended `/admin/storage`**: Added `table_size_bytes` (pg_total_relation_size), `obs_per_day_7d` (7-day rolling average), `event_count`, `event_type_counts`.
+- **New `GET /admin/pollers`**: Reads heartbeat hash from Redis, computes staleness based on each poller's configured interval (dynamic threshold + 60s grace period), returns per-poller status (ok/stale/error).
+- **New `GET /admin/ingestion-rate`**: Bucketed SQL query (date_trunc minute × entity_type × count) returning 60-min observation rate data.
+- **New `GET /admin/db-pool`**: Introspects SQLAlchemy `QueuePool` for `pool_size`, `checked_in`, `checked_out`, `overflow`.
+- **Frontend — modular component split**: Replaced monolithic `AdminMetrics.tsx` with 9 focused files under `frontend/src/admin/metrics/`:
+  - `types.ts` — shared TypeScript types
+  - `Primitives.tsx` — reusable `AreaSparkline` (SVG gradient fill) and `MetricCard`
+  - `HealthBar.tsx` — system health pill strip (DB, Redis, Pollers aggregate, WS count)
+  - `LivePerformance.tsx` — 6 metric cards with 60-min area sparklines (req/s, error%, P95, memory, CPU, WS clients)
+  - `PollerGrid.tsx` — 13-cell responsive grid with LIVE/STALE/ERR pills and relative timestamps
+  - `IngestionChart.tsx` — multi-line SVG chart with semantic signal colors (cyan=aircraft, green=vessel, amber=aprs/p25)
+  - `EntityDonut.tsx` — pure SVG donut chart + count cards per entity type
+  - `EventActivity.tsx` — event type breakdown with severity-coded indicators
+  - `StoragePanel.tsx` — table size, daily growth rate, days-until-purge projection, retention slider
+  - `DbPoolPanel.tsx` — 4 pool stat cards with utilization warning
+  - `AdminMetrics.tsx` — slim orchestrator wiring all components, 15s fast refresh + 60s slow refresh
+- **Validation**: `npx tsc --noEmit` ✓ zero errors · `python -m py_compile` ✓ all modified files · `docker compose config --quiet` ✓ · `docker compose up -d --build` ✓ all containers healthy
+
+---
+
 ## 2026-05-02 — Implemented Sprint 3: talkgroup management, SitRep export, KML import, Grafana
 
 - **C4 P25 Talkgroup Management**: Added `Talkgroup` DB model (`tgid`, `name`, `priority` 1–5, `color`, `scan_enabled`) to `backend/db/models.py`.

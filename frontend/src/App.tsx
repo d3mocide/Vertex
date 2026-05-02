@@ -21,7 +21,9 @@ import { CommunityPanel }    from './components/panels/CommunityPanel'
 import { EventLogPanel }      from './components/panels/EventLogPanel'
 import { EntitySearchPanel }   from './components/panels/EntitySearchPanel'
 import { PlaybackController }  from './components/panels/PlaybackController'
+import { GeofenceController }  from './components/panels/GeofenceController'
 import { CameraModal }         from './components/panels/CameraModal'
+import { IncidentsPanel }      from './components/panels/IncidentsPanel'
 
 // ── Authenticated dashboard ────────────────────────────────────────────────────
 function Dashboard() {
@@ -66,6 +68,7 @@ function Dashboard() {
                 {activeTab === 'environment'    && <EnvironmentPanel   />}
                 {activeTab === 'community'      && <CommunityPanel     />}
                 {activeTab === 'events'         && <EventLogPanel      />}
+                {activeTab === 'incidents'      && <IncidentsPanel     />}
               </div>
             )}
 
@@ -76,6 +79,7 @@ function Dashboard() {
                 <EntitySearchPanel />
                 <EntityDetail />
                 <PlaybackController />
+                <GeofenceController />
               </>
             )}
 

@@ -103,10 +103,15 @@ export function Sidebar() {
   const meshNodes = Object.values(entities).filter((e) => e.entity_type === 'mesh_node').length
   const cams      = cameras.length
   const wAlerts   = weather.alerts.length
-  const activeInc = trafficIncidents.length
+  // Filter out low-impact / no-impact incidents
+  const significantIncidents = trafficIncidents.filter(inc => {
+    const text = ((inc.title || '') + ' ' + (inc.description || '')).toLowerCase()
+    return !text.includes('no impacts') && !text.includes('no traffic impacts')
+  })
 
-  // Use dedicated traffic incidents feed (first 4)
-  const incidents = trafficIncidents.slice(0, 4)
+  // Use dedicated traffic incidents feed (first 4 significant)
+  const incidents = significantIncidents.slice(0, 4)
+  const activeInc = significantIncidents.length
 
   // News items from store, fallback to empty
   // News items filtered for Regional News only
@@ -245,7 +250,7 @@ export function Sidebar() {
                 Showing {incidents.length} of {activeInc} incidents
               </span>
               <button
-                onClick={() => setActiveTab('infrastructure')}
+                onClick={() => setActiveTab('incidents')}
                 className="font-mono text-[9px] uppercase tracking-widest text-amber-gold hover:text-white"
               >
                 View All

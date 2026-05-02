@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
 import { useCivicStore, TrafficCamera } from '../../store'
-import { GeofencePanel } from './GeofencePanel'
 
 function CctvThumbnail({
   cam, ldi, isFavorite, onToggleFavorite,
@@ -263,7 +262,7 @@ export function InfrastructureGrid() {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-6">
+      <div className="flex-1 overflow-y-auto p-4 pb-24 flex flex-col gap-6">
 
         {/* ── Two-column body ────────────────────────────────────────── */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
@@ -432,15 +431,6 @@ export function InfrastructureGrid() {
           </div>{/* /RIGHT COLUMN */}
 
         </div>{/* /two-column grid */}
-
-        {/* ── Full-width: Geofence ────────────────────────────────────── */}
-        <section aria-labelledby="geofence-heading">
-          <h3 id="geofence-heading" className="section-heading mb-4">
-            <span className="ms text-[14px] leading-none" aria-hidden="true">pentagon</span>
-            Geofence Zones
-          </h3>
-          <GeofencePanel />
-        </section>
 
       </div>
     </div>

@@ -195,7 +195,7 @@ export function CommunityPanel() {
 
       {/* Feed */}
       <div
-        className="flex-1 overflow-y-auto p-4"
+        className="flex-1 overflow-y-auto p-4 pb-24"
         role="feed"
         aria-label="Community news and alert feed"
         aria-live="polite"

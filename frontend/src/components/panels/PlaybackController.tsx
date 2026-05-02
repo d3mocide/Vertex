@@ -105,10 +105,10 @@ export function PlaybackController() {
         <button
           onClick={() => setOpen((v) => !v)}
           className={`
-            absolute top-28 left-[280px] z-30 flex items-center gap-2 px-3 py-2 HUD-panel-glow
-            hud-panel border border-amber-gold-muted text-[10px] font-mono uppercase tracking-widest
+            absolute top-28 left-[280px] z-30 flex items-center gap-2 px-3 py-2
+            hud-panel border border-amber-gold-muted text-[10px] font-mono uppercase tracking-widest shadow-2xl
             hover:border-amber-gold/60 transition-colors focus:outline-none
-            ${open ? 'text-amber-gold border-amber-gold shadow-[0_0_10px_rgba(255,184,0,0.2)]' : 'text-on-surface-variant'}
+            ${open ? 'text-amber-gold border-amber-gold' : 'text-on-surface-variant'}
           `}
           aria-expanded={open}
           title="Historical playback"
