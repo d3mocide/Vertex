@@ -18,6 +18,8 @@ from pollers.summary import AISummaryPoller
 from pollers.seismic import SeismicPoller
 from pollers.fire import FirePoller
 from pollers.aprs import AprsPoller
+from pollers.cot_emitter import CotEmitter
+from pollers.anomaly import AnomalyDetectionPoller
 from bus import close
 from config_loader import load_sources_config
 from config_sync import sync_sources_to_db
@@ -66,6 +68,8 @@ async def main():
         SeismicPoller(),
         FirePoller(),
         AprsPoller(),
+        CotEmitter(),
+        AnomalyDetectionPoller(),
     ]
     tasks = [asyncio.create_task(p.run()) for p in pollers]
     tasks.append(asyncio.create_task(_purge_loop()))

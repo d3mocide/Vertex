@@ -102,12 +102,30 @@ services:
         VITE_RADAR_LAYER: ${VITE_RADAR_LAYER:-RTX-N0B-0}
         VITE_OBSERVATION_RANGE_KM: ${VITE_OBSERVATION_RANGE_KM:-50}
         VITE_RADIO_STREAM_URL: ${VITE_RADIO_STREAM_URL:-/stream/radio.mp3}
+        VITE_TILE_URL: ${VITE_TILE_URL:-}
     restart: unless-stopped
     ports:
       - "${FRONTEND_PORT:-80}:80"
     depends_on:
       backend:
         condition: service_healthy
+    networks:
+      - internal
+
+  # ── Offline Tile Server ──────────────────────────────
+  # Enable with: docker compose --profile offline up -d
+  # Requires mbtiles file(s) in ./tiles/ (e.g. planet.mbtiles from OpenMapTiles)
+  # Set VITE_TILE_URL=http://localhost:8080/styles/basic-preview/{z}/{x}/{y}.png
+  # in .env to point the frontend at this server.
+  tileserver:
+    image: maptiler/tileserver-gl:latest
+    profiles: ["offline"]
+    restart: unless-stopped
+    volumes:
+      - ./tiles:/data:ro
+    ports:
+      - "${TILESERVER_PORT:-8080}:8080"
+    command: ["--config", "/data/config.json"]
     networks:
       - internal
 

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-import math
 import time
 from collections import deque
 from dataclasses import dataclass, field
@@ -9,6 +8,8 @@ from datetime import datetime, timezone
 from typing import Optional
 
 from config import settings
+from .beast_math import haversine_km, bearing_deg, project_position
+from .bds_decoders import infer_bds, decode_bds40, decode_bds44, decode_bds50, decode_bds60
 
 try:
     import pyModeS as pms
@@ -16,7 +17,6 @@ except Exception:  # pragma: no cover - runtime dependency guard
     pms = None
 
 logger = logging.getLogger(__name__)
-
 
 # Maximum number of historical positions to keep per aircraft.
 # Matches frontend TRAIL_CAP so the server and client are in sync.
@@ -47,7 +47,6 @@ class _AircraftState:
     last_seen_ts: float = 0.0
 
     # Ring buffer of recent resolved positions: (lat, lon, alt_ft, unix_ts)
-    # Oldest entries are dropped automatically when maxlen is reached.
     pos_history: deque = field(
         default_factory=lambda: deque(maxlen=_POS_HISTORY_CAP)
     )
@@ -84,11 +83,7 @@ class _AircraftState:
 
 
 class BeastAircraftDecoder:
-    """Best-effort ADS-B decode pipeline for BEAST Mode S messages.
-
-    This decoder focuses on DF17/DF18 ADS-B messages and maintains minimal
-    state for CPR pair position resolution.
-    """
+    """Best-effort ADS-B decode pipeline for BEAST Mode S messages."""
 
     def __init__(self):
         self._aircraft: dict[str, _AircraftState] = {}
@@ -184,8 +179,6 @@ class BeastAircraftDecoder:
         if df in (20, 21):
             self._decode_comm_b(ac, message_bytes, now)
 
-        # DF11 presence updates ICAO/last_seen only.
-
         self._messages_seen += 1
         if self._messages_seen % 1000 == 0:
             self._prune_stale()
@@ -252,23 +245,19 @@ class BeastAircraftDecoder:
         if ac.lat is not None and ac.lon is not None:
             elapsed_seconds = max(0.0, now - (ac.last_position_ts or now))
             budget_km = max(10.0, elapsed_seconds * 0.5)
-            distance_km = _haversine_km(ac.lat, ac.lon, candidate_lat, candidate_lon)
+            distance_km = haversine_km(ac.lat, ac.lon, candidate_lat, candidate_lon)
             if distance_km > budget_km:
                 return
 
-            # Heading-consistency guard: if the aircraft has a known track and the
-            # candidate position lies in a direction that's >90° off from that track,
-            # it is almost certainly a bad Tier-2/3 CPR decode (position is in the
-            # right CPR zone but on the wrong "cell"). Reject it.
-            # Skip this check when the aircraft is slow or on the ground (heading
-            # is unreliable at low speeds).
+            # Heading-consistency guard: reject bad Tier-2/3 CPR decodes where
+            # the candidate bearing differs >90° from the known track.
             if (
                 distance_km > 0.1
                 and ac.heading is not None
                 and ac.speed is not None
                 and ac.speed > 50  # knots — ignore heading at low taxi speed
             ):
-                candidate_bearing = _bearing_deg(ac.lat, ac.lon, candidate_lat, candidate_lon)
+                candidate_bearing = bearing_deg(ac.lat, ac.lon, candidate_lat, candidate_lon)
                 angle_diff = abs((candidate_bearing - ac.heading + 180) % 360 - 180)
                 if angle_diff > 90:
                     return
@@ -276,9 +265,6 @@ class BeastAircraftDecoder:
         ac.lat = candidate_lat
         ac.lon = candidate_lon
         ac.last_position_ts = now
-
-        # Record this resolved position in the ring buffer.
-        # alt_ft may be None if the aircraft hasn't sent an altitude message yet.
         ac.pos_history.append((
             candidate_lat,
             candidate_lon,
@@ -295,12 +281,6 @@ class BeastAircraftDecoder:
         last_seen = datetime.fromtimestamp(last_seen_ts, tz=timezone.utc).isoformat()
         callsign = _normalize_callsign(ac.callsign)
 
-        # Always display at the last actual CPR-fixed position.
-        # Dead reckoning (projecting forward with heading+speed) was previously
-        # used here but caused the icon to drift away from the trail_pts ring
-        # buffer, producing a "floating trail" artifact that rotated as the map
-        # was panned.  The frontend already renders a dashed predicted-path layer
-        # from the current heading/speed — that is sufficient for smooth UX.
         display_lat = ac.lat
         display_lon = ac.lon
         position_stale = (
@@ -310,9 +290,6 @@ class BeastAircraftDecoder:
 
         comm_b = self._build_comm_b_snapshot(ac, now_ts)
 
-        # Serialise position history as a compact list of [lat, lon, alt_ft, unix_ts].
-        # The frontend uses this to seed a dense trail immediately rather than
-        # waiting to accumulate points one-per-second client-side.
         trail_pts = [
             [p[0], p[1], p[2], p[3]]
             for p in ac.pos_history
@@ -372,21 +349,21 @@ class BeastAircraftDecoder:
             return
 
         payload = message_bytes[4:11]
-        bds = _infer_bds(payload)
+        bds = infer_bds(payload)
         if not bds:
             return
 
         ac.comm_b_raw[bds] = payload.hex().upper()
 
         if bds == "4,0":
-            values = _decode_bds40(payload)
+            values = decode_bds40(payload)
             if values:
                 ac.selected_altitude_mcp_ft = values.get("selected_altitude_mcp_ft")
                 ac.selected_altitude_fms_ft = values.get("selected_altitude_fms_ft")
                 ac.qnh_hpa = values.get("qnh_hpa")
                 ac.bds40_at = now
         elif bds == "4,4":
-            values = _decode_bds44(payload)
+            values = decode_bds44(payload)
             if values:
                 ac.wind_speed_kt = values.get("wind_speed_kt")
                 ac.wind_direction_deg = values.get("wind_direction_deg")
@@ -396,7 +373,7 @@ class BeastAircraftDecoder:
                 ac.humidity_pct = values.get("humidity_pct")
                 ac.bds44_at = now
         elif bds == "5,0":
-            values = _decode_bds50(payload)
+            values = decode_bds50(payload)
             if values:
                 ac.roll_deg = values.get("roll_deg")
                 ac.true_track_deg = values.get("true_track_deg")
@@ -405,7 +382,7 @@ class BeastAircraftDecoder:
                 ac.true_airspeed_kt = values.get("true_airspeed_kt")
                 ac.bds50_at = now
         elif bds == "6,0":
-            values = _decode_bds60(payload)
+            values = decode_bds60(payload)
             if values:
                 ac.magnetic_heading_deg = values.get("magnetic_heading_deg")
                 ac.indicated_airspeed_kt = values.get("indicated_airspeed_kt")
@@ -423,7 +400,6 @@ class BeastAircraftDecoder:
         sat = ac.static_air_temperature_c if fresh(ac.bds44_at) else None
         sat_source = "observed" if sat is not None else None
 
-        # Derive SAT from TAS+Mach when direct BDS4,4 temperature is unavailable.
         if sat is None and fresh(ac.bds50_at) and fresh(ac.bds60_at) and ac.true_airspeed_kt and ac.mach:
             try:
                 speed_of_sound = (float(ac.true_airspeed_kt) * 0.514444) / float(ac.mach)
@@ -488,157 +464,12 @@ def _normalize_callsign(callsign: str | None) -> str:
     return callsign.rstrip("_ ").strip()
 
 
-def _haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-    earth_radius_km = 6371.0088
-
-    lat1_rad = math.radians(lat1)
-    lat2_rad = math.radians(lat2)
-    dlat_rad = math.radians(lat2 - lat1)
-    dlon_rad = math.radians(lon2 - lon1)
-
-    a = (
-        math.sin(dlat_rad / 2) ** 2
-        + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(dlon_rad / 2) ** 2
-    )
-    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
-    return earth_radius_km * c
-
-
-def _bearing_deg(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-    """Return the initial bearing (0–360°) from (lat1,lon1) to (lat2,lon2)."""
-    φ1 = math.radians(lat1)
-    φ2 = math.radians(lat2)
-    Δλ = math.radians(lon2 - lon1)
-    Δψ = math.log(math.tan(φ2 / 2 + math.pi / 4) / math.tan(φ1 / 2 + math.pi / 4))
-    θ = math.atan2(Δλ, Δψ) * 180 / math.pi
-    return (θ + 360) % 360
-
-
-def _project_position(
-    lat: float,
-    lon: float,
-    heading_deg: float | None,
-    speed_kt: float | None,
-    elapsed_seconds: float,
-) -> tuple[float, float] | None:
-    if heading_deg is None or speed_kt is None:
-        return None
-    if speed_kt <= 0 or elapsed_seconds <= 0:
-        return None
-
-    distance_km = float(speed_kt) * 0.000514444 * float(elapsed_seconds)
-    if distance_km <= 0:
-        return None
-
-    earth_radius_km = 6371.0088
-    angular_distance = distance_km / earth_radius_km
-
-    lat1 = math.radians(lat)
-    lon1 = math.radians(lon)
-    brng = math.radians(float(heading_deg) % 360.0)
-
-    sin_lat2 = math.sin(lat1) * math.cos(angular_distance) + math.cos(lat1) * math.sin(angular_distance) * math.cos(brng)
-    lat2 = math.asin(max(-1.0, min(1.0, sin_lat2)))
-    lon2 = lon1 + math.atan2(
-        math.sin(brng) * math.sin(angular_distance) * math.cos(lat1),
-        math.cos(angular_distance) - math.sin(lat1) * math.sin(lat2),
-    )
-
-    lat_deg = math.degrees(lat2)
-    lon_deg = ((math.degrees(lon2) + 540.0) % 360.0) - 180.0
-    return lat_deg, lon_deg
-
-
-def _infer_bds(payload: bytes) -> str | None:
-    if len(payload) != 7:
-        return None
-    bds1 = (payload[0] >> 4) & 0x0F
-    bds2 = payload[0] & 0x0F
-    code = f"{bds1},{bds2}"
-    if code in {"4,0", "4,4", "5,0", "6,0"}:
-        return code
-    return None
-
-
-def _bits(payload: bytes) -> str:
-    return "".join(f"{b:08b}" for b in payload)
-
-
-def _u(bitstr: str, start: int, length: int) -> int:
-    return int(bitstr[start : start + length], 2)
-
-
-def _s(bitstr: str, start: int, length: int) -> int:
-    raw = _u(bitstr, start, length)
-    sign = 1 << (length - 1)
-    return (raw ^ sign) - sign
-
-
-def _clamp(value: float | None, low: float, high: float) -> float | None:
-    if value is None:
-        return None
-    if value < low or value > high:
-        return None
-    return value
-
-
-def _decode_bds40(payload: bytes) -> dict:
-    b = _bits(payload)
-    mcp = _u(b, 1, 12) * 16.0
-    fms = _u(b, 14, 12) * 16.0
-    qnh = 800.0 + (_u(b, 27, 11) * 0.1)
-    return {
-        "selected_altitude_mcp_ft": _clamp(mcp, 0.0, 60000.0),
-        "selected_altitude_fms_ft": _clamp(fms, 0.0, 60000.0),
-        "qnh_hpa": _clamp(qnh, 850.0, 1100.0),
-    }
-
-
-def _decode_bds44(payload: bytes) -> dict:
-    b = _bits(payload)
-    wind_speed = float(_u(b, 8, 9))
-    wind_dir = (_u(b, 17, 9) * 360.0) / 512.0
-    sat = _s(b, 26, 10) * 0.25
-    pressure = 800.0 + (_u(b, 36, 11) * 0.1)
-    turbulence = _u(b, 47, 3)
-    humidity = _u(b, 50, 6) * (100.0 / 63.0)
-    return {
-        "wind_speed_kt": _clamp(wind_speed, 0.0, 300.0),
-        "wind_direction_deg": _clamp(wind_dir, 0.0, 360.0),
-        "static_air_temperature_c": _clamp(sat, -100.0, 60.0),
-        "static_pressure_hpa": _clamp(pressure, 850.0, 1100.0),
-        "turbulence": int(turbulence),
-        "humidity_pct": _clamp(humidity, 0.0, 100.0),
-    }
-
-
-def _decode_bds50(payload: bytes) -> dict:
-    b = _bits(payload)
-    roll = _s(b, 0, 10) * 0.1
-    true_track = (_u(b, 10, 10) * 360.0) / 1024.0
-    groundspeed = float(_u(b, 20, 10))
-    track_rate = _s(b, 30, 10) * 0.05
-    tas = float(_u(b, 40, 10))
-    return {
-        "roll_deg": _clamp(roll, -90.0, 90.0),
-        "true_track_deg": _clamp(true_track, 0.0, 360.0),
-        "groundspeed_kt": _clamp(groundspeed, 0.0, 700.0),
-        "track_rate_deg_per_s": _clamp(track_rate, -20.0, 20.0),
-        "true_airspeed_kt": _clamp(tas, 0.0, 700.0),
-    }
-
-
-def _decode_bds60(payload: bytes) -> dict:
-    b = _bits(payload)
-    mag_hdg = (_u(b, 0, 10) * 360.0) / 1024.0
-    ias = float(_u(b, 10, 10))
-    mach = _u(b, 20, 10) / 512.0
-    baro_vr = _s(b, 30, 10) * 64.0
-    inertial_vr = _s(b, 40, 10) * 64.0
-    return {
-        "magnetic_heading_deg": _clamp(mag_hdg, 0.0, 360.0),
-        "indicated_airspeed_kt": _clamp(ias, 0.0, 700.0),
-        "mach": _clamp(mach, 0.0, 1.5),
-        "baro_vertical_rate_fpm": _clamp(baro_vr, -8000.0, 8000.0),
-        "inertial_vertical_rate_fpm": _clamp(inertial_vr, -8000.0, 8000.0),
-    }
+# Keep legacy module-level aliases for any code that imports them directly.
+_haversine_km = haversine_km
+_bearing_deg = bearing_deg
+_project_position = project_position
+_infer_bds = infer_bds
+_decode_bds40 = decode_bds40
+_decode_bds44 = decode_bds44
+_decode_bds50 = decode_bds50
+_decode_bds60 = decode_bds60
