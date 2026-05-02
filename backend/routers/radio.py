@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from config_writer import add_entry, remove_entry, update_entry
 from deps import get_db
-from db.models import Event, RadioStream
+from db.models import Event, RadioStream, Talkgroup
 from redis_bus import get_redis
 
 router = APIRouter(prefix="/radio", tags=["radio"])
@@ -111,7 +111,91 @@ async def delete_stream(stream_id: int, db: AsyncSession = Depends(get_db)):
 
 
 # ---------------------------------------------------------------------------
-# P25 talkgroup endpoints (unchanged)
+# P25 talkgroup management
+# ---------------------------------------------------------------------------
+
+class TalkgroupCreate(BaseModel):
+    tgid: int
+    name: str
+    priority: int = 3
+    color: str = "#FFB800"
+    scan_enabled: bool = True
+
+
+class TalkgroupUpdate(BaseModel):
+    name: Optional[str] = None
+    priority: Optional[int] = None
+    color: Optional[str] = None
+    scan_enabled: Optional[bool] = None
+
+
+class TalkgroupResponse(BaseModel):
+    id: int
+    tgid: int
+    name: str
+    priority: int
+    color: str
+    scan_enabled: bool
+
+
+def _tg_to_response(tg: Talkgroup) -> TalkgroupResponse:
+    return TalkgroupResponse(
+        id=tg.id, tgid=tg.tgid, name=tg.name,
+        priority=tg.priority, color=tg.color, scan_enabled=tg.scan_enabled,
+    )
+
+
+@router.get("/talkgroups", response_model=list[TalkgroupResponse])
+async def list_talkgroups(db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(Talkgroup).order_by(Talkgroup.priority, Talkgroup.tgid))
+    return [_tg_to_response(tg) for tg in result.scalars().all()]
+
+
+@router.post("/talkgroups", response_model=TalkgroupResponse, status_code=201)
+async def create_talkgroup(body: TalkgroupCreate, db: AsyncSession = Depends(get_db)):
+    existing = await db.scalar(select(Talkgroup).where(Talkgroup.tgid == body.tgid))
+    if existing:
+        raise HTTPException(409, f"Talkgroup {body.tgid} already exists")
+    tg = Talkgroup(
+        tgid=body.tgid, name=body.name, priority=body.priority,
+        color=body.color, scan_enabled=body.scan_enabled,
+    )
+    db.add(tg)
+    await db.commit()
+    await db.refresh(tg)
+    return _tg_to_response(tg)
+
+
+@router.put("/talkgroups/{tgid}", response_model=TalkgroupResponse)
+async def update_talkgroup(tgid: int, body: TalkgroupUpdate, db: AsyncSession = Depends(get_db)):
+    tg = await db.scalar(select(Talkgroup).where(Talkgroup.tgid == tgid))
+    if not tg:
+        raise HTTPException(404, "Talkgroup not found")
+    if body.name is not None:
+        tg.name = body.name
+    if body.priority is not None:
+        tg.priority = body.priority
+    if body.color is not None:
+        tg.color = body.color
+    if body.scan_enabled is not None:
+        tg.scan_enabled = body.scan_enabled
+    tg.updated_at = datetime.now(timezone.utc)
+    await db.commit()
+    await db.refresh(tg)
+    return _tg_to_response(tg)
+
+
+@router.delete("/talkgroups/{tgid}", status_code=204)
+async def delete_talkgroup(tgid: int, db: AsyncSession = Depends(get_db)):
+    tg = await db.scalar(select(Talkgroup).where(Talkgroup.tgid == tgid))
+    if not tg:
+        raise HTTPException(404, "Talkgroup not found")
+    await db.delete(tg)
+    await db.commit()
+
+
+# ---------------------------------------------------------------------------
+# P25 live state
 # ---------------------------------------------------------------------------
 
 @router.get("/active")
