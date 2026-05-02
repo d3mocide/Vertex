@@ -86,9 +86,10 @@ poller_sources:
     enabled: true
     source: config
 
-  - type: meshcore         # MeshCore — meshcore-bridge WebSocket
-    name: "MeshCore Bridge"
-    url: "ws://192.168.1.x:7001"
+  - type: meshcore         # MeshCore — Remote-Terminal-for-MeshCore base URL
+    name: "RemoteTerm"     #   https://github.com/jkingsman/Remote-Terminal-for-MeshCore
+    url: "http://192.168.1.x:8000"
+    # Embed credentials if Basic Auth is enabled: http://user:pass@192.168.1.x:8000
     enabled: true
     source: config
 
