@@ -19,8 +19,8 @@ from unittest.mock import MagicMock, patch
 # never tries to connect to Redis / Postgres / enrichment HTTP clients.
 # ---------------------------------------------------------------------------
 _mock_settings = MagicMock()
-_mock_settings.region_lat = 45.523
-_mock_settings.region_lon = -122.676
+_mock_settings.region_lat = 52.3   # Netherlands — near POSITION_EVEN/ODD test frames
+_mock_settings.region_lon = 3.5
 _mock_settings.adsb_beast_reconnect_initial_seconds = 1
 _mock_settings.adsb_beast_reconnect_max_seconds = 30
 _mock_settings.adsb_beast_host = "localhost"

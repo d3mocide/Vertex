@@ -84,6 +84,21 @@ class Settings(BaseSettings):
     adsb_airlines_db_path: str = "/data/airlines.dat"
     adsb_navaids_db_path: str = "/data/navaids.csv"
 
+    # TAK/CoT output — set COT_ENABLED=true to broadcast entity positions
+    # to ATAK/WinTAK clients via UDP multicast or a dedicated TAK server.
+    cot_enabled: bool = False
+    cot_multicast_addr: str = "239.2.3.1"
+    cot_multicast_port: int = 6969
+    cot_stale_seconds: int = 60
+    # Optional unicast to a TAK server (overrides multicast when set)
+    cot_takserver_host: str = ""
+    cot_takserver_port: int = 8087
+
+    # Anomaly detection — statistical baseline monitoring
+    anomaly_enabled: bool = True
+    anomaly_window_minutes: int = 60   # rolling window for baseline
+    anomaly_sigma_threshold: float = 2.5
+
     class Config:
         env_file = ".env"
 

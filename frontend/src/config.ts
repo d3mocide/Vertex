@@ -3,8 +3,12 @@ export const API_BASE = '/api/v1'
 export const WS_URL =
   `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`
 
-// OpenFreeMap — dark style for tactical dark mode
-export const MAP_STYLE = 'https://tiles.openfreemap.org/styles/dark'
+// Map style — override with VITE_TILE_URL for offline/self-hosted tiles.
+// When VITE_TILE_URL is set it should point to a tileserver-gl style endpoint,
+// e.g. http://localhost:8080/styles/basic-preview/style.json
+const _offlineTileUrl = import.meta.env.VITE_TILE_URL as string | undefined
+export const MAP_STYLE = _offlineTileUrl || 'https://tiles.openfreemap.org/styles/dark'
+export const OFFLINE_TILES = Boolean(_offlineTileUrl)
 
 
 
