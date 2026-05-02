@@ -46,6 +46,18 @@ class UserInfo(BaseModel):
     role: str
 
 
+class UserDetail(BaseModel):
+    id: int
+    username: str
+    role: str
+    created_at: str
+    last_login: str | None
+
+
+class UpdateRoleRequest(BaseModel):
+    role: str = Field(pattern=r"^(admin|viewer)$")
+
+
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 def _make_token(username: str, role: str = "admin") -> str:
@@ -55,6 +67,19 @@ def _make_token(username: str, role: str = "admin") -> str:
 
 async def _user_count(db: AsyncSession) -> int:
     return await db.scalar(select(func.count(User.id))) or 0
+
+
+def _decode_admin(request: Request) -> dict:
+    """Decode JWT and assert admin role; raises HTTPException on failure."""
+    header = request.headers.get("Authorization", "")
+    token = header[7:].strip() if header.startswith("Bearer ") else ""
+    try:
+        payload = jwt.decode(token, settings.auth_secret_key, algorithms=[_ALGORITHM])
+    except Exception:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+    if payload.get("role", "admin") != "admin":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin role required")
+    return payload
 
 
 # ── Routes ────────────────────────────────────────────────────────────────────
@@ -127,15 +152,7 @@ async def create_user(body: CreateUserRequest, request: Request, db: AsyncSessio
     """Admin-only: create a new user account (admin or viewer role)."""
     if not settings.auth_enabled:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
-    # Only admins may create users — role enforced by AuthMiddleware but double-check here
-    header = request.headers.get("Authorization", "")
-    token = header[7:].strip() if header.startswith("Bearer ") else ""
-    try:
-        payload = jwt.decode(token, settings.auth_secret_key, algorithms=[_ALGORITHM])
-    except Exception:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)
-    if payload.get("role", "admin") != "admin":
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin role required")
+    _decode_admin(request)
     existing = await db.scalar(select(User).where(User.username == body.username))
     if existing:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Username already exists")
@@ -148,3 +165,59 @@ async def create_user(body: CreateUserRequest, request: Request, db: AsyncSessio
     db.add(user)
     await db.commit()
     return UserInfo(username=user.username, role=user.role)
+
+
+@router.get("/users", response_model=list[UserDetail])
+async def list_users(request: Request, db: AsyncSession = Depends(get_db)):
+    """Admin-only: list all user accounts."""
+    if not settings.auth_enabled:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    _decode_admin(request)
+    rows = await db.scalars(select(User).order_by(User.id))
+    return [
+        UserDetail(
+            id=u.id,
+            username=u.username,
+            role=u.role,
+            created_at=u.created_at.isoformat() if u.created_at else "",
+            last_login=u.last_login.isoformat() if u.last_login else None,
+        )
+        for u in rows
+    ]
+
+
+@router.patch("/users/{user_id}", response_model=UserDetail)
+async def update_user_role(user_id: int, body: UpdateRoleRequest, request: Request, db: AsyncSession = Depends(get_db)):
+    """Admin-only: change a user's role. Cannot change your own role."""
+    if not settings.auth_enabled:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    caller = _decode_admin(request)
+    user = await db.scalar(select(User).where(User.id == user_id))
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    if user.username == caller.get("sub", ""):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Cannot change your own role")
+    user.role = body.role
+    await db.commit()
+    return UserDetail(
+        id=user.id,
+        username=user.username,
+        role=user.role,
+        created_at=user.created_at.isoformat() if user.created_at else "",
+        last_login=user.last_login.isoformat() if user.last_login else None,
+    )
+
+
+@router.delete("/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_user(user_id: int, request: Request, db: AsyncSession = Depends(get_db)):
+    """Admin-only: delete a user account. Cannot delete yourself."""
+    if not settings.auth_enabled:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    caller = _decode_admin(request)
+    user = await db.scalar(select(User).where(User.id == user_id))
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    if user.username == caller.get("sub", ""):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Cannot delete yourself")
+    await db.delete(user)
+    await db.commit()

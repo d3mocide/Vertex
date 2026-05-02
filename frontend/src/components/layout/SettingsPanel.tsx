@@ -18,10 +18,6 @@ export function SettingsPanel() {
   const [notifPermission, setNotifPermission] = useState(() => notificationPermission())
   const userRole = getUserRole()
 
-  // Data retention state (admin only)
-  const [storageStats, setStorageStats] = useState<{ observation_count: number; entity_count: number; retention_days: number } | null>(null)
-  const [retentionDays, setRetentionDays] = useState(30)
-  const [retentionSaving, setRetentionSaving] = useState(false)
 
   // System metrics (admin only)
   type MetricsData = {
@@ -57,18 +53,6 @@ export function SettingsPanel() {
   const [newRuleAction, setNewRuleAction] = useState<'webhook_post' | 'log'>('webhook_post')
   const [newRuleUrl, setNewRuleUrl] = useState('')
 
-  const loadStorageStats = useCallback(async () => {
-    if (userRole !== 'admin') return
-    try {
-      const res = await fetch(`${API_BASE}/admin/storage`, { headers: authHeaders() })
-      if (res.ok) {
-        const data = await res.json()
-        setStorageStats(data)
-        setRetentionDays(data.retention_days)
-      }
-    } catch { /* non-fatal */ }
-  }, [userRole])
-
   const loadAlertRules = useCallback(async () => {
     if (userRole !== 'admin') return
     try {
@@ -81,25 +65,10 @@ export function SettingsPanel() {
 
   useEffect(() => {
     if (settingsOpen) {
-      loadStorageStats()
       loadAlertRules()
       loadMetrics()
     }
-  }, [settingsOpen, loadStorageStats, loadAlertRules, loadMetrics])
-
-  const saveRetention = async () => {
-    setRetentionSaving(true)
-    try {
-      await fetch(`${API_BASE}/admin/retention`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...authHeaders() },
-        body: JSON.stringify({ retention_days: retentionDays }),
-      })
-      await loadStorageStats()
-    } catch { /* non-fatal */ } finally {
-      setRetentionSaving(false)
-    }
-  }
+  }, [settingsOpen, loadAlertRules, loadMetrics])
 
   const createAlertRule = async () => {
     if (!newRuleName.trim()) return
@@ -323,54 +292,6 @@ export function SettingsPanel() {
           </section>
 
           {/* Data Retention — admin only */}
-          {userRole === 'admin' && (
-            <section>
-              <h2 className="label-caps mb-3">Data Retention</h2>
-              {storageStats ? (
-                <div className="space-y-3">
-                  <div className="grid grid-cols-2 gap-2 text-[10px]">
-                    <div className="hud-panel p-2 text-center">
-                      <div className="font-mono text-on-surface font-bold">{storageStats.observation_count.toLocaleString()}</div>
-                      <div className="text-on-surface-variant uppercase tracking-wider text-[8px]">Observations</div>
-                    </div>
-                    <div className="hud-panel p-2 text-center">
-                      <div className="font-mono text-on-surface font-bold">{storageStats.entity_count.toLocaleString()}</div>
-                      <div className="text-on-surface-variant uppercase tracking-wider text-[8px]">Entities</div>
-                    </div>
-                  </div>
-                  <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-[10px] text-on-surface-variant">Keep observations for</span>
-                      <span className="font-mono text-[10px] text-amber-gold">{retentionDays}d</span>
-                    </div>
-                    <input
-                      type="range"
-                      min={1}
-                      max={365}
-                      step={1}
-                      value={retentionDays}
-                      onChange={(e) => setRetentionDays(Number(e.target.value))}
-                      className="w-full accent-amber-500"
-                      aria-label="Retention days"
-                    />
-                    <div className="flex justify-between text-[8px] text-on-surface-variant mt-0.5">
-                      <span>1d</span><span>365d</span>
-                    </div>
-                  </div>
-                  <button
-                    onClick={saveRetention}
-                    disabled={retentionSaving}
-                    className="w-full py-1.5 text-[9px] font-bold uppercase tracking-widest border border-amber-gold/40 text-amber-gold hover:bg-amber-gold/10 transition-colors disabled:opacity-50 focus:outline-none"
-                  >
-                    {retentionSaving ? 'Saving…' : 'Save'}
-                  </button>
-                </div>
-              ) : (
-                <p className="text-[10px] text-on-surface-variant">Loading…</p>
-              )}
-            </section>
-          )}
-
           {/* Alert Rules — admin only */}
           {userRole === 'admin' && (
             <section>
@@ -447,6 +368,19 @@ export function SettingsPanel() {
                   ))
                 )}
               </div>
+            </section>
+          )}
+
+          {/* Admin Dashboard link */}
+          {userRole === 'admin' && (
+            <section>
+              <a
+                href="/admin"
+                className="flex items-center justify-between w-full py-2 px-3 border border-amber-gold/30 text-amber-gold/80 hover:bg-amber-gold/10 transition-colors text-[10px] uppercase tracking-widest"
+              >
+                <span>Admin Dashboard</span>
+                <span className="ms text-[14px]">open_in_new</span>
+              </a>
             </section>
           )}
 
