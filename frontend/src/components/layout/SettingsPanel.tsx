@@ -23,6 +23,26 @@ export function SettingsPanel() {
   const [retentionDays, setRetentionDays] = useState(30)
   const [retentionSaving, setRetentionSaving] = useState(false)
 
+  // System metrics (admin only)
+  type MetricsData = {
+    available: boolean
+    req_rate: number
+    error_pct: number
+    memory_mb: number
+    cpu_pct: number
+    p95_ms: number
+    history: Array<{ ts: number; req_rate: number; error_pct: number; memory_mb: number; p95_ms: number }>
+  }
+  const [metricsData, setMetricsData] = useState<MetricsData | null>(null)
+
+  const loadMetrics = useCallback(async () => {
+    if (userRole !== 'admin') return
+    try {
+      const res = await fetch(`${API_BASE}/admin/metrics`, { headers: authHeaders() })
+      if (res.ok) setMetricsData(await res.json())
+    } catch { /* non-fatal */ }
+  }, [userRole])
+
   // Alert rules (admin only)
   const [alertRules, setAlertRules] = useState<Array<{
     id: number
@@ -63,8 +83,9 @@ export function SettingsPanel() {
     if (settingsOpen) {
       loadStorageStats()
       loadAlertRules()
+      loadMetrics()
     }
-  }, [settingsOpen, loadStorageStats, loadAlertRules])
+  }, [settingsOpen, loadStorageStats, loadAlertRules, loadMetrics])
 
   const saveRetention = async () => {
     setRetentionSaving(true)
@@ -429,6 +450,50 @@ export function SettingsPanel() {
             </section>
           )}
 
+          {/* System Metrics — admin only */}
+          {userRole === 'admin' && (
+            <section>
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="label-caps">System Metrics</h2>
+                <button
+                  onClick={loadMetrics}
+                  className="ms text-[14px] text-on-surface-variant hover:text-on-surface transition-colors leading-none focus:outline-none"
+                  title="Refresh"
+                >
+                  sync
+                </button>
+              </div>
+              {!metricsData ? (
+                <p className="text-[10px] text-on-surface-variant">Loading…</p>
+              ) : !metricsData.available ? (
+                <p className="text-[10px] text-on-surface-variant">
+                  No data yet — metrics collect every 10s after startup.
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-2">
+                    <MetricCard label="Req / s" value={metricsData.req_rate.toFixed(1)} unit="" icon="arrow_forward" />
+                    <MetricCard
+                      label="Error %"
+                      value={metricsData.error_pct.toFixed(1)}
+                      unit="%"
+                      icon="warning"
+                      warn={metricsData.error_pct > 2}
+                    />
+                    <MetricCard label="P95 Latency" value={metricsData.p95_ms.toFixed(0)} unit="ms" icon="timer" warn={metricsData.p95_ms > 500} />
+                    <MetricCard label="Memory" value={metricsData.memory_mb.toFixed(0)} unit="MB" icon="memory" warn={metricsData.memory_mb > 400} />
+                  </div>
+                  {metricsData.history.length >= 2 && (
+                    <div>
+                      <div className="text-[8px] text-on-surface-variant uppercase tracking-widest mb-1">Req/s — last 6 min</div>
+                      <Sparkline values={metricsData.history.map((h) => h.req_rate)} />
+                    </div>
+                  )}
+                </div>
+              )}
+            </section>
+          )}
+
           {/* Account */}
           <section className="border-t border-white/10 pt-4">
             <h2 className="label-caps mb-3">Account</h2>
@@ -443,6 +508,43 @@ export function SettingsPanel() {
         </div>
       </div>
     </div>
+  )
+}
+
+function MetricCard({ label, value, unit, icon, warn = false }: {
+  label: string; value: string; unit: string; icon: string; warn?: boolean
+}) {
+  return (
+    <div className="hud-panel p-2 text-center space-y-0.5">
+      <span className={`ms text-[14px] leading-none ${warn ? 'text-red-emergency' : 'text-amber-gold'}`} aria-hidden="true">
+        {icon}
+      </span>
+      <div className={`font-mono text-[13px] font-bold leading-tight ${warn ? 'text-red-emergency' : 'text-on-surface'}`}>
+        {value}<span className="text-[9px] text-on-surface-variant ml-0.5">{unit}</span>
+      </div>
+      <div className="text-on-surface-variant uppercase tracking-wider text-[7px]">{label}</div>
+    </div>
+  )
+}
+
+function Sparkline({ values }: { values: number[] }) {
+  if (values.length < 2) return null
+  const w = 220
+  const h = 28
+  const max = Math.max(...values)
+  const min = Math.min(...values)
+  const range = max - min || 1
+  const pts = values
+    .map((v, i) => {
+      const x = (i / (values.length - 1)) * w
+      const y = h - ((v - min) / range) * (h - 4) - 2
+      return `${x.toFixed(1)},${y.toFixed(1)}`
+    })
+    .join(' ')
+  return (
+    <svg width={w} height={h} className="w-full overflow-visible" viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none">
+      <polyline points={pts} fill="none" stroke="#FFB800" strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" />
+    </svg>
   )
 }
 
