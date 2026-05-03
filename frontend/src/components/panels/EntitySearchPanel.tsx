@@ -4,16 +4,20 @@ import { getDistanceMeters } from '../../layers/geoUtils'
 import { DEFAULT_CENTER } from '../../config'
 
 const TYPE_ICON: Record<string, string> = {
-  aircraft: 'flight',
-  vessel:   'directions_boat',
-  aprs:     'sensors',
-  fire_incident: 'local_fire_department',
+  aircraft:       'flight',
+  vessel:         'directions_boat',
+  aprs:           'sensors',
+  fire_incident:  'local_fire_department',
+  satellite:      'satellite_alt',
+  tinygs_station: 'satellite',
 }
 const TYPE_COLOR: Record<string, string> = {
-  aircraft: 'text-cyan-adsb',
-  vessel:   'text-green-ais',
-  aprs: 'text-cyan-adsb',
-  fire_incident: 'text-red-emergency',
+  aircraft:       'text-cyan-adsb',
+  vessel:         'text-green-ais',
+  aprs:           'text-cyan-adsb',
+  fire_incident:  'text-red-emergency',
+  satellite:      'text-violet-space',
+  tinygs_station: 'text-amber-p25',
 }
 
 function RangeSlider({
@@ -79,14 +83,16 @@ export function EntitySearchPanel() {
     entityAltRange[1] !== ALT_RANGE_DEFAULT[1] ||
     entitySpeedRange[0] !== SPD_RANGE_DEFAULT[0] ||
     entitySpeedRange[1] !== SPD_RANGE_DEFAULT[1] ||
-    !entityFilter.aircraft || !entityFilter.vessel || !entityFilter.mesh_node || !entityFilter.aprs || !entityFilter.fire_incident
+    !entityFilter.aircraft || !entityFilter.vessel || !entityFilter.mesh_node ||
+    !entityFilter.aprs || !entityFilter.fire_incident ||
+    !entityFilter.satellite || !entityFilter.tinygs_station
   )
 
   const resetFilters = () => {
     setEntitySearchQuery('')
     setEntityAltRange(ALT_RANGE_DEFAULT)
     setEntitySpeedRange(SPD_RANGE_DEFAULT)
-    setEntityFilter({ aircraft: true, vessel: true, mesh_node: true, aprs: true, fire_incident: true })
+    setEntityFilter({ aircraft: true, vessel: true, mesh_node: true, aprs: true, fire_incident: true, satellite: true, tinygs_station: true })
   }
 
   const ALT_M_TO_FT = 3.28084
@@ -94,6 +100,18 @@ export function EntitySearchPanel() {
   const [minAlt, maxAlt] = entityAltRange
   const [minSpd, maxSpd] = entitySpeedRange
   const q = entitySearchQuery.toLowerCase()
+
+  // TinyGS entities live outside the track system — queried directly from entities
+  const tinygsEntities = Object.values(entities).filter((e) => {
+    if (e.entity_type === 'satellite' && !entityFilter.satellite) return false
+    if (e.entity_type === 'tinygs_station' && !entityFilter.tinygs_station) return false
+    if (e.entity_type !== 'satellite' && e.entity_type !== 'tinygs_station') return false
+    if (q) {
+      const name = (e.display_name ?? e.entity_id).toLowerCase()
+      if (!name.includes(q) && !e.entity_id.toLowerCase().includes(q)) return false
+    }
+    return true
+  }).sort((a, b) => (a.display_name ?? a.entity_id).localeCompare(b.display_name ?? b.entity_id))
 
   const matchedTracks = Object.values(tracks).filter((track) => {
     if (track.type === 'air' && !entityFilter.aircraft) return false
@@ -177,6 +195,30 @@ export function EntitySearchPanel() {
               >
                 <span className="ms text-[12px] leading-none">hub</span>
                 Mesh
+              </button>
+              <button
+                onClick={() => setEntityFilter({ satellite: !entityFilter.satellite })}
+                className={`flex items-center gap-1 px-2 py-1 border text-[9px] uppercase tracking-widest font-bold transition-colors focus:outline-none ${
+                  entityFilter.satellite
+                    ? 'text-violet-space border-violet-space/60 bg-violet-space/10'
+                    : 'text-on-surface-variant border-white/10 hover:border-white/20'
+                }`}
+                aria-pressed={entityFilter.satellite}
+              >
+                <span className="ms text-[12px] leading-none">satellite_alt</span>
+                Sat
+              </button>
+              <button
+                onClick={() => setEntityFilter({ tinygs_station: !entityFilter.tinygs_station })}
+                className={`flex items-center gap-1 px-2 py-1 border text-[9px] uppercase tracking-widest font-bold transition-colors focus:outline-none ${
+                  entityFilter.tinygs_station
+                    ? 'text-amber-p25 border-amber-p25/60 bg-amber-p25/10'
+                    : 'text-on-surface-variant border-white/10 hover:border-white/20'
+                }`}
+                aria-pressed={entityFilter.tinygs_station}
+              >
+                <span className="ms text-[12px] leading-none">satellite</span>
+                GS
               </button>
             </div>
           </div>
@@ -263,6 +305,42 @@ export function EntitySearchPanel() {
               +{matchedTracks.length - 20} more — refine search
             </div>
           )}
+
+          {/* TinyGS satellites + stations */}
+          {tinygsEntities.map((e) => {
+            const isSelected = selectedEntityId === e.entity_id
+            const color = TYPE_COLOR[e.entity_type] ?? 'text-on-surface-variant'
+            const icon  = TYPE_ICON[e.entity_type]  ?? 'sensors'
+            const identity = e.identity as Record<string, unknown> | undefined
+            const rssi  = identity?.rssi != null ? `${identity.rssi} dBm` : null
+            const altKm = e.altitude != null ? `${Math.round(e.altitude / 1000)} km` : null
+            const subtitle = e.entity_type === 'satellite'
+              ? [altKm, rssi].filter(Boolean).join(' · ')
+              : e.status ?? ''
+            return (
+              <button
+                key={e.entity_id}
+                onClick={() => selectEntity(isSelected ? null : e.entity_id)}
+                className={`w-full flex items-center gap-2 px-3 py-2 text-left transition-colors focus:outline-none ${
+                  isSelected ? 'bg-amber-gold/10' : 'hover:bg-surface-container'
+                }`}
+                aria-pressed={isSelected}
+              >
+                <span className={`ms text-[14px] leading-none shrink-0 ${color}`}>{icon}</span>
+                <div className="flex-1 min-w-0">
+                  <div className="font-bold text-[10px] text-on-surface truncate">
+                    {e.display_name ?? e.entity_id}
+                  </div>
+                  {subtitle && (
+                    <div className="font-mono text-[9px] text-on-surface-variant">{subtitle}</div>
+                  )}
+                </div>
+                {isSelected && (
+                  <span className="ms text-[12px] text-amber-gold shrink-0 leading-none">my_location</span>
+                )}
+              </button>
+            )
+          })}
         </div>
       )}
     </div>

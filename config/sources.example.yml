@@ -106,6 +106,13 @@ poller_sources:
     source: config
 
 # ---------------------------------------------------------------------------
+# TinyGS — LoRa satellite ground station
+# The poller connects to mqtt.tinygs.com:8883 using your TinyGS MQTT credentials.
+# Set TINYGS_MQTT_USERNAME and TINYGS_MQTT_PASSWORD in .env (from the Telegram bot).
+# No entry needed here — credentials are environment variables, not URL-based sources.
+# ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
 # Alert zones — NWS zone codes for weather alerts.
 # Find yours at: https://www.weather.gov/pimar/PubZone
 # ---------------------------------------------------------------------------

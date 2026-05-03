@@ -186,7 +186,7 @@ export const useCivicStore = create<CivicStore>((set) => ({
   customLayers:     [],
   mobileNavOpen:    false,
   settingsOpen:     false,
-  entityFilter:     { aircraft: true, vessel: true, mesh_node: true, aprs: true, fire_incident: true },
+  entityFilter:     { aircraft: true, vessel: true, mesh_node: true, aprs: true, fire_incident: true, satellite: true, tinygs_station: true },
   entitySearchQuery: '',
   entityAltRange:   ALT_RANGE_DEFAULT,
   entitySpeedRange: SPD_RANGE_DEFAULT,
@@ -254,9 +254,11 @@ export const useCivicStore = create<CivicStore>((set) => ({
       const next = { ...s.entities }
       let changed = false
       const STALE_MS: Record<string, number> = {
-        aircraft:  60_000,        // 1 min  — ADS-B updates every 5 s
-        vessel:    600_000,       // 10 min — AIS updates are infrequent
-        mesh_node: 3_600_000,     // 1 hour — nodes are semi-static
+        aircraft:       60_000,    // 1 min  — ADS-B updates every 5 s
+        vessel:         600_000,   // 10 min — AIS updates are infrequent
+        mesh_node:    3_600_000,   // 1 hour — nodes are semi-static
+        satellite:    1_800_000,   // 30 min — matches poller TTL
+        tinygs_station: 600_000,   // 10 min — station ping is every ~60 s
       }
       for (const [id, e] of Object.entries(next)) {
         const limit = STALE_MS[e.entity_type]

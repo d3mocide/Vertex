@@ -178,6 +178,8 @@ export type EntityTypeFilter = {
   mesh_node: boolean
   aprs: boolean
   fire_incident: boolean
+  satellite: boolean
+  tinygs_station: boolean
 }
 
 // [min, max] — altitude in feet, speed in knots
