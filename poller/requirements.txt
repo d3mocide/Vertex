@@ -9,3 +9,5 @@ feedparser==6.0.11
 websockets==13.1
 litellm==1.55.3
 pyModeS==2.21.1
+aiomqtt==2.3.0
+sgp4==2.23

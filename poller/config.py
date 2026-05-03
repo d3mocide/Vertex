@@ -94,6 +94,11 @@ class Settings(BaseSettings):
     cot_takserver_host: str = ""
     cot_takserver_port: int = 8087
 
+    # TinyGS — LoRa satellite ground station
+    # Credentials from the TinyGS Telegram bot: /mqtt
+    tinygs_mqtt_username: str = ""
+    tinygs_mqtt_password: str = ""
+
     # Anomaly detection — statistical baseline monitoring
     anomaly_enabled: bool = True
     anomaly_window_minutes: int = 60   # rolling window for baseline
