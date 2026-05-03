@@ -2,11 +2,12 @@ import { useEffect } from 'react'
 import { useCivicStore, NavTab } from '../../store'
 
 const TABS: { id: NavTab; label: string; icon: string }[] = [
-  { id: 'safety',         label: 'Safety',        icon: 'shield'   },
-  { id: 'infrastructure', label: 'Infrastructure', icon: 'traffic'  },
-  { id: 'environment',    label: 'Environment',    icon: 'eco'      },
-  { id: 'community',      label: 'Community',      icon: 'groups'   },
-  { id: 'events',         label: 'Event Log',      icon: 'history'  },
+  { id: 'safety',         label: 'Overview',       icon: 'dashboard'      },
+  { id: 'incidents',      label: 'Incidents',       icon: 'report'         },
+  { id: 'infrastructure', label: 'Infrastructure',  icon: 'traffic'        },
+  { id: 'environment',    label: 'Environment',     icon: 'eco'            },
+  { id: 'community',      label: 'Community',       icon: 'groups'         },
+  { id: 'events',         label: 'Event Log',       icon: 'history'        },
 ]
 
 export function MobileNav() {

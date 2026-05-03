@@ -16,10 +16,13 @@ litellm.suppress_debug_info = True
 # Suppress Pydantic serialization warnings from LiteLLM/Pydantic V2 mismatch
 warnings.filterwarnings("ignore", category=UserWarning, message="Pydantic serializer warnings")
 
-_MAX_TOKENS = 256
+_MAX_TOKENS = 512
 _SYSTEM = (
-    "You are a situational awareness assistant for a local emergency operations center. "
-    "Write concise, factual summaries in plain language. Be direct — no preamble, no sign-off."
+    "You are a Senior Situational Awareness Officer for a Regional Emergency Operations Center. "
+    "Your task is to provide a high-fidelity, professional briefing based on real-time data feeds. "
+    "Synthesize information across domains (Weather, Traffic, Utilities, Fire, News) to identify "
+    "critical trends or compound risks. Be concise but thorough. Use professional terminology. "
+    "Avoid preamble and sign-off."
 )
 
 
@@ -40,26 +43,45 @@ class AISummaryPoller(BasePoller):
         r = await get_bus()
         context_parts: list[str] = []
 
+        # 1. Weather
         raw = await r.get("feed:weather:alerts")
         if raw:
             alerts = json.loads(raw)
             if alerts:
-                lines = [f"- {a.get('event', '')}: {a.get('headline', '')}" for a in alerts[:5]]
-                context_parts.append("Active NWS weather alerts:\n" + "\n".join(lines))
+                lines = [f"- {a.get('event', '')}: {a.get('headline', '')}" for a in alerts[:10]]
+                context_parts.append("Weather Hazards:\n" + "\n".join(lines))
 
-        raw = await r.get("feed:alerts:flash")
+        # 2. Fire Activity
+        raw = await r.get("feed:fire:incidents")
         if raw:
-            items = json.loads(raw)
-            if items:
-                lines = [f"- {i.get('title', '')}: {i.get('summary', '')[:120]}" for i in items[:5]]
-                context_parts.append("Emergency alerts:\n" + "\n".join(lines))
+            fires = json.loads(raw)
+            if fires:
+                lines = [f"- {f.get('name', '')}: {f.get('location', '')} ({f.get('size_acres', 0)} acres)" for f in fires[:10]]
+                context_parts.append("Wildfire/Fire Activity:\n" + "\n".join(lines))
 
+        # 3. Traffic
         raw = await r.get("feed:traffic:incidents")
         if raw:
             incidents = json.loads(raw)
             if incidents:
-                lines = [f"- {i.get('title', '')}: {i.get('description', '')[:100]}" for i in incidents[:5]]
-                context_parts.append("Traffic incidents:\n" + "\n".join(lines))
+                lines = [f"- {i.get('title', '')}: {i.get('description', '')[:250]}" for i in incidents[:10]]
+                context_parts.append("Traffic Impacts:\n" + "\n".join(lines))
+
+        # 4. Utilities
+        raw = await r.get("feed:utilities:status")
+        if raw:
+            util = json.loads(raw)
+            if util.get('pge_affected', 0) > 0 or util.get('pacificorp_affected', 0) > 0:
+                msg = f"- PGE Outages: {util.get('pge_affected')}\n- Pacific Power Outages: {util.get('pacificorp_affected')}"
+                context_parts.append("Utility Status:\n" + msg)
+
+        # 5. Regional News
+        raw = await r.get("feed:news")
+        if raw:
+            items = json.loads(raw)
+            if items:
+                lines = [f"- {n.get('title', '')}" for n in items[:10]]
+                context_parts.append("Regional News Headlines:\n" + "\n".join(lines))
 
         if not context_parts:
             await set_feed("summary:latest", {
@@ -70,8 +92,9 @@ class AISummaryPoller(BasePoller):
             return
 
         prompt = (
-            "Based on the following current data feeds, write a 2-3 sentence "
-            "plain-language situational awareness summary. Focus on what matters most.\n\n"
+            "Based on the following data feeds, provide a professional situational awareness briefing "
+            "synthesizing the current state of the region. Identify any compound risks where events in "
+            "one domain might exacerbate another (e.g. weather impacting traffic/utilities).\n\n"
             + "\n\n".join(context_parts)
         )
 
@@ -100,4 +123,4 @@ class AISummaryPoller(BasePoller):
             "summary": text,
             "model": settings.summary_llm_model,
         })
-        logger.info("[summary] Updated situational summary via %s.", settings.summary_llm_model)
+        logger.info("[summary] Updated high-fidelity situational summary via %s.", settings.summary_llm_model)

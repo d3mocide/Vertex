@@ -3,11 +3,11 @@ import { useCivicStore, NavTab, AppMode, SystemEvent } from '../../store'
 
 const TABS: { id: NavTab; label: string; icon: string }[] = [
   { id: 'safety',         label: 'Overview',       icon: 'dashboard'      },
+  { id: 'incidents',      label: 'Incidents',       icon: 'report'         },
   { id: 'infrastructure', label: 'Infrastructure',  icon: 'traffic'        },
   { id: 'environment',    label: 'Environment',     icon: 'eco'            },
   { id: 'community',      label: 'Community',       icon: 'groups'         },
   { id: 'events',         label: 'Event Log',       icon: 'history'        },
-  { id: 'incidents',      label: 'Incidents',       icon: 'report'         },
 ]
 
 
@@ -105,7 +105,7 @@ export function Header() {
     <header
       className={`
         border-b flex justify-between items-center w-full px-6 h-14 shrink-0
-        transition-all duration-500 relative overflow-visible
+        transition-all duration-500 relative overflow-visible z-50
         ${mode === 'critical'
           ? 'bg-red-emergency/5 border-red-emergency/20 backdrop-blur-md'
           : 'bg-white/[0.03] border-white/[0.06] backdrop-blur-md shadow-[0_4px_30px_rgba(0,0,0,0.5)]'}

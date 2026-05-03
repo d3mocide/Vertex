@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useCivicStore, TrafficCamera } from '../../store'
+import { isMajorTrafficIncident } from '../../incidentUtils'
 
 function CctvThumbnail({
   cam, ldi, isFavorite, onToggleFavorite,
@@ -138,34 +139,6 @@ const PLACEHOLDER_CAMERAS: TrafficCamera[] = [
   { id: 'cam-006', name: 'Martinazzi / Wilsonville Rd', url: '' },
 ]
 
-function AiTrafficSummary() {
-  const summary = useCivicStore((s) => s.summary)
-
-  return (
-    <div className="hud-panel p-4 bg-onyx-deep/40 relative overflow-hidden">
-      <h3 id="ai-summary-heading" className="section-heading mb-3">
-        <span className="ms text-[14px] leading-none text-amber-gold" aria-hidden="true">psychology</span>
-        AI Situational Summary
-      </h3>
-
-      <p className="text-[12px] leading-relaxed text-on-surface whitespace-pre-wrap">
-        {summary.summary || 'No traffic summary available yet.'}
-      </p>
-
-      <div className="mt-3 pt-2 border-t border-white/5 flex items-center justify-between">
-        <span className="text-[8px] font-mono text-on-surface-variant uppercase tracking-widest">
-          {summary.model || 'model: n/a'}
-        </span>
-        <span className="text-[8px] font-mono text-on-surface-variant uppercase tracking-widest">
-          {summary.ts
-            ? new Date(summary.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-            : 'No timestamp'}
-        </span>
-      </div>
-    </div>
-  )
-}
-
 export function InfrastructureGrid() {
   const {
     cameras, trafficFlow, trafficIncidents, utilityStatus, oregonStatus, ldiMode, setLdiMode,
@@ -267,7 +240,7 @@ export function InfrastructureGrid() {
         {/* ── Two-column body ────────────────────────────────────────── */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
 
-          {/* LEFT COLUMN: Cameras → AI Sit Rep */}
+          {/* LEFT COLUMN: Cameras */}
           <div className="flex flex-col gap-6">
 
             {/* CCTV grid */}
@@ -337,13 +310,9 @@ export function InfrastructureGrid() {
                 )}
               </div>
             </section>
-
-            {/* AI Situational Summary */}
-            <AiTrafficSummary />
-
           </div>{/* /LEFT COLUMN */}
 
-          {/* RIGHT COLUMN: Utility → Road & Traffic → Incident Feed */}
+          {/* RIGHT COLUMN: Utility → Road & Traffic */}
           <div className="flex flex-col gap-6">
 
             {/* Regional Utility Status */}
@@ -382,55 +351,98 @@ export function InfrastructureGrid() {
               </div>
             </section>
 
-            {/* Incident Feed */}
-            <section aria-labelledby="incidents-heading">
-              <h3 id="incidents-heading" className="section-heading mb-3">
-                <span className="ms text-[14px] leading-none" aria-hidden="true">report</span>
-                Incident Feed ({trafficIncidents.length})
-              </h3>
-              <div className="hud-panel p-3 max-h-72 overflow-y-auto space-y-2">
-                {trafficIncidents.length === 0 ? (
-                  <p className="text-[11px] text-on-surface-variant italic">No active ODOT incidents.</p>
-                ) : (
-                  trafficIncidents.map((incident, idx) => (
-                    <article key={`${incident.title}-${idx}`} className="border border-amber-gold-muted/25 bg-onyx-black/40 p-2">
-                      <div className="flex items-start justify-between gap-2">
-                        <p className="text-[11px] text-on-surface font-semibold leading-snug">
+          </div>{/* /RIGHT COLUMN */}
+
+        </div>{/* /two-column grid */}
+
+        {/* Full-width Incident Feed */}
+        <section aria-labelledby="incidents-heading" className="pt-6 border-t border-amber-gold-muted/30">
+          <div className="flex items-center justify-between mb-4">
+            <h3 id="incidents-heading" className="section-heading">
+              <span className="ms text-[16px] leading-none text-amber-gold" aria-hidden="true">report</span>
+              Active Incident Feed ({trafficIncidents.length})
+            </h3>
+            <span className="font-mono text-[10px] text-on-surface-variant uppercase tracking-widest">
+              ODOT Real-Time Data
+            </span>
+          </div>
+          
+          {trafficIncidents.length === 0 ? (
+            <div className="hud-panel p-8 text-center bg-onyx-deep/20">
+              <p className="text-[12px] text-on-surface-variant italic">No active traffic incidents reported in the region.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              {trafficIncidents.map((incident, idx) => {
+                const isMajor = isMajorTrafficIncident(incident)
+                return (
+                  <article 
+                    key={`${incident.title}-${idx}`} 
+                    className={`
+                      border p-3 flex flex-col gap-2 relative transition-all
+                      ${isMajor 
+                        ? 'border-amber-gold/50 bg-amber-gold/10 shadow-[0_0_15px_rgba(255,184,0,0.1)]' 
+                        : 'border-white/10 bg-onyx-deep/40 opacity-80 hover:opacity-100'}
+                    `}
+                  >
+                    {isMajor && (
+                      <div className="absolute top-0 left-0 w-1 h-full bg-amber-gold" aria-hidden="true" />
+                    )}
+                    
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1">
+                        <p className={`text-[13px] font-bold leading-tight ${isMajor ? 'text-amber-gold' : 'text-on-surface'}`}>
                           {deriveIncidentTitle(incident)}
                         </p>
-                        <span className="font-mono text-[9px] text-on-surface-variant shrink-0">
-                          {incident.pubDate ? new Date(incident.pubDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'N/A'}
-                        </span>
                       </div>
-                      {formatIncidentLocation(incident) && (
-                        <p className="text-[10px] text-amber-gold mt-1 leading-snug">
-                          {formatIncidentLocation(incident)}
-                        </p>
-                      )}
-                      {incident.description && (
-                        <p className="text-[10px] text-on-surface-variant mt-1 leading-relaxed whitespace-pre-wrap break-words">
-                          {incident.description}
-                        </p>
-                      )}
+                      <span className="font-mono text-[9px] text-on-surface-variant shrink-0 bg-onyx-black/60 px-1.5 py-0.5 rounded-sm">
+                        {incident.pubDate ? new Date(incident.pubDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}
+                      </span>
+                    </div>
+
+                    {formatIncidentLocation(incident) && (
+                      <div className="flex items-center gap-1.5 text-[10px] text-amber-gold/80 font-mono">
+                        <span className="ms text-[14px]" aria-hidden="true">location_on</span>
+                        <span className="truncate">{formatIncidentLocation(incident)}</span>
+                      </div>
+                    )}
+
+                    {incident.description && (
+                      <p className="text-[11px] text-on-surface-variant leading-relaxed line-clamp-3 hover:line-clamp-none transition-all">
+                        {incident.description}
+                      </p>
+                    )}
+
+                    <div className="mt-auto pt-2 flex items-center justify-between border-t border-white/5">
+                      <div className="flex gap-2">
+                        {isMajor && (
+                          <span className="bg-amber-gold/20 text-amber-gold text-[8px] font-bold px-1.5 py-0.5 uppercase tracking-tighter rounded-sm">
+                            Significant
+                          </span>
+                        )}
+                        {incident.severity && (
+                          <span className="bg-white/5 text-on-surface-variant text-[8px] font-mono px-1.5 py-0.5 uppercase tracking-tighter rounded-sm">
+                            {incident.severity}
+                          </span>
+                        )}
+                      </div>
                       {incident.link && (
                         <a
                           href={incident.link}
                           target="_blank"
                           rel="noreferrer noopener"
-                          className="inline-flex mt-1 font-mono text-[9px] uppercase tracking-widest text-amber-gold hover:text-white"
+                          className="font-mono text-[9px] uppercase tracking-widest text-amber-gold hover:text-white"
                         >
-                          Open Source
+                          Source
                         </a>
                       )}
-                    </article>
-                  ))
-                )}
-              </div>
-            </section>
-
-          </div>{/* /RIGHT COLUMN */}
-
-        </div>{/* /two-column grid */}
+                    </div>
+                  </article>
+                )
+              })}
+            </div>
+          )}
+        </section>
 
       </div>
     </div>

@@ -5,6 +5,16 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 
 ---
 
+## 2026-05-02 — Incident Interface Stabilization & Traffic Gating
+
+- **Traffic Incident Noise Reduction**: Implemented a dual-radius filtering strategy in `incidentUtils.ts`. Major incidents (detected via keywords like 'crash', 'closure', 'blocked') are surfaced within a 15km radius, while minor traffic events are capped at 8km (5 miles) to eliminate background noise.
+- **Incidents Panel Overhaul**: Migrated the AI Situational Briefing to the primary header position for immediate context. Restored distance-based gating to the "Filtered Minor Incidents" section, ensuring only hyper-local low-impact events are shown.
+- **Infrastructure Grid Redesign**: Converted the `InfrastructureGrid` to a full-width 2-column layout. This accommodates high-density camera feeds, bookmarking support, and the regional traffic incident monitor with improved readability.
+- **Module & Build Stability**: Resolved intermittent Babel parsing errors caused by malformed JSX comments in `Sidebar.tsx`. Standardized import paths and synchronized the `TrafficIncident` interface across the store and utility layers to fix module resolution failures.
+- **UX & Navigation**: Promoted the "Incidents" tab to the second position in the global navigation (`Header.tsx`, `MobileNav.tsx`) for better logical flow during active operations.
+
+---
+
 ## 2026-05-02 — Added Geospatial Event Mapping (Seismic)
 
 - **Frontend `SystemEvent` Type**: Upgraded `frontend/src/store.ts` so the `details` field explicitly types `lat`, `lon`, and `magnitude`.

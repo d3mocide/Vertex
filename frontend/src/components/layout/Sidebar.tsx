@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useCivicStore } from '../../store'
+import { isMajorTrafficIncident } from '../../incidentUtils'
 
 function GridStatusDots({ ok }: { ok: boolean }) {
   return (
@@ -103,11 +104,8 @@ export function Sidebar() {
   const meshNodes = Object.values(entities).filter((e) => e.entity_type === 'mesh_node').length
   const cams      = cameras.length
   const wAlerts   = weather.alerts.length
-  // Filter out low-impact / no-impact incidents
-  const significantIncidents = trafficIncidents.filter(inc => {
-    const text = ((inc.title || '') + ' ' + (inc.description || '')).toLowerCase()
-    return !text.includes('no impacts') && !text.includes('no traffic impacts')
-  })
+  // Filter for major/local traffic incidents only
+  const significantIncidents = trafficIncidents.filter(isMajorTrafficIncident)
 
   // Use dedicated traffic incidents feed (first 4 significant)
   const incidents = significantIncidents.slice(0, 4)
@@ -287,7 +285,7 @@ export function Sidebar() {
 
           {newsItems.length === 0 ? (
             <>
-              {/* Placeholder rows so the sidebar isn't empty on first load */}
+              {/* Placeholder rows so the sidebar is not empty on first load */}
               <div className="space-y-4">
                 <NewsRow
                   source="LOCAL GOV"

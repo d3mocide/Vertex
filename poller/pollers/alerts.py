@@ -131,18 +131,27 @@ class AlertPoller(BasePoller):
                 async with httpx.AsyncClient(timeout=15, headers=_NWS_HEADERS) as client:
                     resp = await client.get(url)
                     resp.raise_for_status()
+                    
+                    seen_headlines = set()
                     for feature in resp.json().get("features", [])[:15]:
                         props = feature.get("properties", {})
+                        headline = props.get("headline", props.get("event", ""))
+                        
+                        if headline in seen_headlines:
+                            logger.debug("[alerts] skipping duplicate NWS alert: %s", headline)
+                            continue
+                        seen_headlines.add(headline)
+
                         weather_alerts.append({
                             "event": props.get("event", ""),
-                            "headline": props.get("headline", props.get("event", "")),
+                            "headline": headline,
                             "description": props.get("description", ""),
                             "severity": props.get("severity", ""),
                             "expires": props.get("expires", ""),
                         })
                         items.append({
                             "source":    "nws_cap",
-                            "title":     props.get("headline", props.get("event", "")),
+                            "title":     headline,
                             "summary":   props.get("description", ""),
                             "link":      props.get("@id", ""),
                             "published": props.get("effective", ""),
