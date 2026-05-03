@@ -152,6 +152,16 @@ export interface SystemEvent {
   }
 }
 
+// ─── Entity Mission Tags (operator-assigned labels) ──────────────────────────
+export interface EntityMissionTag {
+  id: number
+  entity_id: string
+  tag: string
+  color: string
+  created_by: string | null
+  created_at: string
+}
+
 // ─── Custom Layers (KML / GeoJSON import) ────────────────────────────────────
 export interface CustomLayerItem {
   id: number

@@ -25,8 +25,8 @@ export function Map() {
       center:    DEFAULT_CENTER,
       zoom:      DEFAULT_ZOOM,
       attributionControl: false,
-      // Performance: request hardware acceleration
       antialias: true,
+      preserveDrawingBuffer: true,
     })
 
     // Static region-center marker so operators can quickly orient to the

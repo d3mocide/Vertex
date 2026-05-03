@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useCivicStore } from '../../store'
+import type { EntityMissionTag } from '../../store'
 import { API_BASE } from '../../config'
 import { authHeaders } from '../../auth'
 
@@ -18,6 +19,8 @@ const TYPE_ICONS: Record<string, string> = {
   satellite:      'satellite_alt',
   tinygs_station: 'satellite',
 }
+
+const TAG_PRESETS = ['#FF4444', '#FF8800', '#FFB800', '#44DD88', '#00BBFF', '#AA44FF', '#FF44AA']
 
 /** Render a compact SVG sparkline from a numeric series. */
 function Sparkline({ values, color }: { values: number[]; color: string }) {
@@ -47,7 +50,10 @@ function Sparkline({ values, color }: { values: number[]; color: string }) {
 }
 
 export function EntityDetail() {
-  const { entities, airports, selectedEntityId, selectEntity } = useCivicStore()
+  const {
+    entities, airports, selectedEntityId, selectEntity,
+    entityMissionTags, setEntityMissionTags, addEntityMissionTag, removeEntityMissionTag,
+  } = useCivicStore()
   const entity = selectedEntityId ? entities[selectedEntityId] : null
 
   // Fetch trail for sparklines (aircraft only)
@@ -66,6 +72,55 @@ export function EntityDetail() {
       .catch(() => {})
     return () => { cancelled = true }
   }, [selectedEntityId, entity?.entity_type])
+
+  // Load mission tags when entity changes
+  const loadTags = useCallback(async (entityId: string) => {
+    try {
+      const res = await fetch(`${API_BASE}/entities/${encodeURIComponent(entityId)}/tags`, { headers: authHeaders() })
+      if (!res.ok) return
+      const data: EntityMissionTag[] = await res.json()
+      setEntityMissionTags(entityId, data)
+    } catch { /* non-fatal */ }
+  }, [setEntityMissionTags])
+
+  useEffect(() => {
+    if (selectedEntityId) loadTags(selectedEntityId)
+  }, [selectedEntityId, loadTags])
+
+  // Tag editor state
+  const [tagInput, setTagInput] = useState('')
+  const [tagColor, setTagColor] = useState('#FFB800')
+  const [tagSaving, setTagSaving] = useState(false)
+
+  const handleAddTag = async () => {
+    if (!selectedEntityId || !tagInput.trim()) return
+    setTagSaving(true)
+    try {
+      const res = await fetch(`${API_BASE}/entities/${encodeURIComponent(selectedEntityId)}/tags`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({ tag: tagInput.trim(), color: tagColor }),
+      })
+      if (res.ok) {
+        const created: EntityMissionTag = await res.json()
+        addEntityMissionTag(created)
+        setTagInput('')
+      }
+    } catch { /* non-fatal */ }
+    setTagSaving(false)
+  }
+
+  const handleDeleteTag = async (tagId: number) => {
+    if (!selectedEntityId) return
+    try {
+      await fetch(`${API_BASE}/entities/${encodeURIComponent(selectedEntityId)}/tags/${tagId}`, {
+        method: 'DELETE',
+        headers: authHeaders(),
+      })
+      removeEntityMissionTag(selectedEntityId, tagId)
+    } catch { /* non-fatal */ }
+  }
+
   if (!entity) return null
 
   const identity = entity.identity ?? {}
@@ -104,6 +159,8 @@ export function EntityDetail() {
         : undefined
     ],
   ]
+
+  const missionTags = selectedEntityId ? (entityMissionTags[selectedEntityId] ?? []) : []
 
   return (
     <aside
@@ -198,9 +255,9 @@ export function EntityDetail() {
         })()}
       </div>
 
-      {/* Tags */}
+      {/* Source tags (read-only from poller) */}
       {entity.tags && entity.tags.length > 0 && (
-        <div className="px-3 pb-3 flex flex-wrap gap-1">
+        <div className="px-3 pb-2 flex flex-wrap gap-1">
           {entity.tags.map((tag) => (
             <span
               key={tag}
@@ -211,6 +268,67 @@ export function EntityDetail() {
           ))}
         </div>
       )}
+
+      {/* Mission tags */}
+      <div className="px-3 pb-3 border-t border-white/10 pt-2">
+        <span className="label-caps text-[9px] block mb-2">Mission Tags</span>
+
+        {missionTags.length > 0 && (
+          <div className="flex flex-wrap gap-1 mb-2">
+            {missionTags.map((t) => (
+              <div key={t.id} className="flex items-center gap-0.5">
+                <span
+                  className="font-mono text-[8px] uppercase tracking-widest px-1.5 py-0.5"
+                  style={{ backgroundColor: `${t.color}22`, color: t.color, border: `1px solid ${t.color}66` }}
+                >
+                  {t.tag}
+                </span>
+                <button
+                  onClick={() => handleDeleteTag(t.id)}
+                  className="text-on-surface-variant hover:text-red-emergency transition-colors leading-none p-0.5 focus:outline-none"
+                  aria-label={`Remove tag ${t.tag}`}
+                >
+                  <span className="ms text-[10px]">close</span>
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="flex gap-1">
+          <input
+            type="text"
+            placeholder="Tag name…"
+            value={tagInput}
+            onChange={(e) => setTagInput(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') handleAddTag() }}
+            className="flex-1 min-w-0 bg-onyx-deep border border-white/10 text-on-surface placeholder-on-surface-variant text-[10px] px-2 py-1 focus:outline-none focus:border-amber-gold/60 transition-colors"
+          />
+          <button
+            onClick={handleAddTag}
+            disabled={tagSaving || !tagInput.trim()}
+            className="text-amber-gold border border-amber-gold/40 hover:bg-amber-gold/10 px-2 py-1 text-[9px] font-bold uppercase tracking-widest transition-colors focus:outline-none disabled:opacity-40"
+            aria-label="Add tag"
+          >
+            <span className="ms text-[14px] leading-none">add</span>
+          </button>
+        </div>
+        <div className="flex gap-1 mt-1.5 flex-wrap">
+          {TAG_PRESETS.map((c) => (
+            <button
+              key={c}
+              onClick={() => setTagColor(c)}
+              className="w-4 h-4 transition-transform focus:outline-none"
+              style={{
+                backgroundColor: c,
+                outline: tagColor === c ? `2px solid ${c}` : 'none',
+                outlineOffset: '1px',
+              }}
+              aria-label={`Select color ${c}`}
+            />
+          ))}
+        </div>
+      </div>
     </aside>
   )
 }

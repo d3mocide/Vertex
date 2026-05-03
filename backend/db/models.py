@@ -159,6 +159,9 @@ class AlertRule(Base):
     rule_filter: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
     action_type: Mapped[str] = mapped_column(String(32), default="webhook_post")
     action_config: Mapped[dict] = mapped_column(JSON)
+    cooldown_seconds: Mapped[Optional[int]] = mapped_column(nullable=True)
+    max_per_hour: Mapped[Optional[int]] = mapped_column(nullable=True)
+    dedup_key: Mapped[Optional[str]] = mapped_column(String(256), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
@@ -184,4 +187,15 @@ class CustomLayer(Base):
     geojson: Mapped[dict] = mapped_column(JSON)
     style: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
     visible: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class EntityMissionTag(Base):
+    __tablename__ = "entity_mission_tags"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    entity_id: Mapped[str] = mapped_column(String(64), index=True)
+    tag: Mapped[str] = mapped_column(String(64))
+    color: Mapped[str] = mapped_column(String(16), default="#FFB800")
+    created_by: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

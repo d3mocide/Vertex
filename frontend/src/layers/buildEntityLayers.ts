@@ -25,11 +25,12 @@ export class StencilClearLayer extends Layer {
 const HALO_TYPES = new Set(['SAR', 'MIL', 'HEL', 'UAV', 'GOV'])
 
 // ─── buildEntityLayers ────────────────────────────────────────────────────────
-// Returns: [haloLayer, selectionRingLayer, iconLayer]
+// Returns: [haloLayer, selectionRingLayer, iconLayer, labelLayer]
 export function buildEntityLayers(
   tracks: Record<string, Track>,
   selectedUid: string | null,
   cycle: number,
+  tagColorMap?: Record<string, [number, number, number, number]>,
 ): Layer[] {
   const atlas    = getIconAtlas()
   const trackArr = Object.values(tracks)
@@ -77,14 +78,14 @@ export function buildEntityLayers(
     getIcon:     (t) => t.type === 'sea' ? 'vessel' : t.type === 'ground' ? 'aprs' : t.type === 'hazard' ? 'fire' : 'aircraft',
     getPosition: (t) => [t.lon, t.lat],
     getAngle:    (t) => -t.courseTrue,
-    getColor:    (t) => entityColor(t),
+    getColor:    (t) => tagColorMap?.[t.uid] ?? entityColor(t),
     getSize:     (t) => t.uid === selectedUid ? 40 : 32,
     sizeUnits:   'pixels',
     billboard:   false,
     pickable:    true,
     updateTriggers: {
       getAngle: trackArr.map(t => t.courseTrue),
-      getColor: trackArr.map(t => t.altMeters + t.speedMs),
+      getColor: trackArr.map(t => tagColorMap?.[t.uid]?.join(',') ?? `${t.altMeters + t.speedMs}`),
       getSize:  selectedUid,
     },
   })

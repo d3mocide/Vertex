@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { useCivicStore, NavTab, AppMode, SystemEvent } from '../../store'
+import { exportDashboardSnapshot } from '../../snapshotExport'
 
 const TABS: { id: NavTab; label: string; icon: string }[] = [
   { id: 'safety',         label: 'Overview',       icon: 'dashboard'      },
@@ -180,6 +181,14 @@ export function Header() {
               <NotificationsDropdown events={systemEvents} onClose={() => setNotificationsOpen(false)} />
             )}
           </div>
+          <button
+            onClick={() => exportDashboardSnapshot()}
+            className="hover:text-amber-gold transition-colors p-1 focus:outline-none focus-visible:ring-1 focus-visible:ring-amber-gold"
+            aria-label="Export snapshot"
+            title="Export map snapshot"
+          >
+            <span className="ms text-[18px]">photo_camera</span>
+          </button>
           <button
             onClick={() => setSettingsOpen(true)}
             className="hover:text-amber-gold transition-colors p-1 focus:outline-none focus-visible:ring-1 focus-visible:ring-amber-gold"

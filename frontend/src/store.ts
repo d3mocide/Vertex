@@ -7,7 +7,7 @@ import type {
   Entity, Track, AlertItem, NewsItem, WeatherState, RadioState,
   TrafficCamera, SystemEvent, CustomLayerItem, SystemHealth, TrafficIncident,
   SummaryState, TrailPoint, AirportSnapshot, AppMode, NavTab, EntityTypeFilter,
-  RangeFilter, ReplayData,
+  RangeFilter, ReplayData, EntityMissionTag,
 } from './storeTypes'
 import { ALT_RANGE_DEFAULT, SPD_RANGE_DEFAULT } from './storeTypes'
 
@@ -126,6 +126,12 @@ interface CivicStore {
   // Custom layers (KML / GeoJSON import)
   customLayers:     CustomLayerItem[]
   setCustomLayers:  (layers: CustomLayerItem[]) => void
+
+  // Entity mission tags
+  entityMissionTags:       Record<string, EntityMissionTag[]>
+  setEntityMissionTags:    (entityId: string, tags: EntityMissionTag[]) => void
+  addEntityMissionTag:     (tag: EntityMissionTag) => void
+  removeEntityMissionTag:  (entityId: string, tagId: number) => void
 }
 
 const emptyRadio: RadioState = {
@@ -184,6 +190,7 @@ export const useCivicStore = create<CivicStore>((set) => ({
   selectedCamId:    null,
   favoriteCamIds:   loadFavoriteCamIds(),
   customLayers:     [],
+  entityMissionTags: {},
   mobileNavOpen:    false,
   settingsOpen:     false,
   entityFilter:     { aircraft: true, vessel: true, mesh_node: true, aprs: true, fire_incident: true, satellite: true, tinygs_station: true },
@@ -351,6 +358,20 @@ export const useCivicStore = create<CivicStore>((set) => ({
   setReplaySpeed:     (replaySpeed)     => set({ replaySpeed }),
   setSelectedCamId: (selectedCamId) => set({ selectedCamId }),
   setCustomLayers: (customLayers) => set({ customLayers }),
+
+  setEntityMissionTags: (entityId, tags) =>
+    set((s) => ({ entityMissionTags: { ...s.entityMissionTags, [entityId]: tags } })),
+  addEntityMissionTag: (tag) =>
+    set((s) => {
+      const existing = s.entityMissionTags[tag.entity_id] ?? []
+      return { entityMissionTags: { ...s.entityMissionTags, [tag.entity_id]: [...existing, tag] } }
+    }),
+  removeEntityMissionTag: (entityId, tagId) =>
+    set((s) => {
+      const filtered = (s.entityMissionTags[entityId] ?? []).filter((t) => t.id !== tagId)
+      return { entityMissionTags: { ...s.entityMissionTags, [entityId]: filtered } }
+    }),
+
   toggleFavoriteCam: (id) =>
     set((s) => {
       const next = s.favoriteCamIds.includes(id)

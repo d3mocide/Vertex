@@ -73,11 +73,14 @@ export function EntitySearchPanel() {
     entitySpeedRange, setEntitySpeedRange,
     entityFilter, setEntityFilter,
     selectEntity, selectedEntityId,
+    entityMissionTags,
   } = useCivicStore()
 
   const [filtersOpen, setFiltersOpen] = useState(false)
+  const [taggedOnly, setTaggedOnly] = useState(false)
 
   const isFiltered = (
+    taggedOnly ||
     entitySearchQuery !== '' ||
     entityAltRange[0] !== ALT_RANGE_DEFAULT[0] ||
     entityAltRange[1] !== ALT_RANGE_DEFAULT[1] ||
@@ -93,6 +96,7 @@ export function EntitySearchPanel() {
     setEntityAltRange(ALT_RANGE_DEFAULT)
     setEntitySpeedRange(SPD_RANGE_DEFAULT)
     setEntityFilter({ aircraft: true, vessel: true, mesh_node: true, aprs: true, fire_incident: true, satellite: true, tinygs_station: true })
+    setTaggedOnly(false)
   }
 
   const ALT_M_TO_FT = 3.28084
@@ -118,6 +122,7 @@ export function EntitySearchPanel() {
     if (track.type === 'sea' && !entityFilter.vessel) return false
     if (track.type === 'ground' && !entityFilter.aprs) return false
     if (track.type === 'hazard' && !entityFilter.fire_incident) return false
+    if (taggedOnly && !(entityMissionTags[track.uid]?.length > 0)) return false
     if (q) {
       const name = (track.callsign ?? track.uid).toLowerCase()
       if (!name.includes(q) && !track.uid.toLowerCase().includes(q)) return false
@@ -165,6 +170,22 @@ export function EntitySearchPanel() {
       {/* Expandable filters */}
       {filtersOpen && (
         <div className="px-3 py-3 border-b border-white/5 space-y-4 bg-onyx-deep/60">
+          {/* Tagged only */}
+          <div>
+            <button
+              onClick={() => setTaggedOnly((v) => !v)}
+              className={`flex items-center gap-1.5 px-2 py-1 border text-[9px] uppercase tracking-widest font-bold transition-colors focus:outline-none ${
+                taggedOnly
+                  ? 'text-amber-gold border-amber-gold/60 bg-amber-gold/10'
+                  : 'text-on-surface-variant border-white/10 hover:border-white/20'
+              }`}
+              aria-pressed={taggedOnly}
+            >
+              <span className="ms text-[12px] leading-none">label</span>
+              Tagged only
+            </button>
+          </div>
+
           {/* Type toggles */}
           <div>
             <span className="label-caps text-[9px] block mb-2">Entity Types</span>
@@ -271,6 +292,8 @@ export function EntitySearchPanel() {
               const color  = TYPE_COLOR[trackKey]
               const icon   = TYPE_ICON[trackKey]
 
+              const firstTag = (entityMissionTags[track.uid] ?? [])[0]
+
               return (
                 <button
                   key={track.uid}
@@ -282,8 +305,15 @@ export function EntitySearchPanel() {
                 >
                   <span className={`ms text-[14px] leading-none shrink-0 ${color}`}>{icon}</span>
                   <div className="flex-1 min-w-0">
-                    <div className="font-bold text-[10px] text-on-surface truncate">
+                    <div className="font-bold text-[10px] text-on-surface truncate flex items-center gap-1">
                       {track.callsign ?? track.uid}
+                      {firstTag && (
+                        <span
+                          className="inline-block w-1.5 h-1.5 rounded-full shrink-0"
+                          style={{ backgroundColor: firstTag.color }}
+                          title={firstTag.tag}
+                        />
+                      )}
                     </div>
                     <div className="font-mono text-[9px] text-on-surface-variant">
                       {track.type === 'air' ? `${altFt.toLocaleString()} ft` : ''}

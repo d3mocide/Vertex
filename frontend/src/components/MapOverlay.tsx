@@ -102,6 +102,7 @@ export function MapOverlay({ map }: Props) {
   const replayData        = useCivicStore((s) => s.replayData)
   const replayCurrentTs   = useCivicStore((s) => s.replayCurrentTs)
   const systemEvents      = useCivicStore((s) => s.systemEvents)
+  const entityMissionTags = useCivicStore((s) => s.entityMissionTags)
   const selectEntity      = useCivicStore((s) => s.selectEntity)
   const setSelectedCamId  = useCivicStore((s) => s.setSelectedCamId)
   const setActiveTab      = useCivicStore((s) => s.setActiveTab)
@@ -125,12 +126,29 @@ export function MapOverlay({ map }: Props) {
   useEffect(() => { activeTabRef.current = activeTab            }, [activeTab])
   const geofencesVisibleRef = useRef(true)
   useEffect(() => { geofencesVisibleRef.current = geofencesVisible }, [geofencesVisible])
+  const missionTagsRef = useRef<Record<string, [number, number, number, number]>>({})
+  useEffect(() => {
+    const colorMap: Record<string, [number, number, number, number]> = {}
+    for (const [entityId, tags] of Object.entries(entityMissionTags)) {
+      if (tags.length > 0) {
+        const hex = tags[0].color.replace('#', '')
+        const r = parseInt(hex.slice(0, 2), 16)
+        const g = parseInt(hex.slice(2, 4), 16)
+        const b = parseInt(hex.slice(4, 6), 16)
+        if (!isNaN(r) && !isNaN(g) && !isNaN(b)) {
+          colorMap[entityId] = [r, g, b, 220]
+        }
+      }
+    }
+    missionTagsRef.current = colorMap
+  }, [entityMissionTags])
 
   useEffect(() => {
     const container = map.getContainer()
 
     // Overlay canvas: sits on top of the MapLibre canvas, passes events through.
     const canvas = document.createElement('canvas')
+    canvas.id = 'deck-overlay-canvas'
     canvas.style.cssText = 'position:absolute;top:0;left:0;pointer-events:none;'
     canvas.width  = container.clientWidth
     canvas.height = container.clientHeight
@@ -383,7 +401,7 @@ export function MapOverlay({ map }: Props) {
         viewState: getViewState(map),
         layers: [
           ...buildTrailLayers(rawTracks, sel),
-          ...buildEntityLayers(pvbTracks, sel, cycleRef.current),
+          ...buildEntityLayers(pvbTracks, sel, cycleRef.current, missionTagsRef.current),
           ...buildEventLayers(systemEventsRef.current, now),
           ...(camerasVisibleRef.current
             ? [buildCameraLayer(camerasRef.current, selectedCamRef.current)]

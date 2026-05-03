@@ -5,6 +5,20 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 
 ---
 
+## 2026-05-03 — Sprint 5: Entity Tagging, Alert Suppression, Snapshot Export (E3/E4/E5)
+
+- **E3 — Entity Mission Tags (backend)**: Added `EntityMissionTag` DB model to `backend/db/models.py` and new CRUD router at `GET/POST/DELETE /api/v1/entities/{id}/tags` in `backend/routers/entity_tags.py`. Registered router in `backend/main.py`. Added `db/init/04_entity_mission_tags.sql` migration (creates `entity_mission_tags` table and adds cooldown columns to `alert_rules`).
+- **E3 — Entity Mission Tags (frontend)**: Added `EntityMissionTag` interface to `frontend/src/storeTypes.ts`. Added `entityMissionTags` store slice with `setEntityMissionTags`, `addEntityMissionTag`, `removeEntityMissionTag` actions to `frontend/src/store.ts`. Updated `EntityDetail.tsx` with a full tag editor: fetch tags on entity select, color-coded tag chips with delete, new-tag form with 7 color presets. Updated `EntitySearchPanel.tsx` with a "Tagged Only" filter toggle and colored dot indicators on tagged entities in the list.
+- **E3 — Map color override**: Updated `frontend/src/layers/buildEntityLayers.ts` to accept optional `tagColorMap?: Record<string, [number,number,number,number]>` and apply it as the icon color when present. Updated `frontend/src/components/MapOverlay.tsx` to compute a `missionTagsRef` from the store and pass it to `buildEntityLayers` on each RAF tick.
+- **E4 — Alert Suppression / Cooldown Rules (backend)**: Extended `AlertRule` model in `backend/db/models.py` with `cooldown_seconds`, `max_per_hour`, `dedup_key` columns. Updated `backend/routers/alertrules.py` Create/Update/Response schemas with the new fields. Rewrote `backend/webhook_dispatcher.py` to call `_is_suppressed()` before each dispatch; uses Redis keys `alertrule:{id}:{dedup_val}:cd` (cooldown lock) and `alertrule:{id}:{dedup_val}:h` (hourly counter) to suppress repeat fires.
+- **E4 — Alert Suppression (frontend)**: Added "Suppression settings" expandable section in `frontend/src/components/layout/AlertRulesSection.tsx` with cooldown (seconds) and max-per-hour inputs. Existing rule list rows now display cooldown/rate indicators when set.
+- **E5 — Dashboard Snapshot Export**: Created `frontend/src/snapshotExport.ts` utility that composites the MapLibre GL canvas (`.maplibregl-canvas`) with the Deck.gl overlay canvas (`#deck-overlay-canvas`) and triggers a PNG download. Added `id="deck-overlay-canvas"` to the Deck canvas in `MapOverlay.tsx`. Enabled `preserveDrawingBuffer: true` in `Map.tsx` so the WebGL canvas remains readable after frame render. Added `photo_camera` icon button to `frontend/src/components/layout/Header.tsx` that calls the export utility.
+- **Roadmap**: Marked E3, E4, E5 as Done in `ROADMAP.md`; marked Sprint 5 complete.
+- **Validation**: `npx tsc --noEmit` ✓ zero errors · `docker compose config --quiet` ✓ · `python3 -m py_compile` ✓ all modified Python files.
+- **Motivation**: Completed all three Sprint 5 tactical quick-win items, advancing operator ergonomics with mission-aware entity grouping, alert noise control, and one-click situational snapshots.
+
+---
+
 ## 2026-05-02 — Incident Interface Stabilization & Traffic Gating
 
 - **Traffic Incident Noise Reduction**: Implemented a dual-radius filtering strategy in `incidentUtils.ts`. Major incidents (detected via keywords like 'crash', 'closure', 'blocked') are surfaced within a 15km radius, while minor traffic events are capped at 8km (5 miles) to eliminate background noise.
