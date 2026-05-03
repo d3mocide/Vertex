@@ -39,7 +39,7 @@ export function TinyGSLayer({ map }: Props) {
         properties: {
           id:   s.entity_id,
           name: s.display_name ?? s.entity_id,
-          alt:  s.altitude != null ? Math.round(s.altitude / 1000) : null,  // km
+          ...(s.altitude != null && { alt: Math.round(s.altitude / 1000) }),
         },
       })),
     }
@@ -80,7 +80,7 @@ export function TinyGSLayer({ map }: Props) {
         layout: {
           'text-field': [
             'case',
-            ['!=', ['get', 'alt'], null],
+            ['has', 'alt'],
             ['concat', ['get', 'name'], '\n', ['to-string', ['get', 'alt']], ' km'],
             ['get', 'name'],
           ],
