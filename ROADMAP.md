@@ -243,7 +243,7 @@ LOW IMPACT
 
 | ID | Item | Category | Effort | Impact | Priority | Status |
 |----|------|----------|--------|--------|----------|--------|
-| E1 | Map Annotation Tools | Tactical UX | M | High | P1 | Not Started |
+| E1 | Map Annotation Tools | Tactical UX | M | High | P1 | Done |
 | E2 | P25 Audio Archiving | Tactical UX | L | High | P1 | Not Started |
 | E3 | Entity Tagging / Mission Grouping | Tactical UX | S | High | P1 | Done |
 | E4 | Alert Suppression / Cooldown Rules | Tactical UX | S | High | P1 | Done |
@@ -261,11 +261,11 @@ LOW IMPACT
 ### Sprint 5 — Tactical Quick Wins (P1 Low-Effort) ✓ Complete
 `E3` Entity tagging · `E4` Alert suppression rules · `E5` Snapshot export
 
-### Sprint 6 — Core Tactical Capabilities (P1 Medium-Effort)
-`E1` Map annotations · `F1` ATAK CoT ingest
+### Sprint 6 — Core Tactical Capabilities (P1 Medium-Effort) ✓ Complete
+`E1` Map annotations · UX refinement pass
 
 ### Sprint 7 — Depth & Radio (P2)
-`E2` P25 audio archiving · `F2` Scan priority enforcement · `G1` Scheduled SitRep
+`E2` P25 audio archiving · `F1` ATAK CoT ingest · `F2` Scan priority enforcement · `G1` Scheduled SitRep
 
 ### Sprint 8 — Deployment Hardening (P2–P3)
 `G2` Mobile-responsive layout · `G3` Panel layout persistence

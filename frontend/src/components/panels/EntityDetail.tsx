@@ -273,6 +273,9 @@ export function EntityDetail() {
       <div className="px-3 pb-3 border-t border-white/10 pt-2">
         <span className="label-caps text-[9px] block mb-2">Mission Tags</span>
 
+        {missionTags.length === 0 && (
+          <p className="text-[9px] text-on-surface-variant/50 italic mb-2">No tags assigned</p>
+        )}
         {missionTags.length > 0 && (
           <div className="flex flex-wrap gap-1 mb-2">
             {missionTags.map((t) => (

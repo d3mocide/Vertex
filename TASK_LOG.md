@@ -5,6 +5,19 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 
 ---
 
+## 2026-05-03 — Sprint 6: Map Annotations (E1) + UX Refinement
+
+- **E1 — Map Annotations (backend)**: Added `Annotation` DB model to `backend/db/models.py` (annotation_type, label, color, geojson JSON, created_by, expires_at). Created `db/init/05_annotations.sql` migration. Created `backend/routers/annotations.py` with `GET/POST/DELETE /api/v1/annotations`; GET auto-filters expired annotations. Registered router in `backend/main.py`.
+- **E1 — Map Annotations (frontend types + store)**: Added `AnnotationItem` interface to `frontend/src/storeTypes.ts`. Added `annotations[]`, `annotationDrawMode`, `annotationsVisible` slice with actions to `frontend/src/store.ts`.
+- **E1 — AnnotationOverlay component**: Created `frontend/src/components/layers/AnnotationOverlay.tsx` — a self-contained component that manages MapLibre GeoJSON sources (`annotations-source`, `annotation-draw-source`) and layers (fill, line, marker circle, symbol label), handles draw interaction (click-to-add points, dblclick-to-finish, live rubber-band mousemove preview), shows a save form modal (label, color presets, expiry: 4h/12h/24h/permanent), shows a delete popup on clicking existing annotations, and includes a floating bottom-center toolbar with visibility toggle + draw mode buttons.
+- **E1 — Map integration**: Imported and mounted `<AnnotationOverlay map={map} />` in `frontend/src/components/Map.tsx`. Added `annotationDrawModeRef` to `frontend/src/components/MapOverlay.tsx` with a guard in `onMapClick` to skip entity selection while annotation draw mode is active.
+- **UX refinements**: Replaced blank auth-check screen in `App.tsx` with a centered spinner. Normalized empty state styling for incidents and news in `Sidebar.tsx` (consistent italic/dimmed text). Added "No tags assigned" empty state placeholder in `EntityDetail.tsx` mission tags section. Upgraded "No matches" state in `EntitySearchPanel.tsx` with a `search_off` icon and centered layout.
+- **Roadmap**: Marked E1 Done, Sprint 6 Complete in `ROADMAP.md`. Moved F1 (ATAK CoT Ingest) to Sprint 7 scope.
+- **Validation**: `npx tsc --noEmit` ✓ zero errors · `docker compose config --quiet` ✓ · `python3 -m py_compile` ✓ all modified Python files.
+- **Motivation**: Sprint 6 delivers E1 Map Annotation Tools — operators can now draw markers, lines, and areas directly on the map with labels, color coding, and auto-expiry for tactical incident management and shift briefings.
+
+---
+
 ## 2026-05-03 — Sprint 5: Entity Tagging, Alert Suppression, Snapshot Export (E3/E4/E5)
 
 - **E3 — Entity Mission Tags (backend)**: Added `EntityMissionTag` DB model to `backend/db/models.py` and new CRUD router at `GET/POST/DELETE /api/v1/entities/{id}/tags` in `backend/routers/entity_tags.py`. Registered router in `backend/main.py`. Added `db/init/04_entity_mission_tags.sql` migration (creates `entity_mission_tags` table and adds cooldown columns to `alert_rules`).

@@ -107,6 +107,9 @@ export function MapOverlay({ map }: Props) {
   const setSelectedCamId  = useCivicStore((s) => s.setSelectedCamId)
   const setActiveTab      = useCivicStore((s) => s.setActiveTab)
   const geofencesVisible  = useCivicStore((s) => s.geofencesVisible)
+  const annotationDrawMode = useCivicStore((s) => s.annotationDrawMode)
+  const annotationDrawModeRef = useRef<'marker' | 'line' | 'polygon' | null>(null)
+  useEffect(() => { annotationDrawModeRef.current = annotationDrawMode }, [annotationDrawMode])
   useEffect(() => { tracksRef.current = tracks                  }, [tracks])
   useEffect(() => { selectedRef.current = selectedId            }, [selectedId])
   useEffect(() => { camerasRef.current = cameras                }, [cameras])
@@ -305,6 +308,7 @@ export function MapOverlay({ map }: Props) {
 
     // Allow selecting entities and cameras while preserving normal map interaction.
     const onMapClick = (e: maplibregl.MapMouseEvent) => {
+      if (annotationDrawModeRef.current) return
       const picked = deck.pickObject({ x: e.point.x, y: e.point.y, radius: 10 })
       if (!picked) return
       if (picked.layer?.id === 'camera-points') {

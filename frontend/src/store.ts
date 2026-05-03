@@ -7,7 +7,7 @@ import type {
   Entity, Track, AlertItem, NewsItem, WeatherState, RadioState,
   TrafficCamera, SystemEvent, CustomLayerItem, SystemHealth, TrafficIncident,
   SummaryState, TrailPoint, AirportSnapshot, AppMode, NavTab, EntityTypeFilter,
-  RangeFilter, ReplayData, EntityMissionTag,
+  RangeFilter, ReplayData, EntityMissionTag, AnnotationItem,
 } from './storeTypes'
 import { ALT_RANGE_DEFAULT, SPD_RANGE_DEFAULT } from './storeTypes'
 
@@ -132,6 +132,16 @@ interface CivicStore {
   setEntityMissionTags:    (entityId: string, tags: EntityMissionTag[]) => void
   addEntityMissionTag:     (tag: EntityMissionTag) => void
   removeEntityMissionTag:  (entityId: string, tagId: number) => void
+
+  // Map annotations
+  annotations:             AnnotationItem[]
+  setAnnotations:          (items: AnnotationItem[]) => void
+  addAnnotation:           (item: AnnotationItem) => void
+  removeAnnotation:        (id: number) => void
+  annotationDrawMode:      'marker' | 'line' | 'polygon' | null
+  setAnnotationDrawMode:   (mode: 'marker' | 'line' | 'polygon' | null) => void
+  annotationsVisible:      boolean
+  setAnnotationsVisible:   (v: boolean) => void
 }
 
 const emptyRadio: RadioState = {
@@ -191,6 +201,9 @@ export const useCivicStore = create<CivicStore>((set) => ({
   favoriteCamIds:   loadFavoriteCamIds(),
   customLayers:     [],
   entityMissionTags: {},
+  annotations:      [],
+  annotationDrawMode: null,
+  annotationsVisible: true,
   mobileNavOpen:    false,
   settingsOpen:     false,
   entityFilter:     { aircraft: true, vessel: true, mesh_node: true, aprs: true, fire_incident: true, satellite: true, tinygs_station: true },
@@ -371,6 +384,12 @@ export const useCivicStore = create<CivicStore>((set) => ({
       const filtered = (s.entityMissionTags[entityId] ?? []).filter((t) => t.id !== tagId)
       return { entityMissionTags: { ...s.entityMissionTags, [entityId]: filtered } }
     }),
+
+  setAnnotations:       (annotations) => set({ annotations }),
+  addAnnotation:        (item) => set((s) => ({ annotations: [...s.annotations, item] })),
+  removeAnnotation:     (id) => set((s) => ({ annotations: s.annotations.filter((a) => a.id !== id) })),
+  setAnnotationDrawMode: (annotationDrawMode) => set({ annotationDrawMode }),
+  setAnnotationsVisible: (annotationsVisible) => set({ annotationsVisible }),
 
   toggleFavoriteCam: (id) =>
     set((s) => {

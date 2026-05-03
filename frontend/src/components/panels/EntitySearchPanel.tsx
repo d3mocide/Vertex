@@ -275,7 +275,10 @@ export function EntitySearchPanel() {
       {showList && (
         <div className="max-h-48 overflow-y-auto divide-y divide-white/5">
           {matchedTracks.length === 0 ? (
-            <div className="px-3 py-3 text-[10px] text-on-surface-variant text-center">No matches</div>
+            <div className="px-3 py-4 flex flex-col items-center gap-1 text-on-surface-variant/50">
+              <span className="ms text-[20px]">search_off</span>
+              <span className="text-[9px] uppercase tracking-widest">No matches</span>
+            </div>
           ) : (
             matchedTracks.slice(0, 20).map((track) => {
               const entity = entities[track.uid]

@@ -199,3 +199,16 @@ class EntityMissionTag(Base):
     color: Mapped[str] = mapped_column(String(16), default="#FFB800")
     created_by: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class Annotation(Base):
+    __tablename__ = "annotations"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    annotation_type: Mapped[str] = mapped_column(String(16))
+    label: Mapped[Optional[str]] = mapped_column(String(256), nullable=True)
+    color: Mapped[str] = mapped_column(String(16), default="#FFB800")
+    geojson: Mapped[dict] = mapped_column(JSON)
+    created_by: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
