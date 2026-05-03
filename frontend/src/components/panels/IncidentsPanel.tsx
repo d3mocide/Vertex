@@ -1,5 +1,6 @@
 import { useCivicStore, WeatherAlert, SystemEvent } from '../../store'
 import { isMajorTrafficIncident, isIncidentInRadius } from '../../incidentUtils'
+import ReactMarkdown from 'react-markdown'
 
 function formatIncidentLocation(incident: { location?: string; lat?: number; lon?: number }): string | undefined {
   const location = incident.location?.trim()
@@ -57,8 +58,17 @@ function AiTrafficSummary() {
         </span>
       </div>
 
-      <div className="text-[12px] text-on-surface leading-relaxed relative z-10 whitespace-pre-wrap font-sans">
-        {summary.summary}
+      <div className="text-[12px] text-on-surface leading-relaxed relative z-10 font-sans">
+        <ReactMarkdown
+          components={{
+            strong: ({ ...props }) => <strong className="text-amber-gold font-bold" {...props} />,
+            ul: ({ ...props }) => <ul className="list-disc list-outside ml-4 my-2 space-y-1" {...props} />,
+            li: ({ ...props }) => <li className="pl-1" {...props} />,
+            p: ({ ...props }) => <p className="mb-3 last:mb-0" {...props} />,
+          }}
+        >
+          {summary.summary}
+        </ReactMarkdown>
       </div>
 
       {summary.model && (

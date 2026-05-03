@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { useCivicStore, ALT_RANGE_DEFAULT, SPD_RANGE_DEFAULT } from '../../store'
+import { getDistanceMeters } from '../../layers/geoUtils'
+import { DEFAULT_CENTER } from '../../config'
 
 const TYPE_ICON: Record<string, string> = {
   aircraft: 'flight',
@@ -107,9 +109,16 @@ export function EntitySearchPanel() {
     const spdKt = track.speedMs * MS_TO_KT
     if (spdKt < minSpd || spdKt > maxSpd) return false
     return true
+  }).sort((a, b) => {
+    const priority: Record<string, number> = { hazard: 0, air: 10, sea: 20, ground: 30 }
+    const distA = getDistanceMeters(DEFAULT_CENTER[0], DEFAULT_CENTER[1], a.lon, a.lat) / 1000
+    const distB = getDistanceMeters(DEFAULT_CENTER[0], DEFAULT_CENTER[1], b.lon, b.lat) / 1000
+    const scoreA = (priority[a.type] ?? 40) + distA
+    const scoreB = (priority[b.type] ?? 40) + distB
+    return scoreA - scoreB
   })
 
-  const showList = entitySearchQuery.length > 0 || isFiltered
+  const showList = true
 
   return (
     <div className="absolute top-28 left-4 z-30 w-64 hud-panel overflow-hidden">
@@ -238,6 +247,7 @@ export function EntitySearchPanel() {
                       {track.type === 'air' ? `${altFt.toLocaleString()} ft` : ''}
                       {track.type === 'air' && spdKt > 0 ? ' · ' : ''}
                       {(track.type === 'air' || track.type === 'sea' || track.type === 'ground') && spdKt > 0 ? `${spdKt} kts` : ''}
+                      {` · ${(getDistanceMeters(DEFAULT_CENTER[0], DEFAULT_CENTER[1], track.lon, track.lat) / 1000).toFixed(1)} km`}
                       {entity?.status ? ` · ${entity.status}` : ''}
                     </div>
                   </div>

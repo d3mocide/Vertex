@@ -16,7 +16,7 @@ litellm.suppress_debug_info = True
 # Suppress Pydantic serialization warnings from LiteLLM/Pydantic V2 mismatch
 warnings.filterwarnings("ignore", category=UserWarning, message="Pydantic serializer warnings")
 
-_MAX_TOKENS = 512
+_MAX_TOKENS = 1536
 _SYSTEM = (
     "You are a Senior Situational Awareness Officer for a Regional Emergency Operations Center. "
     "Your task is to provide a high-fidelity, professional briefing based on real-time data feeds. "
