@@ -27,6 +27,8 @@ export default {
         'amber-p25-muted': '#4D2B00',
         'red-emergency':   '#C62828',
         'red-emergency-muted': '#4A0000',
+        'violet-space':      '#9E6CFF',
+        'violet-space-muted':'#3D1B8E',
       },
       borderRadius: {
         DEFAULT: '0rem',

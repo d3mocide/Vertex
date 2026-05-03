@@ -4,15 +4,19 @@ import { API_BASE } from '../../config'
 import { authHeaders } from '../../auth'
 
 const TYPE_COLORS: Record<string, string> = {
-  aircraft:  'text-cyan-adsb',
-  vessel:    'text-green-ais',
-  mesh_node: 'text-amber-p25',
+  aircraft:       'text-cyan-adsb',
+  vessel:         'text-green-ais',
+  mesh_node:      'text-amber-p25',
+  satellite:      'text-violet-space',
+  tinygs_station: 'text-amber-p25',
 }
 
 const TYPE_ICONS: Record<string, string> = {
-  aircraft:  'flight',
-  vessel:    'directions_boat',
-  mesh_node: 'router',
+  aircraft:       'flight',
+  vessel:         'directions_boat',
+  mesh_node:      'router',
+  satellite:      'satellite_alt',
+  tinygs_station: 'satellite',
 }
 
 /** Render a compact SVG sparkline from a numeric series. */
