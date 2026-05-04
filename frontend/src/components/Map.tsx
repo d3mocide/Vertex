@@ -9,6 +9,7 @@ import { TinyGSLayer }         from './layers/TinyGSLayer'
 import { GeofenceLayer }        from './layers/GeofenceLayer'
 import { ObservationRingLayer } from './layers/ObservationRingLayer'
 import { CustomLayersLayer }    from './layers/CustomLayersLayer'
+import { AnnotationOverlay }    from './layers/AnnotationOverlay'
 import { MapOverlay }           from './MapOverlay'
 import { useWebSocket }  from '../hooks/useWebSocket'
 
@@ -25,8 +26,8 @@ export function Map() {
       center:    DEFAULT_CENTER,
       zoom:      DEFAULT_ZOOM,
       attributionControl: false,
-      // Performance: request hardware acceleration
       antialias: true,
+      preserveDrawingBuffer: true,
     })
 
     // Static region-center marker so operators can quickly orient to the
@@ -79,6 +80,7 @@ export function Map() {
           <GeofenceLayer         map={map} />
           <CustomLayersLayer     map={map} />
           <ObservationRingLayer  map={map} />
+          <AnnotationOverlay     map={map} />
           <MapOverlay            map={map} />
         </>
       )}

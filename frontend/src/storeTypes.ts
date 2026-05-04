@@ -152,6 +152,28 @@ export interface SystemEvent {
   }
 }
 
+// ─── Map Annotations ─────────────────────────────────────────────────────────
+export interface AnnotationItem {
+  id: number
+  annotation_type: 'marker' | 'line' | 'polygon'
+  label: string | null
+  color: string
+  geojson: object
+  created_by: string | null
+  expires_at: string | null
+  created_at: string
+}
+
+// ─── Entity Mission Tags (operator-assigned labels) ──────────────────────────
+export interface EntityMissionTag {
+  id: number
+  entity_id: string
+  tag: string
+  color: string
+  created_by: string | null
+  created_at: string
+}
+
 // ─── Custom Layers (KML / GeoJSON import) ────────────────────────────────────
 export interface CustomLayerItem {
   id: number

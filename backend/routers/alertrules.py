@@ -19,6 +19,9 @@ class AlertRuleCreate(BaseModel):
     rule_filter: dict[str, Any] | None = None
     action_type: Literal["webhook_post", "log"] = "webhook_post"
     action_config: dict[str, Any] = Field(default_factory=dict)
+    cooldown_seconds: int | None = None
+    max_per_hour: int | None = None
+    dedup_key: str | None = None
 
 
 class AlertRuleUpdate(BaseModel):
@@ -28,6 +31,9 @@ class AlertRuleUpdate(BaseModel):
     rule_filter: dict[str, Any] | None = None
     action_type: Literal["webhook_post", "log"] | None = None
     action_config: dict[str, Any] | None = None
+    cooldown_seconds: int | None = None
+    max_per_hour: int | None = None
+    dedup_key: str | None = None
 
 
 class AlertRuleResponse(BaseModel):
@@ -38,6 +44,9 @@ class AlertRuleResponse(BaseModel):
     rule_filter: dict[str, Any] | None
     action_type: str
     action_config: dict[str, Any]
+    cooldown_seconds: int | None
+    max_per_hour: int | None
+    dedup_key: str | None
     created_at: datetime
     updated_at: datetime | None
 
@@ -62,6 +71,9 @@ async def create_alert_rule(body: AlertRuleCreate, db: AsyncSession = Depends(ge
         rule_filter=body.rule_filter or {},
         action_type=body.action_type,
         action_config=body.action_config,
+        cooldown_seconds=body.cooldown_seconds,
+        max_per_hour=body.max_per_hour,
+        dedup_key=body.dedup_key,
         created_at=now,
         updated_at=now,
     )

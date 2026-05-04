@@ -127,7 +127,11 @@ export default function App() {
       })
   }, [])
 
-  if (!authChecked) return null
+  if (!authChecked) return (
+    <div className="w-screen h-screen bg-onyx-black flex items-center justify-center">
+      <span className="ms text-[32px] text-amber-gold animate-spin" style={{ animationDuration: '1.2s' }}>progress_activity</span>
+    </div>
+  )
   if (!authed) return <LoginPage onLogin={() => setAuthed(true)} setupRequired={setupRequired} />
   return <Dashboard />
 }

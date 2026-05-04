@@ -257,7 +257,7 @@ export function Sidebar() {
           )}
 
           {incidents.length === 0 ? (
-            <p className="text-[11px] text-on-surface-variant italic">No active incidents.</p>
+            <p className="text-[10px] text-on-surface-variant/60 italic text-center py-2">No active incidents</p>
           ) : (
             <div className="space-y-3" role="list">
               {incidents.map((incident, i) => (
@@ -284,16 +284,7 @@ export function Sidebar() {
           </h3>
 
           {newsItems.length === 0 ? (
-            <>
-              {/* Placeholder rows so the sidebar is not empty on first load */}
-              <div className="space-y-4">
-                <NewsRow
-                  source="LOCAL GOV"
-                  age="—"
-                  title="Awaiting feed data…"
-                />
-              </div>
-            </>
+            <p className="text-[10px] text-on-surface-variant/60 italic text-center py-2">No feed data yet</p>
           ) : (
             <div className="space-y-4">
               {newsItems.map((item, i) => (

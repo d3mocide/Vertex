@@ -6,7 +6,7 @@ from sqlalchemy import select
 
 from db.models import AlertRule
 from db.session import async_session_factory
-from redis_bus import subscribe_updates
+from redis_bus import subscribe_updates, get_redis
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +44,45 @@ def _matches_rule(rule: AlertRule, event: dict) -> bool:
         if not want:
             return False
         return str(details.get("entity_type") or "").strip().lower() == want
+
+    return False
+
+
+async def _is_suppressed(rule: AlertRule, event: dict) -> bool:
+    cooldown = rule.cooldown_seconds or 0
+    max_per_hour = rule.max_per_hour or 0
+
+    if not cooldown and not max_per_hour:
+        return False
+
+    r = get_redis()
+    dedup_template = rule.dedup_key or ""
+    if dedup_template:
+        try:
+            dedup_val = dedup_template.format(
+                entity_id=str(event.get("entity_id") or ""),
+                event_type=str(event.get("event_type") or ""),
+            )
+        except (KeyError, IndexError):
+            dedup_val = event.get("entity_id") or event.get("event_id") or "all"
+    else:
+        dedup_val = event.get("entity_id") or event.get("event_id") or "all"
+
+    base = f"alertrule:{rule.id}:{dedup_val}"
+
+    if cooldown > 0 and await r.exists(f"{base}:cd"):
+        return True
+
+    if max_per_hour > 0:
+        hour_key = f"{base}:h"
+        count = await r.incr(hour_key)
+        if count == 1:
+            await r.expire(hour_key, 3600)
+        if count > max_per_hour:
+            return True
+
+    if cooldown > 0:
+        await r.set(f"{base}:cd", "1", ex=cooldown)
 
     return False
 
@@ -99,6 +138,9 @@ async def run_webhook_dispatcher() -> None:
 
             for rule in rules:
                 if not _matches_rule(rule, event):
+                    continue
+                if await _is_suppressed(rule, event):
+                    logger.debug("[webhook] suppressed rule=%s event=%s (cooldown/rate)", rule.id, event.get("event_id"))
                     continue
                 if rule.action_type == "log":
                     logger.info("[webhook] log-rule matched id=%s event=%s", rule.id, event.get("event_id"))
