@@ -354,13 +354,6 @@ export function MapOverlay({ map }: Props) {
     map.on('mousemove', onMapMouseMove)
     map.on('mouseleave', () => { tooltip.style.opacity = '0' })
 
-    // Keep Deck camera tightly locked to MapLibre camera updates. This avoids
-    // visual drift when interaction FPS drops under heavy layer updates.
-    const onMapRender = () => {
-      deck.setProps({ viewState: getViewState(map) })
-    }
-    map.on('render', onMapRender)
-
     // Allow selecting entities and cameras while preserving normal map interaction.
     const onMapClick = (e: maplibregl.MapMouseEvent) => {
       if (annotationDrawModeRef.current) return
@@ -393,11 +386,14 @@ export function MapOverlay({ map }: Props) {
       last = now
       cycleRef.current = (cycleRef.current + dt / 2000) % 1  // 2-second pulse
 
+      // Sync Deck camera every frame — eliminates the 1-frame lag that occurs
+      // when relying on map.on('render') because that fires after MapLibre paints,
+      // causing Deck to always be one RAF behind during map movement.
+      deck.setProps({ viewState: getViewState(map) })
+
       const interacting = map.isMoving() || map.isZooming() || map.isRotating()
       const shouldRebuildLayers = !interacting && (now - lastLayerBuild >= LAYER_BUILD_INTERVAL_MS)
       if (!shouldRebuildLayers) {
-        // Camera is synced by map.on('render'); skip heavy layer rebuilds while
-        // the map is actively moving to keep overlay and basemap fused.
         rafRef.current = requestAnimationFrame(tick)
         return
       }
@@ -497,7 +493,6 @@ export function MapOverlay({ map }: Props) {
       cancelAnimationFrame(rafRef.current)
       map.off('click', onMapClick)
       map.off('mousemove', onMapMouseMove)
-      map.off('render', onMapRender)
       resizeObserver.disconnect()
       deck.finalize()
       canvas.remove()
