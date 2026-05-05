@@ -11,9 +11,12 @@ import { buildAnnotationLayers, buildAnnotationDrawPreviewLayers } from '../laye
 import { buildGeofenceLayers, type GeofenceItem } from '../layers/buildGeofenceLayers'
 import { buildObservationRingLayers } from '../layers/buildObservationRingLayer'
 import { buildCustomLayers } from '../layers/buildCustomLayers'
+import { buildLightningLayer } from '../layers/buildLightningLayer'
+import { buildClusterLayers, CLUSTER_ZOOM_THRESHOLD } from '../layers/buildClusterLayers'
 import { applyPVB, type PVBState } from '../layers/pvb'
 import { DEFAULT_CENTER, OBSERVATION_RANGE_KM, API_BASE } from '../config'
 import { authHeaders } from '../auth'
+import type { LightningStrike } from '../store'
 
 interface Props {
   map: maplibregl.Map
@@ -110,6 +113,8 @@ export function MapOverlay({ map }: Props) {
   const replayCurrentTs   = useCivicStore((s) => s.replayCurrentTs)
   const systemEvents      = useCivicStore((s) => s.systemEvents)
   const entityMissionTags = useCivicStore((s) => s.entityMissionTags)
+  const lightningStrikes   = useCivicStore((s) => s.lightningStrikes)
+  const lightningVisible   = useCivicStore((s) => s.lightningVisible)
   const selectEntity      = useCivicStore((s) => s.selectEntity)
   const setSelectedCamId  = useCivicStore((s) => s.setSelectedCamId)
   const setActiveTab      = useCivicStore((s) => s.setActiveTab)
@@ -147,6 +152,10 @@ export function MapOverlay({ map }: Props) {
   
   const systemEventsRef = useRef<SystemEvent[]>([])
   useEffect(() => { systemEventsRef.current = systemEvents }, [systemEvents])
+  const lightningRef = useRef<LightningStrike[]>([])
+  const lightningVisibleRef = useRef(true)
+  useEffect(() => { lightningRef.current = lightningStrikes }, [lightningStrikes])
+  useEffect(() => { lightningVisibleRef.current = lightningVisible }, [lightningVisible])
   const camerasVisibleRef = useRef(false)
   useEffect(() => { camerasVisibleRef.current = camerasVisible  }, [camerasVisible])
   useEffect(() => { activeTabRef.current = activeTab            }, [activeTab])
@@ -464,10 +473,21 @@ export function MapOverlay({ map }: Props) {
         }
       }
 
+      const zoom = map.getZoom()
+      const isClustered = zoom < CLUSTER_ZOOM_THRESHOLD
+
       const layers = [
-          ...buildTrailLayers(rawTracks, sel),
-          ...buildEntityLayers(pvbTracks, sel, cycleRef.current, missionTagsRef.current),
+          // At low zoom, replace individual icons with cluster bubbles
+          ...(isClustered
+            ? buildClusterLayers(pvbTracks, zoom)
+            : [
+                ...buildTrailLayers(rawTracks, sel),
+                ...buildEntityLayers(pvbTracks, sel, cycleRef.current, missionTagsRef.current),
+              ]),
           ...buildEventLayers(systemEventsRef.current, now),
+          ...(lightningVisibleRef.current
+            ? buildLightningLayer(lightningRef.current, now)
+            : []),
           ...(camerasVisibleRef.current
             ? [buildCameraLayer(camerasRef.current, selectedCamRef.current)]
             : []),

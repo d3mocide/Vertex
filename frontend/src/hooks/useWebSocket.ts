@@ -26,6 +26,7 @@ export function useWebSocket() {
     setTrafficFlow,
     setTrafficIncidents,
     setSummary,
+    appendLightningStrikes,
   } = useCivicStore()
 
   useEffect(() => {
@@ -100,6 +101,8 @@ export function useWebSocket() {
               setTrafficFlow(msg.data)
             } else if (msg.key === 'traffic:incidents' && Array.isArray(msg.data)) {
               setTrafficIncidents(msg.data)
+            } else if (msg.key === 'lightning:strikes' && Array.isArray(msg.data)) {
+              appendLightningStrikes(msg.data)
             } else if (msg.key === 'summary:latest' && msg.data && typeof msg.data === 'object') {
               const data = msg.data as Record<string, unknown>
               setSummary({

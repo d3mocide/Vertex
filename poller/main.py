@@ -21,6 +21,8 @@ from pollers.aprs import AprsPoller
 from pollers.cot_emitter import CotEmitter
 from pollers.anomaly import AnomalyDetectionPoller
 from pollers.tinygs import TinyGSPoller
+from pollers.lightning import LightningPoller
+from pollers.streamgauge import StreamGaugePoller
 from bus import close
 from config_loader import load_sources_config
 from config_sync import sync_sources_to_db
@@ -72,6 +74,8 @@ async def main():
         CotEmitter(),
         AnomalyDetectionPoller(),
         TinyGSPoller(),
+        LightningPoller(),
+        StreamGaugePoller(),
     ]
     tasks = [asyncio.create_task(p.run()) for p in pollers]
     tasks.append(asyncio.create_task(_purge_loop()))
