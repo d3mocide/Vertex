@@ -148,6 +148,28 @@ interface CivicStore {
   setAnnotationsVisible:   (v: boolean) => void
   annotationToolbarOpen:   boolean
   setAnnotationToolbarOpen: (v: boolean) => void
+
+  // Lightning strikes (rolling 60-second buffer, fed from Blitzortung via WS)
+  lightningStrikes:       LightningStrike[]
+  appendLightningStrikes: (strikes: LightningStrike[]) => void
+  lightningVisible:       boolean
+  setLightningVisible:    (v: boolean) => void
+
+  // Stream gauges visibility
+  gaugesVisible:       boolean
+  setGaugesVisible:    (v: boolean) => void
+
+  // 3-D terrain
+  terrainEnabled:         boolean
+  setTerrainEnabled:      (v: boolean) => void
+  terrainExaggeration:    number
+  setTerrainExaggeration: (v: number) => void
+}
+
+export interface LightningStrike {
+  lat: number
+  lon: number
+  ts:  number   // unix ms
 }
 
 const emptyRadio: RadioState = {
@@ -200,9 +222,14 @@ export const useCivicStore = create<CivicStore>((set) => ({
   ldiMode:          false,
   radarVisible:     false,
   radarOpacity:     0.6,
-  smokeVisible:     false,
-  camerasVisible:   false,
-  geofencesVisible: true,
+  smokeVisible:        false,
+  camerasVisible:      false,
+  geofencesVisible:    true,
+  lightningStrikes:    [],
+  lightningVisible:    true,
+  gaugesVisible:       true,
+  terrainEnabled:      false,
+  terrainExaggeration: 1.5,
   selectedCamId:    null,
   favoriteCamIds:   loadFavoriteCamIds(),
   customLayers:     [],
@@ -288,6 +315,7 @@ export const useCivicStore = create<CivicStore>((set) => ({
         mesh_node:    3_600_000,   // 1 hour — nodes are semi-static
         satellite:    1_800_000,   // 30 min — matches poller TTL
         tinygs_station: 600_000,   // 10 min — station ping is every ~60 s
+        stream_gauge:   600_000,   // 10 min — gauges are polled every 5 min
       }
       for (const [id, e] of Object.entries(next)) {
         const limit = STALE_MS[e.entity_type]
@@ -349,6 +377,18 @@ export const useCivicStore = create<CivicStore>((set) => ({
   setSmokeVisible:   (smokeVisible)   => set({ smokeVisible }),
   setCamerasVisible: (camerasVisible) => set({ camerasVisible }),
   setGeofencesVisible: (geofencesVisible) => set({ geofencesVisible }),
+  appendLightningStrikes: (incoming) =>
+    set((s) => {
+      const MAX = 1000
+      const WINDOW_MS = 60_000
+      const now = Date.now()
+      const fresh = s.lightningStrikes.filter((s) => now - s.ts < WINDOW_MS)
+      return { lightningStrikes: [...fresh, ...incoming].slice(-MAX) }
+    }),
+  setLightningVisible:    (lightningVisible)    => set({ lightningVisible }),
+  setGaugesVisible:       (gaugesVisible)       => set({ gaugesVisible }),
+  setTerrainEnabled:      (terrainEnabled)      => set({ terrainEnabled }),
+  setTerrainExaggeration: (terrainExaggeration) => set({ terrainExaggeration }),
   setMobileNavOpen:  (mobileNavOpen)  => set({ mobileNavOpen }),
   setSettingsOpen:   (settingsOpen)   => set({ settingsOpen }),
   setEntityFilter:   (f)              => set((s) => ({ entityFilter: { ...s.entityFilter, ...f } })),

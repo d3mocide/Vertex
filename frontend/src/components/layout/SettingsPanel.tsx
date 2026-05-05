@@ -14,6 +14,10 @@ export function SettingsPanel() {
     smokeVisible, setSmokeVisible,
     camerasVisible, setCamerasVisible,
     geofencesVisible, setGeofencesVisible,
+    lightningVisible, setLightningVisible,
+    gaugesVisible, setGaugesVisible,
+    terrainEnabled, setTerrainEnabled,
+    terrainExaggeration, setTerrainExaggeration,
     entityFilter, setEntityFilter,
   } = useCivicStore()
 
@@ -89,6 +93,9 @@ export function SettingsPanel() {
               <ToggleRow label="Smoke Overlay" icon="air" checked={smokeVisible} onChange={setSmokeVisible} />
               <ToggleRow label="Cameras" icon="videocam" checked={camerasVisible} onChange={setCamerasVisible} />
               <ToggleRow label="Zone Monitor" icon="verified_user" checked={geofencesVisible} onChange={setGeofencesVisible} />
+              <ToggleRow label="Lightning" icon="bolt" checked={lightningVisible} onChange={setLightningVisible} />
+              <ToggleRow label="Stream Gauges" icon="water" checked={gaugesVisible} onChange={setGaugesVisible} />
+              <ToggleRow label="3D Terrain" icon="landscape" checked={terrainEnabled} onChange={setTerrainEnabled} />
             </div>
           </section>
 
@@ -116,6 +123,33 @@ export function SettingsPanel() {
                     aria-valuemin={10}
                     aria-valuemax={100}
                     aria-valuenow={Math.round(radarOpacity * 100)}
+                  />
+                </div>
+              </div>
+            </section>
+          )}
+
+          {/* Terrain exaggeration */}
+          {terrainEnabled && (
+            <section>
+              <h2 className="label-caps mb-3">Terrain Exaggeration</h2>
+              <div className="flex items-center gap-3">
+                <span className="font-mono text-[10px] text-on-surface-variant w-8">{terrainExaggeration.toFixed(1)}×</span>
+                <div className="relative flex-1 h-1 bg-surface-container-highest rounded-full overflow-hidden">
+                  <div
+                    className="absolute left-0 top-0 bottom-0 bg-amber-gold"
+                    style={{ width: `${((terrainExaggeration - 0.5) / 4.5) * 100}%` }}
+                    aria-hidden="true"
+                  />
+                  <input
+                    type="range"
+                    min={0.5}
+                    max={5}
+                    step={0.5}
+                    value={terrainExaggeration}
+                    onChange={(e) => setTerrainExaggeration(parseFloat(e.target.value))}
+                    className="absolute inset-0 w-full opacity-0 cursor-pointer"
+                    aria-label="Terrain exaggeration"
                   />
                 </div>
               </div>
