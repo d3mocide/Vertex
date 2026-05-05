@@ -5,6 +5,42 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 
 ---
 
+## 2026-05-04 — Added collapsible sidebar incidents feed for density control
+
+- **Problem identified**: The sidebar incident feed consumed substantial vertical space when multiple incident cards were present, reducing scan efficiency for adjacent sidebar sections.
+- **UX improvement**: Updated `frontend/src/components/layout/Sidebar.tsx` to make **Active Incidents** section-level collapsible from the header itself.
+- **Behavior details**:
+    - Added a title toggle with chevron and proper `aria-expanded` / `aria-controls` semantics.
+    - Introduced smart default behavior: if there is no saved user preference, the section auto-collapses when active incidents are `>= 3`, and remains expanded for lighter loads.
+    - Persisted operator preference in localStorage (`vertex.sidebar.incidentsCollapsed`) so manual collapse/expand choice sticks across reloads.
+    - Added compact collapsed preview mode that shows only the top incident headline/time/location while preserving `View All` navigation.
+- **Validation**: `cd frontend && npx tsc --noEmit` ✓ (no output, success).
+
+## 2026-05-04 — Tuned collapsed/expanded sidebar incident counts
+
+- **Follow-up UX change**: Updated `frontend/src/components/layout/Sidebar.tsx` so collapsed mode now shows the top 3 significant incidents (instead of 1), while expanded mode now shows all significant incidents (instead of capping at 4).
+- **Count messaging**: "Showing X of Y incidents" now keys off the current mode (compact vs expanded), so the counter is accurate in both states.
+- **Validation**: `cd frontend && npx tsc --noEmit` ✓ (no output, success).
+
+## 2026-05-04 — Enabled click-to-expand in compact incident mode
+
+- **UX refinement**: Updated compact (collapsed) incident rows in `frontend/src/components/layout/Sidebar.tsx` to expand inline when clicked.
+- **Behavior**: In compact mode, clicking a row toggles expanded detail for that incident (description + "Open Incident Source" link) while keeping the sidebar section itself collapsed.
+- **Accessibility**: Added `aria-expanded` semantics on each compact incident toggle.
+- **Affordance update**: Added per-row chevron indicators (`expand_more` / `expand_less`) in compact mode so click-to-expand state is immediately visible.
+- **Validation**: `cd frontend && npx tsc --noEmit` ✓ (no output, success).
+
+## 2026-05-04 — Improved annotation label readability and draw preview visibility
+
+- **Problem identified**: Annotation labels for markers and lines were visually colliding with geometry, and in-progress line/polygon drawing had no reliable visible preview while sketching.
+- **Label rendering fix**: Updated Deck annotation text rendering in `frontend/src/layers/AnnotationLayer.tsx` to apply per-geometry text offsets (`getPixelOffset`) so marker and line labels are shifted away from the underlying symbol/stroke.
+- **Draw preview fix**: Added a Deck-rendered draw preview pipeline so in-progress line/polygon geometry is always visible above the map stack:
+    - Extended annotation store state in `frontend/src/store.ts` with `annotationDrawPoints`, `annotationDrawCursor`, and setter/clearer actions.
+    - Updated `frontend/src/components/layers/AnnotationOverlay.tsx` to sync click/mousemove draw state into the store and clear preview state on finish/cancel.
+    - Added `buildAnnotationDrawPreviewLayers(...)` in `frontend/src/layers/AnnotationLayer.tsx` (preview line, fill, and control points).
+    - Wired preview layers into the render loop in `frontend/src/components/MapOverlay.tsx`.
+- **Validation**: `cd frontend && npx tsc --noEmit` ✓ (no output, success).
+
 ## 2026-05-04 — Resolved frontend react-markdown module/type check failure
 
 - **Problem identified**: Frontend type checking failed with `TS2307` in `frontend/src/components/panels/IncidentsPanel.tsx` reporting `Cannot find module 'react-markdown' or its corresponding type declarations`.

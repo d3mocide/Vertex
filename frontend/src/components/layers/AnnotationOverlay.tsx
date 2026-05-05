@@ -24,6 +24,8 @@ export function AnnotationOverlay({ map }: Props) {
   const removeAnnotation    = useCivicStore((s) => s.removeAnnotation)
   const annotationDrawMode  = useCivicStore((s) => s.annotationDrawMode)
   const setAnnotationDrawMode = useCivicStore((s) => s.setAnnotationDrawMode)
+  const setAnnotationDrawPreview = useCivicStore((s) => s.setAnnotationDrawPreview)
+  const clearAnnotationDrawPreview = useCivicStore((s) => s.clearAnnotationDrawPreview)
   const annotationsVisible  = useCivicStore((s) => s.annotationsVisible)
   const setAnnotationsVisible = useCivicStore((s) => s.setAnnotationsVisible)
   const toolbarOpen         = useCivicStore((s) => s.annotationToolbarOpen)
@@ -123,9 +125,10 @@ export function AnnotationOverlay({ map }: Props) {
     drawPointsRef.current = []
     cursorPtRef.current   = null
     setDrawPoints([])
+    clearAnnotationDrawPreview()
     clearDrawSource()
     map.getCanvas().style.cursor = ''
-  }, [map, setAnnotationDrawMode, clearDrawSource])
+  }, [map, setAnnotationDrawMode, clearDrawSource, clearAnnotationDrawPreview])
 
   // Setup MapLibre draw preview source only (saved annotations are now rendered by Deck.gl)
   useEffect(() => {
@@ -179,6 +182,7 @@ export function AnnotationOverlay({ map }: Props) {
         drawPointsRef.current = []
         cursorPtRef.current   = null
         setDrawPoints([])
+        clearAnnotationDrawPreview()
         clearDrawSource()
         map.getCanvas().style.cursor = ''
         return
@@ -187,6 +191,7 @@ export function AnnotationOverlay({ map }: Props) {
       const newPts: [number, number][] = [...drawPointsRef.current, pt]
       drawPointsRef.current = newPts
       setDrawPoints([...newPts])
+      setAnnotationDrawPreview(newPts, cursorPtRef.current)
       updateDrawSource()
     }
 
@@ -203,6 +208,7 @@ export function AnnotationOverlay({ map }: Props) {
     const handleMouseMove = (e: maplibregl.MapMouseEvent) => {
       if (drawModeRef.current === 'marker') return
       cursorPtRef.current = [e.lngLat.lng, e.lngLat.lat]
+      setAnnotationDrawPreview(drawPointsRef.current, cursorPtRef.current)
       updateDrawSource()
     }
 
@@ -210,15 +216,29 @@ export function AnnotationOverlay({ map }: Props) {
       map.on('click',     handleClick)
       map.on('dblclick',  handleDblClick)
       if (annotationDrawMode !== 'marker') {
+        setAnnotationDrawPreview(drawPointsRef.current, cursorPtRef.current)
         map.on('mousemove', handleMouseMove)
+      } else {
+        clearAnnotationDrawPreview()
       }
+    } else {
+      clearAnnotationDrawPreview()
     }
     return () => {
       map.off('click',     handleClick)
       map.off('dblclick',  handleDblClick)
       map.off('mousemove', handleMouseMove)
     }
-  }, [map, annotationDrawMode, updateDrawSource, finalizeDraw, setAnnotationDrawMode, clearDrawSource])
+  }, [
+    map,
+    annotationDrawMode,
+    updateDrawSource,
+    finalizeDraw,
+    setAnnotationDrawMode,
+    clearDrawSource,
+    setAnnotationDrawPreview,
+    clearAnnotationDrawPreview,
+  ])
 
   // Click on existing annotations
   useEffect(() => {
@@ -252,9 +272,10 @@ export function AnnotationOverlay({ map }: Props) {
     drawPointsRef.current = []
     cursorPtRef.current   = null
     setDrawPoints([])
+    clearAnnotationDrawPreview()
     clearDrawSource()
     map.getCanvas().style.cursor = ''
-  }, [map, setAnnotationDrawMode, clearDrawSource])
+  }, [map, setAnnotationDrawMode, clearDrawSource, clearAnnotationDrawPreview])
 
   const finishDraw = () => {
     const mode = annotationDrawMode

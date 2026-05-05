@@ -7,7 +7,7 @@ import { buildEntityLayers } from '../layers/buildEntityLayers'
 import { buildTrailLayers } from '../layers/buildTrailLayers'
 import { buildCameraLayer } from '../layers/buildCameraLayer'
 import { buildEventLayers } from '../layers/buildEventLayers'
-import { buildAnnotationLayers } from '../layers/AnnotationLayer'
+import { buildAnnotationLayers, buildAnnotationDrawPreviewLayers } from '../layers/AnnotationLayer'
 import { buildGeofenceLayers, type GeofenceItem } from '../layers/buildGeofenceLayers'
 import { buildObservationRingLayers } from '../layers/buildObservationRingLayer'
 import { buildCustomLayers } from '../layers/buildCustomLayers'
@@ -118,8 +118,14 @@ export function MapOverlay({ map }: Props) {
   const annotationsVisible = useCivicStore((s) => s.annotationsVisible)
   const customLayers      = useCivicStore((s) => s.customLayers)
   const annotationDrawMode = useCivicStore((s) => s.annotationDrawMode)
+  const annotationDrawPoints = useCivicStore((s) => s.annotationDrawPoints)
+  const annotationDrawCursor = useCivicStore((s) => s.annotationDrawCursor)
   const annotationDrawModeRef = useRef<'marker' | 'line' | 'polygon' | null>(null)
+  const annotationDrawPointsRef = useRef<[number, number][]>([])
+  const annotationDrawCursorRef = useRef<[number, number] | null>(null)
   useEffect(() => { annotationDrawModeRef.current = annotationDrawMode }, [annotationDrawMode])
+  useEffect(() => { annotationDrawPointsRef.current = annotationDrawPoints }, [annotationDrawPoints])
+  useEffect(() => { annotationDrawCursorRef.current = annotationDrawCursor }, [annotationDrawCursor])
   const annotationsRef = useRef(annotations)
   const annotationsVisibleRef = useRef(annotationsVisible)
   const customLayersRef = useRef(customLayers)
@@ -470,6 +476,11 @@ export function MapOverlay({ map }: Props) {
             ? [buildCameraLayer(camerasRef.current, selectedCamRef.current)]
             : []),
           ...buildAnnotationLayers(annotationsRef.current, annotationsVisibleRef.current),
+          ...buildAnnotationDrawPreviewLayers({
+            mode: annotationDrawModeRef.current,
+            points: annotationDrawPointsRef.current,
+            cursor: annotationDrawCursorRef.current,
+          }),
           ...buildGeofenceLayers(geofencesRef.current, geofencesVisibleRef.current),
           ...buildObservationRingLayers(DEFAULT_CENTER, OBSERVATION_RANGE_KM, true),
           ...buildCustomLayers(customLayersRef.current),

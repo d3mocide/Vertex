@@ -1,6 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useCivicStore } from '../../store'
 import { isMajorTrafficIncident } from '../../incidentUtils'
+
+const INCIDENTS_COLLAPSE_KEY = 'vertex.sidebar.incidentsCollapsed'
 
 function GridStatusDots({ ok }: { ok: boolean }) {
   return (
@@ -107,9 +109,27 @@ export function Sidebar() {
   // Filter for major/local traffic incidents only
   const significantIncidents = trafficIncidents.filter(isMajorTrafficIncident)
 
-  // Use dedicated traffic incidents feed (first 4 significant)
-  const incidents = significantIncidents.slice(0, 4)
+  // Use dedicated traffic incidents feed.
+  // Expanded mode shows all significant incidents; compact mode shows top 3.
+  const incidents = significantIncidents
+  const compactIncidents = significantIncidents.slice(0, 3)
   const activeInc = significantIncidents.length
+
+  const [incidentsCollapsedPref, setIncidentsCollapsedPref] = useState<boolean | null>(() => {
+    if (typeof window === 'undefined') return null
+    const stored = window.localStorage.getItem(INCIDENTS_COLLAPSE_KEY)
+    if (stored === '1') return true
+    if (stored === '0') return false
+    return null
+  })
+
+  const incidentsCollapsed = incidentsCollapsedPref ?? activeInc >= 3
+  const [compactExpandedIndex, setCompactExpandedIndex] = useState<number | null>(null)
+
+  useEffect(() => {
+    if (incidentsCollapsedPref === null || typeof window === 'undefined') return
+    window.localStorage.setItem(INCIDENTS_COLLAPSE_KEY, incidentsCollapsedPref ? '1' : '0')
+  }, [incidentsCollapsedPref])
 
   // News items from store, fallback to empty
   // News items filtered for Regional News only
@@ -232,20 +252,38 @@ export function Sidebar() {
 
         {/* Active incidents */}
         <section aria-labelledby="incidents-heading">
-          <h3 id="incidents-heading" className="section-heading">
-            <span className="w-1 h-1 bg-amber-gold shrink-0" aria-hidden="true" />
-            Active Incidents
+          <div className="mb-3 flex items-center gap-2">
+            <button
+              id="incidents-heading"
+              className="section-heading !mb-0 flex-1 cursor-pointer hover:text-amber-gold"
+              aria-expanded={!incidentsCollapsed}
+              aria-controls="sidebar-incidents-list"
+              onClick={() => {
+                setIncidentsCollapsedPref((v) => {
+                  const current = v ?? activeInc >= 3
+                  return !current
+                })
+              }}
+              title={incidentsCollapsed ? 'Expand incidents' : 'Collapse incidents'}
+            >
+              <span className="w-1 h-1 bg-amber-gold shrink-0" aria-hidden="true" />
+              Active Incidents
+              <span className="ms text-[14px] ml-auto text-on-surface-variant" aria-hidden="true">
+                {incidentsCollapsed ? 'expand_more' : 'expand_less'}
+              </span>
+            </button>
+
             {incidents.length > 0 && (
-              <span className="ml-auto font-mono text-[9px] bg-amber-gold text-onyx-black px-1.5 py-0.5 font-bold">
+              <span className="font-mono text-[9px] bg-amber-gold text-onyx-black px-1.5 py-0.5 font-bold">
                 {incidents.length}
               </span>
             )}
-          </h3>
+          </div>
 
-          {activeInc > incidents.length && (
+          {activeInc > (incidentsCollapsed ? compactIncidents.length : incidents.length) && (
             <div className="mb-3 flex items-center justify-between">
               <span className="text-[10px] text-on-surface-variant">
-                Showing {incidents.length} of {activeInc} incidents
+                Showing {incidentsCollapsed ? compactIncidents.length : incidents.length} of {activeInc} incidents
               </span>
               <button
                 onClick={() => setActiveTab('incidents')}
@@ -258,8 +296,55 @@ export function Sidebar() {
 
           {incidents.length === 0 ? (
             <p className="text-[10px] text-on-surface-variant/60 italic text-center py-2">No active incidents</p>
+          ) : incidentsCollapsed ? (
+            <div id="sidebar-incidents-list" className="space-y-2" role="list">
+              {compactIncidents.map((incident, i) => (
+                <div className="incident-card" role="listitem" key={`compact-${i}`}>
+                  <button
+                    type="button"
+                    className="w-full text-left"
+                    aria-expanded={compactExpandedIndex === i}
+                    onClick={() => setCompactExpandedIndex((prev) => (prev === i ? null : i))}
+                  >
+                    <div className="flex justify-between items-start gap-2">
+                      <p className="text-[12px] text-on-surface leading-tight line-clamp-1">
+                        {deriveIncidentTitle(incident)}
+                      </p>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <span className="font-mono text-[10px] text-on-surface-variant">
+                          {formatIncidentTime(incident.pubDate ?? '')}
+                        </span>
+                        <span className="ms text-[13px] text-on-surface-variant" aria-hidden="true">
+                          {compactExpandedIndex === i ? 'expand_less' : 'expand_more'}
+                        </span>
+                      </div>
+                    </div>
+                  </button>
+                  {formatIncidentLocation(incident) && (
+                    <p className="text-[10px] text-on-surface-variant mt-1 leading-tight line-clamp-1">
+                      {formatIncidentLocation(incident)}
+                    </p>
+                  )}
+                  {compactExpandedIndex === i && incident.description && (
+                    <p className="text-[10px] text-on-surface-variant leading-relaxed mt-2 whitespace-pre-wrap break-words">
+                      {incident.description}
+                    </p>
+                  )}
+                  {compactExpandedIndex === i && incident.link && (
+                    <a
+                      href={incident.link}
+                      target="_blank"
+                      rel="noreferrer noopener"
+                      className="inline-flex mt-2 font-mono text-[9px] uppercase tracking-widest text-amber-gold hover:text-white"
+                    >
+                      Open Incident Source
+                    </a>
+                  )}
+                </div>
+              ))}
+            </div>
           ) : (
-            <div className="space-y-3" role="list">
+            <div id="sidebar-incidents-list" className="space-y-3" role="list">
               {incidents.map((incident, i) => (
                 <IncidentCard
                   key={i}

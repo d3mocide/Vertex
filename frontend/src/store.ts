@@ -140,6 +140,10 @@ interface CivicStore {
   removeAnnotation:        (id: number) => void
   annotationDrawMode:      'marker' | 'line' | 'polygon' | null
   setAnnotationDrawMode:   (mode: 'marker' | 'line' | 'polygon' | null) => void
+  annotationDrawPoints:    [number, number][]
+  annotationDrawCursor:    [number, number] | null
+  setAnnotationDrawPreview: (points: [number, number][], cursor: [number, number] | null) => void
+  clearAnnotationDrawPreview: () => void
   annotationsVisible:      boolean
   setAnnotationsVisible:   (v: boolean) => void
   annotationToolbarOpen:   boolean
@@ -205,6 +209,8 @@ export const useCivicStore = create<CivicStore>((set) => ({
   entityMissionTags: {},
   annotations:      [],
   annotationDrawMode: null,
+  annotationDrawPoints: [],
+  annotationDrawCursor: null,
   annotationsVisible: true,
   annotationToolbarOpen: false,
   mobileNavOpen:    false,
@@ -392,6 +398,8 @@ export const useCivicStore = create<CivicStore>((set) => ({
   addAnnotation:        (item) => set((s) => ({ annotations: [...s.annotations, item] })),
   removeAnnotation:     (id) => set((s) => ({ annotations: s.annotations.filter((a) => a.id !== id) })),
   setAnnotationDrawMode: (annotationDrawMode) => set({ annotationDrawMode }),
+  setAnnotationDrawPreview: (annotationDrawPoints, annotationDrawCursor) => set({ annotationDrawPoints, annotationDrawCursor }),
+  clearAnnotationDrawPreview: () => set({ annotationDrawPoints: [], annotationDrawCursor: null }),
   setAnnotationsVisible: (annotationsVisible) => set({ annotationsVisible }),
   setAnnotationToolbarOpen: (annotationToolbarOpen) => set({ annotationToolbarOpen }),
 
