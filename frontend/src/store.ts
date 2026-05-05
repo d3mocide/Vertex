@@ -142,6 +142,8 @@ interface CivicStore {
   setAnnotationDrawMode:   (mode: 'marker' | 'line' | 'polygon' | null) => void
   annotationsVisible:      boolean
   setAnnotationsVisible:   (v: boolean) => void
+  annotationToolbarOpen:   boolean
+  setAnnotationToolbarOpen: (v: boolean) => void
 }
 
 const emptyRadio: RadioState = {
@@ -204,6 +206,7 @@ export const useCivicStore = create<CivicStore>((set) => ({
   annotations:      [],
   annotationDrawMode: null,
   annotationsVisible: true,
+  annotationToolbarOpen: false,
   mobileNavOpen:    false,
   settingsOpen:     false,
   entityFilter:     { aircraft: true, vessel: true, mesh_node: true, aprs: true, fire_incident: true, satellite: true, tinygs_station: true },
@@ -390,6 +393,7 @@ export const useCivicStore = create<CivicStore>((set) => ({
   removeAnnotation:     (id) => set((s) => ({ annotations: s.annotations.filter((a) => a.id !== id) })),
   setAnnotationDrawMode: (annotationDrawMode) => set({ annotationDrawMode }),
   setAnnotationsVisible: (annotationsVisible) => set({ annotationsVisible }),
+  setAnnotationToolbarOpen: (annotationToolbarOpen) => set({ annotationToolbarOpen }),
 
   toggleFavoriteCam: (id) =>
     set((s) => {

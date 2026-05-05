@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
-import { MAP_STYLE, DEFAULT_CENTER, DEFAULT_ZOOM } from '../config'
+import { MAP_STYLE, DEFAULT_CENTER, DEFAULT_ZOOM, PRESERVE_DRAWING_BUFFER } from '../config'
 import { RadarLayer }           from './layers/RadarLayer'
 import { SmokeLayer }           from './layers/SmokeLayer'
 import { MeshLayer }            from './layers/MeshLayer'
@@ -27,7 +27,7 @@ export function Map() {
       zoom:      DEFAULT_ZOOM,
       attributionControl: false,
       antialias: true,
-      preserveDrawingBuffer: true,
+      preserveDrawingBuffer: PRESERVE_DRAWING_BUFFER,
     })
 
     // Static region-center marker so operators can quickly orient to the
@@ -53,6 +53,13 @@ export function Map() {
       // Provide a tiny 1x1 transparent pixel as a fallback to stop MapLibre from complaining
       const data = new Uint8Array(4)
       m.addImage(id, { width: 1, height: 1, data })
+    })
+
+    m.on('error', (event) => {
+      const error = (event as { error?: unknown }).error
+      if (error) {
+        console.error('[map] MapLibre error:', error)
+      }
     })
 
     m.on('load', () => setMap(m))

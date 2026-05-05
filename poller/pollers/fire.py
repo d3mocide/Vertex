@@ -10,7 +10,26 @@ from .base import BasePoller
 
 logger = logging.getLogger(__name__)
 
-_DEFAULT_FIRE_URL = "https://eonet.gsfc.nasa.gov/api/v3/events?status=open&category=wildfires"
+_EONET_BASE_URL = "https://eonet.gsfc.nasa.gov/api/v3/events?status=open&category=wildfires"
+
+
+def _eonet_bbox_url() -> str:
+    """Append a geographic bbox to the EONET URL so the API pre-filters events.
+
+    We expand from the configured region center by fire_regional_radius_km so
+    all potentially relevant fires are included. Python-side filtering still
+    applies for the exact relevance logic, but the payload is drastically smaller.
+    """
+    lat = settings.region_lat
+    lon = settings.region_lon
+    radius_km = float(settings.fire_regional_radius_km)
+    lat_deg = radius_km / 111.0
+    lon_deg = radius_km / (111.0 * math.cos(math.radians(abs(lat))))
+    min_lat = max(-90.0,  round(lat - lat_deg, 4))
+    max_lat = min(90.0,   round(lat + lat_deg, 4))
+    min_lon = max(-180.0, round(lon - lon_deg, 4))
+    max_lon = min(180.0,  round(lon + lon_deg, 4))
+    return f"{_EONET_BASE_URL}&bbox={min_lon},{min_lat},{max_lon},{max_lat}"
 
 
 def _distance_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
@@ -114,8 +133,9 @@ class FirePoller(BasePoller):
         )
         self._source_urls = [r["url"] for r in rows if r.get("url")]
         if not self._source_urls:
-            self._source_urls = [_DEFAULT_FIRE_URL]
-            logger.info("[fire] no fire source configured; using default EONET feed")
+            bbox_url = _eonet_bbox_url()
+            self._source_urls = [bbox_url]
+            logger.info("[fire] no fire source configured; using default EONET feed with bbox")
         else:
             logger.info("[fire] %d source(s) configured", len(self._source_urls))
 

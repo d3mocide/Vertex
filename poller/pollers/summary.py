@@ -1,5 +1,6 @@
 import json
 import logging
+import time
 from datetime import datetime, timezone
 
 import litellm
@@ -17,6 +18,12 @@ litellm.suppress_debug_info = True
 warnings.filterwarnings("ignore", category=UserWarning, message="Pydantic serializer warnings")
 
 _MAX_TOKENS = 1536
+# How often to run the check loop regardless of demand (fallback background refresh).
+_BACKGROUND_INTERVAL_S = 3600  # 1 hour
+# Minimum seconds between any two generations (rate-limit on-demand requests).
+_MIN_REGEN_INTERVAL_S = 120
+# Redis key set by the backend when the UI requests an immediate refresh.
+_DEMAND_KEY = "summary:generate_now"
 _SYSTEM = (
     "You are a Senior Situational Awareness Officer for a Regional Emergency Operations Center. "
     "Your task is to provide a high-fidelity, professional briefing based on real-time data feeds. "
@@ -28,19 +35,50 @@ _SYSTEM = (
 
 class AISummaryPoller(BasePoller):
     name = "summary"
-    interval = 300  # 5 minutes
+    # Check for the on-demand flag every 60 s; actual generation is gated by
+    # _MIN_REGEN_INTERVAL_S (demand) or _BACKGROUND_INTERVAL_S (fallback).
+    interval = 60
+
+    def __init__(self):
+        self._last_generated: float = 0.0
 
     async def setup(self):
         if not settings.summary_llm_model:
             logger.warning("[summary] SUMMARY_LLM_MODEL not set — AI summaries disabled.")
         else:
-            logger.info("[summary] AI summary using model: %s", settings.summary_llm_model)
+            logger.info("[summary] AI summary using model: %s (on-demand + %dh fallback)",
+                        settings.summary_llm_model, _BACKGROUND_INTERVAL_S // 3600)
 
     async def poll(self):
         if not settings.summary_llm_model:
             return
 
+        now = time.monotonic()
+        elapsed = now - self._last_generated
+
         r = await get_bus()
+
+        # Check whether the frontend has requested an on-demand refresh.
+        demand_flag = await r.get(_DEMAND_KEY)
+        if demand_flag:
+            if elapsed < _MIN_REGEN_INTERVAL_S:
+                # Too soon — acknowledge the flag but don't re-generate yet.
+                logger.debug("[summary] on-demand flag set but within min interval (%.0fs), skipping", elapsed)
+                return
+            # Consume the flag before generating so a second request during
+            # generation doesn't trigger a duplicate.
+            await r.delete(_DEMAND_KEY)
+            logger.info("[summary] on-demand refresh triggered")
+        elif elapsed < _BACKGROUND_INTERVAL_S:
+            # No demand flag and background interval not reached — skip this tick.
+            return
+        else:
+            logger.info("[summary] background refresh (%.0f min since last)", elapsed / 60)
+
+        await self._generate(r)
+
+    async def _generate(self, r):
+        """Read context from Redis, call the LLM, and write the result back."""
         context_parts: list[str] = []
 
         # 1. Weather
@@ -123,4 +161,5 @@ class AISummaryPoller(BasePoller):
             "summary": text,
             "model": settings.summary_llm_model,
         })
+        self._last_generated = time.monotonic()
         logger.info("[summary] Updated high-fidelity situational summary via %s.", settings.summary_llm_model)

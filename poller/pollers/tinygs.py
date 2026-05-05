@@ -25,6 +25,7 @@ import datetime
 import json
 import logging
 import math
+import ssl
 import time
 
 import httpx
@@ -41,6 +42,7 @@ _TLE_TTL = 3 * 3600        # refresh TLEs every 3 hours
 _STATION_TTL = 300         # station entity expires after 5 min without ping
 _SAT_TTL = 1800            # satellite entity visible for 30 min after last rx
 _RETRY_DELAY = 15
+_MAX_RETRY_DELAY = 300
 _CELESTRAK = "https://celestrak.org/SPACETRACK/query/class/tle/CATNR/{norad}/format/tle/"
 
 
@@ -110,6 +112,7 @@ class TinyGSPoller(BasePoller):
     def __init__(self):
         self._tle_cache: dict[int, dict] = {}
         self._station: dict | None = None   # last known station entity
+        self._logged_tls_guidance = False
 
     async def poll(self):
         pass  # streaming — run() is overridden
@@ -122,19 +125,28 @@ class TinyGSPoller(BasePoller):
             return
 
         logger.info("[tinygs] started, targeting mqtt://%s:%d", _MQTT_HOST, _MQTT_PORT)
+        retry_delay = _RETRY_DELAY
         while True:
             try:
                 await self._connect_and_listen()
+                retry_delay = _RETRY_DELAY
             except Exception as exc:
-                logger.warning("[tinygs] MQTT error: %s — retry in %ds", exc, _RETRY_DELAY)
+                if self._is_tls_cert_error(exc) and not self._logged_tls_guidance:
+                    self._logged_tls_guidance = True
+                    logger.error(
+                        "[tinygs] TLS verification failed for %s. TinyGS is presenting a certificate chain not trusted by the default CA store. "
+                        "Set TINYGS_CA_CERT_PATH to a PEM bundle containing the TinyGS CA, or set TINYGS_TLS_INSECURE=true only if you accept disabling certificate verification.",
+                        _MQTT_HOST,
+                    )
+                logger.warning("[tinygs] MQTT error: %s — retry in %ds", exc, retry_delay)
                 await self._heartbeat("error", str(exc)[:256])
-            await asyncio.sleep(_RETRY_DELAY)
+                retry_delay = min(retry_delay * 2, _MAX_RETRY_DELAY)
+            await asyncio.sleep(retry_delay)
 
     async def _connect_and_listen(self):
-        import ssl
         import aiomqtt  # type: ignore[import]
 
-        tls_ctx = ssl.create_default_context()
+        tls_ctx = self._build_tls_context()
         user = settings.tinygs_mqtt_username
         topic = f"tinygs/{user}/#"
 
@@ -156,6 +168,30 @@ class TinyGSPoller(BasePoller):
                     await self._heartbeat("ok")
                 except Exception as exc:
                     logger.debug("[tinygs] message handler error: %s", exc)
+
+    def _build_tls_context(self) -> ssl.SSLContext:
+        if settings.tinygs_tls_insecure:
+            ctx = ssl._create_unverified_context()
+            logger.warning("[tinygs] TLS certificate verification disabled by TINYGS_TLS_INSECURE")
+            return ctx
+
+        ctx = ssl.create_default_context()
+        if settings.tinygs_ca_cert_path:
+            ctx.load_verify_locations(cafile=settings.tinygs_ca_cert_path)
+        return ctx
+
+    def _is_tls_cert_error(self, exc: BaseException) -> bool:
+        current: BaseException | None = exc
+        seen: set[int] = set()
+        while current and id(current) not in seen:
+            seen.add(id(current))
+            if isinstance(current, ssl.SSLCertVerificationError):
+                return True
+            text = str(current)
+            if "CERTIFICATE_VERIFY_FAILED" in text or "unable to get local issuer certificate" in text:
+                return True
+            current = current.__cause__ or current.__context__
+        return False
 
     # ------------------------------------------------------------------
     # Message dispatch

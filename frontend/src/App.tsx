@@ -24,6 +24,7 @@ import { PlaybackController }  from './components/panels/PlaybackController'
 import { GeofenceController }  from './components/panels/GeofenceController'
 import { CameraModal }         from './components/panels/CameraModal'
 import { IncidentsPanel }      from './components/panels/IncidentsPanel'
+import { AnnotationController } from './components/panels/AnnotationController'
 
 // ── Authenticated dashboard ────────────────────────────────────────────────────
 function Dashboard() {
@@ -80,6 +81,7 @@ function Dashboard() {
                 <EntityDetail />
                 <PlaybackController />
                 <GeofenceController />
+                <AnnotationController />
               </>
             )}
 
@@ -128,8 +130,35 @@ export default function App() {
   }, [])
 
   if (!authChecked) return (
-    <div className="w-screen h-screen bg-onyx-black flex items-center justify-center">
-      <span className="ms text-[32px] text-amber-gold animate-spin" style={{ animationDuration: '1.2s' }}>progress_activity</span>
+    <div className="w-screen h-screen bg-onyx-black flex flex-col items-center justify-center gap-6">
+      {/* Scope mark — static corner brackets, rotating diamond, pulsing amber center */}
+      <svg width="64" height="64" viewBox="0 0 32 32" aria-hidden="true" className="text-white">
+        <g fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="square">
+          <path d="M2 8 V2 H8"/>
+          <path d="M24 2 H30 V8"/>
+          <path d="M30 24 V30 H24"/>
+          <path d="M8 30 H2 V24"/>
+        </g>
+        <polygon
+          points="16,7 25,16 16,25 7,16"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          style={{
+            transformOrigin: '16px 16px',
+            animation: 'spin 2s linear infinite',
+          }}
+        />
+        <rect
+          x="14" y="14" width="4" height="4"
+          fill="#FFB800"
+          style={{ animation: 'pulse 1.6s ease-in-out infinite' }}
+        />
+      </svg>
+      <div className="flex flex-col items-center gap-1">
+        <span className="text-[16px] font-black tracking-[0.05em] text-white uppercase select-none">VERTEX</span>
+        <span className="font-mono text-[9px] tracking-[0.2em] text-amber-gold uppercase select-none">SITUATIONAL AWARENESS</span>
+      </div>
     </div>
   )
   if (!authed) return <LoginPage onLogin={() => setAuthed(true)} setupRequired={setupRequired} />

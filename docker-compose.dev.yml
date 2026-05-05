@@ -17,6 +17,8 @@ services:
       VITE_OBSERVATION_RANGE_KM: ${VITE_OBSERVATION_RANGE_KM:-50}
       VITE_REGION_LAT: ${REGION_LAT:-45.3842}
       VITE_REGION_LON: ${REGION_LON:--122.7635}
+      VITE_TILE_URL: ${VITE_TILE_URL:-}
+      VITE_PRESERVE_DRAWING_BUFFER: ${VITE_PRESERVE_DRAWING_BUFFER:-false}
     volumes:
       - ./frontend:/app
       - /app/node_modules

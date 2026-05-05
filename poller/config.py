@@ -98,6 +98,8 @@ class Settings(BaseSettings):
     # Credentials from the TinyGS Telegram bot: /mqtt
     tinygs_mqtt_username: str = ""
     tinygs_mqtt_password: str = ""
+    tinygs_ca_cert_path: str = ""
+    tinygs_tls_insecure: bool = False
 
     # Anomaly detection — statistical baseline monitoring
     anomaly_enabled: bool = True

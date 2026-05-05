@@ -5,6 +5,55 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 
 ---
 
+## 2026-05-04 — Resolved frontend react-markdown module/type check failure
+
+- **Problem identified**: Frontend type checking failed with `TS2307` in `frontend/src/components/panels/IncidentsPanel.tsx` reporting `Cannot find module 'react-markdown' or its corresponding type declarations`.
+- **Root cause**: `react-markdown` was present in `frontend/package.json` but was not installed in the local `frontend/node_modules` tree (`npm ls react-markdown` returned empty).
+- **Fix**: Installed the dependency in the frontend workspace with `npm install react-markdown@^10.1.0`.
+- **Validation**: `cd frontend && npx tsc --noEmit` now completes with no output (success).
+
+## 2026-05-04 — Fixed map visibility issue caused by aggressive CSS filter
+
+- **Problem identified**: The map appeared "not loading" or blank.
+- **Root cause**: A CSS filter on `canvas.maplibregl-canvas` with `brightness(0.6)` was making the dark-mode basemap indistinguishable from the black background on many displays.
+- **Fix**: Adjusted the filter in `frontend/src/index.css` to `brightness(0.9)` and `contrast(1.1)`. This restores visibility of land and water features while preserving the intended tactical grayscale aesthetic.
+- **Validation**: User confirmed the map is loading and visible; browser subagent verified vector tiles and labels were correctly rendering.
+
+## 2026-05-04 — Surfaced Map Annotation tools in UI
+
+- **Problem identified**: New Map Annotation features were hidden behind the Tactical Audio bar at the bottom of the screen.
+- **Fix**: Created `AnnotationController` component to provide an explicit "ANNOTATE" button on the map (top-left toolbar area). Moved the annotation drawing toolbar to a safer `z-index` and position that doesn't conflict with the audio console.
+- **Store update**: Added `annotationToolbarOpen` state to coordinate the trigger button and the toolbar.
+
+## 2026-05-04 — Restored map render performance and added map error visibility
+
+- **Performance regression identified**: `preserveDrawingBuffer: true` in `frontend/src/components/Map.tsx` was introduced with snapshot export work on 2026-05-03. Keeping the WebGL backbuffer alive every frame is a known MapLibre/WebGL performance cost and was the most plausible direct cause of the frontend slowdown.
+- **Fix**: Made drawing-buffer preservation opt-in via `VITE_PRESERVE_DRAWING_BUFFER` and defaulted it to `false` in `frontend/src/config.ts`, `docker-compose.yml`, `docker-compose.dev.yml`, and `.env.example`.
+- **Diagnostics**: Added explicit `map.on('error', ...)` logging in `frontend/src/components/Map.tsx` so future basemap/style failures surface real MapLibre errors in the console instead of presenting as a blank or under-drawn map.
+- **Basemap verification**: Confirmed the default OpenFreeMap dark style, sprite, raster source, TileJSON, and a sample vector tile were reachable; no repository-side offline-tile setting was active in the current `.env`.
+- **Validation**: diagnostics clean on touched files · combined dev compose config ✓ · restarted frontend service to apply the map initialization change.
+
+## 2026-05-04 — Fixed offline tile env wiring and invalid style guard
+
+- **Problem**: The offline tile configuration path was easy to misconfigure and could blank the map if `VITE_TILE_URL` was set to a raster tile template instead of a MapLibre style URL.
+- **Root cause**: `frontend/src/config.ts` passes `VITE_TILE_URL` directly into MapLibre as the `style` value, so a URL like `/styles/basic-preview/{z}/{x}/{y}.png` is invalid for this code path. The existing Docker comment incorrectly suggested exactly that format.
+- **Frontend hardening**: Updated `frontend/src/config.ts` to detect tile-template placeholders (`{z}`, `{x}`, `{y}`), ignore the invalid value, log a warning, and fall back to the default OpenFreeMap style instead of failing map initialization.
+- **Dev-stack fix**: Added `VITE_TILE_URL` to `docker-compose.dev.yml` so offline tile selection is actually controllable via `.env` when running the Vite dev server override.
+- **Docs fix**: Corrected the `docker-compose.yml` offline tileserver comment to document the proper style URL form: `http://localhost:8080/styles/basic-preview/style.json`.
+- **Validation**: diagnostics clean on touched files · combined `docker compose -f docker-compose.yml -f docker-compose.dev.yml config` ✓
+
+## 2026-05-04 — Hardened TinyGS TLS handling and retry backoff
+
+- **Problem**: `pollers.tinygs` was retrying every 15 seconds against `mqtt.tinygs.com:8883` with `CERTIFICATE_VERIFY_FAILED`, producing persistent error churn and unnecessary reconnect work whenever TinyGS presented its private CA chain.
+- **Root cause verification**: Reproduced the TLS handshake failure inside the running `poller` container and decoded the presented broker certificate. The leaf for `mqtt.tinygs.com` is issued by `TinyGS Intermediary CA`, which is not trusted by the default public CA store.
+- **Poller fix**: Updated `poller/pollers/tinygs.py` to:
+    - detect TLS certificate verification failures and emit a one-time actionable error message,
+    - support `TINYGS_CA_CERT_PATH` for loading a TinyGS-specific PEM bundle,
+    - support opt-in `TINYGS_TLS_INSECURE=true` as a last-resort bypass for private/self-signed deployments,
+    - back off reconnect attempts exponentially from 15s up to 300s so permanent TLS failures do not keep hammering the broker or waste CPU.
+- **Config surface**: Added `tinygs_ca_cert_path` and `tinygs_tls_insecure` to `poller/config.py` and documented both env vars in `.env.example`.
+- **Validation**: `python -m py_compile poller/config.py poller/pollers/tinygs.py` ✓
+
 ## 2026-05-03 — Sprint 6: Map Annotations (E1) + UX Refinement
 
 - **E1 — Map Annotations (backend)**: Added `Annotation` DB model to `backend/db/models.py` (annotation_type, label, color, geojson JSON, created_by, expires_at). Created `db/init/05_annotations.sql` migration. Created `backend/routers/annotations.py` with `GET/POST/DELETE /api/v1/annotations`; GET auto-filters expired annotations. Registered router in `backend/main.py`.

@@ -7,24 +7,12 @@ import { authHeaders } from '../../auth'
 
 const COLOR_PRESETS = ['#FF4444', '#FF8800', '#FFB800', '#44DD88', '#00BBFF', '#AA44FF', '#FF44AA']
 
-const SRC_ANNOTATIONS = 'annotations-source'
 const SRC_DRAW        = 'annotation-draw-source'
 
 function expiryToIso(expiry: string): string | null {
   const hours: Record<string, number> = { '4h': 4, '12h': 12, '24h': 24 }
   const h = hours[expiry]
   return h != null ? new Date(Date.now() + h * 3_600_000).toISOString() : null
-}
-
-function toFeatureCollection(items: AnnotationItem[]): GeoJSON.FeatureCollection {
-  return {
-    type: 'FeatureCollection',
-    features: items.map((a) => ({
-      type: 'Feature',
-      properties: { id: a.id, label: a.label ?? '', color: a.color, annotation_type: a.annotation_type },
-      geometry: a.geojson as GeoJSON.Geometry,
-    })),
-  }
 }
 
 interface Props { map: maplibregl.Map }
@@ -38,6 +26,8 @@ export function AnnotationOverlay({ map }: Props) {
   const setAnnotationDrawMode = useCivicStore((s) => s.setAnnotationDrawMode)
   const annotationsVisible  = useCivicStore((s) => s.annotationsVisible)
   const setAnnotationsVisible = useCivicStore((s) => s.setAnnotationsVisible)
+  const toolbarOpen         = useCivicStore((s) => s.annotationToolbarOpen)
+  const setToolbarOpen      = useCivicStore((s) => s.setAnnotationToolbarOpen)
 
   // Draw refs — used inside map event handlers to avoid stale closures
   const drawModeRef   = useRef<'marker' | 'line' | 'polygon' | null>(null)
@@ -137,59 +127,14 @@ export function AnnotationOverlay({ map }: Props) {
     map.getCanvas().style.cursor = ''
   }, [map, setAnnotationDrawMode, clearDrawSource])
 
-  // Setup MapLibre sources and layers once
+  // Setup MapLibre draw preview source only (saved annotations are now rendered by Deck.gl)
   useEffect(() => {
     const setup = () => {
-      if (map.getSource(SRC_ANNOTATIONS)) return
+      if (map.getSource(SRC_DRAW)) return
 
-      map.addSource(SRC_ANNOTATIONS, { type: 'geojson', data: { type: 'FeatureCollection', features: [] } })
-      map.addSource(SRC_DRAW,        { type: 'geojson', data: { type: 'FeatureCollection', features: [] } })
+      map.addSource(SRC_DRAW, { type: 'geojson', data: { type: 'FeatureCollection', features: [] } })
 
-      // Saved annotation layers
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const expr = (e: unknown) => e as any
-
-      map.addLayer({
-        id: 'annotation-polygon-fill', type: 'fill', source: SRC_ANNOTATIONS,
-        filter: expr(['==', ['get', 'annotation_type'], 'polygon']),
-        paint: { 'fill-color': expr(['get', 'color']), 'fill-opacity': 0.15 },
-      })
-      map.addLayer({
-        id: 'annotation-line', type: 'line', source: SRC_ANNOTATIONS,
-        filter: expr(['any',
-          ['==', ['get', 'annotation_type'], 'line'],
-          ['==', ['get', 'annotation_type'], 'polygon'],
-        ]),
-        paint: { 'line-color': expr(['get', 'color']), 'line-width': 2 },
-      })
-      map.addLayer({
-        id: 'annotation-marker', type: 'circle', source: SRC_ANNOTATIONS,
-        filter: expr(['==', ['get', 'annotation_type'], 'marker']),
-        paint: {
-          'circle-color': expr(['get', 'color']),
-          'circle-radius': 7,
-          'circle-stroke-color': '#000000',
-          'circle-stroke-width': 1.5,
-        },
-      })
-      map.addLayer({
-        id: 'annotation-label', type: 'symbol', source: SRC_ANNOTATIONS,
-        layout: {
-          'text-field': expr(['get', 'label']),
-          'text-size': 11,
-          'text-anchor': 'top',
-          'text-offset': [0, 0.7],
-          'text-font': ['Open Sans Regular', 'Arial Unicode MS Regular'],
-          'text-allow-overlap': true,
-        },
-        paint: {
-          'text-color': expr(['get', 'color']),
-          'text-halo-color': '#000000',
-          'text-halo-width': 1.5,
-        },
-      })
-
-      // Draw preview layers
+      // Draw preview layers (in-progress drawing only)
       map.addLayer({
         id: 'annotation-draw-fill', type: 'fill', source: SRC_DRAW,
         filter: ['==', '$type', 'Polygon'],
@@ -214,31 +159,12 @@ export function AnnotationOverlay({ map }: Props) {
     else map.once('load', setup)
 
     return () => {
-      for (const id of [
-        'annotation-draw-points', 'annotation-draw-line', 'annotation-draw-fill',
-        'annotation-label', 'annotation-marker', 'annotation-line', 'annotation-polygon-fill',
-      ]) {
+      for (const id of ['annotation-draw-points', 'annotation-draw-line', 'annotation-draw-fill']) {
         if (map.getLayer(id)) map.removeLayer(id)
       }
-      for (const id of [SRC_ANNOTATIONS, SRC_DRAW]) {
-        if (map.getSource(id)) map.removeSource(id)
-      }
+      if (map.getSource(SRC_DRAW)) map.removeSource(SRC_DRAW)
     }
   }, [map])
-
-  // Sync annotations → MapLibre source
-  useEffect(() => {
-    const src = map.getSource(SRC_ANNOTATIONS) as maplibregl.GeoJSONSource | undefined
-    src?.setData(toFeatureCollection(annotations))
-  }, [map, annotations])
-
-  // Sync visibility
-  useEffect(() => {
-    const vis = annotationsVisible ? 'visible' : 'none'
-    for (const id of ['annotation-polygon-fill', 'annotation-line', 'annotation-marker', 'annotation-label']) {
-      if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', vis)
-    }
-  }, [map, annotationsVisible])
 
   // Draw interaction — click, dblclick, mousemove
   useEffect(() => {
@@ -275,20 +201,24 @@ export function AnnotationOverlay({ map }: Props) {
     }
 
     const handleMouseMove = (e: maplibregl.MapMouseEvent) => {
-      if (!drawModeRef.current || drawModeRef.current === 'marker') return
+      if (drawModeRef.current === 'marker') return
       cursorPtRef.current = [e.lngLat.lng, e.lngLat.lat]
       updateDrawSource()
     }
 
-    map.on('click',     handleClick)
-    map.on('dblclick',  handleDblClick)
-    map.on('mousemove', handleMouseMove)
+    if (annotationDrawMode) {
+      map.on('click',     handleClick)
+      map.on('dblclick',  handleDblClick)
+      if (annotationDrawMode !== 'marker') {
+        map.on('mousemove', handleMouseMove)
+      }
+    }
     return () => {
       map.off('click',     handleClick)
       map.off('dblclick',  handleDblClick)
       map.off('mousemove', handleMouseMove)
     }
-  }, [map, updateDrawSource, finalizeDraw, setAnnotationDrawMode, clearDrawSource])
+  }, [map, annotationDrawMode, updateDrawSource, finalizeDraw, setAnnotationDrawMode, clearDrawSource])
 
   // Click on existing annotations
   useEffect(() => {
@@ -384,9 +314,9 @@ export function AnnotationOverlay({ map }: Props) {
 
   return (
     <>
-      {/* Draw toolbar — centered at map bottom */}
-      {!pendingGeom && (
-        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-onyx-black/90 border border-white/10 px-2 py-1.5 z-10 pointer-events-auto select-none">
+      {/* Draw toolbar — centered at map bottom, visible when toolbarOpen or active draw */}
+      {(toolbarOpen || annotationDrawMode) && !pendingGeom && (
+        <div className="absolute top-40 left-[500px] flex items-center gap-1 bg-onyx-black/95 border border-amber-gold-muted px-2 py-1.5 z-[30] pointer-events-auto select-none shadow-2xl">
           {/* Visibility toggle */}
           <button
             onClick={() => setAnnotationsVisible(!annotationsVisible)}

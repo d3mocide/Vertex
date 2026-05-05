@@ -1,6 +1,9 @@
+import { useEffect } from 'react'
 import { useCivicStore, WeatherAlert, SystemEvent } from '../../store'
 import { isMajorTrafficIncident, isIncidentInRadius } from '../../incidentUtils'
 import ReactMarkdown from 'react-markdown'
+import { API_BASE } from '../../config'
+import { authHeaders } from '../../auth'
 
 function formatIncidentLocation(incident: { location?: string; lat?: number; lon?: number }): string | undefined {
   const location = incident.location?.trim()
@@ -98,6 +101,15 @@ function sysSeverityColorClass(severity: string) {
 
 export function IncidentsPanel() {
   const { weather, trafficIncidents, systemEvents } = useCivicStore()
+
+  // Request an on-demand AI summary refresh whenever this panel is opened.
+  // The updated result arrives via the existing WebSocket → store flow.
+  useEffect(() => {
+    fetch(`${API_BASE}/summary/refresh`, {
+      method: 'POST',
+      headers: authHeaders(),
+    }).catch(() => { /* best-effort */ })
+  }, [])
 
   const weatherAlerts = weather.alerts || []
   const significantTraffic = trafficIncidents.filter(isMajorTrafficIncident)

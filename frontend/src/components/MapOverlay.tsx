@@ -7,7 +7,13 @@ import { buildEntityLayers } from '../layers/buildEntityLayers'
 import { buildTrailLayers } from '../layers/buildTrailLayers'
 import { buildCameraLayer } from '../layers/buildCameraLayer'
 import { buildEventLayers } from '../layers/buildEventLayers'
+import { buildAnnotationLayers } from '../layers/AnnotationLayer'
+import { buildGeofenceLayers, type GeofenceItem } from '../layers/buildGeofenceLayers'
+import { buildObservationRingLayers } from '../layers/buildObservationRingLayer'
+import { buildCustomLayers } from '../layers/buildCustomLayers'
 import { applyPVB, type PVBState } from '../layers/pvb'
+import { DEFAULT_CENTER, OBSERVATION_RANGE_KM, API_BASE } from '../config'
+import { authHeaders } from '../auth'
 
 interface Props {
   map: maplibregl.Map
@@ -71,6 +77,7 @@ function getViewState(map: maplibregl.Map) {
 
 export function MapOverlay({ map }: Props) {
   const deckRef           = useRef<Deck | null>(null)
+  const layersRef         = useRef<any[]>([])
   const tracksRef         = useRef<Record<string, Track>>({})
   const pvbRef            = useRef<Record<string, PVBState>>({})
   const selectedRef       = useRef<string | null>(null)
@@ -107,9 +114,19 @@ export function MapOverlay({ map }: Props) {
   const setSelectedCamId  = useCivicStore((s) => s.setSelectedCamId)
   const setActiveTab      = useCivicStore((s) => s.setActiveTab)
   const geofencesVisible  = useCivicStore((s) => s.geofencesVisible)
+  const annotations       = useCivicStore((s) => s.annotations)
+  const annotationsVisible = useCivicStore((s) => s.annotationsVisible)
+  const customLayers      = useCivicStore((s) => s.customLayers)
   const annotationDrawMode = useCivicStore((s) => s.annotationDrawMode)
   const annotationDrawModeRef = useRef<'marker' | 'line' | 'polygon' | null>(null)
   useEffect(() => { annotationDrawModeRef.current = annotationDrawMode }, [annotationDrawMode])
+  const annotationsRef = useRef(annotations)
+  const annotationsVisibleRef = useRef(annotationsVisible)
+  const customLayersRef = useRef(customLayers)
+  const geofencesRef = useRef<GeofenceItem[]>([])
+  useEffect(() => { annotationsRef.current = annotations }, [annotations])
+  useEffect(() => { annotationsVisibleRef.current = annotationsVisible }, [annotationsVisible])
+  useEffect(() => { customLayersRef.current = customLayers }, [customLayers])
   useEffect(() => { tracksRef.current = tracks                  }, [tracks])
   useEffect(() => { selectedRef.current = selectedId            }, [selectedId])
   useEffect(() => { camerasRef.current = cameras                }, [cameras])
@@ -129,6 +146,25 @@ export function MapOverlay({ map }: Props) {
   useEffect(() => { activeTabRef.current = activeTab            }, [activeTab])
   const geofencesVisibleRef = useRef(true)
   useEffect(() => { geofencesVisibleRef.current = geofencesVisible }, [geofencesVisible])
+  useEffect(() => {
+    let cancelled = false
+    const loadGeofences = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/geofences`, { headers: authHeaders() })
+        if (!res.ok || cancelled) return
+        const data: GeofenceItem[] = await res.json()
+        if (!cancelled) geofencesRef.current = data
+      } catch {
+        // best effort
+      }
+    }
+    loadGeofences()
+    const interval = setInterval(loadGeofences, 30000)
+    return () => {
+      cancelled = true
+      clearInterval(interval)
+    }
+  }, [])
   const missionTagsRef = useRef<Record<string, [number, number, number, number]>>({})
   useEffect(() => {
     const colorMap: Record<string, [number, number, number, number]> = {}
@@ -181,7 +217,6 @@ export function MapOverlay({ map }: Props) {
       // Filter to only layers that currently exist in the map style — querying
       // a non-existent layer throws synchronously in MapLibre.
       const candidateLayers = ['mesh-node-points', 'mesh-node-points-ring']
-      if (geofencesVisibleRef.current) candidateLayers.push('geofences-fill')
       const layers = candidateLayers.filter((id) => !!map.getLayer(id))
 
       const mapHits = layers.length > 0
@@ -260,21 +295,28 @@ export function MapOverlay({ map }: Props) {
               </div>
             </div>
           `
-        }
-      } else if (mapHits.length > 0) {
-        const feature = mapHits[0]
-        const props = feature.properties
-        if (feature.layer.id === 'geofences-fill') {
+        } else if (layer.id === 'geofence-fill') {
+          const geofence = object as GeofenceItem
           html = `
             <div class="p-2 bg-slate-900/95 border border-slate-700 rounded-lg shadow-2xl backdrop-blur-md">
               <div class="flex items-center gap-2 text-[11px] font-bold text-white mb-1">
                 <span class="material-symbols-outlined text-[16px] text-blue-400">verified_user</span>
-                <span>${props.name}</span>
+                <span>${geofence.name}</span>
               </div>
-              <div class="text-[9px] text-slate-400 font-mono uppercase tracking-tighter">${props.zone_type} Zone</div>
+              <div class="text-[9px] text-slate-400 font-mono uppercase tracking-tighter">${geofence.zone_type} Zone</div>
             </div>
           `
-        } else if (feature.layer.id.startsWith('mesh-node-points')) {
+        } else if (layer.id.startsWith('custom-')) {
+          html = `
+            <div class="p-2 bg-slate-900/95 border border-slate-700 rounded-lg shadow-2xl backdrop-blur-md">
+              <div class="text-[10px] text-slate-400 font-mono">Custom layer</div>
+            </div>
+          `
+        }
+      } else if (mapHits.length > 0) {
+        const feature = mapHits[0]
+        const props = feature.properties
+        if (feature.layer.id.startsWith('mesh-node-points')) {
           const stale = props.stale === 'true' || props.stale === true
           html = `
             <div class="p-2 bg-slate-900/95 border border-slate-700 rounded-lg shadow-2xl backdrop-blur-md">
@@ -306,6 +348,13 @@ export function MapOverlay({ map }: Props) {
     map.on('mousemove', onMapMouseMove)
     map.on('mouseleave', () => { tooltip.style.opacity = '0' })
 
+    // Keep Deck camera tightly locked to MapLibre camera updates. This avoids
+    // visual drift when interaction FPS drops under heavy layer updates.
+    const onMapRender = () => {
+      deck.setProps({ viewState: getViewState(map) })
+    }
+    map.on('render', onMapRender)
+
     // Allow selecting entities and cameras while preserving normal map interaction.
     const onMapClick = (e: maplibregl.MapMouseEvent) => {
       if (annotationDrawModeRef.current) return
@@ -331,10 +380,22 @@ export function MapOverlay({ map }: Props) {
     resizeObserver.observe(container)
 
     let last = performance.now()
+    let lastLayerBuild = 0
+    const LAYER_BUILD_INTERVAL_MS = 100
     const tick = (now: number) => {
       const dt = now - last
       last = now
       cycleRef.current = (cycleRef.current + dt / 2000) % 1  // 2-second pulse
+
+      const interacting = map.isMoving() || map.isZooming() || map.isRotating()
+      const shouldRebuildLayers = !interacting && (now - lastLayerBuild >= LAYER_BUILD_INTERVAL_MS)
+      if (!shouldRebuildLayers) {
+        // Camera is synced by map.on('render'); skip heavy layer rebuilds while
+        // the map is actively moving to keep overlay and basemap fused.
+        rafRef.current = requestAnimationFrame(tick)
+        return
+      }
+      lastLayerBuild = now
 
       const pvb = pvbRef.current
       const sel = selectedRef.current
@@ -401,17 +462,21 @@ export function MapOverlay({ map }: Props) {
         }
       }
 
-      deck.setProps({
-        viewState: getViewState(map),
-        layers: [
+      const layers = [
           ...buildTrailLayers(rawTracks, sel),
           ...buildEntityLayers(pvbTracks, sel, cycleRef.current, missionTagsRef.current),
           ...buildEventLayers(systemEventsRef.current, now),
           ...(camerasVisibleRef.current
             ? [buildCameraLayer(camerasRef.current, selectedCamRef.current)]
             : []),
-        ],
-      })
+          ...buildAnnotationLayers(annotationsRef.current, annotationsVisibleRef.current),
+          ...buildGeofenceLayers(geofencesRef.current, geofencesVisibleRef.current),
+          ...buildObservationRingLayers(DEFAULT_CENTER, OBSERVATION_RANGE_KM, true),
+          ...buildCustomLayers(customLayersRef.current),
+      ]
+
+      layersRef.current = layers
+      deck.setProps({ layers })
 
       rafRef.current = requestAnimationFrame(tick)
     }
@@ -421,6 +486,7 @@ export function MapOverlay({ map }: Props) {
       cancelAnimationFrame(rafRef.current)
       map.off('click', onMapClick)
       map.off('mousemove', onMapMouseMove)
+      map.off('render', onMapRender)
       resizeObserver.disconnect()
       deck.finalize()
       canvas.remove()

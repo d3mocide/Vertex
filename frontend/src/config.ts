@@ -6,9 +6,21 @@ export const WS_URL =
 // Map style — override with VITE_TILE_URL for offline/self-hosted tiles.
 // When VITE_TILE_URL is set it should point to a tileserver-gl style endpoint,
 // e.g. http://localhost:8080/styles/basic-preview/style.json
-const _offlineTileUrl = import.meta.env.VITE_TILE_URL as string | undefined
+const _rawOfflineTileUrl = (import.meta.env.VITE_TILE_URL as string | undefined)?.trim()
+const _invalidOfflineTileUrl = Boolean(
+  _rawOfflineTileUrl && /\{z\}|\{x\}|\{y\}/i.test(_rawOfflineTileUrl)
+)
+
+if (_invalidOfflineTileUrl) {
+  console.warn(
+    'Ignoring VITE_TILE_URL because it looks like a raster tile template. Provide a MapLibre style URL such as http://localhost:8080/styles/basic-preview/style.json.'
+  )
+}
+
+const _offlineTileUrl = _invalidOfflineTileUrl ? '' : (_rawOfflineTileUrl ?? '')
 export const MAP_STYLE = _offlineTileUrl || 'https://tiles.openfreemap.org/styles/dark'
 export const OFFLINE_TILES = Boolean(_offlineTileUrl)
+export const PRESERVE_DRAWING_BUFFER = (import.meta.env.VITE_PRESERVE_DRAWING_BUFFER || 'false') === 'true'
 
 
 
