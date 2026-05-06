@@ -64,13 +64,16 @@ class Settings(BaseSettings):
     aprs_filter_radius_km: int = 80
 
     # ADS-B ingest strategy
-    # When enabled, poller will start a BEAST TCP consumer task. During this
-    # initial rollout, HTTP polling can remain enabled as a fallback path.
     adsb_enable_beast: bool = False
     adsb_beast_host: str = "localhost"
     adsb_beast_port: int = 30005
     adsb_beast_reconnect_initial_seconds: int = 1
     adsb_beast_reconnect_max_seconds: int = 30
+    # Seconds without a BEAST frame before the transport is considered unhealthy
+    # and the HTTP fallback (if local sources are configured) takes over.
+    adsb_beast_stale_threshold_seconds: int = 30
+    # Deprecated — HTTP fallback now activates automatically on BEAST health.
+    # Kept here so existing .env files do not cause a validation error.
     adsb_beast_http_fallback: bool = True
     adsb_publish_only_changes: bool = True
 

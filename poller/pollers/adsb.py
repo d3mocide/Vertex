@@ -103,13 +103,13 @@ class AdsbPoller(BasePoller):
     async def poll(self):
         if settings.adsb_enable_beast:
             self._ensure_beast_task()
-            if self._source_urls and settings.adsb_beast_http_fallback:
+            # HTTP fires only when BEAST hasn't delivered a frame recently.
+            # This is a true fallback: one source active at a time.
+            if self._source_urls and not self._transport.is_healthy:
+                logger.info("[adsb] BEAST unhealthy — HTTP fallback active")
                 for url in self._source_urls:
                     await self._poll_ultrafeeder(url)
-                return
-            if not settings.adsb_beast_http_fallback:
-                # BEAST-only mode: keep transport task alive and avoid HTTP/OpenSky polling.
-                return
+            return
 
         if self._source_urls:
             for url in self._source_urls:
@@ -283,6 +283,7 @@ class AdsbPoller(BasePoller):
             "frames": self._transport.frames_seen,
             "frames_dropped": self._beast_frames_dropped,
             "beast_connected": beast_connected,
+            "beast_healthy": self._transport.is_healthy,
             "queue_depth": self._registry_work_queue.qsize(),
             "last_frame_age_s": last_frame_age_s,
             "aircraft": enriched,
