@@ -532,7 +532,7 @@ export function MapOverlay({ map }: Props) {
             return buildStreamGaugeLayers(source, gaugesVisibleRef.current)
           })(),
           ...buildTrailLayers(rawTracks, sel),
-          ...buildEntityLayers(pvbTracks, sel, cycleRef.current, missionTagsRef.current),
+          ...buildEntityLayers(pvbTracks, sel, cycleRef.current, map.getZoom(), missionTagsRef.current),
           ...buildEventLayers(systemEventsRef.current, now),
           ...(lightningVisibleRef.current
             ? buildLightningLayer(lightningRef.current, now)

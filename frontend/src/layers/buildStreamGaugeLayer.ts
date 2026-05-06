@@ -1,4 +1,4 @@
-import { ScatterplotLayer, TextLayer } from '@deck.gl/layers'
+import { ScatterplotLayer } from '@deck.gl/layers'
 import type { Entity } from '../store'
 
 export interface StreamGaugePoint {
@@ -10,7 +10,6 @@ export interface StreamGaugePoint {
   height_ft: number | null
   stage: string
   color: [number, number, number, number]
-  label: string
 }
 
 const STAGE_COLOR: Record<string, [number, number, number, number]> = {
@@ -30,10 +29,6 @@ function toGaugePoint(e: Entity): StreamGaugePoint | null {
   const stage = typeof ident.stage === 'string' ? ident.stage : 'unknown'
   const color = STAGE_COLOR[stage] ?? STAGE_COLOR.unknown
 
-  let label = e.display_name ?? e.entity_id
-  if (flow !== null) label += `\n${Math.round(flow)} cfs`
-  else if (height !== null) label += `\n${height.toFixed(1)} ft`
-
   return {
     entity_id: e.entity_id,
     name: e.display_name ?? e.entity_id,
@@ -43,7 +38,6 @@ function toGaugePoint(e: Entity): StreamGaugePoint | null {
     height_ft: height,
     stage,
     color,
-    label,
   }
 }
 
@@ -83,21 +77,5 @@ export function buildStreamGaugeLayers(entities: Entity[], visible: boolean) {
     getLineWidth: 2,
   })
 
-  const labels = new TextLayer<StreamGaugePoint>({
-    id: 'stream-gauge-label',
-    data: points,
-    pickable: false,
-    getPosition: (p) => [p.lon, p.lat],
-    getText: (p) => p.label,
-    getSize: 10,
-    sizeUnits: 'pixels',
-    getPixelOffset: [0, 12],
-    getTextAnchor: 'middle',
-    getAlignmentBaseline: 'top',
-    getColor: [224, 247, 250, 235],
-    background: false,
-    fontFamily: 'monospace',
-  })
-
-  return [ring, dots, labels]
+  return [ring, dots]
 }

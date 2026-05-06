@@ -30,6 +30,7 @@ export function buildEntityLayers(
   tracks: Record<string, Track>,
   selectedUid: string | null,
   cycle: number,
+  zoom: number,
   tagColorMap?: Record<string, [number, number, number, number]>,
 ): Layer[] {
   const atlas    = getIconAtlas()
@@ -92,7 +93,7 @@ export function buildEntityLayers(
 
   const aprsLabelLayer = new TextLayer<Track>({
     id: 'aprs-labels',
-    data: trackArr.filter((t) => t.type === 'ground'),
+    data: zoom >= 10 ? trackArr.filter((t) => t.type === 'ground') : [],
     getPosition: (t) => [t.lon, t.lat],
     getText: (t) => t.callsign ?? t.uid,
     getSize: 10,
