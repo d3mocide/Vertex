@@ -15,7 +15,7 @@ async def get_bus() -> Redis:
     return _redis
 
 
-async def publish_entity(entity: dict, ttl: int = 120):
+async def publish_entity(entity: dict, ttl: int = 120, record_observation: bool = True):
     r = await get_bus()
     key = f"entity:{entity['entity_id']}"
 
@@ -38,7 +38,7 @@ async def publish_entity(entity: dict, ttl: int = 120):
         return
 
     try:
-        await write_entity_observation(entity)
+        await write_entity_observation(entity, record_observation=record_observation)
     except Exception as exc:
         import traceback
         logger.warning("DB write failed for %s: %s\n%s", entity.get("entity_id"), exc, traceback.format_exc())

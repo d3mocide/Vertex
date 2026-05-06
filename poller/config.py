@@ -77,6 +77,22 @@ class Settings(BaseSettings):
     adsb_beast_http_fallback: bool = True
     adsb_publish_only_changes: bool = True
 
+    # Mode D — OpenSky supplement alongside local sources (beast or ultrafeeder).
+    # When enabled, OpenSky polls on its own interval and fills in aircraft not
+    # seen locally within adsb_opensky_stale_threshold seconds.
+    adsb_opensky_supplement: bool = False
+    # Seconds between OpenSky polls. Anonymous budget ~400 req/day; keep >= 220s
+    # for anonymous use. With credentials 30s is safe (~2880 req/day vs 4000 limit).
+    adsb_opensky_interval: int = 60
+    # Seconds since last local sighting before OpenSky may update an aircraft.
+    adsb_opensky_stale_threshold: int = 15
+    # Write OpenSky supplement positions to the observations table.
+    adsb_opensky_record_observations: bool = True
+    # Optional OpenSky Network credentials (https://opensky-network.org).
+    # Authenticated accounts receive 10x the anonymous request budget.
+    adsb_opensky_username: str = ""
+    adsb_opensky_password: str = ""
+
     # Observation persistence mode
     # record: persist every observation row (current behavior)
     # live_only: keep live entity updates, skip observation inserts

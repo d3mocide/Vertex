@@ -35,7 +35,7 @@ async def close_db():
         _pool = None
 
 
-async def write_entity_observation(entity: dict):
+async def write_entity_observation(entity: dict, record_observation: bool = True):
     """Upsert entity row and append an observation. Runs geofence check if positioned."""
     if _pool is None:
         return
@@ -66,7 +66,7 @@ async def write_entity_observation(entity: dict):
         )
 
         mode = (settings.adsb_history_mode or "record").strip().lower()
-        if mode != "record":
+        if mode != "record" or not record_observation:
             if lat is not None and lon is not None:
                 await check_geofences(entity, conn)
             return
