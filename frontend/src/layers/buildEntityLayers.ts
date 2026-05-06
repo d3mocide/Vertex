@@ -1,7 +1,7 @@
 import { Layer, type LayerContext } from '@deck.gl/core'
 import { IconLayer, ScatterplotLayer, TextLayer } from '@deck.gl/layers'
 import type { Track } from '../store'
-import { getIconAtlas } from './iconAtlas'
+import { getAtlasIcons } from './atlasIcons'
 import { entityColor } from './colorUtils'
 
 // ─── StencilClearLayer ────────────────────────────────────────────────────────
@@ -24,6 +24,19 @@ export class StencilClearLayer extends Layer {
 
 const HALO_TYPES = new Set(['SAR', 'MIL', 'HEL', 'UAV', 'GOV'])
 
+// Zoom bucket helpers — mirrors the Atlas spec (FULL/RING/DOT).
+function iconForZoom(fullName: string, zoom: number): string {
+  if (zoom >= 11) return fullName
+  if (zoom >= 8)  return 'ring'
+  return 'dot'
+}
+
+function entityIconSize(selectedUid: string | null, uid: string, zoom: number): number {
+  if (zoom < 8)  return 6
+  if (zoom < 11) return 12
+  return uid === selectedUid ? 40 : 32
+}
+
 // ─── buildEntityLayers ────────────────────────────────────────────────────────
 // Returns: [haloLayer, selectionRingLayer, iconLayer, labelLayer]
 export function buildEntityLayers(
@@ -33,8 +46,10 @@ export function buildEntityLayers(
   zoom: number,
   tagColorMap?: Record<string, [number, number, number, number]>,
 ): Layer[] {
-  const atlas    = getIconAtlas()
+  const atlas    = getAtlasIcons()
   const trackArr = Object.values(tracks)
+
+  const haloSize = zoom < 8 ? 0 : zoom < 11 ? 28 : 52
 
   const haloLayer = new IconLayer<Track>({
     id:          'entity-halos',
@@ -43,7 +58,7 @@ export function buildEntityLayers(
     iconMapping: atlas.mapping,
     getIcon:     () => 'halo',
     getPosition: (t) => [t.lon, t.lat],
-    getSize:     () => 52,
+    getSize:     () => haloSize,
     getColor:    () => [255, 136, 0, 140],
     sizeUnits:   'pixels',
     billboard:   false,
@@ -71,26 +86,34 @@ export function buildEntityLayers(
     lineWidthUnits: 'pixels',
   })
 
+  const baseIcon = (t: Track) =>
+    t.type === 'sea'    ? 'vessel'
+    : t.type === 'ground' ? 'aprs'
+    : t.type === 'hazard' ? 'fire'
+    : 'aircraft'
+
   const iconLayer = new IconLayer<Track>({
     id:          'entity-icons',
     data:        trackArr,
     iconAtlas:   atlas.url,
     iconMapping: atlas.mapping,
-    getIcon:     (t) => t.type === 'sea' ? 'vessel' : t.type === 'ground' ? 'aprs' : t.type === 'hazard' ? 'fire' : 'aircraft',
+    getIcon:     (t) => iconForZoom(baseIcon(t), zoom),
     getPosition: (t) => [t.lon, t.lat],
     getAngle:    (t) => -t.courseTrue,
     getColor:    (t) => tagColorMap?.[t.uid] ?? entityColor(t),
-    getSize:     (t) => t.uid === selectedUid ? 40 : 32,
+    getSize:     (t) => entityIconSize(selectedUid, t.uid, zoom),
     sizeUnits:   'pixels',
     billboard:   false,
     pickable:    true,
     updateTriggers: {
+      getIcon:  zoom,
       getAngle: trackArr.map(t => t.courseTrue),
       getColor: trackArr.map(t => tagColorMap?.[t.uid]?.join(',') ?? `${t.altMeters + t.speedMs}`),
-      getSize:  selectedUid,
+      getSize:  [selectedUid, zoom],
     },
   })
 
+  // APRS labels: show at z10+ with atlas violet tint
   const aprsLabelLayer = new TextLayer<Track>({
     id: 'aprs-labels',
     data: zoom >= 10 ? trackArr.filter((t) => t.type === 'ground') : [],
@@ -98,7 +121,7 @@ export function buildEntityLayers(
     getText: (t) => t.callsign ?? t.uid,
     getSize: 10,
     sizeUnits: 'pixels',
-    getColor: [180, 255, 255, 220],
+    getColor: [179, 136, 255, 220],   // atlas --cat-aprs #B388FF
     getPixelOffset: [0, 12],
     getTextAnchor: 'middle',
     getAlignmentBaseline: 'top',

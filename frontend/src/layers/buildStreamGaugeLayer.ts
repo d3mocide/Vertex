@@ -1,5 +1,6 @@
-import { ScatterplotLayer } from '@deck.gl/layers'
+import { IconLayer, ScatterplotLayer } from '@deck.gl/layers'
 import type { Entity } from '../store'
+import { getAtlasIcons } from './atlasIcons'
 
 export interface StreamGaugePoint {
   entity_id: string
@@ -13,35 +14,44 @@ export interface StreamGaugePoint {
 }
 
 const STAGE_COLOR: Record<string, [number, number, number, number]> = {
-  normal: [79, 195, 247, 255],
-  elevated: [255, 241, 118, 255],
-  'minor flood': [255, 183, 77, 255],
-  'moderate flood': [239, 83, 80, 255],
-  'major flood': [183, 28, 28, 255],
-  unknown: [144, 164, 174, 255],
+  normal:          [79,  195, 247, 255],   // atlas --cat-stream #4FC3F7
+  elevated:        [255, 241, 118, 255],
+  'minor flood':   [255, 183,  77, 255],
+  'moderate flood':[239,  83,  80, 255],
+  'major flood':   [183,  28,  28, 255],
+  unknown:         [144, 164, 174, 255],
 }
 
 function toGaugePoint(e: Entity): StreamGaugePoint | null {
   if (e.lat == null || e.lon == null) return null
   const ident = (e.identity ?? {}) as Record<string, unknown>
-  const flow = typeof ident.flow_cfs === 'number' ? ident.flow_cfs : null
-  const height = typeof ident.height_ft === 'number' ? ident.height_ft : null
-  const stage = typeof ident.stage === 'string' ? ident.stage : 'unknown'
-  const color = STAGE_COLOR[stage] ?? STAGE_COLOR.unknown
-
+  const flow   = typeof ident.flow_cfs   === 'number' ? ident.flow_cfs   : null
+  const height = typeof ident.height_ft  === 'number' ? ident.height_ft  : null
+  const stage  = typeof ident.stage      === 'string' ? ident.stage      : 'unknown'
   return {
     entity_id: e.entity_id,
-    name: e.display_name ?? e.entity_id,
-    lon: e.lon,
-    lat: e.lat,
-    flow_cfs: flow,
-    height_ft: height,
+    name:      e.display_name ?? e.entity_id,
+    lon: e.lon, lat: e.lat,
+    flow_cfs: flow, height_ft: height,
     stage,
-    color,
+    color: STAGE_COLOR[stage] ?? STAGE_COLOR.unknown,
   }
 }
 
-export function buildStreamGaugeLayers(entities: Entity[], visible: boolean) {
+// Zoom bucket sizes matching Atlas spec.
+function gaugeIconSize(zoom: number): number {
+  if (zoom >= 11) return 22
+  if (zoom >= 8)  return 12
+  return 6
+}
+
+function gaugeIconName(zoom: number): string {
+  if (zoom >= 11) return 'stream'
+  if (zoom >= 8)  return 'ring'
+  return 'dot'
+}
+
+export function buildStreamGaugeLayers(entities: Entity[], visible: boolean, zoom: number) {
   if (!visible) return []
   const points = entities
     .filter((e) => e.entity_type === 'stream_gauge')
@@ -50,32 +60,41 @@ export function buildStreamGaugeLayers(entities: Entity[], visible: boolean) {
 
   if (points.length === 0) return []
 
+  const atlas = getAtlasIcons()
+
+  // Ambient glow ring behind the icon — stage-colored, non-pickable.
   const ring = new ScatterplotLayer<StreamGaugePoint>({
-    id: 'stream-gauge-ring',
-    data: points,
-    pickable: false,
-    filled: true,
-    stroked: false,
+    id:          'stream-gauge-ring',
+    data:        points,
+    pickable:    false,
+    filled:      true,
+    stroked:     false,
     radiusUnits: 'pixels',
     getPosition: (p) => [p.lon, p.lat],
-    getRadius: 9,
-    getFillColor: (p) => [p.color[0], p.color[1], p.color[2], 120],
+    getRadius:   zoom >= 11 ? 13 : zoom >= 8 ? 9 : 5,
+    getFillColor:(p) => [p.color[0], p.color[1], p.color[2], 100],
+    updateTriggers: { getRadius: zoom },
   })
 
-  const dots = new ScatterplotLayer<StreamGaugePoint>({
-    id: 'stream-gauge-dots',
-    data: points,
-    pickable: true,
-    filled: true,
-    stroked: true,
-    radiusUnits: 'pixels',
+  // Icon layer — pickable, switches shape with zoom bucket.
+  const icon = new IconLayer<StreamGaugePoint>({
+    id:          'stream-gauge-dots',   // id kept for tooltip + click handler compat
+    data:        points,
+    pickable:    true,
+    iconAtlas:   atlas.url,
+    iconMapping: atlas.mapping,
+    getIcon:     () => gaugeIconName(zoom),
     getPosition: (p) => [p.lon, p.lat],
-    getRadius: 5,
-    getFillColor: (p) => p.color,
-    getLineColor: [255, 255, 255, 255],
-    lineWidthUnits: 'pixels',
-    getLineWidth: 2,
+    getSize:     () => gaugeIconSize(zoom),
+    getColor:    (p) => p.color,
+    sizeUnits:   'pixels',
+    billboard:   false,
+    updateTriggers: {
+      getIcon:  zoom,
+      getSize:  zoom,
+      getColor: points.map(p => p.stage),
+    },
   })
 
-  return [ring, dots]
+  return [ring, icon]
 }
