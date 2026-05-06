@@ -99,6 +99,10 @@ class Settings(BaseSettings):
     anomaly_window_minutes: int = 60   # rolling window for baseline
     anomaly_sigma_threshold: float = 2.5
 
+    # TinyGS integration is sunset by default due to upstream API instability.
+    # Set true to opt in and re-enable the poller.
+    tinygs_enabled: bool = False
+
     class Config:
         env_file = ".env"
 

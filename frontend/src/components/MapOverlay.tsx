@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react'
 import maplibregl from 'maplibre-gl'
 import { Deck } from '@deck.gl/core'
 import { useCivicStore } from '../store'
-import type { Track, TrafficCamera, EntityTypeFilter, RangeFilter, ReplayData, SystemEvent } from '../store'
+import type { Entity, Track, TrafficCamera, EntityTypeFilter, RangeFilter, ReplayData, SystemEvent } from '../store'
 import { buildEntityLayers } from '../layers/buildEntityLayers'
 import { buildTrailLayers } from '../layers/buildTrailLayers'
 import { buildCameraLayer } from '../layers/buildCameraLayer'
@@ -12,7 +12,7 @@ import { buildGeofenceLayers, type GeofenceItem } from '../layers/buildGeofenceL
 import { buildObservationRingLayers } from '../layers/buildObservationRingLayer'
 import { buildCustomLayers } from '../layers/buildCustomLayers'
 import { buildLightningLayer } from '../layers/buildLightningLayer'
-import { buildClusterLayers, CLUSTER_ZOOM_THRESHOLD } from '../layers/buildClusterLayers'
+import { buildStreamGaugeLayers, type StreamGaugePoint } from '../layers/buildStreamGaugeLayer'
 import { applyPVB, type PVBState } from '../layers/pvb'
 import { DEFAULT_CENTER, OBSERVATION_RANGE_KM, API_BASE } from '../config'
 import { authHeaders } from '../auth'
@@ -81,6 +81,7 @@ function getViewState(map: maplibregl.Map) {
 export function MapOverlay({ map }: Props) {
   const deckRef           = useRef<Deck | null>(null)
   const layersRef         = useRef<any[]>([])
+  const entitiesRef       = useRef<Record<string, Entity>>({})
   const tracksRef         = useRef<Record<string, Track>>({})
   const pvbRef            = useRef<Record<string, PVBState>>({})
   const selectedRef       = useRef<string | null>(null)
@@ -99,6 +100,7 @@ export function MapOverlay({ map }: Props) {
 
   // Keep refs in sync — no loop restart on state change
   const tracks           = useCivicStore((s) => s.tracks)
+  const entities         = useCivicStore((s) => s.entities)
   const selectedId       = useCivicStore((s) => s.selectedEntityId)
   const cameras          = useCivicStore((s) => s.cameras)
   const selectedCamId    = useCivicStore((s) => s.selectedCamId)
@@ -115,6 +117,7 @@ export function MapOverlay({ map }: Props) {
   const entityMissionTags = useCivicStore((s) => s.entityMissionTags)
   const lightningStrikes   = useCivicStore((s) => s.lightningStrikes)
   const lightningVisible   = useCivicStore((s) => s.lightningVisible)
+  const gaugesVisible      = useCivicStore((s) => s.gaugesVisible)
   const selectEntity      = useCivicStore((s) => s.selectEntity)
   const setSelectedCamId  = useCivicStore((s) => s.setSelectedCamId)
   const setActiveTab      = useCivicStore((s) => s.setActiveTab)
@@ -135,6 +138,7 @@ export function MapOverlay({ map }: Props) {
   const annotationsVisibleRef = useRef(annotationsVisible)
   const customLayersRef = useRef(customLayers)
   const geofencesRef = useRef<GeofenceItem[]>([])
+  const gaugeFallbackRef = useRef<Entity[]>([])
   useEffect(() => { annotationsRef.current = annotations }, [annotations])
   useEffect(() => { annotationsVisibleRef.current = annotationsVisible }, [annotationsVisible])
   useEffect(() => { customLayersRef.current = customLayers }, [customLayers])
@@ -154,6 +158,9 @@ export function MapOverlay({ map }: Props) {
   useEffect(() => { systemEventsRef.current = systemEvents }, [systemEvents])
   const lightningRef = useRef<LightningStrike[]>([])
   const lightningVisibleRef = useRef(true)
+  const gaugesVisibleRef = useRef(true)
+  useEffect(() => { entitiesRef.current = entities }, [entities])
+  useEffect(() => { gaugesVisibleRef.current = gaugesVisible }, [gaugesVisible])
   useEffect(() => { lightningRef.current = lightningStrikes }, [lightningStrikes])
   useEffect(() => { lightningVisibleRef.current = lightningVisible }, [lightningVisible])
   const camerasVisibleRef = useRef(false)
@@ -175,6 +182,32 @@ export function MapOverlay({ map }: Props) {
     }
     loadGeofences()
     const interval = setInterval(loadGeofences, 30000)
+    return () => {
+      cancelled = true
+      clearInterval(interval)
+    }
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+
+    const loadGaugeFallback = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/entities?entity_type=stream_gauge`, {
+          headers: authHeaders(),
+        })
+        if (!res.ok || cancelled) return
+        const data = await res.json()
+        if (!cancelled && Array.isArray(data)) {
+          gaugeFallbackRef.current = data as Entity[]
+        }
+      } catch {
+        // best effort
+      }
+    }
+
+    loadGaugeFallback()
+    const interval = setInterval(loadGaugeFallback, 60000)
     return () => {
       cancelled = true
       clearInterval(interval)
@@ -310,6 +343,21 @@ export function MapOverlay({ map }: Props) {
               </div>
             </div>
           `
+        } else if (layer.id === 'stream-gauge-dots') {
+          const gauge = object as StreamGaugePoint
+          html = `
+            <div class="p-2 min-w-[210px] bg-slate-900/95 border border-slate-700 rounded-lg shadow-2xl backdrop-blur-md">
+              <div class="flex items-center gap-2 text-[11px] font-bold text-white mb-1.5">
+                <span class="material-symbols-outlined text-[16px] text-cyan-400">water</span>
+                <span class="truncate">${gauge.name}</span>
+              </div>
+              <div class="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-[10px] text-slate-400 font-mono">
+                <span>STAGE:</span><span class="text-right text-white uppercase">${gauge.stage}</span>
+                <span>FLOW:</span><span class="text-right text-cyan-200">${gauge.flow_cfs !== null ? `${Math.round(gauge.flow_cfs)} cfs` : 'n/a'}</span>
+                <span>HEIGHT:</span><span class="text-right text-cyan-200">${gauge.height_ft !== null ? `${gauge.height_ft.toFixed(1)} ft` : 'n/a'}</span>
+              </div>
+            </div>
+          `
         } else if (layer.id === 'geofence-fill') {
           const geofence = object as GeofenceItem
           html = `
@@ -371,6 +419,9 @@ export function MapOverlay({ map }: Props) {
       if (picked.layer?.id === 'camera-points') {
         const cam = picked.object as TrafficCamera
         setSelectedCamId(cam.id)
+      } else if (picked.layer?.id === 'stream-gauge-dots') {
+        const gauge = picked.object as StreamGaugePoint | undefined
+        if (gauge?.entity_id) selectEntity(gauge.entity_id)
       } else {
         const track = picked.object as Track | undefined
         if (track?.uid) selectEntity(track.uid)
@@ -473,17 +524,15 @@ export function MapOverlay({ map }: Props) {
         }
       }
 
-      const zoom = map.getZoom()
-      const isClustered = zoom < CLUSTER_ZOOM_THRESHOLD
-
       const layers = [
-          // At low zoom, replace individual icons with cluster bubbles
-          ...(isClustered
-            ? buildClusterLayers(pvbTracks, zoom)
-            : [
-                ...buildTrailLayers(rawTracks, sel),
-                ...buildEntityLayers(pvbTracks, sel, cycleRef.current, missionTagsRef.current),
-              ]),
+          ...(() => {
+            const wsGauges = Object.values(entitiesRef.current).filter((e) => e.entity_type === 'stream_gauge')
+            const fallback = gaugeFallbackRef.current
+            const source = wsGauges.length > 0 ? wsGauges : fallback
+            return buildStreamGaugeLayers(source, gaugesVisibleRef.current)
+          })(),
+          ...buildTrailLayers(rawTracks, sel),
+          ...buildEntityLayers(pvbTracks, sel, cycleRef.current, missionTagsRef.current),
           ...buildEventLayers(systemEventsRef.current, now),
           ...(lightningVisibleRef.current
             ? buildLightningLayer(lightningRef.current, now)

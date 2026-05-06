@@ -6,7 +6,7 @@ Blitzortung is a worldwide crowdsourced lightning detection network.
 Data is freely available without an API key.
 
 Protocol:
-  Connect to any Blitzortung WebSocket server (ws1..ws8)
+    Connect to any Blitzortung WebSocket server (ws1..ws8) over WSS (443)
   Send subscription JSON with the bounding box of interest
   Receive JSON messages: {"time": <nanoseconds>, "lat": <deg>, "lon": <deg>}
 
@@ -29,8 +29,10 @@ from .base import BasePoller
 logger = logging.getLogger(__name__)
 
 _WS_SERVERS = [
-    f"wss://ws{i}.blitzortung.org:{8000 + i}/"
-    for i in range(1, 9)
+    # Use standard TLS WebSocket endpoint (443). The legacy 800x ports are
+    # frequently closed/filtered in container and cloud environments.
+    f"wss://{host}.blitzortung.org/"
+    for host in ("ws1", "ws2", "ws7", "ws8")
 ]
 _FLUSH_INTERVAL  = 5      # seconds between feed publishes
 _MAX_BUFFER      = 500    # max strikes held in the rolling buffer

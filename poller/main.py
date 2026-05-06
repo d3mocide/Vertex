@@ -73,10 +73,15 @@ async def main():
         AprsPoller(),
         CotEmitter(),
         AnomalyDetectionPoller(),
-        TinyGSPoller(),
         LightningPoller(),
         StreamGaugePoller(),
     ]
+
+    if settings.tinygs_enabled:
+        pollers.append(TinyGSPoller())
+    else:
+        logger.info("[tinygs] integration sunset by default (set TINYGS_ENABLED=true to re-enable)")
+
     tasks = [asyncio.create_task(p.run()) for p in pollers]
     tasks.append(asyncio.create_task(_purge_loop()))
     tasks.append(asyncio.create_task(watch_config(get_pool())))

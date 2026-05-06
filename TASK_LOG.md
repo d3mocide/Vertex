@@ -5,6 +5,53 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 
 ---
 
+## 2026-05-05 — Removed map icon clustering from frontend overlay
+
+## 2026-05-05 — Hardened Stream Gauge map rendering and data fallback
+
+- **Issue**: Stream gauge layer was enabled but operators reported no visible gauge markers despite poller logs showing successful ingest.
+- **Frontend hardening** (`frontend/src/components/layers/StreamGaugeLayer.tsx`):
+    - Added REST fallback fetch (`/api/v1/entities?entity_type=stream_gauge`) when websocket-derived `stream_gauge` entities are empty.
+    - Added periodic fallback refresh (60s) so gauges remain visible even if websocket snapshot/entity updates miss that type.
+    - Increased gauge marker/ring contrast and size for better visibility on the dark grayscale map treatment.
+- **Validation**:
+    - `cd frontend && npx tsc --noEmit` ✓
+
+
+- **Request**: Roll back the icon clustering feature introduced in the prior frontend PR because the map behavior/UX was not meeting expectations.
+- **Code changes**:
+    - Removed clustering integration from `frontend/src/components/MapOverlay.tsx`.
+    - Restored unconditional entity rendering path: trail layers + entity icon layers at all zoom levels.
+    - Deleted obsolete `frontend/src/layers/buildClusterLayers.ts` implementation.
+- **Validation**:
+    - `cd frontend && npx tsc --noEmit` ✓
+
+## 2026-05-05 — Sunset TinyGS integration by default
+
+- **Issue observed**: `pollers.tinygs` repeatedly logged `404 Not Found` against `https://api.tinygs.com/v1/stations`, creating persistent warning noise without useful operational data.
+- **Runtime change**:
+    - Added `tinygs_enabled: bool = False` in `poller/config.py` (env: `TINYGS_ENABLED`).
+    - Updated `poller/main.py` to only register `TinyGSPoller()` when `TINYGS_ENABLED=true`.
+    - Added explicit startup log when disabled: `integration sunset by default`.
+- **Docs/config update**: Added `TINYGS_ENABLED=false` and sunset note to `.env.example`.
+- **Validation**:
+    - `python -m py_compile poller/config.py poller/main.py` ✓
+    - `docker compose up -d --build poller` ✓
+    - Runtime logs now show `Started 17 pollers` and no TinyGS 404 warnings.
+
+## 2026-05-05 — Fixed broken Blitzortung lightning WebSocket integration
+
+- **Primary failure mode**: `pollers.lightning` attempted `wss://wsN.blitzortung.org:800N/` (legacy nonstandard ports), which consistently failed with `Connect call failed`.
+- **Secondary failure mode after port fix**: some `wsN` hosts present mismatched TLS certs for their hostname, causing `CERTIFICATE_VERIFY_FAILED` when chosen randomly.
+- **Code fix**: Updated `poller/pollers/lightning.py` to:
+    - use standard WSS endpoint format (`wss://wsN.blitzortung.org/`, port 443),
+    - restrict default host rotation to currently cert-valid hosts (`ws1`, `ws2`, `ws7`, `ws8`),
+    - update protocol comments accordingly.
+- **Validation**:
+    - `python -m py_compile poller/pollers/lightning.py` ✓
+    - `docker compose up -d --build poller` ✓
+    - Runtime logs confirm successful subscribe: `pollers.lightning ... connecting to wss://ws8.blitzortung.org/` followed by `subscribed to Blitzortung feed`.
+
 ## 2026-05-04 — Added collapsible sidebar incidents feed for density control
 
 - **Problem identified**: The sidebar incident feed consumed substantial vertical space when multiple incident cards were present, reducing scan efficiency for adjacent sidebar sections.

@@ -1,7 +1,10 @@
-import { useEffect } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import maplibregl from 'maplibre-gl'
 import { useEntitiesByType } from '../../hooks/useEntities'
 import { useCivicStore } from '../../store'
+import type { Entity } from '../../store'
+import { API_BASE } from '../../config'
+import { authHeaders } from '../../auth'
 
 interface Props { map: maplibregl.Map }
 
@@ -24,9 +27,47 @@ export function StreamGaugeLayer({ map }: Props) {
   const gauges       = useEntitiesByType('stream_gauge')
   const gaugesVisible = useCivicStore((s) => s.gaugesVisible)
   const selectEntity  = useCivicStore((s) => s.selectEntity)
+  const [fallbackGauges, setFallbackGauges] = useState<Entity[]>([])
+
+  // Defensive fallback: if websocket snapshot misses stream_gauge entities,
+  // fetch them from REST so operators still see hydrology overlays.
+  useEffect(() => {
+    let cancelled = false
+
+    const loadFallback = async () => {
+      if (gauges.length > 0) {
+        setFallbackGauges([])
+        return
+      }
+      try {
+        const res = await fetch(`${API_BASE}/entities?entity_type=stream_gauge`, {
+          headers: authHeaders(),
+        })
+        if (!res.ok) return
+        const data = await res.json()
+        if (!cancelled && Array.isArray(data)) {
+          setFallbackGauges(data as Entity[])
+        }
+      } catch {
+        // Non-fatal: map can still render websocket-fed entities.
+      }
+    }
+
+    loadFallback()
+    const id = window.setInterval(loadFallback, 60_000)
+    return () => {
+      cancelled = true
+      window.clearInterval(id)
+    }
+  }, [gauges])
+
+  const displayGauges = useMemo(
+    () => (gauges.length > 0 ? gauges : fallbackGauges),
+    [gauges, fallbackGauges],
+  )
 
   useEffect(() => {
-    const visible = gaugesVisible ? gauges : []
+    const visible = gaugesVisible ? displayGauges : []
 
     const geojson: GeoJSON.FeatureCollection = {
       type: 'FeatureCollection',
@@ -65,9 +106,9 @@ export function StreamGaugeLayer({ map }: Props) {
         type:   'circle',
         source: SRC,
         paint: {
-          'circle-radius':  10,
+          'circle-radius':  14,
           'circle-color':   ['get', 'color'],
-          'circle-opacity': 0.25,
+          'circle-opacity': 0.45,
         },
       })
 
@@ -76,9 +117,9 @@ export function StreamGaugeLayer({ map }: Props) {
         type:   'circle',
         source: SRC,
         paint: {
-          'circle-radius':        5,
+          'circle-radius':        7,
           'circle-color':         ['get', 'color'],
-          'circle-stroke-width':  1.2,
+          'circle-stroke-width':  2,
           'circle-stroke-color':  '#fff',
         },
       })
@@ -90,7 +131,7 @@ export function StreamGaugeLayer({ map }: Props) {
         layout: {
           'text-field':      ['get', 'label'],
           'text-font':       ['Open Sans Regular', 'Arial Unicode MS Regular'],
-          'text-size':       9,
+          'text-size':       10,
           'text-offset':     [0, 1.6],
           'text-anchor':     'top',
           'text-max-width':  8,
@@ -111,7 +152,7 @@ export function StreamGaugeLayer({ map }: Props) {
     } else {
       (map.getSource(SRC) as maplibregl.GeoJSONSource).setData(geojson)
     }
-  }, [gauges, map, gaugesVisible, selectEntity])
+  }, [displayGauges, map, gaugesVisible, selectEntity])
 
   return null
 }

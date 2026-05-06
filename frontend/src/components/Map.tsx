@@ -10,7 +10,6 @@ import { GeofenceLayer }        from './layers/GeofenceLayer'
 import { ObservationRingLayer } from './layers/ObservationRingLayer'
 import { CustomLayersLayer }    from './layers/CustomLayersLayer'
 import { AnnotationOverlay }    from './layers/AnnotationOverlay'
-import { StreamGaugeLayer }     from './layers/StreamGaugeLayer'
 import { TerrainLayer }         from './layers/TerrainLayer'
 import { MapOverlay }           from './MapOverlay'
 import { useWebSocket }  from '../hooks/useWebSocket'
@@ -87,7 +86,6 @@ export function Map() {
           <SmokeLayer            map={map} />
           <MeshLayer             map={map} />
           <TinyGSLayer           map={map} />
-          <StreamGaugeLayer      map={map} />
           <GeofenceLayer         map={map} />
           <CustomLayersLayer     map={map} />
           <ObservationRingLayer  map={map} />
