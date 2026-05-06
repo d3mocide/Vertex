@@ -544,6 +544,7 @@ export function MapOverlay({ map }: Props) {
         }
       }
 
+      const zoom = map.getZoom()
       const layers = [
           ...buildTinyGSLayers(
             Object.values(entitiesRef.current),
@@ -554,21 +555,22 @@ export function MapOverlay({ map }: Props) {
             Object.values(entitiesRef.current),
             entityFilterRef.current.mesh_node,
             now,
+            zoom,
           ),
           ...(() => {
             const wsGauges = Object.values(entitiesRef.current).filter((e) => e.entity_type === 'stream_gauge')
             const fallback = gaugeFallbackRef.current
             const source = wsGauges.length > 0 ? wsGauges : fallback
-            return buildStreamGaugeLayers(source, gaugesVisibleRef.current)
+            return buildStreamGaugeLayers(source, gaugesVisibleRef.current, zoom)
           })(),
           ...buildTrailLayers(rawTracks, sel),
-          ...buildEntityLayers(pvbTracks, sel, cycleRef.current, map.getZoom(), missionTagsRef.current),
+          ...buildEntityLayers(pvbTracks, sel, cycleRef.current, zoom, missionTagsRef.current),
           ...buildEventLayers(systemEventsRef.current, now),
           ...(lightningVisibleRef.current
-            ? buildLightningLayer(lightningRef.current, now)
+            ? buildLightningLayer(lightningRef.current, now, zoom)
             : []),
           ...(camerasVisibleRef.current
-            ? [buildCameraLayer(camerasRef.current, selectedCamRef.current)]
+            ? [buildCameraLayer(camerasRef.current, selectedCamRef.current, zoom)]
             : []),
           ...buildAnnotationLayers(annotationsRef.current, annotationsVisibleRef.current),
           ...buildAnnotationDrawPreviewLayers({
