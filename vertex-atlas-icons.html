@@ -1,0 +1,1732 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>VERTEX // ATLAS ICONS v0.1</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&family=Roboto+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
+
+<style>
+  :root{
+    --onyx-black:#050505;
+    --onyx-deep:#0a0a0a;
+    --surface-container:#0F0F0F;
+    --surface-container-low:#080808;
+    --surface-container-high:#141414;
+    --surface-container-highest:#1A1A1A;
+
+    --amber-gold:#FFB800;
+    --amber-gold-dim:#B88600;
+    --amber-gold-muted:#4D3800;
+
+    --on-surface:#F2F2F2;
+    --on-surface-variant:#8C8C8C;
+    --outline-variant:#333333;
+
+    /* Category hues — semantic */
+    --cat-air:#00BFFF;        /* aircraft / ADS-B */
+    --cat-air-muted:#004D6B;
+    --cat-sea:#00C853;        /* vessels / AIS */
+    --cat-sea-muted:#00401A;
+    --cat-mesh:#FF8F00;       /* mesh / P25 radio */
+    --cat-mesh-muted:#4D2B00;
+    --cat-aprs:#B388FF;       /* APRS packet — soft violet */
+    --cat-aprs-muted:#3A2A66;
+    --cat-stream:#4FC3F7;     /* stream / hydro — pale blue */
+    --cat-stream-muted:#0F4A6B;
+    --cat-lightning:#FFE94D;  /* lightning — high-vis yellow */
+    --cat-lightning-muted:#5C5400;
+    --cat-fire:#FF5252;       /* fire incident */
+    --cat-fire-muted:#5C0A0A;
+    --cat-cam:#FFB800;        /* CCTV — amber primary */
+    --cat-cam-muted:#4D3800;
+    --cat-emerg:#C62828;      /* emergency dispatch */
+    --cat-emerg-muted:#4A0000;
+
+    --gold-glow: 0 0 20px rgba(255,184,0,0.25);
+    --gold-sm:   0 0 8px  rgba(255,184,0,0.4);
+    --red-glow:  0 0 20px rgba(198,40,40,0.4);
+  }
+
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--onyx-black);
+    color:var(--on-surface);
+    font-family:'Inter',system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased;
+    font-size:14px;
+    line-height:1.5;
+    background-image:
+      linear-gradient(180deg, rgba(255,184,0,0.018) 0%, transparent 50%, rgba(0,0,0,0.4) 100%),
+      repeating-linear-gradient(0deg, transparent 0px, transparent 39px, rgba(255,255,255,0.012) 40px),
+      repeating-linear-gradient(90deg, transparent 0px, transparent 39px, rgba(255,255,255,0.012) 40px);
+  }
+  ::selection{background:var(--amber-gold);color:var(--onyx-black)}
+  ::-webkit-scrollbar{width:3px;height:3px}
+  ::-webkit-scrollbar-track{background:var(--onyx-deep)}
+  ::-webkit-scrollbar-thumb{background:var(--amber-gold);border-radius:0}
+
+  .mono{font-family:'Roboto Mono',monospace}
+  .label-caps{
+    font-family:'Inter',sans-serif;
+    font-weight:700;font-size:10px;
+    letter-spacing:0.18em;text-transform:uppercase;
+    color:var(--on-surface-variant);
+  }
+
+  .frame{ max-width:1440px; margin:0 auto; padding:0 32px 80px; }
+
+  /* HEADER */
+  .ops-header{
+    position:sticky;top:0;z-index:50;
+    background:rgba(5,5,5,0.85);
+    backdrop-filter:blur(20px) saturate(180%);
+    border-bottom:1px solid rgba(255,255,255,0.06);
+    margin-bottom:48px;
+  }
+  .ops-header::after{
+    content:"";position:absolute;left:0;right:0;bottom:-1px;height:1px;
+    background:linear-gradient(90deg,transparent,var(--amber-gold) 20%,var(--amber-gold) 80%,transparent);
+    opacity:0.35;
+  }
+  .ops-header-inner{
+    max-width:1440px;margin:0 auto;
+    display:flex;align-items:center;gap:24px;
+    padding:0 32px;height:56px;
+  }
+  .brand{display:flex;align-items:center;gap:12px}
+  .brand svg{width:28px;height:28px;color:#fff}
+  .brand-name{font-weight:900;letter-spacing:0.05em;font-size:16px;color:#fff}
+  .brand-sub{
+    font-family:'Roboto Mono',monospace;font-size:10px;
+    letter-spacing:0.2em;color:var(--amber-gold);text-transform:uppercase;
+    padding-left:12px;border-left:1px solid var(--amber-gold-muted);
+  }
+  .ops-meta{
+    margin-left:auto;display:flex;align-items:center;gap:20px;
+    font-family:'Roboto Mono',monospace;font-size:10px;
+    letter-spacing:0.18em;text-transform:uppercase;color:var(--on-surface-variant);
+  }
+  .ops-meta a{color:var(--on-surface-variant);text-decoration:none}
+  .ops-meta a:hover{color:var(--amber-gold)}
+  .ops-meta .live{display:flex;align-items:center;gap:6px;color:var(--cat-sea)}
+  .live-dot{width:6px;height:6px;background:var(--cat-sea);
+    box-shadow:0 0 8px var(--cat-sea);
+    animation:pulse-dot 1.6s ease-in-out infinite}
+  @keyframes pulse-dot{0%,100%{opacity:1}50%{opacity:0.35}}
+
+  /* HERO */
+  .hero{
+    display:grid;grid-template-columns:1.4fr 1fr;gap:32px;
+    margin-bottom:48px;align-items:stretch;
+  }
+  .hero-title{
+    font-weight:900;font-size:56px;line-height:0.95;letter-spacing:-0.02em;
+    margin:0 0 16px;text-wrap:balance;
+  }
+  .hero-title .accent{color:var(--amber-gold)}
+  .hero-title .stroke{
+    -webkit-text-stroke:1px var(--amber-gold);
+    color:transparent;
+  }
+  .hero-lede{
+    font-size:14px;line-height:1.6;color:var(--on-surface-variant);
+    max-width:54ch;margin-bottom:24px;
+  }
+  .hero-meta{
+    display:grid;grid-template-columns:repeat(4,1fr);gap:0;
+    border-top:1px solid var(--amber-gold-muted);
+    border-bottom:1px solid var(--amber-gold-muted);
+  }
+  .hero-meta-cell{
+    padding:14px 16px 12px;
+    border-right:1px solid var(--amber-gold-muted);
+  }
+  .hero-meta-cell:last-child{border-right:none}
+  .hero-meta-cell .label-caps{display:block;font-size:9px;margin-bottom:6px}
+  .hero-meta-cell .val{
+    font-family:'Roboto Mono',monospace;font-size:13px;color:var(--amber-gold);
+  }
+
+  /* HUD card */
+  .hud-card{
+    background:rgba(5,5,5,0.8);
+    backdrop-filter:blur(20px);
+    border:1px solid rgba(255,255,255,0.05);
+    box-shadow:0 8px 32px rgba(0,0,0,0.8);
+    position:relative;overflow:hidden;
+  }
+  .hud-card-head{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:10px 14px;border-bottom:1px solid var(--amber-gold-muted);
+    background:rgba(10,10,10,0.6);
+  }
+  .hud-card-head .label-caps{color:var(--amber-gold)}
+
+  /* SECTIONS */
+  section{margin-bottom:72px;scroll-margin-top:80px}
+  .sec-head{
+    display:flex;align-items:flex-end;justify-content:space-between;
+    border-bottom:1px solid var(--amber-gold-muted);
+    padding-bottom:12px;margin-bottom:32px;
+  }
+  .sec-id{
+    font-family:'Roboto Mono',monospace;font-size:10px;
+    color:var(--amber-gold);letter-spacing:0.2em;text-transform:uppercase;
+    margin-bottom:4px;display:flex;align-items:center;gap:8px;
+  }
+  .sec-id::before{content:"";width:6px;height:6px;background:var(--amber-gold);box-shadow:var(--gold-sm)}
+  .sec-title{font-size:32px;font-weight:900;letter-spacing:-0.01em;margin:0;line-height:1}
+  .sec-meta{
+    font-family:'Roboto Mono',monospace;font-size:10px;
+    color:var(--on-surface-variant);letter-spacing:0.18em;text-transform:uppercase;
+    text-align:right;
+  }
+  .sec-meta strong{color:var(--amber-gold);font-weight:700}
+
+  .toc{
+    display:flex;gap:24px;flex-wrap:wrap;
+    padding:14px 0;border-top:1px dashed var(--amber-gold-muted);
+    border-bottom:1px dashed var(--amber-gold-muted);
+    margin-bottom:48px;
+  }
+  .toc a{
+    font-family:'Roboto Mono',monospace;font-size:10px;
+    letter-spacing:0.18em;text-transform:uppercase;color:var(--on-surface-variant);
+    text-decoration:none;
+    display:inline-flex;align-items:center;gap:8px;
+  }
+  .toc a:hover{color:var(--amber-gold)}
+  .toc a span.num{color:var(--amber-gold)}
+
+  /* ============================================================
+     ATLAS ICON BASE
+     Common SVG mark size on the page is 40 (display) but viewBox is 32.
+     ============================================================ */
+  .atlas-grid-bg{
+    background:
+      radial-gradient(ellipse at center, rgba(255,184,0,0.04), transparent 60%),
+      repeating-linear-gradient(0deg, transparent 0 19px, rgba(255,184,0,0.04) 19px 20px),
+      repeating-linear-gradient(90deg, transparent 0 19px, rgba(255,184,0,0.04) 19px 20px),
+      var(--onyx-deep);
+  }
+
+  /* -------- 01 ATLAS · CATEGORIES -------- */
+  .cat-grid{
+    display:grid;grid-template-columns:repeat(3,1fr);
+    gap:1px;background:var(--outline-variant);
+    border:1px solid var(--outline-variant);
+  }
+  .cat-card{
+    background:var(--surface-container-low);
+    display:flex;flex-direction:column;
+    min-height:280px;
+  }
+  .cat-card-head{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:10px 14px;border-bottom:1px solid var(--outline-variant);
+    background:var(--onyx-deep);
+  }
+  .cat-card-head .name{
+    font-family:'Roboto Mono',monospace;font-size:10px;
+    letter-spacing:0.18em;text-transform:uppercase;color:var(--amber-gold);
+    display:flex;align-items:center;gap:8px;
+  }
+  .cat-card-head .name::before{
+    content:"";width:6px;height:6px;background:currentColor;
+    box-shadow:0 0 6px currentColor;
+  }
+  .cat-card-head .id{
+    font-family:'Roboto Mono',monospace;font-size:9px;
+    color:var(--on-surface-variant);letter-spacing:0.12em;
+  }
+  .cat-card-stage{
+    flex:1;
+    position:relative;
+    display:flex;align-items:center;justify-content:center;
+    padding:24px;
+    background:
+      radial-gradient(ellipse at center, rgba(255,184,0,0.04), transparent 70%),
+      repeating-linear-gradient(0deg, transparent 0 19px, rgba(255,184,0,0.04) 19px 20px),
+      repeating-linear-gradient(90deg, transparent 0 19px, rgba(255,184,0,0.04) 19px 20px),
+      var(--onyx-deep);
+  }
+  .cat-card-stage::before,
+  .cat-card-stage::after{
+    content:"";position:absolute;background:rgba(255,184,0,0.08);pointer-events:none;
+  }
+  .cat-card-stage::before{ left:50%; top:0; bottom:0; width:1px; }
+  .cat-card-stage::after{ top:50%; left:0; right:0; height:1px; }
+  .cat-card-meta{
+    border-top:1px solid var(--outline-variant);
+    padding:10px 14px;
+    display:grid;grid-template-columns:repeat(3,1fr);gap:10px;
+    font-family:'Roboto Mono',monospace;font-size:9px;
+    color:var(--on-surface-variant);letter-spacing:0.1em;text-transform:uppercase;
+  }
+  .cat-card-meta b{color:var(--amber-gold);font-weight:700;display:block;margin-top:2px;font-size:10px}
+  .cat-card-meta b.hex{font-family:'Roboto Mono',monospace}
+
+  /* hue tinting */
+  .cat-card[data-cat="air"] .cat-card-head .name{ color:var(--cat-air); }
+  .cat-card[data-cat="sea"] .cat-card-head .name{ color:var(--cat-sea); }
+  .cat-card[data-cat="mesh"] .cat-card-head .name{ color:var(--cat-mesh); }
+  .cat-card[data-cat="aprs"] .cat-card-head .name{ color:var(--cat-aprs); }
+  .cat-card[data-cat="stream"] .cat-card-head .name{ color:var(--cat-stream); }
+  .cat-card[data-cat="lightning"] .cat-card-head .name{ color:var(--cat-lightning); }
+  .cat-card[data-cat="fire"] .cat-card-head .name{ color:var(--cat-fire); }
+  .cat-card[data-cat="cam"] .cat-card-head .name{ color:var(--cat-cam); }
+  .cat-card[data-cat="emerg"] .cat-card-head .name{ color:var(--cat-emerg); }
+
+  /* The icon glyph */
+  .icon-mark{ display:block; }
+
+  /* ATLAS LARGE STAGE — used in hero */
+  .atlas-hero-stage{
+    position:relative; height:100%;
+    border:1px solid var(--amber-gold-muted);
+    background:
+      radial-gradient(ellipse at center, rgba(255,184,0,0.06), transparent 60%),
+      repeating-linear-gradient(0deg, transparent 0 23px, rgba(255,184,0,0.05) 23px 24px),
+      repeating-linear-gradient(90deg, transparent 0 23px, rgba(255,184,0,0.05) 23px 24px),
+      var(--surface-container-low);
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    grid-template-rows:repeat(3,1fr);
+    overflow:hidden;
+  }
+  .atlas-hero-stage .corner{
+    position:absolute; width:18px; height:18px;
+    border:1px solid var(--amber-gold);
+  }
+  .atlas-hero-stage .c-tl{ top:8px; left:8px; border-right:none; border-bottom:none; }
+  .atlas-hero-stage .c-tr{ top:8px; right:8px; border-left:none; border-bottom:none; }
+  .atlas-hero-stage .c-bl{ bottom:8px; left:8px; border-right:none; border-top:none; }
+  .atlas-hero-stage .c-br{ bottom:8px; right:8px; border-left:none; border-top:none; }
+
+  .atlas-hero-stage .ah-cell{
+    display:flex;align-items:center;justify-content:center;
+    border-right:1px dashed rgba(255,184,0,0.12);
+    border-bottom:1px dashed rgba(255,184,0,0.12);
+  }
+  .atlas-hero-stage .ah-cell:nth-child(3n){ border-right:none; }
+  .atlas-hero-stage .ah-cell:nth-last-child(-n+3){ border-bottom:none; }
+
+  /* -------- STATE MATRIX -------- */
+  .state-matrix{
+    border:1px solid var(--outline-variant);
+    background:var(--surface-container-low);
+    overflow:hidden;
+  }
+  .state-matrix-grid{
+    display:grid;
+    grid-template-columns: 140px repeat(6, 1fr);
+    background:var(--outline-variant);
+    gap:1px;
+  }
+  .state-matrix-grid > .cell{
+    background:var(--surface-container-low);
+    padding:14px;display:flex;align-items:center;justify-content:center;
+    min-height:88px;
+    position:relative;
+  }
+  .state-matrix-grid > .cell.hdr{
+    background:var(--onyx-deep);
+    font-family:'Roboto Mono',monospace;font-size:9px;
+    color:var(--amber-gold);letter-spacing:0.18em;text-transform:uppercase;
+    flex-direction:column;align-items:center;justify-content:center;gap:4px;
+    min-height:48px;
+  }
+  .state-matrix-grid > .cell.hdr.rl{
+    align-items:flex-start;
+    color:var(--on-surface-variant);
+    justify-content:center;
+    padding:14px;
+  }
+  .state-matrix-grid > .cell.hdr.rl .rl-name{
+    color:#fff;font-weight:700;font-size:11px;letter-spacing:0.1em;
+    display:flex;align-items:center;gap:6px;
+  }
+  .state-matrix-grid > .cell.hdr.rl .rl-name::before{
+    content:"";width:6px;height:6px;background:currentColor;box-shadow:0 0 6px currentColor;
+  }
+  .state-matrix-grid > .cell.hdr.rl .rl-sub{
+    font-family:'Roboto Mono',monospace;font-size:9px;
+    color:var(--on-surface-variant);letter-spacing:0.12em;margin-top:4px;
+  }
+  .state-matrix-grid > .cell.hdr.rl[data-cat="air"] .rl-name{color:var(--cat-air)}
+  .state-matrix-grid > .cell.hdr.rl[data-cat="sea"] .rl-name{color:var(--cat-sea)}
+  .state-matrix-grid > .cell.hdr.rl[data-cat="mesh"] .rl-name{color:var(--cat-mesh)}
+  .state-matrix-grid > .cell.hdr.rl[data-cat="aprs"] .rl-name{color:var(--cat-aprs)}
+  .state-matrix-grid > .cell.hdr.rl[data-cat="stream"] .rl-name{color:var(--cat-stream)}
+  .state-matrix-grid > .cell.hdr.rl[data-cat="lightning"] .rl-name{color:var(--cat-lightning)}
+  .state-matrix-grid > .cell.hdr.rl[data-cat="fire"] .rl-name{color:var(--cat-fire)}
+  .state-matrix-grid > .cell.hdr.rl[data-cat="cam"] .rl-name{color:var(--cat-cam)}
+
+  .state-matrix-grid .col-tag{
+    font-weight:700;color:#fff;font-size:11px;letter-spacing:0.18em;
+  }
+  .state-matrix-grid .col-spec{
+    color:var(--on-surface-variant);font-size:8px;letter-spacing:0.12em;
+  }
+
+  /* selection bracket overlay (used in 'selected' cell) */
+  .sel-brk{
+    position:absolute;width:46px;height:46px;
+    pointer-events:none;
+  }
+  .sel-brk::before, .sel-brk::after,
+  .sel-brk > i, .sel-brk > b{
+    content:"";position:absolute;width:8px;height:8px;
+    border:1px solid var(--amber-gold);
+  }
+  .sel-brk::before{ top:0;left:0; border-right:none;border-bottom:none; }
+  .sel-brk::after{  top:0;right:0; border-left:none; border-bottom:none; }
+  .sel-brk > i{ bottom:0;left:0; border-right:none;border-top:none; display:block; }
+  .sel-brk > b{ bottom:0;right:0; border-left:none;border-top:none; display:block; }
+
+  /* halo pulses */
+  @keyframes ping-fast{0%{transform:scale(0.8);opacity:0.9}80%,100%{transform:scale(2.0);opacity:0}}
+  @keyframes ping-slow{0%{transform:scale(1);opacity:0.7}80%,100%{transform:scale(2.4);opacity:0}}
+  .halo{
+    position:absolute;width:32px;height:32px;border-radius:9999px;
+    pointer-events:none;
+  }
+  .halo-active{ background:currentColor; opacity:0.18; animation:ping-slow 2.2s cubic-bezier(0,0,0.2,1) infinite; }
+  .halo-critical{ background:currentColor; opacity:0.3; animation:ping-fast 1.2s cubic-bezier(0,0,0.2,1) infinite; }
+
+  /* -------- ZOOM BUCKETS -------- */
+  .zoom-grid{
+    display:grid;grid-template-columns:repeat(4,1fr);
+    gap:1px;background:var(--outline-variant);
+    border:1px solid var(--outline-variant);
+  }
+  .zoom-col{
+    background:var(--surface-container-low);
+    display:flex;flex-direction:column;
+  }
+  .zoom-col-head{
+    background:var(--onyx-deep);
+    padding:10px 14px;border-bottom:1px solid var(--outline-variant);
+    display:flex;align-items:center;justify-content:space-between;
+  }
+  .zoom-col-head .ztag{
+    font-family:'Roboto Mono',monospace;font-size:10px;
+    color:var(--amber-gold);letter-spacing:0.18em;text-transform:uppercase;
+  }
+  .zoom-col-head .zspec{
+    font-family:'Roboto Mono',monospace;font-size:9px;
+    color:var(--on-surface-variant);letter-spacing:0.12em;
+  }
+  .zoom-rows{ display:flex; flex-direction:column; }
+  .zoom-row{
+    display:flex;align-items:center;gap:14px;
+    padding:14px 16px;
+    border-bottom:1px dashed rgba(77,56,0,0.4);
+  }
+  .zoom-row:last-child{border-bottom:none}
+  .zoom-row .zname{
+    font-family:'Roboto Mono',monospace;font-size:10px;
+    color:#fff;letter-spacing:0.1em;text-transform:uppercase;
+    min-width:90px;
+    display:flex;align-items:center;gap:6px;
+  }
+  .zoom-row .zname::before{
+    content:"";width:6px;height:6px;background:currentColor;box-shadow:0 0 6px currentColor;
+  }
+  .zoom-row[data-cat="air"] .zname{color:var(--cat-air)}
+  .zoom-row[data-cat="sea"] .zname{color:var(--cat-sea)}
+  .zoom-row[data-cat="mesh"] .zname{color:var(--cat-mesh)}
+  .zoom-row[data-cat="aprs"] .zname{color:var(--cat-aprs)}
+  .zoom-row[data-cat="stream"] .zname{color:var(--cat-stream)}
+  .zoom-row[data-cat="lightning"] .zname{color:var(--cat-lightning)}
+  .zoom-row[data-cat="fire"] .zname{color:var(--cat-fire)}
+  .zoom-row[data-cat="cam"] .zname{color:var(--cat-cam)}
+
+  .zoom-row .zglyph{
+    flex:1;display:flex;align-items:center;justify-content:flex-end;
+  }
+
+  /* -------- ANATOMY -------- */
+  .anatomy-grid{
+    display:grid;grid-template-columns:1.1fr 1fr;gap:24px;
+  }
+  .anatomy-frame{
+    position:relative;
+    border:1px solid var(--amber-gold-muted);
+    background:
+      repeating-linear-gradient(0deg, transparent 0 calc((100% - 1px)/16 - 1px), rgba(255,184,0,0.08) calc((100% - 1px)/16 - 1px) calc((100% - 1px)/16)),
+      repeating-linear-gradient(90deg, transparent 0 calc((100% - 1px)/16 - 1px), rgba(255,184,0,0.08) calc((100% - 1px)/16 - 1px) calc((100% - 1px)/16)),
+      var(--onyx-deep);
+    aspect-ratio:1;display:flex;align-items:center;justify-content:center;
+    padding:8%;
+  }
+  .anatomy-frame .x-marker{
+    position:absolute; bottom:6px; left:6px;
+    font-family:'Roboto Mono',monospace; font-size:9px;
+    color:var(--amber-gold); letter-spacing:0.18em;
+  }
+  .anatomy-frame .x-marker .swatch{
+    display:inline-block; width:10px; height:10px; background:var(--amber-gold);
+    vertical-align:-1px; margin-right:6px;
+  }
+  .anatomy-frame .gauge-tl,
+  .anatomy-frame .gauge-tr,
+  .anatomy-frame .gauge-bl,
+  .anatomy-frame .gauge-br{
+    position:absolute;width:18px;height:18px;border:1px solid var(--amber-gold);
+  }
+  .anatomy-frame .gauge-tl{top:8px;left:8px;border-right:none;border-bottom:none}
+  .anatomy-frame .gauge-tr{top:8px;right:8px;border-left:none;border-bottom:none}
+  .anatomy-frame .gauge-bl{bottom:8px;left:8px;border-right:none;border-top:none}
+  .anatomy-frame .gauge-br{bottom:8px;right:8px;border-left:none;border-top:none}
+
+  .anatomy-notes{ display:flex; flex-direction:column; gap:14px; }
+  .anatomy-note{
+    border-left:1px solid var(--amber-gold);
+    padding:6px 14px;
+  }
+  .anatomy-note .nh{
+    font-family:'Roboto Mono',monospace; font-size:10px;
+    color:var(--amber-gold); letter-spacing:0.18em; text-transform:uppercase;
+    margin-bottom:4px;
+  }
+  .anatomy-note .nb{ font-size:12px; line-height:1.55; color:var(--on-surface-variant); }
+  .anatomy-note .nb code{
+    font-family:'Roboto Mono',monospace; color:var(--amber-gold);
+    background:rgba(77,56,0,0.4); padding:1px 5px;
+  }
+
+  /* -------- MAP CONTEXT MOCK -------- */
+  .map-context{
+    border:1px solid var(--amber-gold-muted);
+    background:var(--surface-container-low);
+    overflow:hidden;
+  }
+  .map-canvas{
+    position:relative; height:560px; overflow:hidden;
+    background:
+      repeating-linear-gradient(0deg, rgba(255,255,255,0.018) 0px, rgba(255,255,255,0.018) 1px, transparent 1px, transparent 32px),
+      repeating-linear-gradient(90deg, rgba(255,255,255,0.018) 0px, rgba(255,255,255,0.018) 1px, transparent 1px, transparent 32px),
+      radial-gradient(ellipse at 35% 45%, #161616 0%, #0a0a0a 65%, #050505 100%);
+  }
+  /* fake terrain features */
+  .map-canvas::before{
+    content:""; position:absolute; inset:0;
+    background:
+      radial-gradient(ellipse 220px 160px at 28% 38%, rgba(40,30,12,0.55), transparent 70%),
+      radial-gradient(ellipse 180px 240px at 70% 60%, rgba(8,28,40,0.55), transparent 70%),
+      radial-gradient(ellipse 120px 90px at 60% 25%, rgba(28,18,8,0.4), transparent 70%);
+    pointer-events:none;
+  }
+  /* coastline svg overlay */
+  .map-coast{ position:absolute; inset:0; pointer-events:none; opacity:0.35; }
+
+  .map-marker{
+    position:absolute; transform:translate(-50%,-50%);
+    display:flex;align-items:center;justify-content:center;
+  }
+  .map-marker .halo{ width:36px; height:36px; }
+
+  /* Layer toggle panel */
+  .layer-panel{
+    position:absolute; left:16px; top:16px; width:226px;
+    background:rgba(5,5,5,0.85);
+    backdrop-filter:blur(20px) saturate(180%);
+    border:1px solid rgba(255,255,255,0.08);
+  }
+  .layer-panel-head{
+    padding:10px 12px; border-bottom:1px solid var(--amber-gold-muted);
+    background:rgba(10,10,10,0.6);
+    display:flex;align-items:center;justify-content:space-between;
+  }
+  .layer-panel-head .label-caps{color:var(--amber-gold);font-size:9px}
+  .layer-panel-rows{padding:6px 0}
+  .layer-row{
+    display:flex;align-items:center;gap:10px;
+    padding:6px 12px;font-family:'Roboto Mono',monospace;font-size:10px;
+    text-transform:uppercase;letter-spacing:0.12em;color:var(--on-surface);
+    cursor:pointer;
+  }
+  .layer-row:hover{background:rgba(255,184,0,0.05)}
+  .layer-row .lr-icon{ width:20px; display:flex; align-items:center; justify-content:center; }
+  .layer-row .lr-name{flex:1;font-size:10px}
+  .layer-row .lr-count{
+    font-size:9px;color:var(--amber-gold);background:rgba(77,56,0,0.4);
+    padding:1px 5px;letter-spacing:0.1em;
+  }
+  .layer-row.off{opacity:0.35}
+  .layer-row.off .lr-count{color:var(--on-surface-variant);background:transparent;border:1px solid var(--outline-variant)}
+
+  /* Entity HUD */
+  .entity-hud{
+    position:absolute;right:16px;top:16px;width:220px;
+    background:rgba(5,5,5,0.9);
+    border:1px solid var(--amber-gold);
+    box-shadow:0 0 15px rgba(255,184,0,0.15), inset 0 0 10px rgba(255,184,0,0.05);
+  }
+  .entity-hud-head{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:8px 10px;border-bottom:1px solid var(--amber-gold-muted);
+    background:rgba(10,10,10,0.6);
+  }
+  .entity-hud-head .name{font-weight:700;font-size:11px;text-transform:uppercase;color:#fff;display:flex;align-items:center;gap:6px}
+  .entity-hud-rows{padding:8px 10px;display:flex;flex-direction:column;gap:5px}
+  .entity-hud-row{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+  .entity-hud-row .label-caps{font-size:9px}
+  .entity-hud-row .val{font-family:'Roboto Mono',monospace;font-size:10px;color:var(--on-surface)}
+  .entity-hud-row .val.sig{color:var(--cat-fire)}
+
+  /* compass / readout bottom-right */
+  .map-readout{
+    position:absolute;right:16px;bottom:16px;
+    background:rgba(5,5,5,0.85);
+    border:1px solid var(--amber-gold-muted);
+    padding:8px 12px;
+    font-family:'Roboto Mono',monospace;font-size:9px;
+    color:var(--on-surface-variant);letter-spacing:0.12em;text-transform:uppercase;
+    display:flex;flex-direction:column;gap:2px;
+  }
+  .map-readout .v{color:var(--amber-gold)}
+
+  /* zoom indicator bottom-left */
+  .map-zoom{
+    position:absolute;left:16px;bottom:16px;
+    background:rgba(5,5,5,0.85);
+    border:1px solid var(--amber-gold-muted);
+    padding:8px 12px;
+    font-family:'Roboto Mono',monospace;font-size:9px;
+    color:var(--amber-gold);letter-spacing:0.18em;text-transform:uppercase;
+    display:flex;align-items:center;gap:8px;
+  }
+  .map-zoom .bars{display:flex;gap:2px}
+  .map-zoom .bars i{width:3px;height:8px;background:var(--amber-gold-muted);display:block}
+  .map-zoom .bars i.on{background:var(--amber-gold);box-shadow:0 0 4px var(--amber-gold)}
+
+  /* heading triangle for aircraft trajectory */
+  .map-trail{ position:absolute; inset:0; pointer-events:none; }
+
+  /* SPEC TABLE */
+  .spec-table{
+    border:1px solid var(--outline-variant);
+    background:var(--surface-container-low);
+  }
+  .spec-row{
+    display:grid;
+    grid-template-columns:64px 1.4fr 1fr 1fr 1fr 1fr;
+    gap:0;align-items:center;
+    border-bottom:1px solid var(--outline-variant);
+  }
+  .spec-row:last-child{border-bottom:none}
+  .spec-row.hdr{
+    background:var(--onyx-deep);
+    font-family:'Roboto Mono',monospace;font-size:9px;
+    color:var(--amber-gold);letter-spacing:0.18em;text-transform:uppercase;
+  }
+  .spec-row > div{ padding:14px 16px; border-right:1px solid var(--outline-variant); min-height:64px; display:flex; align-items:center; }
+  .spec-row > div:last-child{ border-right:none; }
+  .spec-row .glyph{ justify-content:center; padding:10px; }
+  .spec-row .name{
+    font-weight:700;font-size:12px;letter-spacing:0.05em;text-transform:uppercase;
+    flex-direction:column;align-items:flex-start;gap:4px;
+  }
+  .spec-row .name .id{
+    font-family:'Roboto Mono',monospace;font-size:9px;
+    color:var(--on-surface-variant);letter-spacing:0.15em;font-weight:400;
+  }
+  .spec-row .meta{font-family:'Roboto Mono',monospace;font-size:11px;color:var(--on-surface)}
+  .spec-row .meta .k{color:var(--amber-gold)}
+  .spec-row .meta .swatch{
+    display:inline-block;width:10px;height:10px;margin-right:6px;vertical-align:-1px;
+  }
+
+  /* footer */
+  footer{
+    border-top:1px solid var(--amber-gold-muted);
+    padding-top:24px;margin-top:64px;
+    display:flex;justify-content:space-between;align-items:center;
+    font-family:'Roboto Mono',monospace;font-size:10px;
+    color:var(--on-surface-variant);letter-spacing:0.18em;text-transform:uppercase;
+  }
+  footer span.amber{color:var(--amber-gold)}
+
+  @media (max-width: 1100px){
+    .cat-grid{grid-template-columns:repeat(2,1fr)}
+    .zoom-grid{grid-template-columns:repeat(2,1fr)}
+    .hero{grid-template-columns:1fr}
+    .anatomy-grid{grid-template-columns:1fr}
+    .state-matrix-grid{grid-template-columns:120px repeat(6,1fr)}
+  }
+</style>
+</head>
+<body>
+
+<!-- ============ OPS HEADER ============ -->
+<header class="ops-header">
+  <div class="ops-header-inner">
+    <div class="brand">
+      <svg viewBox="0 0 32 32" aria-hidden="true">
+        <g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square">
+          <path d="M2 8 V2 H8"/><path d="M24 2 H30 V8"/><path d="M30 24 V30 H24"/><path d="M8 30 H2 V24"/>
+        </g>
+        <polygon points="16,7 25,16 16,25 7,16" fill="none" stroke="currentColor" stroke-width="2"/>
+        <rect x="14" y="14" width="4" height="4" fill="var(--amber-gold)"/>
+      </svg>
+      <span class="brand-name">VERTEX</span>
+      <span class="brand-sub">Atlas Icons · v0.1</span>
+    </div>
+    <div class="ops-meta">
+      <a href="vertex-design-system.html">← DESIGN SYSTEM</a>
+      <span>SECTOR · 47.6N 122.3W</span>
+      <span class="live"><span class="live-dot"></span>ATLAS PROOFING</span>
+    </div>
+  </div>
+</header>
+
+<!-- ============================================================
+     SVG SYMBOL DEFS — every category icon authored once on a 32×32 grid
+     Used via <use href="#atlas-XYZ"/>
+     ============================================================ -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+
+    <!-- AIRCRAFT — chevron over delta with heading pip -->
+    <symbol id="atlas-air" viewBox="0 0 32 32">
+      <!-- outer chip frame for selection-friendly silhouette -->
+      <g fill="currentColor" stroke="none">
+        <!-- aircraft delta, nose up -->
+        <path d="M16 4 L23 22 L16 19 L9 22 Z"/>
+        <!-- tail fin -->
+        <rect x="15" y="22" width="2" height="5"/>
+      </g>
+    </symbol>
+
+    <!-- AIRCRAFT outline variant -->
+    <symbol id="atlas-air-line" viewBox="0 0 32 32">
+      <g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter" stroke-linecap="square">
+        <path d="M16 4 L23 22 L16 19 L9 22 Z"/>
+        <line x1="16" y1="22" x2="16" y2="27"/>
+      </g>
+    </symbol>
+
+    <!-- VESSEL — hull with mast and waterline -->
+    <symbol id="atlas-sea" viewBox="0 0 32 32">
+      <g fill="currentColor" stroke="none">
+        <!-- hull -->
+        <path d="M5 18 L27 18 L23 25 L9 25 Z"/>
+        <!-- mast -->
+        <rect x="15" y="6" width="2" height="11"/>
+        <!-- pennant -->
+        <path d="M17 7 L22 9 L17 11 Z"/>
+      </g>
+    </symbol>
+
+    <symbol id="atlas-sea-line" viewBox="0 0 32 32">
+      <g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter" stroke-linecap="square">
+        <path d="M5 18 L27 18 L23 25 L9 25 Z"/>
+        <line x1="16" y1="6" x2="16" y2="18"/>
+        <path d="M16 7 L22 9 L16 11"/>
+      </g>
+    </symbol>
+
+    <!-- MESH NODE — hex chip with central core -->
+    <symbol id="atlas-mesh" viewBox="0 0 32 32">
+      <g fill="currentColor" stroke="none">
+        <polygon points="16,4 26,10 26,22 16,28 6,22 6,10"/>
+      </g>
+      <g fill="var(--onyx-black)" stroke="none">
+        <rect x="13" y="13" width="6" height="6"/>
+      </g>
+    </symbol>
+
+    <symbol id="atlas-mesh-line" viewBox="0 0 32 32">
+      <g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter">
+        <polygon points="16,4 26,10 26,22 16,28 6,22 6,10"/>
+        <rect x="13" y="13" width="6" height="6"/>
+      </g>
+    </symbol>
+
+    <!-- APRS — packet square with tx tick -->
+    <symbol id="atlas-aprs" viewBox="0 0 32 32">
+      <g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter" stroke-linecap="square">
+        <!-- diamond chip -->
+        <polygon points="16,5 27,16 16,27 5,16" />
+        <!-- inner tx burst -->
+        <line x1="16" y1="11" x2="16" y2="21"/>
+        <line x1="11" y1="16" x2="21" y2="16"/>
+      </g>
+      <circle cx="16" cy="16" r="2.2" fill="currentColor"/>
+    </symbol>
+
+    <!-- STREAM GAUGE — rectangular gauge with water level -->
+    <symbol id="atlas-stream" viewBox="0 0 32 32">
+      <g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter" stroke-linecap="square">
+        <!-- gauge tower -->
+        <rect x="9" y="5" width="14" height="22"/>
+        <!-- tick marks -->
+        <line x1="9"  y1="11" x2="13" y2="11"/>
+        <line x1="9"  y1="16" x2="13" y2="16"/>
+        <line x1="9"  y1="21" x2="13" y2="21"/>
+      </g>
+      <!-- water fill (lower 40%) -->
+      <rect x="9.8" y="18" width="12.4" height="8.2" fill="currentColor" opacity="0.85"/>
+      <!-- top cap glyph -->
+      <rect x="13" y="3" width="6" height="2" fill="currentColor"/>
+    </symbol>
+
+    <!-- LIGHTNING — bolt -->
+    <symbol id="atlas-lightning" viewBox="0 0 32 32">
+      <g fill="currentColor" stroke="none">
+        <path d="M18 3 L7 18 L14 18 L12 29 L25 13 L17 13 L20 3 Z"/>
+      </g>
+    </symbol>
+
+    <symbol id="atlas-lightning-line" viewBox="0 0 32 32">
+      <g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter" stroke-linecap="square">
+        <path d="M18 3 L7 18 L14 18 L12 29 L25 13 L17 13 L20 3 Z"/>
+      </g>
+    </symbol>
+
+    <!-- FIRE INCIDENT — flame in pinned chevron -->
+    <symbol id="atlas-fire" viewBox="0 0 32 32">
+      <g fill="currentColor" stroke="none">
+        <!-- flame -->
+        <path d="M16 3
+                 C 19 8, 23 10, 23 16
+                 C 23 22, 19 27, 16 28
+                 C 13 27, 9 22, 9 16
+                 C 9 12, 11 11, 13 9
+                 C 13 13, 16 13, 14 9
+                 C 15 7, 16 5, 16 3 Z"/>
+      </g>
+      <!-- inner core -->
+      <path d="M16 14
+               C 18 17, 19 19, 19 22
+               C 19 25, 17 26, 16 26
+               C 15 26, 13 25, 13 22
+               C 13 19, 14 17, 16 14 Z"
+            fill="var(--onyx-black)" opacity="0.6"/>
+    </symbol>
+
+    <!-- CAMERA — CCTV body with lens -->
+    <symbol id="atlas-cam" viewBox="0 0 32 32">
+      <g fill="currentColor" stroke="none">
+        <!-- camera body trapezoid -->
+        <path d="M5 11 L24 8 L24 20 L5 17 Z"/>
+        <!-- mount post -->
+        <rect x="10" y="17" width="2" height="9"/>
+        <!-- mount base -->
+        <rect x="6" y="25" width="10" height="2"/>
+      </g>
+      <!-- lens -->
+      <circle cx="14" cy="14" r="3" fill="var(--onyx-black)"/>
+      <circle cx="14" cy="14" r="1.4" fill="currentColor"/>
+    </symbol>
+
+    <symbol id="atlas-cam-line" viewBox="0 0 32 32">
+      <g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter" stroke-linecap="square">
+        <path d="M5 11 L24 8 L24 20 L5 17 Z"/>
+        <line x1="11" y1="20" x2="11" y2="26"/>
+        <line x1="6" y1="26" x2="16" y2="26"/>
+        <circle cx="14" cy="14" r="3"/>
+      </g>
+    </symbol>
+
+    <!-- EMERGENCY DISPATCH — exclamation in chevron -->
+    <symbol id="atlas-emerg" viewBox="0 0 32 32">
+      <g fill="currentColor" stroke="none">
+        <polygon points="16,4 28,26 4,26"/>
+      </g>
+      <g fill="var(--onyx-black)" stroke="none">
+        <rect x="14.5" y="11" width="3" height="9"/>
+        <rect x="14.5" y="22" width="3" height="3"/>
+      </g>
+    </symbol>
+
+    <!-- GENERIC RING (zoom mid) -->
+    <symbol id="atlas-ring" viewBox="0 0 32 32">
+      <circle cx="16" cy="16" r="9" fill="none" stroke="currentColor" stroke-width="2"/>
+      <circle cx="16" cy="16" r="3" fill="currentColor"/>
+    </symbol>
+
+    <!-- GENERIC DOT (zoom min) -->
+    <symbol id="atlas-dot" viewBox="0 0 32 32">
+      <circle cx="16" cy="16" r="5" fill="currentColor"/>
+    </symbol>
+
+  </defs>
+</svg>
+
+<div class="frame">
+
+  <!-- ============ HERO ============ -->
+  <section class="hero" aria-label="Atlas brief">
+    <div>
+      <div class="sec-id" style="margin-bottom:18px"><span>// 00 · ATLAS BRIEF</span></div>
+      <h1 class="hero-title">
+        Eight categories,<br/>
+        <span class="accent">six states,</span><br/>
+        <span class="stroke">four zoom buckets.</span>
+      </h1>
+      <p class="hero-lede">
+        The Atlas is the icon system that sits on the map — every entity, sensor,
+        and incident in Vertex renders as one of these marks. Each category gets a
+        distinct silhouette so categories are legible without color; color carries
+        severity. Marks degrade through four zoom buckets so a 5,000-entity scene
+        stays readable. Built on the same 32×32 grid as the Scope logo.
+      </p>
+      <div class="hero-meta">
+        <div class="hero-meta-cell"><span class="label-caps">Categories</span><span class="val">8 · DISTINCT</span></div>
+        <div class="hero-meta-cell"><span class="label-caps">States</span><span class="val">6 · PER CAT</span></div>
+        <div class="hero-meta-cell"><span class="label-caps">Zoom</span><span class="val">4 · BUCKETS</span></div>
+        <div class="hero-meta-cell"><span class="label-caps">Marks</span><span class="val">192 · TOTAL</span></div>
+      </div>
+    </div>
+
+    <div class="atlas-hero-stage">
+      <div class="corner c-tl"></div><div class="corner c-tr"></div>
+      <div class="corner c-bl"></div><div class="corner c-br"></div>
+
+      <div class="ah-cell"><svg width="48" height="48" viewBox="0 0 32 32" style="color:var(--cat-air)"><use href="#atlas-air"/></svg></div>
+      <div class="ah-cell"><svg width="48" height="48" viewBox="0 0 32 32" style="color:var(--cat-sea)"><use href="#atlas-sea"/></svg></div>
+      <div class="ah-cell"><svg width="48" height="48" viewBox="0 0 32 32" style="color:var(--cat-mesh)"><use href="#atlas-mesh"/></svg></div>
+      <div class="ah-cell"><svg width="48" height="48" viewBox="0 0 32 32" style="color:var(--cat-aprs)"><use href="#atlas-aprs"/></svg></div>
+      <div class="ah-cell"><svg width="48" height="48" viewBox="0 0 32 32" style="color:var(--cat-stream)"><use href="#atlas-stream"/></svg></div>
+      <div class="ah-cell"><svg width="48" height="48" viewBox="0 0 32 32" style="color:var(--cat-lightning)"><use href="#atlas-lightning"/></svg></div>
+      <div class="ah-cell"><svg width="48" height="48" viewBox="0 0 32 32" style="color:var(--cat-fire)"><use href="#atlas-fire"/></svg></div>
+      <div class="ah-cell"><svg width="48" height="48" viewBox="0 0 32 32" style="color:var(--cat-cam)"><use href="#atlas-cam"/></svg></div>
+      <div class="ah-cell"><svg width="48" height="48" viewBox="0 0 32 32" style="color:var(--cat-emerg)"><use href="#atlas-emerg"/></svg></div>
+    </div>
+  </section>
+
+  <!-- ============ TOC ============ -->
+  <nav class="toc" aria-label="Table of contents">
+    <a href="#categories"><span class="num">01</span>CATEGORIES</a>
+    <a href="#states"><span class="num">02</span>STATES</a>
+    <a href="#zoom"><span class="num">03</span>ZOOM BUCKETS</a>
+    <a href="#anatomy"><span class="num">04</span>ANATOMY</a>
+    <a href="#context"><span class="num">05</span>MAP CONTEXT</a>
+    <a href="#spec"><span class="num">06</span>SPEC SHEET</a>
+  </nav>
+
+  <!-- ============ 01 CATEGORIES ============ -->
+  <section id="categories">
+    <div class="sec-head">
+      <div>
+        <div class="sec-id"><span>// 01 · CATEGORIES</span></div>
+        <h2 class="sec-title">Eight Silhouettes</h2>
+      </div>
+      <div class="sec-meta">
+        ONE SHAPE PER LAYER<br/>
+        <strong>READS WITHOUT COLOR</strong>
+      </div>
+    </div>
+
+    <div class="cat-grid">
+
+      <!-- AIRCRAFT -->
+      <div class="cat-card" data-cat="air">
+        <div class="cat-card-head"><span class="name">AIRCRAFT</span><span class="id">ATL-01 · ADS-B</span></div>
+        <div class="cat-card-stage">
+          <svg class="icon-mark" width="64" height="64" viewBox="0 0 32 32" style="color:var(--cat-air)"><use href="#atlas-air"/></svg>
+        </div>
+        <div class="cat-card-meta">
+          <div>SHAPE<b>DELTA</b></div>
+          <div>HUE<b class="hex">#00BFFF</b></div>
+          <div>BASE<b>22 PX</b></div>
+        </div>
+      </div>
+
+      <!-- VESSEL -->
+      <div class="cat-card" data-cat="sea">
+        <div class="cat-card-head"><span class="name">VESSEL</span><span class="id">ATL-02 · AIS</span></div>
+        <div class="cat-card-stage">
+          <svg class="icon-mark" width="64" height="64" viewBox="0 0 32 32" style="color:var(--cat-sea)"><use href="#atlas-sea"/></svg>
+        </div>
+        <div class="cat-card-meta">
+          <div>SHAPE<b>HULL</b></div>
+          <div>HUE<b class="hex">#00C853</b></div>
+          <div>BASE<b>22 PX</b></div>
+        </div>
+      </div>
+
+      <!-- MESH -->
+      <div class="cat-card" data-cat="mesh">
+        <div class="cat-card-head"><span class="name">MESH NODE</span><span class="id">ATL-03 · MESH</span></div>
+        <div class="cat-card-stage">
+          <svg class="icon-mark" width="64" height="64" viewBox="0 0 32 32" style="color:var(--cat-mesh)"><use href="#atlas-mesh"/></svg>
+        </div>
+        <div class="cat-card-meta">
+          <div>SHAPE<b>HEX</b></div>
+          <div>HUE<b class="hex">#FF8F00</b></div>
+          <div>BASE<b>20 PX</b></div>
+        </div>
+      </div>
+
+      <!-- APRS -->
+      <div class="cat-card" data-cat="aprs">
+        <div class="cat-card-head"><span class="name">APRS PACKET</span><span class="id">ATL-04 · 144.39</span></div>
+        <div class="cat-card-stage">
+          <svg class="icon-mark" width="64" height="64" viewBox="0 0 32 32" style="color:var(--cat-aprs)"><use href="#atlas-aprs"/></svg>
+        </div>
+        <div class="cat-card-meta">
+          <div>SHAPE<b>DIAMOND</b></div>
+          <div>HUE<b class="hex">#B388FF</b></div>
+          <div>BASE<b>20 PX</b></div>
+        </div>
+      </div>
+
+      <!-- STREAM -->
+      <div class="cat-card" data-cat="stream">
+        <div class="cat-card-head"><span class="name">STREAM GAUGE</span><span class="id">ATL-05 · USGS</span></div>
+        <div class="cat-card-stage">
+          <svg class="icon-mark" width="64" height="64" viewBox="0 0 32 32" style="color:var(--cat-stream)"><use href="#atlas-stream"/></svg>
+        </div>
+        <div class="cat-card-meta">
+          <div>SHAPE<b>GAUGE</b></div>
+          <div>HUE<b class="hex">#4FC3F7</b></div>
+          <div>BASE<b>22 PX</b></div>
+        </div>
+      </div>
+
+      <!-- LIGHTNING -->
+      <div class="cat-card" data-cat="lightning">
+        <div class="cat-card-head"><span class="name">LIGHTNING</span><span class="id">ATL-06 · STRIKE</span></div>
+        <div class="cat-card-stage">
+          <svg class="icon-mark" width="64" height="64" viewBox="0 0 32 32" style="color:var(--cat-lightning)"><use href="#atlas-lightning"/></svg>
+        </div>
+        <div class="cat-card-meta">
+          <div>SHAPE<b>BOLT</b></div>
+          <div>HUE<b class="hex">#FFE94D</b></div>
+          <div>BASE<b>18 PX</b></div>
+        </div>
+      </div>
+
+      <!-- FIRE -->
+      <div class="cat-card" data-cat="fire">
+        <div class="cat-card-head"><span class="name">FIRE INCIDENT</span><span class="id">ATL-07 · CAL-FIRE</span></div>
+        <div class="cat-card-stage">
+          <svg class="icon-mark" width="64" height="64" viewBox="0 0 32 32" style="color:var(--cat-fire)"><use href="#atlas-fire"/></svg>
+        </div>
+        <div class="cat-card-meta">
+          <div>SHAPE<b>FLAME</b></div>
+          <div>HUE<b class="hex">#FF5252</b></div>
+          <div>BASE<b>24 PX</b></div>
+        </div>
+      </div>
+
+      <!-- CAMERA -->
+      <div class="cat-card" data-cat="cam">
+        <div class="cat-card-head"><span class="name">CAMERA</span><span class="id">ATL-08 · CCTV</span></div>
+        <div class="cat-card-stage">
+          <svg class="icon-mark" width="64" height="64" viewBox="0 0 32 32" style="color:var(--cat-cam)"><use href="#atlas-cam"/></svg>
+        </div>
+        <div class="cat-card-meta">
+          <div>SHAPE<b>HOUSING</b></div>
+          <div>HUE<b class="hex">#FFB800</b></div>
+          <div>BASE<b>22 PX</b></div>
+        </div>
+      </div>
+
+      <!-- EMERGENCY -->
+      <div class="cat-card" data-cat="emerg">
+        <div class="cat-card-head"><span class="name">EMERGENCY</span><span class="id">ATL-09 · CAD</span></div>
+        <div class="cat-card-stage">
+          <svg class="icon-mark" width="64" height="64" viewBox="0 0 32 32" style="color:var(--cat-emerg)"><use href="#atlas-emerg"/></svg>
+        </div>
+        <div class="cat-card-meta">
+          <div>SHAPE<b>CHEVRON</b></div>
+          <div>HUE<b class="hex">#C62828</b></div>
+          <div>BASE<b>26 PX</b></div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ============ 02 STATES ============ -->
+  <section id="states">
+    <div class="sec-head">
+      <div>
+        <div class="sec-id"><span>// 02 · STATES</span></div>
+        <h2 class="sec-title">State Matrix</h2>
+      </div>
+      <div class="sec-meta">
+        DEFAULT · HOVER · SELECTED · ACTIVE · CRITICAL · STALE<br/>
+        <strong>SEVERITY → HALO + COLOR</strong>
+      </div>
+    </div>
+
+    <div class="state-matrix">
+      <div class="state-matrix-grid">
+        <!-- header row -->
+        <div class="cell hdr"></div>
+        <div class="cell hdr"><span class="col-tag">DEFAULT</span><span class="col-spec">passive · 100%</span></div>
+        <div class="cell hdr"><span class="col-tag">HOVER</span><span class="col-spec">+ outline 1px</span></div>
+        <div class="cell hdr"><span class="col-tag">SELECTED</span><span class="col-spec">+ amber bracket</span></div>
+        <div class="cell hdr"><span class="col-tag">ACTIVE</span><span class="col-spec">slow halo · 2.2s</span></div>
+        <div class="cell hdr"><span class="col-tag">CRITICAL</span><span class="col-spec">fast halo · 1.2s</span></div>
+        <div class="cell hdr"><span class="col-tag">STALE</span><span class="col-spec">25% · grey</span></div>
+
+        <!-- AIRCRAFT row -->
+        <div class="cell hdr rl" data-cat="air">
+          <div>
+            <div class="rl-name">AIRCRAFT</div>
+            <div class="rl-sub">N12345 · ADS-B</div>
+          </div>
+        </div>
+        <div class="cell"><svg width="36" height="36" viewBox="0 0 32 32" style="color:var(--cat-air)"><use href="#atlas-air"/></svg></div>
+        <div class="cell">
+          <svg width="36" height="36" viewBox="0 0 32 32" style="color:var(--cat-air);filter:drop-shadow(0 0 4px var(--cat-air))"><use href="#atlas-air"/></svg>
+        </div>
+        <div class="cell">
+          <span class="sel-brk"><i></i><b></b></span>
+          <svg width="36" height="36" viewBox="0 0 32 32" style="color:var(--cat-air)"><use href="#atlas-air"/></svg>
+        </div>
+        <div class="cell" style="color:var(--cat-air)">
+          <span class="halo halo-active"></span>
+          <svg width="36" height="36" viewBox="0 0 32 32" style="color:var(--cat-air);filter:drop-shadow(0 0 6px var(--cat-air))"><use href="#atlas-air"/></svg>
+        </div>
+        <div class="cell" style="color:var(--cat-emerg)">
+          <span class="halo halo-critical"></span>
+          <svg width="36" height="36" viewBox="0 0 32 32" style="color:var(--cat-emerg);filter:drop-shadow(0 0 6px var(--cat-emerg))"><use href="#atlas-air"/></svg>
+        </div>
+        <div class="cell"><svg width="36" height="36" viewBox="0 0 32 32" style="color:#555;opacity:0.5"><use href="#atlas-air"/></svg></div>
+
+        <!-- VESSEL row -->
+        <div class="cell hdr rl" data-cat="sea">
+          <div><div class="rl-name">VESSEL</div><div class="rl-sub">MMSI · 366994350</div></div>
+        </div>
+        <div class="cell"><svg width="36" height="36" viewBox="0 0 32 32" style="color:var(--cat-sea)"><use href="#atlas-sea"/></svg></div>
+        <div class="cell"><svg width="36" height="36" viewBox="0 0 32 32" style="color:var(--cat-sea);filter:drop-shadow(0 0 4px var(--cat-sea))"><use href="#atlas-sea"/></svg></div>
+        <div class="cell">
+          <span class="sel-brk"><i></i><b></b></span>
+          <svg width="36" height="36" viewBox="0 0 32 32" style="color:var(--cat-sea)"><use href="#atlas-sea"/></svg>
+        </div>
+        <div class="cell" style="color:var(--cat-sea)">
+          <span class="halo halo-active"></span>
+          <svg width="36" height="36" viewBox="0 0 32 32" style="color:var(--cat-sea);filter:drop-shadow(0 0 6px var(--cat-sea))"><use href="#atlas-sea"/></svg>
+        </div>
+        <div class="cell" style="color:var(--cat-emerg)">
+          <span class="halo halo-critical"></span>
+          <svg width="36" height="36" viewBox="0 0 32 32" style="color:var(--cat-emerg);filter:drop-shadow(0 0 6px var(--cat-emerg))"><use href="#atlas-sea"/></svg>
+        </div>
+        <div class="cell"><svg width="36" height="36" viewBox="0 0 32 32" style="color:#555;opacity:0.5"><use href="#atlas-sea"/></svg></div>
+
+        <!-- MESH row -->
+        <div class="cell hdr rl" data-cat="mesh">
+          <div><div class="rl-name">MESH NODE</div><div class="rl-sub">MN-0042 · UPLINK</div></div>
+        </div>
+        <div class="cell"><svg width="34" height="34" viewBox="0 0 32 32" style="color:var(--cat-mesh)"><use href="#atlas-mesh"/></svg></div>
+        <div class="cell"><svg width="34" height="34" viewBox="0 0 32 32" style="color:var(--cat-mesh);filter:drop-shadow(0 0 4px var(--cat-mesh))"><use href="#atlas-mesh"/></svg></div>
+        <div class="cell">
+          <span class="sel-brk"><i></i><b></b></span>
+          <svg width="34" height="34" viewBox="0 0 32 32" style="color:var(--cat-mesh)"><use href="#atlas-mesh"/></svg>
+        </div>
+        <div class="cell" style="color:var(--cat-mesh)">
+          <span class="halo halo-active"></span>
+          <svg width="34" height="34" viewBox="0 0 32 32" style="color:var(--cat-mesh);filter:drop-shadow(0 0 6px var(--cat-mesh))"><use href="#atlas-mesh"/></svg>
+        </div>
+        <div class="cell" style="color:var(--cat-emerg)">
+          <span class="halo halo-critical"></span>
+          <svg width="34" height="34" viewBox="0 0 32 32" style="color:var(--cat-emerg);filter:drop-shadow(0 0 6px var(--cat-emerg))"><use href="#atlas-mesh"/></svg>
+        </div>
+        <div class="cell"><svg width="34" height="34" viewBox="0 0 32 32" style="color:#555;opacity:0.5"><use href="#atlas-mesh"/></svg></div>
+
+        <!-- APRS row -->
+        <div class="cell hdr rl" data-cat="aprs">
+          <div><div class="rl-name">APRS</div><div class="rl-sub">KJ7XYZ · 144.390</div></div>
+        </div>
+        <div class="cell"><svg width="34" height="34" viewBox="0 0 32 32" style="color:var(--cat-aprs)"><use href="#atlas-aprs"/></svg></div>
+        <div class="cell"><svg width="34" height="34" viewBox="0 0 32 32" style="color:var(--cat-aprs);filter:drop-shadow(0 0 4px var(--cat-aprs))"><use href="#atlas-aprs"/></svg></div>
+        <div class="cell">
+          <span class="sel-brk"><i></i><b></b></span>
+          <svg width="34" height="34" viewBox="0 0 32 32" style="color:var(--cat-aprs)"><use href="#atlas-aprs"/></svg>
+        </div>
+        <div class="cell" style="color:var(--cat-aprs)">
+          <span class="halo halo-active"></span>
+          <svg width="34" height="34" viewBox="0 0 32 32" style="color:var(--cat-aprs);filter:drop-shadow(0 0 6px var(--cat-aprs))"><use href="#atlas-aprs"/></svg>
+        </div>
+        <div class="cell" style="color:var(--cat-emerg)">
+          <span class="halo halo-critical"></span>
+          <svg width="34" height="34" viewBox="0 0 32 32" style="color:var(--cat-emerg);filter:drop-shadow(0 0 6px var(--cat-emerg))"><use href="#atlas-aprs"/></svg>
+        </div>
+        <div class="cell"><svg width="34" height="34" viewBox="0 0 32 32" style="color:#555;opacity:0.5"><use href="#atlas-aprs"/></svg></div>
+
+        <!-- STREAM row -->
+        <div class="cell hdr rl" data-cat="stream">
+          <div><div class="rl-name">STREAM</div><div class="rl-sub">USGS-12119000</div></div>
+        </div>
+        <div class="cell"><svg width="36" height="36" viewBox="0 0 32 32" style="color:var(--cat-stream)"><use href="#atlas-stream"/></svg></div>
+        <div class="cell"><svg width="36" height="36" viewBox="0 0 32 32" style="color:var(--cat-stream);filter:drop-shadow(0 0 4px var(--cat-stream))"><use href="#atlas-stream"/></svg></div>
+        <div class="cell">
+          <span class="sel-brk"><i></i><b></b></span>
+          <svg width="36" height="36" viewBox="0 0 32 32" style="color:var(--cat-stream)"><use href="#atlas-stream"/></svg>
+        </div>
+        <div class="cell" style="color:var(--cat-stream)">
+          <span class="halo halo-active"></span>
+          <svg width="36" height="36" viewBox="0 0 32 32" style="color:var(--cat-stream);filter:drop-shadow(0 0 6px var(--cat-stream))"><use href="#atlas-stream"/></svg>
+        </div>
+        <div class="cell" style="color:var(--cat-emerg)">
+          <span class="halo halo-critical"></span>
+          <svg width="36" height="36" viewBox="0 0 32 32" style="color:var(--cat-emerg);filter:drop-shadow(0 0 6px var(--cat-emerg))"><use href="#atlas-stream"/></svg>
+        </div>
+        <div class="cell"><svg width="36" height="36" viewBox="0 0 32 32" style="color:#555;opacity:0.5"><use href="#atlas-stream"/></svg></div>
+
+        <!-- LIGHTNING row -->
+        <div class="cell hdr rl" data-cat="lightning">
+          <div><div class="rl-name">LIGHTNING</div><div class="rl-sub">CG · 14:22:07Z</div></div>
+        </div>
+        <div class="cell"><svg width="32" height="32" viewBox="0 0 32 32" style="color:var(--cat-lightning)"><use href="#atlas-lightning"/></svg></div>
+        <div class="cell"><svg width="32" height="32" viewBox="0 0 32 32" style="color:var(--cat-lightning);filter:drop-shadow(0 0 4px var(--cat-lightning))"><use href="#atlas-lightning"/></svg></div>
+        <div class="cell">
+          <span class="sel-brk"><i></i><b></b></span>
+          <svg width="32" height="32" viewBox="0 0 32 32" style="color:var(--cat-lightning)"><use href="#atlas-lightning"/></svg>
+        </div>
+        <div class="cell" style="color:var(--cat-lightning)">
+          <span class="halo halo-active"></span>
+          <svg width="32" height="32" viewBox="0 0 32 32" style="color:var(--cat-lightning);filter:drop-shadow(0 0 6px var(--cat-lightning))"><use href="#atlas-lightning"/></svg>
+        </div>
+        <div class="cell" style="color:var(--cat-emerg)">
+          <span class="halo halo-critical"></span>
+          <svg width="32" height="32" viewBox="0 0 32 32" style="color:var(--cat-emerg);filter:drop-shadow(0 0 6px var(--cat-emerg))"><use href="#atlas-lightning"/></svg>
+        </div>
+        <div class="cell"><svg width="32" height="32" viewBox="0 0 32 32" style="color:#555;opacity:0.5"><use href="#atlas-lightning"/></svg></div>
+
+        <!-- FIRE row -->
+        <div class="cell hdr rl" data-cat="fire">
+          <div><div class="rl-name">FIRE</div><div class="rl-sub">INC-2401 · 4 ALARM</div></div>
+        </div>
+        <div class="cell"><svg width="38" height="38" viewBox="0 0 32 32" style="color:var(--cat-fire)"><use href="#atlas-fire"/></svg></div>
+        <div class="cell"><svg width="38" height="38" viewBox="0 0 32 32" style="color:var(--cat-fire);filter:drop-shadow(0 0 4px var(--cat-fire))"><use href="#atlas-fire"/></svg></div>
+        <div class="cell">
+          <span class="sel-brk"><i></i><b></b></span>
+          <svg width="38" height="38" viewBox="0 0 32 32" style="color:var(--cat-fire)"><use href="#atlas-fire"/></svg>
+        </div>
+        <div class="cell" style="color:var(--cat-fire)">
+          <span class="halo halo-active"></span>
+          <svg width="38" height="38" viewBox="0 0 32 32" style="color:var(--cat-fire);filter:drop-shadow(0 0 6px var(--cat-fire))"><use href="#atlas-fire"/></svg>
+        </div>
+        <div class="cell" style="color:var(--cat-emerg)">
+          <span class="halo halo-critical"></span>
+          <svg width="38" height="38" viewBox="0 0 32 32" style="color:var(--cat-emerg);filter:drop-shadow(0 0 8px var(--cat-emerg))"><use href="#atlas-fire"/></svg>
+        </div>
+        <div class="cell"><svg width="38" height="38" viewBox="0 0 32 32" style="color:#555;opacity:0.5"><use href="#atlas-fire"/></svg></div>
+
+        <!-- CAMERA row -->
+        <div class="cell hdr rl" data-cat="cam">
+          <div><div class="rl-name">CAMERA</div><div class="rl-sub">CAM-WSP-118</div></div>
+        </div>
+        <div class="cell"><svg width="36" height="36" viewBox="0 0 32 32" style="color:var(--cat-cam)"><use href="#atlas-cam"/></svg></div>
+        <div class="cell"><svg width="36" height="36" viewBox="0 0 32 32" style="color:var(--cat-cam);filter:drop-shadow(0 0 4px var(--cat-cam))"><use href="#atlas-cam"/></svg></div>
+        <div class="cell">
+          <span class="sel-brk"><i></i><b></b></span>
+          <svg width="36" height="36" viewBox="0 0 32 32" style="color:var(--cat-cam)"><use href="#atlas-cam"/></svg>
+        </div>
+        <div class="cell" style="color:var(--cat-cam)">
+          <span class="halo halo-active"></span>
+          <svg width="36" height="36" viewBox="0 0 32 32" style="color:var(--cat-cam);filter:drop-shadow(0 0 6px var(--cat-cam))"><use href="#atlas-cam"/></svg>
+        </div>
+        <div class="cell" style="color:var(--cat-emerg)">
+          <span class="halo halo-critical"></span>
+          <svg width="36" height="36" viewBox="0 0 32 32" style="color:var(--cat-emerg);filter:drop-shadow(0 0 6px var(--cat-emerg))"><use href="#atlas-cam"/></svg>
+        </div>
+        <div class="cell"><svg width="36" height="36" viewBox="0 0 32 32" style="color:#555;opacity:0.5"><use href="#atlas-cam"/></svg></div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 03 ZOOM BUCKETS ============ -->
+  <section id="zoom">
+    <div class="sec-head">
+      <div>
+        <div class="sec-id"><span>// 03 · ZOOM</span></div>
+        <h2 class="sec-title">Density &amp; Decay</h2>
+      </div>
+      <div class="sec-meta">
+        FULL · SIMPLIFIED · RING · DOT<br/>
+        <strong>4 BUCKETS · z 14→6</strong>
+      </div>
+    </div>
+
+    <div class="zoom-grid">
+      <!-- FULL -->
+      <div class="zoom-col">
+        <div class="zoom-col-head"><span class="ztag">FULL</span><span class="zspec">z14+ · 22-26 PX</span></div>
+        <div class="zoom-rows">
+          <div class="zoom-row" data-cat="air"><span class="zname">AIR</span><span class="zglyph"><svg width="28" height="28" viewBox="0 0 32 32" style="color:var(--cat-air)"><use href="#atlas-air"/></svg></span></div>
+          <div class="zoom-row" data-cat="sea"><span class="zname">SEA</span><span class="zglyph"><svg width="28" height="28" viewBox="0 0 32 32" style="color:var(--cat-sea)"><use href="#atlas-sea"/></svg></span></div>
+          <div class="zoom-row" data-cat="mesh"><span class="zname">MESH</span><span class="zglyph"><svg width="26" height="26" viewBox="0 0 32 32" style="color:var(--cat-mesh)"><use href="#atlas-mesh"/></svg></span></div>
+          <div class="zoom-row" data-cat="aprs"><span class="zname">APRS</span><span class="zglyph"><svg width="26" height="26" viewBox="0 0 32 32" style="color:var(--cat-aprs)"><use href="#atlas-aprs"/></svg></span></div>
+          <div class="zoom-row" data-cat="stream"><span class="zname">STREAM</span><span class="zglyph"><svg width="28" height="28" viewBox="0 0 32 32" style="color:var(--cat-stream)"><use href="#atlas-stream"/></svg></span></div>
+          <div class="zoom-row" data-cat="lightning"><span class="zname">BOLT</span><span class="zglyph"><svg width="24" height="24" viewBox="0 0 32 32" style="color:var(--cat-lightning)"><use href="#atlas-lightning"/></svg></span></div>
+          <div class="zoom-row" data-cat="fire"><span class="zname">FIRE</span><span class="zglyph"><svg width="30" height="30" viewBox="0 0 32 32" style="color:var(--cat-fire)"><use href="#atlas-fire"/></svg></span></div>
+          <div class="zoom-row" data-cat="cam"><span class="zname">CAM</span><span class="zglyph"><svg width="28" height="28" viewBox="0 0 32 32" style="color:var(--cat-cam)"><use href="#atlas-cam"/></svg></span></div>
+        </div>
+      </div>
+
+      <!-- SIMPLIFIED (line variants) -->
+      <div class="zoom-col">
+        <div class="zoom-col-head"><span class="ztag">SIMPLIFIED</span><span class="zspec">z11-13 · 16-20 PX</span></div>
+        <div class="zoom-rows">
+          <div class="zoom-row" data-cat="air"><span class="zname">AIR</span><span class="zglyph"><svg width="20" height="20" viewBox="0 0 32 32" style="color:var(--cat-air)"><use href="#atlas-air-line"/></svg></span></div>
+          <div class="zoom-row" data-cat="sea"><span class="zname">SEA</span><span class="zglyph"><svg width="20" height="20" viewBox="0 0 32 32" style="color:var(--cat-sea)"><use href="#atlas-sea-line"/></svg></span></div>
+          <div class="zoom-row" data-cat="mesh"><span class="zname">MESH</span><span class="zglyph"><svg width="18" height="18" viewBox="0 0 32 32" style="color:var(--cat-mesh)"><use href="#atlas-mesh-line"/></svg></span></div>
+          <div class="zoom-row" data-cat="aprs"><span class="zname">APRS</span><span class="zglyph"><svg width="18" height="18" viewBox="0 0 32 32" style="color:var(--cat-aprs)"><use href="#atlas-aprs"/></svg></span></div>
+          <div class="zoom-row" data-cat="stream"><span class="zname">STREAM</span><span class="zglyph"><svg width="20" height="20" viewBox="0 0 32 32" style="color:var(--cat-stream)"><use href="#atlas-stream"/></svg></span></div>
+          <div class="zoom-row" data-cat="lightning"><span class="zname">BOLT</span><span class="zglyph"><svg width="18" height="18" viewBox="0 0 32 32" style="color:var(--cat-lightning)"><use href="#atlas-lightning-line"/></svg></span></div>
+          <div class="zoom-row" data-cat="fire"><span class="zname">FIRE</span><span class="zglyph"><svg width="22" height="22" viewBox="0 0 32 32" style="color:var(--cat-fire)"><use href="#atlas-fire"/></svg></span></div>
+          <div class="zoom-row" data-cat="cam"><span class="zname">CAM</span><span class="zglyph"><svg width="20" height="20" viewBox="0 0 32 32" style="color:var(--cat-cam)"><use href="#atlas-cam-line"/></svg></span></div>
+        </div>
+      </div>
+
+      <!-- RING -->
+      <div class="zoom-col">
+        <div class="zoom-col-head"><span class="ztag">RING</span><span class="zspec">z8-10 · 12 PX</span></div>
+        <div class="zoom-rows">
+          <div class="zoom-row" data-cat="air"><span class="zname">AIR</span><span class="zglyph"><svg width="14" height="14" viewBox="0 0 32 32" style="color:var(--cat-air)"><use href="#atlas-ring"/></svg></span></div>
+          <div class="zoom-row" data-cat="sea"><span class="zname">SEA</span><span class="zglyph"><svg width="14" height="14" viewBox="0 0 32 32" style="color:var(--cat-sea)"><use href="#atlas-ring"/></svg></span></div>
+          <div class="zoom-row" data-cat="mesh"><span class="zname">MESH</span><span class="zglyph"><svg width="14" height="14" viewBox="0 0 32 32" style="color:var(--cat-mesh)"><use href="#atlas-ring"/></svg></span></div>
+          <div class="zoom-row" data-cat="aprs"><span class="zname">APRS</span><span class="zglyph"><svg width="14" height="14" viewBox="0 0 32 32" style="color:var(--cat-aprs)"><use href="#atlas-ring"/></svg></span></div>
+          <div class="zoom-row" data-cat="stream"><span class="zname">STREAM</span><span class="zglyph"><svg width="14" height="14" viewBox="0 0 32 32" style="color:var(--cat-stream)"><use href="#atlas-ring"/></svg></span></div>
+          <div class="zoom-row" data-cat="lightning"><span class="zname">BOLT</span><span class="zglyph"><svg width="14" height="14" viewBox="0 0 32 32" style="color:var(--cat-lightning)"><use href="#atlas-ring"/></svg></span></div>
+          <div class="zoom-row" data-cat="fire"><span class="zname">FIRE</span><span class="zglyph"><svg width="14" height="14" viewBox="0 0 32 32" style="color:var(--cat-fire)"><use href="#atlas-ring"/></svg></span></div>
+          <div class="zoom-row" data-cat="cam"><span class="zname">CAM</span><span class="zglyph"><svg width="14" height="14" viewBox="0 0 32 32" style="color:var(--cat-cam)"><use href="#atlas-ring"/></svg></span></div>
+        </div>
+      </div>
+
+      <!-- DOT -->
+      <div class="zoom-col">
+        <div class="zoom-col-head"><span class="ztag">DOT</span><span class="zspec">z6-7 · 6 PX</span></div>
+        <div class="zoom-rows">
+          <div class="zoom-row" data-cat="air"><span class="zname">AIR</span><span class="zglyph"><svg width="10" height="10" viewBox="0 0 32 32" style="color:var(--cat-air)"><use href="#atlas-dot"/></svg></span></div>
+          <div class="zoom-row" data-cat="sea"><span class="zname">SEA</span><span class="zglyph"><svg width="10" height="10" viewBox="0 0 32 32" style="color:var(--cat-sea)"><use href="#atlas-dot"/></svg></span></div>
+          <div class="zoom-row" data-cat="mesh"><span class="zname">MESH</span><span class="zglyph"><svg width="10" height="10" viewBox="0 0 32 32" style="color:var(--cat-mesh)"><use href="#atlas-dot"/></svg></span></div>
+          <div class="zoom-row" data-cat="aprs"><span class="zname">APRS</span><span class="zglyph"><svg width="10" height="10" viewBox="0 0 32 32" style="color:var(--cat-aprs)"><use href="#atlas-dot"/></svg></span></div>
+          <div class="zoom-row" data-cat="stream"><span class="zname">STREAM</span><span class="zglyph"><svg width="10" height="10" viewBox="0 0 32 32" style="color:var(--cat-stream)"><use href="#atlas-dot"/></svg></span></div>
+          <div class="zoom-row" data-cat="lightning"><span class="zname">BOLT</span><span class="zglyph"><svg width="10" height="10" viewBox="0 0 32 32" style="color:var(--cat-lightning)"><use href="#atlas-dot"/></svg></span></div>
+          <div class="zoom-row" data-cat="fire"><span class="zname">FIRE</span><span class="zglyph"><svg width="10" height="10" viewBox="0 0 32 32" style="color:var(--cat-fire)"><use href="#atlas-dot"/></svg></span></div>
+          <div class="zoom-row" data-cat="cam"><span class="zname">CAM</span><span class="zglyph"><svg width="10" height="10" viewBox="0 0 32 32" style="color:var(--cat-cam)"><use href="#atlas-dot"/></svg></span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 04 ANATOMY ============ -->
+  <section id="anatomy">
+    <div class="sec-head">
+      <div>
+        <div class="sec-id"><span>// 04 · ANATOMY</span></div>
+        <h2 class="sec-title">Construction</h2>
+      </div>
+      <div class="sec-meta">
+        32×32 GRID · 1PX UNITS<br/>
+        <strong>4PX SAFE AREA</strong>
+      </div>
+    </div>
+
+    <div class="anatomy-grid">
+      <div class="anatomy-frame">
+        <div class="gauge-tl"></div><div class="gauge-tr"></div>
+        <div class="gauge-bl"></div><div class="gauge-br"></div>
+        <svg width="100%" height="100%" viewBox="0 0 32 32">
+          <!-- safe area dashed -->
+          <rect x="4" y="4" width="24" height="24" fill="none" stroke="var(--amber-gold)" stroke-width="0.25" stroke-dasharray="0.5 0.5" opacity="0.5"/>
+          <!-- the icon itself -->
+          <g style="color:var(--cat-air)"><use href="#atlas-air"/></g>
+          <!-- center cross -->
+          <line x1="16" y1="0" x2="16" y2="32" stroke="var(--amber-gold)" stroke-width="0.18" opacity="0.6"/>
+          <line x1="0" y1="16" x2="32" y2="16" stroke="var(--amber-gold)" stroke-width="0.18" opacity="0.6"/>
+          <!-- pivot point at geometric center -->
+          <circle cx="16" cy="20" r="0.7" fill="var(--amber-gold)"/>
+        </svg>
+        <div class="x-marker"><span class="swatch"></span>1U = 1PX · 32U FRAME</div>
+      </div>
+
+      <div class="anatomy-notes">
+        <div class="anatomy-note">
+          <div class="nh">// 32 × 32 GRID</div>
+          <div class="nb">Every mark is authored on the same grid as the Scope logo. Coordinates align to whole pixels — <code>x,y ∈ ℤ</code>. No half-pixel anchors.</div>
+        </div>
+        <div class="anatomy-note">
+          <div class="nh">// 4PX SAFE AREA</div>
+          <div class="nb">All glyph geometry stays inside the inner <code>24 × 24</code> region. The outer <code>4px</code> ring reserves space for the selection bracket and active halo without redraw.</div>
+        </div>
+        <div class="anatomy-note">
+          <div class="nh">// HEADING PIVOT</div>
+          <div class="nb">Directional categories (air, sea) rotate around <code>(16, 20)</code> — the vehicle's geometric centroid, not the canvas center, so heading rotation looks correct.</div>
+        </div>
+        <div class="anatomy-note">
+          <div class="nh">// FILL VS STROKE</div>
+          <div class="nb"><code>FULL</code> bucket uses solid fills. <code>SIMPLIFIED</code> uses 1.6px strokes at 32U scale. <code>RING</code> and <code>DOT</code> share the same primitive across all categories.</div>
+        </div>
+        <div class="anatomy-note">
+          <div class="nh">// HALO</div>
+          <div class="nb">Halo radius is <code>2× icon radius</code>, centered on the pivot. Color = current category hue for <code>ACTIVE</code>, swap to <code>--cat-emerg</code> for <code>CRITICAL</code>.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 05 MAP CONTEXT ============ -->
+  <section id="context">
+    <div class="sec-head">
+      <div>
+        <div class="sec-id"><span>// 05 · CONTEXT</span></div>
+        <h2 class="sec-title">In Situ</h2>
+      </div>
+      <div class="sec-meta">
+        DARK TACTICAL · z11<br/>
+        <strong>MIXED LAYER · 18 ENTITIES</strong>
+      </div>
+    </div>
+
+    <div class="map-context">
+      <div class="hud-card-head">
+        <span class="label-caps">FIG 05.1 · MAP COMPOSITION · all 8 layers · z11</span>
+        <span class="mono" style="font-size:10px;color:var(--on-surface-variant);letter-spacing:0.15em">SECTOR · PUGET · 47.62N 122.34W</span>
+      </div>
+
+      <div class="map-canvas">
+
+        <!-- subtle coastline -->
+        <svg class="map-coast" viewBox="0 0 100 60" preserveAspectRatio="none">
+          <path d="M 0 38 Q 12 36 18 40 T 30 42 Q 38 44 44 41 T 60 36 Q 70 32 80 34 T 100 36"
+                fill="none" stroke="rgba(0,200,83,0.5)" stroke-width="0.18" stroke-dasharray="0.6 0.6"/>
+          <path d="M 0 50 Q 20 48 32 52 T 60 54 Q 80 52 100 56"
+                fill="none" stroke="rgba(0,200,83,0.3)" stroke-width="0.15" stroke-dasharray="0.4 0.6"/>
+        </svg>
+
+        <!-- aircraft trail SVG -->
+        <svg class="map-trail" viewBox="0 0 100 60" preserveAspectRatio="none">
+          <path d="M 22 18 Q 30 16 36 17 T 50 18" stroke="rgba(0,191,255,0.55)" stroke-width="0.25" fill="none" stroke-dasharray="0.5 0.5"/>
+          <path d="M 50 18 L 60 18 L 68 19" stroke="rgba(0,191,255,0.25)" stroke-width="0.25" fill="none" stroke-dasharray="0.8 0.8"/>
+        </svg>
+
+        <!-- AIRCRAFT (selected, with trail terminus) -->
+        <div class="map-marker" style="left:50%;top:30%;color:var(--cat-air)">
+          <span class="halo halo-active" style="width:36px;height:36px"></span>
+          <span class="sel-brk" style="left:50%;top:50%;transform:translate(-50%,-50%)"><i></i><b></b></span>
+          <svg width="30" height="30" viewBox="0 0 32 32" style="color:var(--cat-air);transform:rotate(78deg);filter:drop-shadow(0 0 6px var(--cat-air))"><use href="#atlas-air"/></svg>
+        </div>
+        <!-- another aircraft -->
+        <div class="map-marker" style="left:24%;top:18%">
+          <svg width="22" height="22" viewBox="0 0 32 32" style="color:var(--cat-air);transform:rotate(125deg)"><use href="#atlas-air"/></svg>
+        </div>
+        <div class="map-marker" style="left:74%;top:22%">
+          <svg width="22" height="22" viewBox="0 0 32 32" style="color:var(--cat-air);transform:rotate(245deg)"><use href="#atlas-air"/></svg>
+        </div>
+
+        <!-- VESSELS -->
+        <div class="map-marker" style="left:30%;top:62%">
+          <svg width="24" height="24" viewBox="0 0 32 32" style="color:var(--cat-sea);transform:rotate(40deg)"><use href="#atlas-sea"/></svg>
+        </div>
+        <div class="map-marker" style="left:42%;top:78%">
+          <svg width="22" height="22" viewBox="0 0 32 32" style="color:var(--cat-sea);transform:rotate(15deg)"><use href="#atlas-sea"/></svg>
+        </div>
+        <div class="map-marker" style="left:58%;top:70%">
+          <svg width="22" height="22" viewBox="0 0 32 32" style="color:var(--cat-sea);transform:rotate(-25deg)"><use href="#atlas-sea"/></svg>
+        </div>
+
+        <!-- MESH NODES (cluster) -->
+        <div class="map-marker" style="left:38%;top:48%">
+          <svg width="20" height="20" viewBox="0 0 32 32" style="color:var(--cat-mesh)"><use href="#atlas-mesh"/></svg>
+        </div>
+        <div class="map-marker" style="left:44%;top:52%">
+          <svg width="20" height="20" viewBox="0 0 32 32" style="color:var(--cat-mesh)"><use href="#atlas-mesh"/></svg>
+        </div>
+        <div class="map-marker" style="left:46%;top:46%">
+          <svg width="20" height="20" viewBox="0 0 32 32" style="color:var(--cat-mesh)"><use href="#atlas-mesh"/></svg>
+        </div>
+
+        <!-- APRS -->
+        <div class="map-marker" style="left:64%;top:42%">
+          <svg width="20" height="20" viewBox="0 0 32 32" style="color:var(--cat-aprs)"><use href="#atlas-aprs"/></svg>
+        </div>
+        <div class="map-marker" style="left:80%;top:50%">
+          <svg width="20" height="20" viewBox="0 0 32 32" style="color:var(--cat-aprs)"><use href="#atlas-aprs"/></svg>
+        </div>
+
+        <!-- STREAM gauges -->
+        <div class="map-marker" style="left:36%;top:36%">
+          <svg width="22" height="22" viewBox="0 0 32 32" style="color:var(--cat-stream)"><use href="#atlas-stream"/></svg>
+        </div>
+        <div class="map-marker" style="left:55%;top:55%">
+          <svg width="22" height="22" viewBox="0 0 32 32" style="color:var(--cat-stream)"><use href="#atlas-stream"/></svg>
+        </div>
+
+        <!-- LIGHTNING strikes -->
+        <div class="map-marker" style="left:68%;top:30%;color:var(--cat-lightning)">
+          <span class="halo halo-active" style="width:28px;height:28px"></span>
+          <svg width="20" height="20" viewBox="0 0 32 32" style="color:var(--cat-lightning);filter:drop-shadow(0 0 6px var(--cat-lightning))"><use href="#atlas-lightning"/></svg>
+        </div>
+        <div class="map-marker" style="left:78%;top:38%">
+          <svg width="18" height="18" viewBox="0 0 32 32" style="color:var(--cat-lightning);opacity:0.8"><use href="#atlas-lightning"/></svg>
+        </div>
+
+        <!-- FIRE incident (critical) -->
+        <div class="map-marker" style="left:65%;top:65%;color:var(--cat-emerg)">
+          <span class="halo halo-critical" style="width:44px;height:44px"></span>
+          <svg width="28" height="28" viewBox="0 0 32 32" style="color:var(--cat-fire);filter:drop-shadow(0 0 8px var(--cat-fire))"><use href="#atlas-fire"/></svg>
+        </div>
+
+        <!-- CAMERAS -->
+        <div class="map-marker" style="left:48%;top:25%">
+          <svg width="22" height="22" viewBox="0 0 32 32" style="color:var(--cat-cam)"><use href="#atlas-cam"/></svg>
+        </div>
+        <div class="map-marker" style="left:18%;top:45%">
+          <svg width="22" height="22" viewBox="0 0 32 32" style="color:var(--cat-cam)"><use href="#atlas-cam"/></svg>
+        </div>
+        <div class="map-marker" style="left:84%;top:62%">
+          <svg width="22" height="22" viewBox="0 0 32 32" style="color:var(--cat-cam)"><use href="#atlas-cam"/></svg>
+        </div>
+
+        <!-- LAYER PANEL -->
+        <div class="layer-panel">
+          <div class="layer-panel-head">
+            <span class="label-caps">// LAYERS</span>
+            <span class="mono" style="font-size:9px;color:var(--on-surface-variant);letter-spacing:0.15em">8 / 8</span>
+          </div>
+          <div class="layer-panel-rows">
+            <div class="layer-row"><span class="lr-icon"><svg width="14" height="14" viewBox="0 0 32 32" style="color:var(--cat-air)"><use href="#atlas-air"/></svg></span><span class="lr-name">AIRCRAFT</span><span class="lr-count">14</span></div>
+            <div class="layer-row"><span class="lr-icon"><svg width="14" height="14" viewBox="0 0 32 32" style="color:var(--cat-sea)"><use href="#atlas-sea"/></svg></span><span class="lr-name">VESSEL</span><span class="lr-count">8</span></div>
+            <div class="layer-row"><span class="lr-icon"><svg width="14" height="14" viewBox="0 0 32 32" style="color:var(--cat-mesh)"><use href="#atlas-mesh"/></svg></span><span class="lr-name">MESH</span><span class="lr-count">6</span></div>
+            <div class="layer-row off"><span class="lr-icon"><svg width="14" height="14" viewBox="0 0 32 32" style="color:var(--cat-aprs)"><use href="#atlas-aprs"/></svg></span><span class="lr-name">APRS</span><span class="lr-count">22</span></div>
+            <div class="layer-row"><span class="lr-icon"><svg width="14" height="14" viewBox="0 0 32 32" style="color:var(--cat-stream)"><use href="#atlas-stream"/></svg></span><span class="lr-name">STREAM</span><span class="lr-count">4</span></div>
+            <div class="layer-row"><span class="lr-icon"><svg width="14" height="14" viewBox="0 0 32 32" style="color:var(--cat-lightning)"><use href="#atlas-lightning"/></svg></span><span class="lr-name">LIGHTNING</span><span class="lr-count">12</span></div>
+            <div class="layer-row"><span class="lr-icon"><svg width="14" height="14" viewBox="0 0 32 32" style="color:var(--cat-fire)"><use href="#atlas-fire"/></svg></span><span class="lr-name">FIRE</span><span class="lr-count">1</span></div>
+            <div class="layer-row"><span class="lr-icon"><svg width="14" height="14" viewBox="0 0 32 32" style="color:var(--cat-cam)"><use href="#atlas-cam"/></svg></span><span class="lr-name">CAMERA</span><span class="lr-count">32</span></div>
+          </div>
+        </div>
+
+        <!-- ENTITY HUD (selected aircraft) -->
+        <div class="entity-hud">
+          <div class="entity-hud-head">
+            <div class="name"><svg width="14" height="14" viewBox="0 0 32 32" style="color:var(--cat-air)"><use href="#atlas-air"/></svg> N12345</div>
+            <span class="mono" style="font-size:9px;color:var(--on-surface-variant);letter-spacing:0.12em">SEL</span>
+          </div>
+          <div class="entity-hud-rows">
+            <div class="entity-hud-row"><span class="label-caps">ALT</span><span class="val">3,500 ft</span></div>
+            <div class="entity-hud-row"><span class="label-caps">SPD</span><span class="val">112 kts</span></div>
+            <div class="entity-hud-row"><span class="label-caps">HDG</span><span class="val">078°</span></div>
+            <div class="entity-hud-row"><span class="label-caps">SQK</span><span class="val">1200</span></div>
+            <div class="entity-hud-row"><span class="label-caps">SRC</span><span class="val sig">ADS-B · MLAT</span></div>
+          </div>
+        </div>
+
+        <!-- ZOOM indicator -->
+        <div class="map-zoom">
+          <span>z11</span>
+          <div class="bars">
+            <i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i>
+          </div>
+          <span style="color:var(--on-surface-variant)">FULL</span>
+        </div>
+
+        <!-- READOUT -->
+        <div class="map-readout">
+          <div>14:22:07 Z</div>
+          <div>BEARING <span class="v">047.2°</span></div>
+          <div>RANGE <span class="v">14.6 NM</span></div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- second mock: zoom-out, dot bucket, dense -->
+    <div class="map-context" style="margin-top:24px">
+      <div class="hud-card-head">
+        <span class="label-caps">FIG 05.2 · ZOOM-OUT · DOT BUCKET · z6</span>
+        <span class="mono" style="font-size:10px;color:var(--on-surface-variant);letter-spacing:0.15em">REGIONAL · 5,200 ENTITIES</span>
+      </div>
+      <div class="map-canvas" style="height:340px">
+        <!-- generated dot field -->
+        <div id="dot-field"></div>
+        <div class="map-zoom">
+          <span>z6</span>
+          <div class="bars"><i class="on"></i><i></i><i></i><i></i><i></i><i></i></div>
+          <span style="color:var(--on-surface-variant)">DOT</span>
+        </div>
+        <div class="map-readout">
+          <div>5,200 PINGS · 60s</div>
+          <div>RENDER <span class="v">14ms</span></div>
+        </div>
+      </div>
+    </div>
+
+  </section>
+
+  <!-- ============ 06 SPEC SHEET ============ -->
+  <section id="spec">
+    <div class="sec-head">
+      <div>
+        <div class="sec-id"><span>// 06 · SPEC</span></div>
+        <h2 class="sec-title">Token Reference</h2>
+      </div>
+      <div class="sec-meta">
+        ID · HUE · BASE · HALO<br/>
+        <strong>FOR DECK.GL ATLAS</strong>
+      </div>
+    </div>
+
+    <div class="spec-table">
+      <div class="spec-row hdr">
+        <div>GLYPH</div>
+        <div>NAME · TOKEN</div>
+        <div>BASE</div>
+        <div>HUE · DEFAULT</div>
+        <div>HUE · CRITICAL</div>
+        <div>HALO</div>
+      </div>
+
+      <div class="spec-row">
+        <div class="glyph"><svg width="32" height="32" viewBox="0 0 32 32" style="color:var(--cat-air)"><use href="#atlas-air"/></svg></div>
+        <div class="name">AIRCRAFT<span class="id">atlas.air · ATL-01</span></div>
+        <div class="meta">22<span class="k"> px</span></div>
+        <div class="meta"><span class="swatch" style="background:var(--cat-air)"></span><span class="k">#00BFFF</span></div>
+        <div class="meta"><span class="swatch" style="background:var(--cat-emerg)"></span><span class="k">#C62828</span></div>
+        <div class="meta">2.2s · slow</div>
+      </div>
+
+      <div class="spec-row">
+        <div class="glyph"><svg width="32" height="32" viewBox="0 0 32 32" style="color:var(--cat-sea)"><use href="#atlas-sea"/></svg></div>
+        <div class="name">VESSEL<span class="id">atlas.sea · ATL-02</span></div>
+        <div class="meta">22<span class="k"> px</span></div>
+        <div class="meta"><span class="swatch" style="background:var(--cat-sea)"></span><span class="k">#00C853</span></div>
+        <div class="meta"><span class="swatch" style="background:var(--cat-emerg)"></span><span class="k">#C62828</span></div>
+        <div class="meta">2.2s · slow</div>
+      </div>
+
+      <div class="spec-row">
+        <div class="glyph"><svg width="32" height="32" viewBox="0 0 32 32" style="color:var(--cat-mesh)"><use href="#atlas-mesh"/></svg></div>
+        <div class="name">MESH NODE<span class="id">atlas.mesh · ATL-03</span></div>
+        <div class="meta">20<span class="k"> px</span></div>
+        <div class="meta"><span class="swatch" style="background:var(--cat-mesh)"></span><span class="k">#FF8F00</span></div>
+        <div class="meta"><span class="swatch" style="background:var(--cat-emerg)"></span><span class="k">#C62828</span></div>
+        <div class="meta">2.2s · slow</div>
+      </div>
+
+      <div class="spec-row">
+        <div class="glyph"><svg width="32" height="32" viewBox="0 0 32 32" style="color:var(--cat-aprs)"><use href="#atlas-aprs"/></svg></div>
+        <div class="name">APRS<span class="id">atlas.aprs · ATL-04</span></div>
+        <div class="meta">20<span class="k"> px</span></div>
+        <div class="meta"><span class="swatch" style="background:var(--cat-aprs)"></span><span class="k">#B388FF</span></div>
+        <div class="meta"><span class="swatch" style="background:var(--cat-emerg)"></span><span class="k">#C62828</span></div>
+        <div class="meta">2.2s · slow</div>
+      </div>
+
+      <div class="spec-row">
+        <div class="glyph"><svg width="32" height="32" viewBox="0 0 32 32" style="color:var(--cat-stream)"><use href="#atlas-stream"/></svg></div>
+        <div class="name">STREAM GAUGE<span class="id">atlas.stream · ATL-05</span></div>
+        <div class="meta">22<span class="k"> px</span></div>
+        <div class="meta"><span class="swatch" style="background:var(--cat-stream)"></span><span class="k">#4FC3F7</span></div>
+        <div class="meta"><span class="swatch" style="background:var(--cat-emerg)"></span><span class="k">#C62828</span></div>
+        <div class="meta">2.2s · slow</div>
+      </div>
+
+      <div class="spec-row">
+        <div class="glyph"><svg width="32" height="32" viewBox="0 0 32 32" style="color:var(--cat-lightning)"><use href="#atlas-lightning"/></svg></div>
+        <div class="name">LIGHTNING<span class="id">atlas.lightning · ATL-06</span></div>
+        <div class="meta">18<span class="k"> px</span></div>
+        <div class="meta"><span class="swatch" style="background:var(--cat-lightning)"></span><span class="k">#FFE94D</span></div>
+        <div class="meta"><span class="swatch" style="background:var(--cat-emerg)"></span><span class="k">#C62828</span></div>
+        <div class="meta">flash · 0.4s</div>
+      </div>
+
+      <div class="spec-row">
+        <div class="glyph"><svg width="32" height="32" viewBox="0 0 32 32" style="color:var(--cat-fire)"><use href="#atlas-fire"/></svg></div>
+        <div class="name">FIRE INCIDENT<span class="id">atlas.fire · ATL-07</span></div>
+        <div class="meta">24<span class="k"> px</span></div>
+        <div class="meta"><span class="swatch" style="background:var(--cat-fire)"></span><span class="k">#FF5252</span></div>
+        <div class="meta"><span class="swatch" style="background:var(--cat-emerg)"></span><span class="k">#C62828</span></div>
+        <div class="meta">1.2s · fast</div>
+      </div>
+
+      <div class="spec-row">
+        <div class="glyph"><svg width="32" height="32" viewBox="0 0 32 32" style="color:var(--cat-cam)"><use href="#atlas-cam"/></svg></div>
+        <div class="name">CAMERA<span class="id">atlas.cam · ATL-08</span></div>
+        <div class="meta">22<span class="k"> px</span></div>
+        <div class="meta"><span class="swatch" style="background:var(--cat-cam)"></span><span class="k">#FFB800</span></div>
+        <div class="meta"><span class="swatch" style="background:var(--cat-emerg)"></span><span class="k">#C62828</span></div>
+        <div class="meta">2.2s · slow</div>
+      </div>
+
+      <div class="spec-row">
+        <div class="glyph"><svg width="32" height="32" viewBox="0 0 32 32" style="color:var(--cat-emerg)"><use href="#atlas-emerg"/></svg></div>
+        <div class="name">EMERGENCY<span class="id">atlas.emerg · ATL-09</span></div>
+        <div class="meta">26<span class="k"> px</span></div>
+        <div class="meta"><span class="swatch" style="background:var(--cat-emerg)"></span><span class="k">#C62828</span></div>
+        <div class="meta"><span class="swatch" style="background:var(--cat-emerg)"></span><span class="k">#C62828</span></div>
+        <div class="meta">1.2s · fast</div>
+      </div>
+    </div>
+
+    <!-- INTEGRATION NOTE -->
+    <div style="border:1px solid var(--amber-gold-muted);background:rgba(77,56,0,0.08);margin-top:24px;padding:18px;display:flex;align-items:flex-start;gap:16px">
+      <span style="font-family:'Roboto Mono',monospace;font-size:14px;color:var(--amber-gold);font-weight:700;letter-spacing:0.18em;flex-shrink:0">// NOTE</span>
+      <div>
+        <div class="label-caps" style="color:var(--amber-gold);margin-bottom:6px">DECK.GL ATLAS · NEXT STEP</div>
+        <div style="font-family:'Roboto Mono',monospace;font-size:11px;color:var(--on-surface);line-height:1.7">
+          Bake the FULL bucket into a <span style="color:var(--amber-gold)">256×256</span> sprite atlas (8 cats × 4 states · padded 32×32 cells).
+          SIMPLIFIED, RING, and DOT buckets render as primitives via <span style="color:var(--amber-gold)">IconLayer</span> with sizeScale per zoom.
+          Halo + selection bracket render as separate <span style="color:var(--amber-gold)">ScatterplotLayer</span> below the icon.
+          Once approved, fold this section into <span style="color:var(--amber-gold)">vertex-design-system.html#icons</span> as <em>// 07.B · ATLAS</em>.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <span><span class="amber">VERTEX</span> · ATLAS ICONS · v0.1</span>
+    <span>9 CATEGORIES · 6 STATES · 4 ZOOM BUCKETS</span>
+    <span>2026 · 05 · 05</span>
+  </footer>
+
+</div>
+
+<script>
+  // Generate the dense dot field for FIG 05.2
+  (function(){
+    var field = document.getElementById('dot-field');
+    if(!field) return;
+    var hues = [
+      {c:'#00BFFF',w:8},  // air
+      {c:'#00C853',w:6},  // sea
+      {c:'#FF8F00',w:4},  // mesh
+      {c:'#B388FF',w:5},  // aprs
+      {c:'#4FC3F7',w:2},  // stream
+      {c:'#FFE94D',w:5},  // lightning
+      {c:'#FF5252',w:1},  // fire
+      {c:'#FFB800',w:7},  // cam
+    ];
+    // Cumulative weight selection
+    var total = hues.reduce(function(a,h){return a+h.w},0);
+    function pick(){
+      var r = Math.random()*total, acc=0;
+      for(var i=0;i<hues.length;i++){ acc+=hues[i].w; if(r<=acc) return hues[i].c; }
+      return hues[0].c;
+    }
+    var N = 280;
+    // Use seeded-ish layout with slight clusters
+    for (var i=0;i<N;i++){
+      var d = document.createElement('div');
+      var x = Math.random()*100;
+      var y = Math.random()*100;
+      // bias toward two clusters
+      if (i % 3 === 0){ x = 30 + Math.random()*15; y = 35 + Math.random()*20; }
+      if (i % 5 === 0){ x = 65 + Math.random()*15; y = 50 + Math.random()*20; }
+      var c = pick();
+      d.style.cssText = 'position:absolute;left:'+x+'%;top:'+y+'%;width:5px;height:5px;border-radius:9999px;background:'+c+';box-shadow:0 0 4px '+c+';transform:translate(-50%,-50%);opacity:'+(0.55+Math.random()*0.45)+';';
+      field.appendChild(d);
+    }
+  })();
+</script>
+
+</body>
+</html>
