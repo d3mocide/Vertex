@@ -92,38 +92,59 @@ export function createAtlasIcons(): IconAtlasResult {
     ctx.fillRect(ox + 26, oy + 26, 12, 12)  // inner void
   }
 
-  // ─── Row 0, Col 3 · APRS — diamond + crosshair void + center dot ──────────
+  // ─── Row 0, Col 3 · APRS — stroke diamond + crosshair lines + center dot ───
+  // Matches atlas-aprs SVG: outline polygon, inner crosshair, filled center dot.
   {
     const [ox, oy] = cellOrigin(3, 0)
-    ctx.fillStyle = W
+    ctx.strokeStyle = W
+    ctx.lineWidth   = 3.2   // SVG stroke-width 1.6 × scale 2
+    ctx.lineJoin    = 'miter'
+    ctx.lineCap     = 'square'
+    // Diamond outline (SVG points 16,5 27,16 16,27 5,16 scaled ×2)
     ctx.beginPath()
     ctx.moveTo(ox + 32, oy + 10)
     ctx.lineTo(ox + 54, oy + 32)
     ctx.lineTo(ox + 32, oy + 54)
     ctx.lineTo(ox + 10, oy + 32)
     ctx.closePath()
-    ctx.fill()
-    // crosshair voids
-    ctx.fillStyle = B
-    ctx.fillRect(ox + 29, oy + 22, 6, 20)  // vertical bar void
-    ctx.fillRect(ox + 22, oy + 29, 20, 6)  // horizontal bar void
-    // center dot
+    ctx.stroke()
+    // Crosshair lines (SVG: x1=16,y1=11 to 16,21 and x1=11,y1=16 to 21,16, scaled ×2)
+    ctx.beginPath()
+    ctx.moveTo(ox + 32, oy + 22)
+    ctx.lineTo(ox + 32, oy + 42)
+    ctx.stroke()
+    ctx.beginPath()
+    ctx.moveTo(ox + 22, oy + 32)
+    ctx.lineTo(ox + 42, oy + 32)
+    ctx.stroke()
+    // Center dot (SVG r=2.2 scaled ×2)
     ctx.fillStyle = W
     ctx.beginPath()
-    ctx.arc(ox + 32, oy + 32, 5, 0, Math.PI * 2)
+    ctx.arc(ox + 32, oy + 32, 4.4, 0, Math.PI * 2)
     ctx.fill()
   }
 
-  // ─── Row 1, Col 0 · STREAM GAUGE — tower frame with water level ───────────
+  // ─── Row 1, Col 0 · STREAM GAUGE — outlined tower + tick marks + water fill
+  // Matches atlas-stream SVG: stroked rect, left-side ticks, filled lower portion, cap.
   {
     const [ox, oy] = cellOrigin(0, 1)
+    ctx.strokeStyle = W
+    ctx.lineWidth   = 3.2
+    ctx.lineJoin    = 'miter'
+    ctx.lineCap     = 'square'
+    // Gauge tower outline (SVG rect x=9,y=5,w=14,h=22 scaled ×2)
+    ctx.strokeRect(ox + 18, oy + 10, 28, 44)
+    // Tick marks on left side (SVG ticks at y=11,16,21 scaled ×2 → y=22,32,42)
+    ctx.beginPath()
+    ctx.moveTo(ox + 18, oy + 22); ctx.lineTo(ox + 26, oy + 22)
+    ctx.moveTo(ox + 18, oy + 32); ctx.lineTo(ox + 26, oy + 32)
+    ctx.moveTo(ox + 18, oy + 42); ctx.lineTo(ox + 26, oy + 42)
+    ctx.stroke()
+    // Water level fill — lower ~37% of tower interior
     ctx.fillStyle = W
-    ctx.fillRect(ox + 18, oy + 8, 28, 48)   // outer body
-    ctx.fillRect(ox + 26, oy + 4, 12, 4)    // cap
-    ctx.fillStyle = B
-    ctx.fillRect(ox + 22, oy + 12, 20, 26)  // hollow upper interior
-    ctx.fillStyle = W
-    ctx.fillRect(ox + 22, oy + 38, 20, 14)  // water level fill
+    ctx.fillRect(ox + 20, oy + 36, 24, 16)
+    // Top cap (SVG rect x=13,y=3,w=6,h=2 scaled ×2)
+    ctx.fillRect(ox + 26, oy +  6, 12, 4)
   }
 
   // ─── Row 1, Col 1 · LIGHTNING — bolt ──────────────────────────────────────

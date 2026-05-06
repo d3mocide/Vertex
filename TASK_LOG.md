@@ -5,6 +5,14 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 
 ---
 
+## 2026-05-06 — Atlas map key documentation sync and icon priority tuning
+
+- Updated entity rendering in `frontend/src/layers/buildEntityLayers.ts` so ADSB/AIS retain full icons at mid zoom and now use the same icon size as close zoom (default `32px`, selected `40px`).
+- Updated lightning rendering in `frontend/src/layers/buildLightningLayer.ts` so mid zoom uses the same base icon size as close zoom (`18px`).
+- Added `docs/map-key.md` as a dedicated map symbol key for end-user guidance and linked it from `docs/README.md` and root `README.md`.
+- Added a new "Last Updated From Code" section to `docs/map-key.md` listing authoritative frontend source files to keep documentation synchronized with rendering behavior.
+- Validation: `cd frontend && npx tsc --noEmit` ✓
+
 ## 2026-05-05 — Removed map icon clustering from frontend overlay
 
 ## 2026-05-05 — Hardened Stream Gauge map rendering and data fallback

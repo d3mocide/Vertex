@@ -92,6 +92,7 @@ Open `http://localhost`. For detailed setup, see [docs/getting-started.md](docs/
 | [Getting Started](docs/getting-started.md) | Installation, configuration, first run |
 | [Architecture Overview](docs/architecture/overview.md) | Service layout and data flow |
 | [Feature Overview](docs/features/overview.md) | Dashboard features and panels |
+| [Map Key](docs/map-key.md) | Icon meanings, zoom behavior, and colors |
 | [Environment Config](docs/configuration/environment.md) | `.env` variable reference |
 | [Source Config](docs/configuration/sources.md) | `sources.yml` reference |
 

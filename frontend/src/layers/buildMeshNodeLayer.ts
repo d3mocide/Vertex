@@ -1,4 +1,4 @@
-import { IconLayer, ScatterplotLayer } from '@deck.gl/layers'
+import { IconLayer } from '@deck.gl/layers'
 import type { Entity } from '../store'
 import { getAtlasIcons } from './atlasIcons'
 
@@ -31,15 +31,15 @@ function toMeshNodePoint(e: Entity, nowMs: number): MeshNodePoint | null {
 }
 
 function iconForZoom(zoom: number): string {
-  if (zoom >= 11) return 'mesh'
-  if (zoom >= 8)  return 'ring'
+  if (zoom >= 9) return 'mesh'
+  if (zoom >= 6) return 'ring'
   return 'dot'
 }
 
 function iconSize(zoom: number): number {
-  if (zoom >= 11) return 20
-  if (zoom >= 8)  return 12
-  return 6
+  if (zoom >= 9) return 20
+  if (zoom >= 6) return 12
+  return 8
 }
 
 export function buildMeshNodeLayers(entities: Entity[], visible: boolean, nowMs: number, zoom: number) {
@@ -51,22 +51,6 @@ export function buildMeshNodeLayers(entities: Entity[], visible: boolean, nowMs:
   if (points.length === 0) return []
 
   const atlas = getAtlasIcons()
-
-  // Ambient glow ring — non-pickable, sits behind the icon.
-  const ring = new ScatterplotLayer<MeshNodePoint>({
-    id:          'mesh-node-ring',
-    data:        points,
-    pickable:    false,
-    filled:      true,
-    stroked:     false,
-    radiusUnits: 'pixels',
-    getPosition: (p) => [p.lon, p.lat],
-    getRadius:   zoom >= 11 ? 13 : zoom >= 8 ? 9 : 5,
-    getFillColor:(p) => p.stale
-      ? [85, 85, 85, 70]
-      : [255, 143, 0, 70],
-    updateTriggers: { getRadius: zoom },
-  })
 
   // Icon layer — pickable, hex shape degrades with zoom bucket.
   const icon = new IconLayer<MeshNodePoint>({
@@ -88,5 +72,5 @@ export function buildMeshNodeLayers(entities: Entity[], visible: boolean, nowMs:
     },
   })
 
-  return [ring, icon]
+  return [icon]
 }

@@ -7,14 +7,14 @@ const COLOR_DEFAULT:  [number, number, number, number] = [255, 184,   0, 200]
 const COLOR_SELECTED: [number, number, number, number] = [255, 184,   0, 255]
 
 function iconForZoom(zoom: number): string {
-  if (zoom >= 11) return 'camera'
-  if (zoom >= 8)  return 'ring'
+  if (zoom >= 9) return 'camera'
+  if (zoom >= 6) return 'ring'
   return 'dot'
 }
 
 function iconSize(selectedId: string | null, id: string, zoom: number): number {
-  if (zoom < 8)  return 6
-  if (zoom < 11) return 12
+  if (zoom < 6) return 8
+  if (zoom < 9) return 12
   return id === selectedId ? 28 : 22
 }
 
@@ -26,7 +26,7 @@ export function buildCameraLayer(
   const data  = cameras.filter((c) => c.lat != null && c.lon != null)
   const atlas = getAtlasIcons()
 
-  return new IconLayer<TrafficCamera>({
+  const iconLayer = new IconLayer<TrafficCamera>({
     id:          'camera-points',   // id kept for tooltip + click handler compat
     data,
     pickable:    true,
@@ -44,4 +44,6 @@ export function buildCameraLayer(
       getColor: selectedCamId,
     },
   })
+
+  return iconLayer
 }

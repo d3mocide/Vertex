@@ -1,4 +1,4 @@
-import { IconLayer, ScatterplotLayer } from '@deck.gl/layers'
+import { IconLayer } from '@deck.gl/layers'
 import type { Entity } from '../store'
 import { getAtlasIcons } from './atlasIcons'
 
@@ -40,14 +40,14 @@ function toGaugePoint(e: Entity): StreamGaugePoint | null {
 
 // Zoom bucket sizes matching Atlas spec.
 function gaugeIconSize(zoom: number): number {
-  if (zoom >= 11) return 22
-  if (zoom >= 8)  return 12
-  return 6
+  if (zoom >= 9) return 22
+  if (zoom >= 6) return 12
+  return 8
 }
 
 function gaugeIconName(zoom: number): string {
-  if (zoom >= 11) return 'stream'
-  if (zoom >= 8)  return 'ring'
+  if (zoom >= 9) return 'stream'
+  if (zoom >= 6) return 'ring'
   return 'dot'
 }
 
@@ -61,20 +61,6 @@ export function buildStreamGaugeLayers(entities: Entity[], visible: boolean, zoo
   if (points.length === 0) return []
 
   const atlas = getAtlasIcons()
-
-  // Ambient glow ring behind the icon — stage-colored, non-pickable.
-  const ring = new ScatterplotLayer<StreamGaugePoint>({
-    id:          'stream-gauge-ring',
-    data:        points,
-    pickable:    false,
-    filled:      true,
-    stroked:     false,
-    radiusUnits: 'pixels',
-    getPosition: (p) => [p.lon, p.lat],
-    getRadius:   zoom >= 11 ? 13 : zoom >= 8 ? 9 : 5,
-    getFillColor:(p) => [p.color[0], p.color[1], p.color[2], 100],
-    updateTriggers: { getRadius: zoom },
-  })
 
   // Icon layer — pickable, switches shape with zoom bucket.
   const icon = new IconLayer<StreamGaugePoint>({
@@ -96,5 +82,5 @@ export function buildStreamGaugeLayers(entities: Entity[], visible: boolean, zoo
     },
   })
 
-  return [ring, icon]
+  return [icon]
 }

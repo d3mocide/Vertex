@@ -13,15 +13,15 @@ const FADE_MS = 30_000   // strike fully fades over 30 seconds
 const LIGHTNING_RGB: [number, number, number] = [255, 233, 77]
 
 function iconForZoom(zoom: number): string {
-  if (zoom >= 11) return 'lightning'
-  if (zoom >= 8)  return 'ring'
+  if (zoom >= 9) return 'lightning'
+  if (zoom >= 6) return 'ring'
   return 'dot'
 }
 
 function baseSizeForZoom(zoom: number): number {
-  if (zoom >= 11) return 18
-  if (zoom >= 8)  return 12
-  return 6
+  if (zoom >= 9) return 18
+  if (zoom >= 6) return 18
+  return 8
 }
 
 export function buildLightningLayer(strikes: LightningStrike[], nowMs: number, zoom: number) {

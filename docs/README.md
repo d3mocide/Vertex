@@ -9,6 +9,7 @@ Use the top-level [README.md](../README.md) for a quick overview. Use the pages 
 - [Getting Started](getting-started.md) for first-run setup and local bring-up
 - [Architecture Overview](architecture/overview.md) for container roles and data flow
 - [Feature Overview](features/overview.md) for the current capability surface
+- [Map Key](map-key.md) for symbol, zoom, and color reference
 - [Environment Configuration](configuration/environment.md) for `.env` settings
 - [Source Configuration](configuration/sources.md) for `config/sources.yml`
 
@@ -26,6 +27,7 @@ Use the top-level [README.md](../README.md) for a quick overview. Use the pages 
 ### Product Documentation
 
 - [Feature Overview](features/overview.md)
+- [Map Key](map-key.md)
 
 ### System Design
 

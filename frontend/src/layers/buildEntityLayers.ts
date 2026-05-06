@@ -22,23 +22,29 @@ export class StencilClearLayer extends Layer {
   renderLayers() { return [] }
 }
 
-const HALO_TYPES = new Set(['SAR', 'MIL', 'HEL', 'UAV', 'GOV'])
-
-// Zoom bucket helpers — mirrors the Atlas spec (FULL/RING/DOT).
+// Zoom bucket helpers — mirrors the Atlas spec (FULL >= 9 / RING 6-8 / DOT < 6).
 function iconForZoom(fullName: string, zoom: number): string {
-  if (zoom >= 11) return fullName
-  if (zoom >= 8)  return 'ring'
+  if (zoom >= 9) return fullName
+  if (zoom >= 6) return 'ring'
   return 'dot'
 }
 
-function entityIconSize(selectedUid: string | null, uid: string, zoom: number): number {
-  if (zoom < 8)  return 6
-  if (zoom < 11) return 12
-  return uid === selectedUid ? 40 : 32
+function entityIconSize(selectedUid: string | null, track: Track, zoom: number): number {
+  if (zoom < 6) return 8
+  if (zoom < 9) {
+    // Keep ADSB/AIS at full icon-layer size in mid zoom.
+    if (track.type === 'air' || track.type === 'sea') {
+      return track.uid === selectedUid ? 40 : 32
+    }
+    return 10
+  }
+  return track.uid === selectedUid ? 40 : 32
 }
 
+const APRS_ICON_COLOR: [number, number, number, number] = [179, 136, 255, 230]
+
 // ─── buildEntityLayers ────────────────────────────────────────────────────────
-// Returns: [haloLayer, selectionRingLayer, iconLayer, labelLayer]
+// Returns: [selectionRingLayer, iconLayer, labelLayer]
 export function buildEntityLayers(
   tracks: Record<string, Track>,
   selectedUid: string | null,
@@ -48,21 +54,6 @@ export function buildEntityLayers(
 ): Layer[] {
   const atlas    = getAtlasIcons()
   const trackArr = Object.values(tracks)
-
-  const haloSize = zoom < 8 ? 0 : zoom < 11 ? 28 : 52
-
-  const haloLayer = new IconLayer<Track>({
-    id:          'entity-halos',
-    data:        trackArr.filter(t => HALO_TYPES.has(t.category ?? '')),
-    iconAtlas:   atlas.url,
-    iconMapping: atlas.mapping,
-    getIcon:     () => 'halo',
-    getPosition: (t) => [t.lon, t.lat],
-    getSize:     () => haloSize,
-    getColor:    () => [255, 136, 0, 140],
-    sizeUnits:   'pixels',
-    billboard:   false,
-  })
 
   const selectedTrack = selectedUid ? tracks[selectedUid] : undefined
 
@@ -97,11 +88,23 @@ export function buildEntityLayers(
     data:        trackArr,
     iconAtlas:   atlas.url,
     iconMapping: atlas.mapping,
-    getIcon:     (t) => iconForZoom(baseIcon(t), zoom),
+    getIcon:     (t) => {
+      const icon = baseIcon(t)
+      if (zoom >= 9) return icon
+      if (zoom >= 6) {
+        // Keep ADSB (air) and AIS (sea) as full icons at mid zoom.
+        if (t.type === 'air' || t.type === 'sea') return icon
+        return 'dot'
+      }
+      return 'dot'
+    },
     getPosition: (t) => [t.lon, t.lat],
     getAngle:    (t) => -t.courseTrue,
-    getColor:    (t) => tagColorMap?.[t.uid] ?? entityColor(t),
-    getSize:     (t) => entityIconSize(selectedUid, t.uid, zoom),
+    getColor:    (t) => {
+      if (t.type === 'ground') return APRS_ICON_COLOR
+      return tagColorMap?.[t.uid] ?? entityColor(t)
+    },
+    getSize:     (t) => entityIconSize(selectedUid, t, zoom),
     sizeUnits:   'pixels',
     billboard:   false,
     pickable:    true,
@@ -128,5 +131,5 @@ export function buildEntityLayers(
     fontFamily: 'monospace',
   })
 
-  return [haloLayer, selectionRingLayer, iconLayer, aprsLabelLayer]
+  return [selectionRingLayer, iconLayer, aprsLabelLayer]
 }
