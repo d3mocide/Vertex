@@ -39,7 +39,7 @@ export function createAtlasIcons(): IconAtlasResult {
   const W = '#ffffff'
   const B = '#000000'
 
-  // ─── Row 0, Col 0 · AIRCRAFT — nose-up delta with tail fin ────────────────
+  // ─── Row 0, Col 0 · AIRCRAFT — clean chevron (CoT-style) ─────────────────
   {
     const [ox, oy] = cellOrigin(0, 0)
     ctx.fillStyle = W
@@ -50,27 +50,17 @@ export function createAtlasIcons(): IconAtlasResult {
     ctx.lineTo(ox + 18, oy + 44)  // left tip
     ctx.closePath()
     ctx.fill()
-    ctx.fillRect(ox + 30, oy + 44, 4, 10)  // tail fin
   }
 
-  // ─── Row 0, Col 1 · VESSEL — hull + mast + pennant ────────────────────────
+  // ─── Row 0, Col 1 · VESSEL — clean chevron (CoT-style) ───────────────────
   {
     const [ox, oy] = cellOrigin(1, 0)
     ctx.fillStyle = W
-    // hull trapezoid
     ctx.beginPath()
-    ctx.moveTo(ox + 10, oy + 36)
-    ctx.lineTo(ox + 54, oy + 36)
-    ctx.lineTo(ox + 46, oy + 50)
-    ctx.lineTo(ox + 18, oy + 50)
-    ctx.closePath()
-    ctx.fill()
-    ctx.fillRect(ox + 30, oy + 12, 4, 22)  // mast
-    // pennant
-    ctx.beginPath()
-    ctx.moveTo(ox + 34, oy + 14)
-    ctx.lineTo(ox + 44, oy + 18)
-    ctx.lineTo(ox + 34, oy + 22)
+    ctx.moveTo(ox + 32, oy + 8)   // nose
+    ctx.lineTo(ox + 46, oy + 44)  // right tip
+    ctx.lineTo(ox + 32, oy + 38)  // tail notch
+    ctx.lineTo(ox + 18, oy + 44)  // left tip
     ctx.closePath()
     ctx.fill()
   }

@@ -55,6 +55,7 @@ function buildReplayTracks(data: ReplayData, atMs: number): Record<string, Track
     const isAir = entity.entity_type === 'aircraft'
     result[uid] = {
       uid,
+      source: 'replay',
       lat, lon, altMeters, speedMs, courseTrue,
       type:     isAir ? 'air' : 'sea',
       callsign: entity.display_name ?? uid,
@@ -90,7 +91,7 @@ export function MapOverlay({ map }: Props) {
   const camerasRef        = useRef<TrafficCamera[]>([])
   const selectedCamRef    = useRef<string | null>(null)
   const activeTabRef      = useRef<string>('safety')
-  const entityFilterRef   = useRef<EntityTypeFilter>({ aircraft: true, vessel: true, mesh_node: true, aprs: true, fire_incident: true, satellite: true, tinygs_station: true })
+  const entityFilterRef   = useRef<EntityTypeFilter>({ aircraft: true, adsbLocal: true, adsbSupplement: true, vessel: true, mesh_node: true, aprs: true, fire_incident: true, satellite: true, tinygs_station: true })
   const searchQueryRef    = useRef<string>('')
   const altRangeRef       = useRef<RangeFilter>([0, 60_000])
   const speedRangeRef     = useRef<RangeFilter>([0, 600])
@@ -500,6 +501,12 @@ export function MapOverlay({ map }: Props) {
         rawTracks = {}
         for (const [uid, track] of Object.entries(allTracks)) {
           if (track.type === 'air' && !ef.aircraft) continue
+          if (track.type === 'air') {
+            const source = (track.source ?? '').toLowerCase()
+            const isSupplement = source === 'opensky'
+            if (isSupplement && !ef.adsbSupplement) continue
+            if (!isSupplement && !ef.adsbLocal) continue
+          }
           if (track.type === 'sea' && !ef.vessel) continue
           if (track.type === 'ground' && !ef.aprs) continue
           if (track.type === 'hazard' && !ef.fire_incident) continue

@@ -4,8 +4,15 @@ import type { Entity, Track, TrailPt } from './storeTypes'
 export const ALT_FT_TO_M  = 0.3048
 export const SPD_KT_TO_MS = 0.5144
 export const TRAIL_CAP    = 150
+// DB-backed trails can hold much more history; cap the visible trail at this many points.
+export const DB_TRAIL_CAP = 600
 const PRED_STEP_S  = 20
 const PRED_STEPS   = 3
+
+// ── Historical trail cache ────────────────────────────────────────────────────
+// Populated by useTrailHydration. Keyed by entity_id. Each entry holds the
+// DB observation trail (older points not yet in the BEAST ring buffer).
+export const historicalTrailCache = new Map<string, TrailPt[]>()
 
 export function entityToTrack(entity: Entity, existing?: Track): Track | null {
   if (entity.lat == null || entity.lon == null) return null
@@ -20,40 +27,55 @@ export function entityToTrack(entity: Entity, existing?: Track): Track | null {
   const courseTrue = entity.heading ?? 0
 
   // ── Build raw trail ──────────────────────────────────────────────────────
-  // Prefer the server-side position ring buffer (trail_pts) when available.
-  // It is emitted by the BEAST decoder and contains every resolved CPR fix,
-  // giving us a much denser history than the 1-pt/sec client accumulation.
+  // Trail sources (merged in order, oldest → newest):
+  //   1. DB historical trail (historicalTrailCache) — fetched once on first
+  //      appearance via useTrailHydration; covers hours of flight history.
+  //   2. BEAST ring buffer (entity.trail_pts) — last ~2.5 min at 1 Hz.
+  // This mirrors how FlightJar (tar1090) serves disk trace files + live feed.
   let trail: TrailPt[]
 
-  if (entity.trail_pts && entity.trail_pts.length >= 2 && isAir) {
-    // Convert server trail: [lat, lon, alt_ft, unix_ts] → TrailPt [lon, lat, altM, speedMs, ts]
-    const serverTrail: TrailPt[] = entity.trail_pts.map(p => [
+  if (isAir && entity.trail_pts && entity.trail_pts.length >= 1) {
+    // Convert WS ring buffer: [lat, lon, alt_ft, unix_ts] → TrailPt
+    const wsTrail: TrailPt[] = entity.trail_pts.map(p => [
       p[1],                         // lon
       p[0],                         // lat
       p[2] * ALT_FT_TO_M,           // alt_ft → metres
       speedMs,                      // speed not stored per-point; use current
-      new Date(p[3] * 1000).toISOString(), // unix_ts → ISO string
+      new Date(p[3] * 1000).toISOString(),
     ])
 
-    // Trim to the most recent continuous tracking segment.
-    // A gap > MAX_TRAIL_GAP_SEC between consecutive positions means BEAST lost
-    // the aircraft and later reacquired it — older segments produce a ghost trail
-    // detached from the current icon.
-    const MAX_TRAIL_GAP_SEC = 60
-    let segmentStart = 0
-    for (let i = 1; i < entity.trail_pts.length; i++) {
-      if (entity.trail_pts[i][3] - entity.trail_pts[i - 1][3] > MAX_TRAIL_GAP_SEC) {
-        segmentStart = i
-      }
-    }
-    const continuousTrail = serverTrail.slice(segmentStart)
+    // Prepend DB historical trail.  Only include cached points that are older
+    // than the start of the WS ring buffer to avoid duplicates.
+    const wsTsFirstMs = entity.trail_pts[0][3] * 1000 // unix ms
+    const cached = historicalTrailCache.get(entity.entity_id) ?? []
+    const olderCached = cached.filter(p => {
+      const ts = p[4] ? new Date(p[4]).getTime() : 0
+      return ts < wsTsFirstMs - 5_000  // 5-second overlap buffer
+    })
 
-    // Merge: adopt server trail when it is at least as dense as what we have.
+    const merged = [...olderCached, ...wsTrail]
+
+    // Trim to the most recent continuous flight segment.
+    // Use 5-minute gap threshold so brief reception holes don't break history.
+    const MAX_TRAIL_GAP_MS = 5 * 60 * 1000
+    let segmentStart = 0
+    for (let i = 1; i < merged.length; i++) {
+      const tA = merged[i - 1][4] ? new Date(merged[i - 1][4]!).getTime() : 0
+      const tB = merged[i][4] ? new Date(merged[i][4]!).getTime() : 0
+      if (tB - tA > MAX_TRAIL_GAP_MS) segmentStart = i
+    }
+
+    const continuousTrail = merged.slice(segmentStart)
+
+    // Prefer merged trail when it's richer than what we already have rendered.
     if (!existing?.trail || continuousTrail.length >= existing.trail.length) {
-      trail = continuousTrail.slice(-TRAIL_CAP)
+      trail = continuousTrail.slice(-DB_TRAIL_CAP)
     } else {
       trail = existing.trail
     }
+  } else if (isAir && entity.trail_pts && entity.trail_pts.length === 0) {
+    // BEAST connected but no position fixes yet — keep existing trail if any.
+    trail = existing?.trail ?? []
   } else {
     // Fallback: client-side accumulation (non-BEAST sources, or startup).
     const newPt: TrailPt = [entity.lon, entity.lat, altMeters, speedMs, entity.last_seen]
@@ -73,6 +95,7 @@ export function entityToTrack(entity: Entity, existing?: Track): Track | null {
 
   return {
     uid:          entity.entity_id,
+    source:       entity.source,
     lat:          entity.lat,
     lon:          entity.lon,
     altMeters,

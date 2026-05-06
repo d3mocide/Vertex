@@ -63,6 +63,7 @@ interface CivicStore {
   setUtilityStatus: (status: any) => void
   setOregonStatus:  (status: any) => void
   setTrail:         (trail: TrailPoint[]) => void
+  refreshEntityTrack: (entityId: string) => void
   setAirports:      (airports: Record<string, AirportSnapshot>) => void
   setSummary:       (summary: Partial<SummaryState>) => void
 
@@ -242,7 +243,7 @@ export const useCivicStore = create<CivicStore>((set) => ({
   annotationToolbarOpen: false,
   mobileNavOpen:    false,
   settingsOpen:     false,
-  entityFilter:     { aircraft: true, vessel: true, mesh_node: true, aprs: true, fire_incident: true, satellite: true, tinygs_station: true },
+  entityFilter:     { aircraft: true, adsbLocal: true, adsbSupplement: true, vessel: true, mesh_node: true, aprs: true, fire_incident: true, satellite: true, tinygs_station: true },
   entitySearchQuery: '',
   entityAltRange:   ALT_RANGE_DEFAULT,
   entitySpeedRange: SPD_RANGE_DEFAULT,
@@ -283,6 +284,16 @@ export const useCivicStore = create<CivicStore>((set) => ({
       for (const [id, track] of Object.entries(s.tracks)) {
         if (track.type !== 'air') {
           nextTracks[id] = track
+        }
+      }
+
+      // Preserve OpenSky-supplemented aircraft that are not part of the local
+      // snapshot payload. Local snapshot IDs overwrite these below when present.
+      for (const [id, entity] of Object.entries(s.entities)) {
+        if (entity.entity_type === 'aircraft' && entity.source === 'opensky') {
+          nextEntities[id] = entity
+          const track = s.tracks[id]
+          if (track && track.type === 'air') nextTracks[id] = track
         }
       }
 
@@ -359,6 +370,15 @@ export const useCivicStore = create<CivicStore>((set) => ({
   setUtilityStatus: (utilityStatus) => set({ utilityStatus }),
   setOregonStatus: (oregonStatus) => set({ oregonStatus }),
   setTrail:     (trail)   => set({ trail }),
+  refreshEntityTrack: (entityId) =>
+    set((s) => {
+      const entity = s.entities[entityId]
+      if (!entity) return {}
+      const existing = s.tracks[entityId]
+      const track = entityToTrack(entity, existing)
+      if (!track) return {}
+      return { tracks: { ...s.tracks, [entityId]: track } }
+    }),
   setAirports:  (airports) => set({ airports }),
   setSummary:   (patch)   => set((s) => ({ summary: { ...s.summary, ...patch } })),
 

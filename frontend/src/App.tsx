@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useCivicStore } from './store'
 import { useAlerts } from './hooks/useAlerts'
 import { useSystemHealth } from './hooks/useSystemHealth'
+import { useTrailHydration } from './hooks/useTrailHydration'
 import { LoginPage } from './components/LoginPage'
 import { isLoggedIn } from './auth'
 import { API_BASE } from './config'
@@ -30,6 +31,7 @@ import { AnnotationController } from './components/panels/AnnotationController'
 function Dashboard() {
   useAlerts()
   useSystemHealth()
+  useTrailHydration()
 
   const { activeTab, mode } = useCivicStore()
   const isCritical = mode === 'critical'

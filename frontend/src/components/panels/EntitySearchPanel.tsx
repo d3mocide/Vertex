@@ -86,6 +86,7 @@ export function EntitySearchPanel() {
     entityAltRange[1] !== ALT_RANGE_DEFAULT[1] ||
     entitySpeedRange[0] !== SPD_RANGE_DEFAULT[0] ||
     entitySpeedRange[1] !== SPD_RANGE_DEFAULT[1] ||
+    !entityFilter.adsbLocal || !entityFilter.adsbSupplement ||
     !entityFilter.aircraft || !entityFilter.vessel || !entityFilter.mesh_node ||
     !entityFilter.aprs || !entityFilter.fire_incident ||
     !entityFilter.satellite || !entityFilter.tinygs_station
@@ -95,7 +96,7 @@ export function EntitySearchPanel() {
     setEntitySearchQuery('')
     setEntityAltRange(ALT_RANGE_DEFAULT)
     setEntitySpeedRange(SPD_RANGE_DEFAULT)
-    setEntityFilter({ aircraft: true, vessel: true, mesh_node: true, aprs: true, fire_incident: true, satellite: true, tinygs_station: true })
+    setEntityFilter({ aircraft: true, adsbLocal: true, adsbSupplement: true, vessel: true, mesh_node: true, aprs: true, fire_incident: true, satellite: true, tinygs_station: true })
     setTaggedOnly(false)
   }
 
@@ -243,6 +244,39 @@ export function EntitySearchPanel() {
               </button>
             </div>
           </div>
+
+          {/* ADS-B source toggles */}
+          {entityFilter.aircraft && (
+            <div>
+              <span className="label-caps text-[9px] block mb-2">ADS-B Sources</span>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={() => setEntityFilter({ adsbLocal: !entityFilter.adsbLocal })}
+                  className={`flex items-center gap-1 px-2 py-1 border text-[9px] uppercase tracking-widest font-bold transition-colors focus:outline-none ${
+                    entityFilter.adsbLocal
+                      ? 'text-cyan-adsb border-cyan-adsb/60 bg-cyan-adsb/10'
+                      : 'text-on-surface-variant border-white/10 hover:border-white/20'
+                  }`}
+                  aria-pressed={entityFilter.adsbLocal}
+                >
+                  <span className="ms text-[12px] leading-none">sensors</span>
+                  Local (BEAST/UF)
+                </button>
+                <button
+                  onClick={() => setEntityFilter({ adsbSupplement: !entityFilter.adsbSupplement })}
+                  className={`flex items-center gap-1 px-2 py-1 border text-[9px] uppercase tracking-widest font-bold transition-colors focus:outline-none ${
+                    entityFilter.adsbSupplement
+                      ? 'text-amber-gold border-amber-gold/60 bg-amber-gold/10'
+                      : 'text-on-surface-variant border-white/10 hover:border-white/20'
+                  }`}
+                  aria-pressed={entityFilter.adsbSupplement}
+                >
+                  <span className="ms text-[12px] leading-none">public</span>
+                  OpenSky Supplement
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Altitude range */}
           {entityFilter.aircraft && (

@@ -4,6 +4,8 @@ import type { Track } from '../store'
 // Time over which the rendered position blends from the old visual projection
 // to the new server projection. Should be less than the poller interval (5 s).
 const BLEND_WINDOW_MS = 2_000
+const OPENSKY_MIN_BLEND_MS = 8_000
+const OPENSKY_MAX_BLEND_MS = 25_000
 
 export interface PVBState {
   // Server anchor — position/velocity from the most recent server report
@@ -12,6 +14,14 @@ export interface PVBState {
   vLon: number; vLat: number; vSpeedMs: number; vCourse: number; vTime: number
   // Timestamp of the last trail point, used to detect new server reports
   lastTs: string
+  // Source-aware blend window (longer for sparse feeds like OpenSky)
+  blendWindowMs: number
+}
+
+function sourceBlendWindowMs(source: string, reportIntervalMs: number): number {
+  if (source.toLowerCase() !== 'opensky') return BLEND_WINDOW_MS
+  const adaptive = Math.round(reportIntervalMs * 0.85)
+  return Math.max(OPENSKY_MIN_BLEND_MS, Math.min(OPENSKY_MAX_BLEND_MS, adaptive))
 }
 
 function project(
@@ -27,7 +37,7 @@ function evaluatePVB(state: PVBState, nowMs: number): [number, number] {
   const [sLon, sLat] = project(state.sLon, state.sLat, state.sCourse, state.sSpeedMs, nowMs - state.sTime)
   const [vLon, vLat] = project(state.vLon, state.vLat, state.vCourse, state.vSpeedMs, nowMs - state.vTime)
   // Smoothstep so the correction eases in and out rather than rubber-banding linearly.
-  const t = Math.min((nowMs - state.sTime) / BLEND_WINDOW_MS, 1)
+  const t = Math.min((nowMs - state.sTime) / state.blendWindowMs, 1)
   const alpha = t * t * (3 - 2 * t)
   return [vLon + alpha * (sLon - vLon), vLat + alpha * (sLat - vLat)]
 }
@@ -48,6 +58,7 @@ export function applyPVB(
       sLon: track.lon, sLat: track.lat, sSpeedMs: track.speedMs, sCourse: track.courseTrue, sTime: nowMs,
       vLon: track.lon, vLat: track.lat, vSpeedMs: track.speedMs, vCourse: track.courseTrue, vTime: nowMs,
       lastTs,
+      blendWindowMs: sourceBlendWindowMs(track.source, BLEND_WINDOW_MS),
     }
     return [track.lon, track.lat]
   }
@@ -63,6 +74,7 @@ export function applyPVB(
       sLon: track.lon, sLat: track.lat, sSpeedMs: track.speedMs, sCourse: track.courseTrue, sTime: nowMs,
       vLon, vLat, vSpeedMs: track.speedMs, vCourse: track.courseTrue, vTime: nowMs,
       lastTs,
+      blendWindowMs: sourceBlendWindowMs(track.source, Math.max(nowMs - state.sTime, BLEND_WINDOW_MS)),
     }
   }
 

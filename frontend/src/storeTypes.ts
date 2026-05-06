@@ -53,6 +53,7 @@ export type TrailPt = [number, number, number, number, string?]
 
 export interface Track {
   uid:           string
+  source:        string
   lat:           number
   lon:           number
   altMeters:     number        // metres MSL (0 for vessels)
@@ -196,6 +197,8 @@ export type AppMode  = 'calm' | 'critical'
 export type NavTab   = 'safety' | 'infrastructure' | 'environment' | 'community' | 'events' | 'incidents'
 export type EntityTypeFilter = {
   aircraft: boolean
+  adsbLocal: boolean
+  adsbSupplement: boolean
   vessel: boolean
   mesh_node: boolean
   aprs: boolean

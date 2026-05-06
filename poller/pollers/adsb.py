@@ -24,6 +24,7 @@ logger = logging.getLogger(__name__)
 class AdsbPoller(BasePoller):
     name = "adsb"
     interval = 5
+    _BEAST_WARMUP_SECONDS = 15
 
     def __init__(self):
         self._source_urls: list[str] = []
@@ -36,6 +37,9 @@ class AdsbPoller(BasePoller):
         self._enrichment_queue: asyncio.Queue[Any] = asyncio.Queue(maxsize=256)
         self._beast_frames_dropped: int = 0
         self._local_seen: dict[str, float] = {}  # icao24 → last local seen timestamp
+        self._opensky_poll_count: int = 0
+        self._started_ts: float = time.time()
+        self._beast_unhealthy_logged: bool = False
         self._transport = BeastTransport(on_frame=self._enqueue_beast_frame)
         self._beast_decoder = BeastAircraftDecoder()
         self._adsbdb = AdsbdbClient()
@@ -56,6 +60,12 @@ class AdsbPoller(BasePoller):
         else:
             logger.info("[adsb] no local sources configured — falling back to OpenSky")
         await self._hydrate_from_redis()
+
+    @staticmethod
+    def _effective_opensky_stale_threshold() -> int:
+        # Keep local tracks authoritative for at least one OpenSky cadence window
+        # to reduce local↔supplement source flapping in Mode D.
+        return max(settings.adsb_opensky_stale_threshold, settings.adsb_opensky_interval + 5)
 
     async def _hydrate_from_redis(self) -> None:
         """Pre-populate the decoder registry from last-known Redis entity state.
@@ -108,10 +118,16 @@ class AdsbPoller(BasePoller):
             # HTTP fires only when BEAST hasn't delivered a frame recently.
             # This is a true fallback: one source active at a time.
             if self._source_urls and not self._transport.is_healthy:
-                logger.info("[adsb] BEAST unhealthy — HTTP fallback active")
+                warmup_done = (time.time() - self._started_ts) >= self._BEAST_WARMUP_SECONDS
+                if warmup_done and not self._beast_unhealthy_logged:
+                    logger.info("[adsb] BEAST unhealthy — HTTP fallback active")
+                    self._beast_unhealthy_logged = True
                 for url in self._source_urls:
                     await self._poll_ultrafeeder(url)
-            if settings.adsb_opensky_supplement and self._source_urls:
+            elif self._beast_unhealthy_logged:
+                logger.info("[adsb] BEAST healthy — HTTP fallback inactive")
+                self._beast_unhealthy_logged = False
+            if settings.adsb_opensky_supplement:
                 self._ensure_opensky_supplement_task()
             return
 
@@ -251,7 +267,7 @@ class AdsbPoller(BasePoller):
         ts = self._local_seen.get(icao.lower())
         if ts is None:
             return False
-        return (time.time() - ts) < settings.adsb_opensky_stale_threshold
+        return (time.time() - ts) < self._effective_opensky_stale_threshold()
 
     # ── OpenSky supplement task (Mode D) ─────────────────────────────────────
 
@@ -261,13 +277,19 @@ class AdsbPoller(BasePoller):
         if self._opensky_supplement_task and self._opensky_supplement_task.done():
             if exc := self._opensky_supplement_task.exception():
                 logger.warning("[adsb] OpenSky supplement task ended with error: %s", exc)
+        logger.info(
+            "[adsb] OpenSky supplement enabled (interval=%ss, stale_threshold=%ss, effective_local_holdoff=%ss)",
+            settings.adsb_opensky_interval,
+            settings.adsb_opensky_stale_threshold,
+            self._effective_opensky_stale_threshold(),
+        )
         self._opensky_supplement_task = asyncio.create_task(self._opensky_supplement_loop())
 
     async def _opensky_supplement_loop(self) -> None:
         while True:
             await asyncio.sleep(settings.adsb_opensky_interval)
             # Purge _local_seen entries well beyond the stale window to prevent growth.
-            cutoff = time.time() - settings.adsb_opensky_stale_threshold * 10
+            cutoff = time.time() - self._effective_opensky_stale_threshold() * 10
             self._local_seen = {k: v for k, v in self._local_seen.items() if v > cutoff}
             try:
                 await self._poll_opensky_supplement()
@@ -313,6 +335,15 @@ class AdsbPoller(BasePoller):
                 record_observation=settings.adsb_opensky_record_observations,
             )
             supplemented += 1
+
+        self._opensky_poll_count += 1
+        if self._opensky_poll_count <= 3 or self._opensky_poll_count % 10 == 0:
+            logger.info(
+                "[adsb] OpenSky supplement poll #%d: %d published, %d skipped (seen locally)",
+                self._opensky_poll_count,
+                supplemented,
+                skipped_local,
+            )
 
         logger.debug(
             "[adsb] OpenSky supplement: %d published, %d skipped (seen locally)",

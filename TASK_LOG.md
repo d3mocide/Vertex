@@ -5,6 +5,24 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 
 ---
 
+## 2026-05-06 — Reduced BEAST startup false-positive unhealthy log noise
+
+- Updated `poller/pollers/adsb.py` to add a 15-second BEAST warm-up window before logging `BEAST unhealthy — HTTP fallback active`.
+- Added transition-aware fallback logging so unhealthy/healthy messages only emit on state changes instead of every cycle.
+- Validation: `python -m py_compile poller/pollers/adsb.py` ✓ · `docker compose up -d --build poller` ✓
+
+## 2026-05-06 — Standardized AIS chevron icon and fixed OpenSky supplement wipeout
+
+- Updated `frontend/src/layers/atlasIcons.ts` to remove the legacy vessel hull/mast icon and render both aircraft and vessel as clean CoT-style chevrons (no tail fin extension).
+- Updated `frontend/src/store.ts` `setAircraftSnapshot(...)` to preserve OpenSky-supplement aircraft between local `aircraft_snapshot` replacements, preventing the "appears briefly then disappears" behavior when supplement mode is active.
+- Added ADS-B source filtering controls in `frontend/src/components/panels/EntitySearchPanel.tsx` and store state (`adsbLocal`, `adsbSupplement`) so operators can toggle local BEAST/ultrafeeder tracks and OpenSky supplement tracks independently.
+- Updated render filtering in `frontend/src/components/MapOverlay.tsx` to apply those source-level ADS-B toggles and avoid mixing local/supplement displays when operators want one source only.
+- Tuned motion smoothing in `frontend/src/layers/pvb.ts` to use a source-aware adaptive blend window (longer for sparse OpenSky updates, short for local feeds) to keep BEAST fidelity while reducing rough supplement jumps.
+- Updated `poller/pollers/adsb.py` so Mode D supplement startup in BEAST mode is no longer gated on configured HTTP ADS-B sources, and added INFO-level OpenSky poll lifecycle/cadence logs.
+- Added an effective local holdoff threshold in `poller/pollers/adsb.py` (`max(stale_threshold, interval + 5)`) to reduce rapid local↔OpenSky source flapping.
+- Validation: `cd frontend && npx tsc --noEmit` ✓
+
+
 ## 2026-05-06 — Atlas map key documentation sync and icon priority tuning
 
 - Updated entity rendering in `frontend/src/layers/buildEntityLayers.ts` so ADSB/AIS retain full icons at mid zoom and now use the same icon size as close zoom (default `32px`, selected `40px`).
