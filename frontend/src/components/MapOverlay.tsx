@@ -13,6 +13,8 @@ import { buildObservationRingLayers } from '../layers/buildObservationRingLayer'
 import { buildCustomLayers } from '../layers/buildCustomLayers'
 import { buildLightningLayer } from '../layers/buildLightningLayer'
 import { buildStreamGaugeLayers, type StreamGaugePoint } from '../layers/buildStreamGaugeLayer'
+import { buildMeshNodeLayers, type MeshNodePoint } from '../layers/buildMeshNodeLayer'
+import { buildTinyGSLayers, type TinyGSSatellitePoint, type TinyGSStationPoint } from '../layers/buildTinyGSLayer'
 import { applyPVB, type PVBState } from '../layers/pvb'
 import { DEFAULT_CENTER, OBSERVATION_RANGE_KM, API_BASE } from '../config'
 import { authHeaders } from '../auth'
@@ -260,16 +262,6 @@ export function MapOverlay({ map }: Props) {
     const onMapMouseMove = (e: maplibregl.MapMouseEvent) => {
       // 1. Pick from Deck.gl
       const picked = deck.pickObject({ x: e.point.x, y: e.point.y, radius: 5 })
-      
-      // 2. Pick from MapLibre layers (Geofences, Mesh Nodes)
-      // Filter to only layers that currently exist in the map style — querying
-      // a non-existent layer throws synchronously in MapLibre.
-      const candidateLayers = ['mesh-node-points', 'mesh-node-points-ring']
-      const layers = candidateLayers.filter((id) => !!map.getLayer(id))
-
-      const mapHits = layers.length > 0
-        ? map.queryRenderedFeatures(e.point, { layers })
-        : []
 
       let html = ''
       
@@ -358,6 +350,43 @@ export function MapOverlay({ map }: Props) {
               </div>
             </div>
           `
+        } else if (layer.id === 'mesh-node-dots') {
+          const node = object as MeshNodePoint
+          html = `
+            <div class="p-2 bg-slate-900/95 border border-slate-700 rounded-lg shadow-2xl backdrop-blur-md">
+              <div class="flex items-center gap-2 text-[11px] font-bold text-white mb-1">
+                <span class="material-symbols-outlined text-[16px] ${node.stale ? 'text-slate-500' : 'text-green-500'}">router</span>
+                <span>${node.name}</span>
+              </div>
+              <div class="flex items-center gap-1.5">
+                <div class="w-1.5 h-1.5 rounded-full ${node.stale ? 'bg-slate-500' : 'bg-green-500 pulse-fast'}"></div>
+                <div class="text-[9px] text-slate-400 font-mono">${node.stale ? 'STALE / OFFLINE' : 'ACTIVE / ONLINE'}</div>
+              </div>
+              ${node.status ? `<div class="text-[9px] text-slate-500 font-mono mt-1">${node.status}</div>` : ''}
+            </div>
+          `
+        } else if (layer.id === 'tinygs-satellite-dot') {
+          const sat = object as TinyGSSatellitePoint
+          html = `
+            <div class="p-2 min-w-[200px] bg-slate-900/95 border border-slate-700 rounded-lg shadow-2xl backdrop-blur-md">
+              <div class="flex items-center gap-2 text-[11px] font-bold text-white mb-1.5">
+                <span class="material-symbols-outlined text-[16px] text-violet-300">satellite_alt</span>
+                <span class="truncate">${sat.name}</span>
+              </div>
+              <div class="text-[10px] text-slate-400 font-mono">ALT: ${sat.alt_km !== null ? `${sat.alt_km} km` : 'n/a'}</div>
+            </div>
+          `
+        } else if (layer.id === 'tinygs-station-dot') {
+          const stn = object as TinyGSStationPoint
+          html = `
+            <div class="p-2 min-w-[180px] bg-slate-900/95 border border-slate-700 rounded-lg shadow-2xl backdrop-blur-md">
+              <div class="flex items-center gap-2 text-[11px] font-bold text-white mb-1.5">
+                <span class="material-symbols-outlined text-[16px] text-amber-400">sensors</span>
+                <span class="truncate">${stn.name}</span>
+              </div>
+              <div class="text-[10px] text-slate-400 font-mono">${stn.online ? 'ONLINE' : 'OFFLINE'}</div>
+            </div>
+          `
         } else if (layer.id === 'geofence-fill') {
           const geofence = object as GeofenceItem
           html = `
@@ -373,24 +402,6 @@ export function MapOverlay({ map }: Props) {
           html = `
             <div class="p-2 bg-slate-900/95 border border-slate-700 rounded-lg shadow-2xl backdrop-blur-md">
               <div class="text-[10px] text-slate-400 font-mono">Custom layer</div>
-            </div>
-          `
-        }
-      } else if (mapHits.length > 0) {
-        const feature = mapHits[0]
-        const props = feature.properties
-        if (feature.layer.id.startsWith('mesh-node-points')) {
-          const stale = props.stale === 'true' || props.stale === true
-          html = `
-            <div class="p-2 bg-slate-900/95 border border-slate-700 rounded-lg shadow-2xl backdrop-blur-md">
-              <div class="flex items-center gap-2 text-[11px] font-bold text-white mb-1">
-                <span class="material-symbols-outlined text-[16px] ${stale ? 'text-slate-500' : 'text-green-500'}">router</span>
-                <span>${props.name}</span>
-              </div>
-              <div class="flex items-center gap-1.5">
-                <div class="w-1.5 h-1.5 rounded-full ${stale ? 'bg-slate-500' : 'bg-green-500 pulse-fast'}"></div>
-                <div class="text-[9px] text-slate-400 font-mono">${stale ? 'STALE / OFFLINE' : 'ACTIVE / ONLINE'}</div>
-              </div>
             </div>
           `
         }
@@ -422,6 +433,15 @@ export function MapOverlay({ map }: Props) {
       } else if (picked.layer?.id === 'stream-gauge-dots') {
         const gauge = picked.object as StreamGaugePoint | undefined
         if (gauge?.entity_id) selectEntity(gauge.entity_id)
+      } else if (picked.layer?.id === 'mesh-node-dots') {
+        const node = picked.object as MeshNodePoint | undefined
+        if (node?.entity_id) selectEntity(node.entity_id)
+      } else if (picked.layer?.id === 'tinygs-satellite-dot') {
+        const sat = picked.object as TinyGSSatellitePoint | undefined
+        if (sat?.entity_id) selectEntity(sat.entity_id)
+      } else if (picked.layer?.id === 'tinygs-station-dot') {
+        const stn = picked.object as TinyGSStationPoint | undefined
+        if (stn?.entity_id) selectEntity(stn.entity_id)
       } else {
         const track = picked.object as Track | undefined
         if (track?.uid) selectEntity(track.uid)
@@ -525,6 +545,16 @@ export function MapOverlay({ map }: Props) {
       }
 
       const layers = [
+          ...buildTinyGSLayers(
+            Object.values(entitiesRef.current),
+            entityFilterRef.current.satellite,
+            entityFilterRef.current.tinygs_station,
+          ),
+          ...buildMeshNodeLayers(
+            Object.values(entitiesRef.current),
+            entityFilterRef.current.mesh_node,
+            now,
+          ),
           ...(() => {
             const wsGauges = Object.values(entitiesRef.current).filter((e) => e.entity_type === 'stream_gauge')
             const fallback = gaugeFallbackRef.current

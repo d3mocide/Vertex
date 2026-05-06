@@ -287,6 +287,31 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 
 - **Validation**
     - `cd frontend && npx tsc --noEmit` passed
+
+
+## 2026-05-05 — Migrated Mesh/TinyGS overlays to Deck + documented map-layer architecture
+
+- **Deck migration**:
+    - Added Deck mesh node builder: `frontend/src/layers/buildMeshNodeLayer.ts`.
+    - Added Deck TinyGS builder: `frontend/src/layers/buildTinyGSLayer.ts`.
+    - Wired both into `frontend/src/components/MapOverlay.tsx` with hover tooltip + click selection support.
+    - Removed legacy MapLibre mounts for mesh/tinygs from `frontend/src/components/Map.tsx`.
+- **Declutter tuning**:
+    - Reduced stream gauge marker footprint in `frontend/src/layers/buildStreamGaugeLayer.ts`.
+- **Architecture policy/docs**:
+    - Added mandatory map rendering rules to `Agents.md` (Deck for operational indicators, MapLibre for basemap/raster/terrain).
+    - Added current-state design artifact: `research/map-layer-architecture-current-state-2026-05-05.md`.
+- **Validation**:
+    - `cd frontend && npx tsc --noEmit` ✓
+    - `docker compose up -d --build frontend` ✓
+## 2026-05-05 — Decluttered dense map presentation (gauges + APRS labels)
+
+- **Stream gauge declutter**: Removed always-on stream gauge text labels from Deck rendering in `frontend/src/layers/buildStreamGaugeLayer.ts`.
+- **APRS declutter**: Added zoom gating so APRS callsign labels only render at close zoom (`zoom >= 10`) in `frontend/src/layers/buildEntityLayers.ts`.
+- **Overlay wiring**: Passed map zoom into entity layer builder from `frontend/src/components/MapOverlay.tsx`.
+- **Validation**:
+    - `cd frontend && npx tsc --noEmit` ✓
+    - `docker compose up -d --build frontend` ✓
     - `python -m py_compile` on all touched backend/poller Python files passed
     - `docker compose config --quiet` passed
     - `docker compose up -d --build backend poller frontend` passed (services started)

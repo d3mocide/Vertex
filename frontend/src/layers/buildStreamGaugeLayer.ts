@@ -58,7 +58,7 @@ export function buildStreamGaugeLayers(entities: Entity[], visible: boolean) {
     stroked: false,
     radiusUnits: 'pixels',
     getPosition: (p) => [p.lon, p.lat],
-    getRadius: 14,
+    getRadius: 9,
     getFillColor: (p) => [p.color[0], p.color[1], p.color[2], 120],
   })
 
@@ -70,7 +70,7 @@ export function buildStreamGaugeLayers(entities: Entity[], visible: boolean) {
     stroked: true,
     radiusUnits: 'pixels',
     getPosition: (p) => [p.lon, p.lat],
-    getRadius: 7,
+    getRadius: 5,
     getFillColor: (p) => p.color,
     getLineColor: [255, 255, 255, 255],
     lineWidthUnits: 'pixels',

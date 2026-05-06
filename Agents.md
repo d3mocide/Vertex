@@ -110,6 +110,44 @@ poller → Redis pub/sub → backend → frontend (via WebSocket /ws)
 
 ---
 
+## Map Layer Architecture Rules (Mandatory)
+
+Map presentation is split by responsibility. Follow these rules for all new or modified map layers.
+
+### 1) Where layers must be built
+
+- **Deck.gl (`frontend/src/layers/` + `MapOverlay.tsx`)**:
+	- all operational indicators and dynamic entities,
+	- all selectable symbols, rings, pulses, labels, trails,
+	- all high-frequency or websocket-updated overlays.
+- **MapLibre (`frontend/src/components/layers/`)**:
+	- basemap/style only,
+	- raster/weather tile sources (radar, smoke),
+	- terrain DEM source/exaggeration,
+	- map controls and native map interaction plumbing.
+
+### 2) Why
+
+- Deck.gl gives a single rendering/picking pipeline for tactical overlays.
+- It avoids style-layer ordering conflicts and CSS/filter side effects on many independent MapLibre symbol layers.
+- It centralizes declutter logic (zoom gating, density caps, label policies) in one place.
+
+### 3) Declutter standards
+
+- Do not add always-on labels for dense feeds by default.
+- Label visibility must be zoom-gated and/or density-limited.
+- Prefer icon/ring-only defaults with details surfaced in hover/click tooltips.
+
+### 4) Exceptions
+
+- If a non-basemap indicator must remain MapLibre, document:
+	- why Deck.gl is not viable,
+	- expected lifetime of the exception,
+	- migration plan back to Deck.
+	Add this note in `TASK_LOG.md` and the map-layer research artifact.
+
+---
+
 ## Design System Rules — Mandatory for All Frontend Changes
 
 The Vertex Design System (`vertex-design-system.html`) is the source of truth for every visual decision. Run `/design-system` at the start of any frontend task to load the full token and component reference.

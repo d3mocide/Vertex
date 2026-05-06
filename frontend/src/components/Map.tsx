@@ -4,8 +4,6 @@ import 'maplibre-gl/dist/maplibre-gl.css'
 import { MAP_STYLE, DEFAULT_CENTER, DEFAULT_ZOOM, PRESERVE_DRAWING_BUFFER } from '../config'
 import { RadarLayer }           from './layers/RadarLayer'
 import { SmokeLayer }           from './layers/SmokeLayer'
-import { MeshLayer }            from './layers/MeshLayer'
-import { TinyGSLayer }         from './layers/TinyGSLayer'
 import { GeofenceLayer }        from './layers/GeofenceLayer'
 import { ObservationRingLayer } from './layers/ObservationRingLayer'
 import { CustomLayersLayer }    from './layers/CustomLayersLayer'
@@ -84,8 +82,6 @@ export function Map() {
           <TerrainLayer          map={map} />
           <RadarLayer            map={map} />
           <SmokeLayer            map={map} />
-          <MeshLayer             map={map} />
-          <TinyGSLayer           map={map} />
           <GeofenceLayer         map={map} />
           <CustomLayersLayer     map={map} />
           <ObservationRingLayer  map={map} />
