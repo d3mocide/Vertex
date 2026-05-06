@@ -39,12 +39,22 @@ class BeastTransport:
         frames_seen:    Total frames successfully parsed and delivered.
         last_frame_ts:  Unix timestamp of the most recently delivered frame
                         (0.0 if no frame has been seen yet).
+        is_healthy:     True when TCP is connected and a frame has arrived
+                        within adsb_beast_stale_threshold_seconds.
     """
 
     def __init__(self, *, on_frame: Callable[[bytes, int, int], None]):
         self._on_frame = on_frame
         self.frames_seen: int = 0
         self.last_frame_ts: float = 0.0
+        self._connected: bool = False
+
+    @property
+    def is_healthy(self) -> bool:
+        """TCP is up and frames are arriving within the configured stale window."""
+        if not self._connected or self.last_frame_ts == 0.0:
+            return False
+        return (time.time() - self.last_frame_ts) < settings.adsb_beast_stale_threshold_seconds
 
     async def run(self) -> None:
         """Connect to the BEAST TCP endpoint and stream frames indefinitely.
@@ -61,6 +71,7 @@ class BeastTransport:
             writer = None
             try:
                 reader, writer = await asyncio.open_connection(host, port)
+                self._connected = True
                 logger.info("[beast] connected to %s:%s", host, port)
                 backoff = max(1, settings.adsb_beast_reconnect_initial_seconds)
                 buffer = bytearray()
@@ -81,10 +92,12 @@ class BeastTransport:
             except asyncio.CancelledError:
                 raise
             except Exception as exc:
+                self._connected = False
                 logger.warning("[beast] connection error: %s (retry in %ss)", exc, backoff)
                 await asyncio.sleep(backoff)
                 backoff = min(backoff * 2, max_backoff)
             finally:
+                self._connected = False
                 try:
                     if writer is not None:
                         writer.close()

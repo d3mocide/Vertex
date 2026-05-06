@@ -31,9 +31,11 @@ class AdsbPoller(BasePoller):
         self._registry_worker_task: asyncio.Task | None = None
         self._registry_tick_task: asyncio.Task | None = None
         self._enrichment_worker_task: asyncio.Task | None = None
+        self._opensky_supplement_task: asyncio.Task | None = None
         self._registry_work_queue: asyncio.Queue[tuple[str, Any]] = asyncio.Queue(maxsize=16384)
         self._enrichment_queue: asyncio.Queue[Any] = asyncio.Queue(maxsize=256)
         self._beast_frames_dropped: int = 0
+        self._local_seen: dict[str, float] = {}  # icao24 → last local seen timestamp
         self._transport = BeastTransport(on_frame=self._enqueue_beast_frame)
         self._beast_decoder = BeastAircraftDecoder()
         self._adsbdb = AdsbdbClient()
@@ -103,17 +105,21 @@ class AdsbPoller(BasePoller):
     async def poll(self):
         if settings.adsb_enable_beast:
             self._ensure_beast_task()
-            if self._source_urls and settings.adsb_beast_http_fallback:
+            # HTTP fires only when BEAST hasn't delivered a frame recently.
+            # This is a true fallback: one source active at a time.
+            if self._source_urls and not self._transport.is_healthy:
+                logger.info("[adsb] BEAST unhealthy — HTTP fallback active")
                 for url in self._source_urls:
                     await self._poll_ultrafeeder(url)
-                return
-            if not settings.adsb_beast_http_fallback:
-                # BEAST-only mode: keep transport task alive and avoid HTTP/OpenSky polling.
-                return
+            if settings.adsb_opensky_supplement and self._source_urls:
+                self._ensure_opensky_supplement_task()
+            return
 
         if self._source_urls:
             for url in self._source_urls:
                 await self._poll_ultrafeeder(url)
+            if settings.adsb_opensky_supplement:
+                self._ensure_opensky_supplement_task()
         else:
             await self._poll_opensky()
 
@@ -157,8 +163,17 @@ class AdsbPoller(BasePoller):
                     entity = self._beast_decoder.ingest(msg, mlat_ticks=mlat_ticks, signal=signal)
                     if entity:
                         await publish_entity(entity)
+                        self._record_local_seen(entity)
                 elif kind == "tick":
-                    await self._publish_aircraft_snapshot(self._beast_decoder.snapshot_entities())
+                    snapshot_ents = self._beast_decoder.snapshot_entities()
+                    await self._publish_aircraft_snapshot(snapshot_ents)
+                    # Refresh local_seen for every non-stale aircraft in the snapshot.
+                    now = time.time()
+                    for ent in snapshot_ents:
+                        if not ent.get("position_stale"):
+                            icao = (ent.get("identity") or {}).get("icao24")
+                            if icao:
+                                self._local_seen[icao.lower()] = now
             except Exception as exc:
                 logger.warning("[adsb] registry work processing error (%s): %s", kind, exc)
 
@@ -196,7 +211,14 @@ class AdsbPoller(BasePoller):
 
     async def close(self):
         """Cancel all spawned BEAST/registry tasks for clean shutdown."""
-        for task in [self._beast_task, self._registry_worker_task, self._registry_tick_task, self._enrichment_worker_task]:
+        tasks = [
+            self._beast_task,
+            self._registry_worker_task,
+            self._registry_tick_task,
+            self._enrichment_worker_task,
+            self._opensky_supplement_task,
+        ]
+        for task in tasks:
             if task and not task.done():
                 task.cancel()
                 try:
@@ -218,6 +240,85 @@ class AdsbPoller(BasePoller):
             if kind == "frame":
                 self._beast_frames_dropped += 1
 
+    # ── Local sighting tracking (Mode D) ─────────────────────────────────────
+
+    def _record_local_seen(self, entity: dict) -> None:
+        icao = (entity.get("identity") or {}).get("icao24")
+        if icao:
+            self._local_seen[icao.lower()] = time.time()
+
+    def _is_local_recent(self, icao: str) -> bool:
+        ts = self._local_seen.get(icao.lower())
+        if ts is None:
+            return False
+        return (time.time() - ts) < settings.adsb_opensky_stale_threshold
+
+    # ── OpenSky supplement task (Mode D) ─────────────────────────────────────
+
+    def _ensure_opensky_supplement_task(self) -> None:
+        if self._opensky_supplement_task and not self._opensky_supplement_task.done():
+            return
+        if self._opensky_supplement_task and self._opensky_supplement_task.done():
+            if exc := self._opensky_supplement_task.exception():
+                logger.warning("[adsb] OpenSky supplement task ended with error: %s", exc)
+        self._opensky_supplement_task = asyncio.create_task(self._opensky_supplement_loop())
+
+    async def _opensky_supplement_loop(self) -> None:
+        while True:
+            await asyncio.sleep(settings.adsb_opensky_interval)
+            # Purge _local_seen entries well beyond the stale window to prevent growth.
+            cutoff = time.time() - settings.adsb_opensky_stale_threshold * 10
+            self._local_seen = {k: v for k, v in self._local_seen.items() if v > cutoff}
+            try:
+                await self._poll_opensky_supplement()
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:
+                logger.warning("[adsb] OpenSky supplement poll error: %s", exc)
+
+    async def _poll_opensky_supplement(self) -> None:
+        url = (
+            "https://opensky-network.org/api/states/all"
+            f"?lamin={settings.bbox_min_lat}&lamax={settings.bbox_max_lat}"
+            f"&lomin={settings.bbox_min_lon}&lomax={settings.bbox_max_lon}"
+        )
+        headers: dict[str, str] = {"User-Agent": "Vertex/1.0 (Situational Awareness Dashboard)"}
+        if settings.adsb_opensky_username and settings.adsb_opensky_password:
+            import base64
+            creds = f"{settings.adsb_opensky_username}:{settings.adsb_opensky_password}"
+            headers["Authorization"] = f"Basic {base64.b64encode(creds.encode()).decode()}"
+
+        async with httpx.AsyncClient(timeout=20) as client:
+            resp = await client.get(url, headers=headers)
+
+        if resp.status_code == 429:
+            logger.warning("[adsb] OpenSky supplement rate limited — backing off 60s")
+            await asyncio.sleep(60)
+            return
+        resp.raise_for_status()
+        data = resp.json()
+
+        supplemented = 0
+        skipped_local = 0
+        for state in data.get("states") or []:
+            entity = normalize_opensky(state)
+            if not entity:
+                continue
+            icao = (entity.get("identity") or {}).get("icao24")
+            if icao and self._is_local_recent(icao):
+                skipped_local += 1
+                continue
+            await publish_entity(
+                entity,
+                record_observation=settings.adsb_opensky_record_observations,
+            )
+            supplemented += 1
+
+        logger.debug(
+            "[adsb] OpenSky supplement: %d published, %d skipped (seen locally)",
+            supplemented, skipped_local,
+        )
+
     async def _poll_ultrafeeder(self, url: str):
         async with httpx.AsyncClient(timeout=5) as client:
             resp = await client.get(url, headers={"User-Agent": "Vertex/1.0 (Situational Awareness Dashboard)"})
@@ -229,6 +330,7 @@ class AdsbPoller(BasePoller):
             if entity:
                 aircraft.append(entity)
                 await publish_entity(entity)
+                self._record_local_seen(entity)
 
         # Always publish a snapshot, including empty lists, so stale aircraft
         # do not linger in Redis/frontend when upstream temporarily returns none.
@@ -283,6 +385,7 @@ class AdsbPoller(BasePoller):
             "frames": self._transport.frames_seen,
             "frames_dropped": self._beast_frames_dropped,
             "beast_connected": beast_connected,
+            "beast_healthy": self._transport.is_healthy,
             "queue_depth": self._registry_work_queue.qsize(),
             "last_frame_age_s": last_frame_age_s,
             "aircraft": enriched,

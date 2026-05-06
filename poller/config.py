@@ -64,15 +64,34 @@ class Settings(BaseSettings):
     aprs_filter_radius_km: int = 80
 
     # ADS-B ingest strategy
-    # When enabled, poller will start a BEAST TCP consumer task. During this
-    # initial rollout, HTTP polling can remain enabled as a fallback path.
     adsb_enable_beast: bool = False
     adsb_beast_host: str = "localhost"
     adsb_beast_port: int = 30005
     adsb_beast_reconnect_initial_seconds: int = 1
     adsb_beast_reconnect_max_seconds: int = 30
+    # Seconds without a BEAST frame before the transport is considered unhealthy
+    # and the HTTP fallback (if local sources are configured) takes over.
+    adsb_beast_stale_threshold_seconds: int = 30
+    # Deprecated — HTTP fallback now activates automatically on BEAST health.
+    # Kept here so existing .env files do not cause a validation error.
     adsb_beast_http_fallback: bool = True
     adsb_publish_only_changes: bool = True
+
+    # Mode D — OpenSky supplement alongside local sources (beast or ultrafeeder).
+    # When enabled, OpenSky polls on its own interval and fills in aircraft not
+    # seen locally within adsb_opensky_stale_threshold seconds.
+    adsb_opensky_supplement: bool = False
+    # Seconds between OpenSky polls. Anonymous budget ~400 req/day; keep >= 220s
+    # for anonymous use. With credentials 30s is safe (~2880 req/day vs 4000 limit).
+    adsb_opensky_interval: int = 60
+    # Seconds since last local sighting before OpenSky may update an aircraft.
+    adsb_opensky_stale_threshold: int = 15
+    # Write OpenSky supplement positions to the observations table.
+    adsb_opensky_record_observations: bool = True
+    # Optional OpenSky Network credentials (https://opensky-network.org).
+    # Authenticated accounts receive 10x the anonymous request budget.
+    adsb_opensky_username: str = ""
+    adsb_opensky_password: str = ""
 
     # Observation persistence mode
     # record: persist every observation row (current behavior)
