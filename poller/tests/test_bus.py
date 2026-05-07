@@ -27,6 +27,11 @@ _POLLER_ROOT = os.path.join(os.path.dirname(__file__), "..")
 if _POLLER_ROOT not in sys.path:
     sys.path.insert(0, _POLLER_ROOT)
 
+# test_beast_decoder.py stubs "bus" at collection time via setdefault; running
+# alphabetically before this file means sys.modules["bus"] is a MagicMock by
+# the time we get here.  Pop it so the real module is loaded with our stubs.
+sys.modules.pop("bus", None)
+
 from bus import _entity_changed, _entity_cache  # noqa: E402
 
 
