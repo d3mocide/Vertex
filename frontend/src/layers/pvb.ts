@@ -34,7 +34,13 @@ function reportKey(track: Track, lastTs: string): string {
 }
 
 function sourceBlendWindowMs(source: string, reportIntervalMs: number): number {
-  if (source.toLowerCase() !== 'opensky') return BLEND_WINDOW_MS
+  const src = (source || '').toLowerCase()
+  if (src !== 'opensky') {
+    // For local sources (BEAST/UltraFeeder), we want a tight blend.
+    // Use 1.2x the observed interval, but cap it so it doesn't get too jittery or too laggy.
+    const interval = reportIntervalMs > 0 ? reportIntervalMs : 1000
+    return Math.max(400, Math.min(BLEND_WINDOW_MS, interval * 1.2))
+  }
   const adaptive = Math.round(reportIntervalMs * 0.85)
   return Math.max(OPENSKY_MIN_BLEND_MS, Math.min(OPENSKY_MAX_BLEND_MS, adaptive))
 }
@@ -99,6 +105,8 @@ export function applyPVB(
     // the position the icon was at, then use that as the new visual anchor so
     // the icon continues smoothly from where it was rather than jumping.
     const [vLon, vLat] = evaluatePVB(state, nowMs)
+    const reportInterval = nowMs - state.sTime
+
     // Visual anchor inherits new server velocity so both projections travel in the same
     // direction during the blend window — blend only corrects position offset, not heading.
     pvb[track.uid] = {
@@ -106,7 +114,7 @@ export function applyPVB(
       vLon, vLat, vSpeedMs: projectedSpeed, vCourse: track.courseTrue, vTime: nowMs,
       lastReportKey,
       source: track.source,
-      blendWindowMs: sourceBlendWindowMs(track.source, Math.max(nowMs - state.sTime, BLEND_WINDOW_MS)),
+      blendWindowMs: sourceBlendWindowMs(track.source, reportInterval),
     }
   }
 

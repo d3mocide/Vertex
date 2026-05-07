@@ -5,6 +5,27 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 
 ---
 
+## 2026-05-07 — Implemented Best Mode ADSB arbitration and stabilized backend rate-limiting
+
+- **ADS-B Best Mode Arbitration**: Refactored `poller/pollers/adsb.py` to maintain a unified aircraft registry.
+    - Implemented source-aware arbitration (Hierarchy: BEAST > UltraFeeder > OpenSky) based on 12s freshness windows.
+    - Enabled concurrent polling of BEAST (TCP) and UltraFeeder (HTTP) sources to ensure data continuity during local network fluctuations.
+    - Unified the 1Hz aircraft snapshot emission into a single tick loop, preventing visual flickering and redundant enrichment processing.
+- **API Performance & Stability**:
+    - **Backend**: Increased `RateLimitMiddleware` to 600 calls per 60s in `backend/main.py` to support high-density tactical displays and background polling.
+    - **Frontend Hydration**: Overhauled `frontend/src/hooks/useTrailHydration.ts` with a staggered request queue (400ms delay) and 429 backoff logic. This prevents the "thundering herd" of REST requests on initial map load that previously triggered rate limits.
+    - **Redundant Polling**: Optimized `frontend/src/config.ts` to increase background polling intervals (Alerts/News/Weather/Cameras) by 4-10x, leveraging WebSocket updates as the primary source and REST as a reliable fallback.
+- **Rendering Quality**:
+    - Finalized MapOverlay cadence at 16ms (60fps) and removed interaction gates that caused map-pan stutter.
+    - Fixed Z-index ordering in `MapOverlay.tsx`: Background layers (Geofences, Custom Layers, Observation Rings) are now moved to the bottom of the stack, ensuring tactical entities (Aircraft, Vessels) and manual Annotations render on top and remain unobstructed.
+    - Hardened trail continuity: Increased the "gap bridge" threshold to 15km and history segmentation to 10 minutes to maintain solid lines for high-speed aircraft during transient signal fades.
+    - Map Lifecycle Stability: Hardened all MapLibre sub-components (`AnnotationOverlay`, `TerrainLayer`, `SmokeLayer`, `GeofenceLayer`) with defensive null-checks and try/catch blocks to prevent crashes during Hot Module Replacement (HMR) or component unmounting.
+    - Validated PVB adaptive blending logic for local sources to ensure smooth motion and minimal latency.
+- **Validation**:
+    - `cd frontend && npx tsc --noEmit` ✓ (Passed)
+    - `python -m py_compile backend/main.py poller/pollers/adsb.py` ✓ (Passed)
+    - `docker compose config --quiet` ✓ (Passed)
+
 ## 2026-05-06 — Fixed ADS-B icon reset/repopulate loops and BEAST smoothing regression
 
 - Root cause refinement after container/browser refresh: map behavior indicated a combination of transient empty aircraft snapshots, excessive BEAST update churn, and frontend blend-state reset conditions.

@@ -55,40 +55,64 @@ export function useTrailHydration(): void {
 
   // Track which entity IDs we have already fetched (or are fetching).
   const fetchedRef = useRef(new Set<string>())
+  const queueRef = useRef<string[]>([])
+  const processingRef = useRef(false)
 
   useEffect(() => {
-    for (const [entityId, entity] of Object.entries(entities)) {
-      if (entity.entity_type !== 'aircraft') continue
-      if (fetchedRef.current.has(entityId)) continue
+    const newEntities = Object.entries(entities)
+      .filter(([id, e]) => e.entity_type === 'aircraft' && !fetchedRef.current.has(id))
+      .map(([id]) => id)
 
-      // Mark immediately so concurrent renders don't double-fetch.
-      fetchedRef.current.add(entityId)
+    if (newEntities.length > 0) {
+      newEntities.forEach(id => fetchedRef.current.add(id))
+      queueRef.current.push(...newEntities)
+    }
 
+    if (queueRef.current.length > 0 && !processingRef.current) {
+      processQueue()
+    }
+  }, [entities])
+
+  const processQueue = async () => {
+    if (processingRef.current || queueRef.current.length === 0) return
+    processingRef.current = true
+
+    while (queueRef.current.length > 0) {
+      const entityId = queueRef.current.shift()!
       const url = `${API_BASE}/entities/${encodeURIComponent(entityId)}/trail?minutes=${HISTORY_MINUTES}`
 
-      fetch(url, { headers: authHeaders() })
-        .then((res) => {
-          if (!res.ok) return null
-          return res.json() as Promise<ObservationRow[]>
-        })
-        .then((rows) => {
-          if (!rows || rows.length === 0) return
+      try {
+        const res = await fetch(url, { headers: authHeaders() })
+        if (res.status === 429) {
+          // Back off and re-queue if rate limited
+          console.warn(`[trail] Rate limited (429) for ${entityId}, backing off...`)
+          queueRef.current.unshift(entityId)
+          await new Promise(resolve => setTimeout(resolve, 5000))
+          continue
+        }
 
-          const pts: TrailPt[] = rows
-            .map(rowToTrailPt)
-            .filter((p): p is TrailPt => p !== null)
+        if (res.ok) {
+          const rows = await res.json() as ObservationRow[]
+          if (rows && rows.length > 0) {
+            const pts: TrailPt[] = rows
+              .map(rowToTrailPt)
+              .filter((p): p is TrailPt => p !== null)
 
-          if (pts.length === 0) return
+            if (pts.length > 0) {
+              const sampled = subsample(pts, DB_POINT_CAP)
+              historicalTrailCache.set(entityId, sampled)
+              refreshEntityTrack(entityId)
+            }
+          }
+        }
+      } catch (err) {
+        console.error(`[trail] Failed to fetch trail for ${entityId}`, err)
+      }
 
-          const sampled = subsample(pts, DB_POINT_CAP)
-          historicalTrailCache.set(entityId, sampled)
-
-          // Re-run entityToTrack so the richer trail shows immediately.
-          refreshEntityTrack(entityId)
-        })
-        .catch(() => {
-          // Non-fatal — trail falls back to BEAST ring buffer.
-        })
+      // Small delay between requests to prevent bursts
+      await new Promise(resolve => setTimeout(resolve, 400))
     }
-  }, [entities, refreshEntityTrack])
+
+    processingRef.current = false
+  }
 }

@@ -36,10 +36,10 @@ export const STREAM_URL = import.meta.env.VITE_RADIO_STREAM_URL || '/stream/radi
 
 // Polling intervals (ms)
 export const HEALTH_POLL_MS   = 15_000
-export const ALERTS_POLL_MS   = 30_000
-export const NEWS_POLL_MS     = 60_000
-export const WEATHER_POLL_MS  = 60_000
-export const CAMERAS_POLL_MS  = 120_000
+export const ALERTS_POLL_MS   = 2 * 60_000   // 2 min (WS is primary)
+export const NEWS_POLL_MS     = 5 * 60_000   // 5 min (WS is primary)
+export const WEATHER_POLL_MS  = 10 * 60_000  // 10 min (WS is primary)
+export const CAMERAS_POLL_MS  = 10 * 60_000  // 10 min (WS is primary)
 export const RADAR_REFRESH_MS = 5 * 60_000  // IEM NEXRAD updates every ~5 min
 
 // Radar layer slug for IEM tile service, e.g. "USCOMP-N0Q-0" or "RTX-N0Q-0".

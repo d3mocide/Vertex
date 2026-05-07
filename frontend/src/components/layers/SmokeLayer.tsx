@@ -14,6 +14,8 @@ export function SmokeLayer({ map }: Props) {
   const smokeVisible = useCivicStore((s) => s.smokeVisible)
 
   useEffect(() => {
+    if (!map || typeof map.getLayer !== 'function') return
+
     if (!map.getSource(SRC_SMOKE)) {
       map.addSource(SRC_SMOKE, {
         type: 'raster',
@@ -33,9 +35,11 @@ export function SmokeLayer({ map }: Props) {
     }
 
     const vis = smokeVisible ? 'visible' : 'none'
-    if (map.getLayer(LYR_SMOKE)) {
-      map.setLayoutProperty(LYR_SMOKE, 'visibility', vis)
-    }
+    try {
+      if (map.getLayer(LYR_SMOKE)) {
+        map.setLayoutProperty(LYR_SMOKE, 'visibility', vis)
+      }
+    } catch { /* ignore */ }
   }, [map, smokeVisible])
 
   return null

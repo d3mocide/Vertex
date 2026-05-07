@@ -43,6 +43,8 @@ class AdsbPoller(BasePoller):
         self._beast_unhealthy_logged: bool = False
         self._transport = BeastTransport(on_frame=self._enqueue_beast_frame)
         self._beast_decoder = BeastAircraftDecoder()
+        self._unified_entities: dict[str, dict] = {}  # icao24 -> last seen entity snapshot
+        self._last_seen_by_source: dict[str, dict[str, float]] = {}  # icao24 -> {source: ts}
         self._adsbdb = AdsbdbClient()
         self._metar = MetarClient()
         self._aircraft_db = AircraftDb()
@@ -119,28 +121,17 @@ class AdsbPoller(BasePoller):
     async def poll(self):
         if settings.adsb_enable_beast:
             self._ensure_beast_task()
-            # HTTP fires only when BEAST hasn't delivered a frame recently.
-            # This is a true fallback: one source active at a time.
-            if self._source_urls and not self._transport.is_healthy:
-                warmup_done = (time.time() - self._started_ts) >= self._BEAST_WARMUP_SECONDS
-                if warmup_done and not self._beast_unhealthy_logged:
-                    logger.info("[adsb] BEAST unhealthy — HTTP fallback active")
-                    self._beast_unhealthy_logged = True
-                for url in self._source_urls:
-                    await self._poll_ultrafeeder(url)
-            elif self._beast_unhealthy_logged:
-                logger.info("[adsb] BEAST healthy — HTTP fallback inactive")
-                self._beast_unhealthy_logged = False
-            if settings.adsb_opensky_supplement:
-                self._ensure_opensky_supplement_task()
-            return
 
+        # Concurrent local HTTP polling (UltraFeeder)
         if self._source_urls:
             for url in self._source_urls:
                 await self._poll_ultrafeeder(url)
-            if settings.adsb_opensky_supplement:
-                self._ensure_opensky_supplement_task()
-        else:
+
+        # OpenSky supplement logic (Mode D)
+        if settings.adsb_opensky_supplement:
+            self._ensure_opensky_supplement_task()
+        elif not settings.adsb_enable_beast and not self._source_urls:
+            # Fallback to pure OpenSky if no local sources are enabled/configured
             await self._poll_opensky()
 
     def _ensure_beast_task(self):
@@ -182,18 +173,39 @@ class AdsbPoller(BasePoller):
                     msg, mlat_ticks, signal = payload
                     entity = self._beast_decoder.ingest(msg, mlat_ticks=mlat_ticks, signal=signal)
                     if entity:
+                        icao = (entity.get("identity") or {}).get("icao24", "").lower()
+                        self._record_source_seen(icao, "beast")
+                        self._unified_entities[icao] = entity
                         await publish_entity(entity)
-                        self._record_local_seen(entity)
                 elif kind == "tick":
-                    snapshot_ents = self._beast_decoder.snapshot_entities()
-                    await self._publish_aircraft_snapshot(snapshot_ents)
-                    # Refresh local_seen for every non-stale aircraft in the snapshot.
+                    # Build unified Best Mode snapshot
                     now = time.time()
-                    for ent in snapshot_ents:
-                        if not ent.get("position_stale"):
-                            icao = (ent.get("identity") or {}).get("icao24")
-                            if icao:
-                                self._local_seen[icao.lower()] = now
+                    snapshot_ents = []
+                    
+                    # 1. Start with BEAST (highest priority)
+                    for ac in self._beast_decoder.snapshot_entities():
+                        icao = (ac.get("identity") or {}).get("icao24", "").lower()
+                        self._unified_entities[icao] = ac
+                    
+                    # 2. Filter unified registry for staleness and collect Best Mode ents
+                    stale_cutoff = 120.0 # 2 mins max before dropping from registry
+                    to_remove = []
+                    for icao, entity in self._unified_entities.items():
+                        seen = self._last_seen_by_source.get(icao, {})
+                        last_any = max(seen.values()) if seen else 0
+                        if (now - last_any) > stale_cutoff:
+                            to_remove.append(icao)
+                            continue
+                        
+                        # Only include in snapshot if this is the currently preferred source
+                        source = entity.get("source", "unknown")
+                        if self._should_publish_from_source(icao, source):
+                            snapshot_ents.append(entity)
+                            
+                    for icao in to_remove:
+                        del self._unified_entities[icao]
+                        
+                    await self._publish_aircraft_snapshot(snapshot_ents)
             except Exception as exc:
                 logger.warning("[adsb] registry work processing error (%s): %s", kind, exc)
 
@@ -260,18 +272,52 @@ class AdsbPoller(BasePoller):
             if kind == "frame":
                 self._beast_frames_dropped += 1
 
-    # ── Local sighting tracking (Mode D) ─────────────────────────────────────
+    # ── Best Mode Arbitration ──────────────────────────────────────────────
 
-    def _record_local_seen(self, entity: dict) -> None:
-        icao = (entity.get("identity") or {}).get("icao24")
-        if icao:
-            self._local_seen[icao.lower()] = time.time()
+    def _record_source_seen(self, icao: str, source: str) -> None:
+        if not icao:
+            return
+        icao = icao.lower()
+        if icao not in self._last_seen_by_source:
+            self._last_seen_by_source[icao] = {}
+        self._last_seen_by_source[icao][source] = time.time()
+
+    def _should_publish_from_source(self, icao: str, source: str) -> bool:
+        """Implements 'Best Mode' priority arbitration.
+
+        Hierarchy: beast (1) > ultrafeeder (2) > opensky (3)
+        Returns True if 'source' is currently the best available source for 'icao'.
+        """
+        icao = icao.lower()
+        now = time.time()
+        seen = self._last_seen_by_source.get(icao, {})
+
+        priority = {"beast": 1, "ultrafeeder": 2, "opensky": 3}
+        my_prio = priority.get(source, 99)
+
+        for other_src, last_ts in seen.items():
+            if other_src == source:
+                continue
+            other_prio = priority.get(other_src, 99)
+            if other_prio < my_prio:
+                # A better source exists. Is it still fresh?
+                # BEAST/UF stale window is tight (12s).
+                if (now - last_ts) < 12.0:
+                    return False
+        return True
 
     def _is_local_recent(self, icao: str) -> bool:
-        ts = self._local_seen.get(icao.lower())
-        if ts is None:
+        """Legacy helper for OpenSky supplement logic."""
+        icao = icao.lower()
+        now = time.time()
+        seen = self._last_seen_by_source.get(icao, {})
+        # Local = beast or ultrafeeder
+        beast_ts = seen.get("beast", 0)
+        uf_ts = seen.get("ultrafeeder", 0)
+        local_ts = max(beast_ts, uf_ts)
+        if local_ts == 0:
             return False
-        return (time.time() - ts) < self._effective_opensky_stale_threshold()
+        return (now - local_ts) < self._effective_opensky_stale_threshold()
 
     # ── OpenSky supplement task (Mode D) ─────────────────────────────────────
 
@@ -292,9 +338,16 @@ class AdsbPoller(BasePoller):
     async def _opensky_supplement_loop(self) -> None:
         while True:
             await asyncio.sleep(settings.adsb_opensky_interval)
-            # Purge _local_seen entries well beyond the stale window to prevent growth.
-            cutoff = time.time() - self._effective_opensky_stale_threshold() * 10
-            self._local_seen = {k: v for k, v in self._local_seen.items() if v > cutoff}
+            # Purge _last_seen_by_source entries well beyond the stale window to prevent growth.
+            cutoff = time.time() - 3600
+            for icao in list(self._last_seen_by_source.keys()):
+                self._last_seen_by_source[icao] = {
+                    src: ts for src, ts in self._last_seen_by_source[icao].items()
+                    if ts > cutoff
+                }
+                if not self._last_seen_by_source[icao]:
+                    del self._last_seen_by_source[icao]
+
             try:
                 await self._poll_opensky_supplement()
             except asyncio.CancelledError:
@@ -331,14 +384,18 @@ class AdsbPoller(BasePoller):
             if not entity:
                 continue
             icao = (entity.get("identity") or {}).get("icao24")
-            if icao and self._is_local_recent(icao):
-                skipped_local += 1
-                continue
-            await publish_entity(
-                entity,
-                record_observation=settings.adsb_opensky_record_observations,
-            )
-            supplemented += 1
+            if icao:
+                icao = icao.lower()
+                self._record_source_seen(icao, "opensky")
+                if self._is_local_recent(icao):
+                    skipped_local += 1
+                    continue
+                self._unified_entities[icao] = entity
+                await publish_entity(
+                    entity,
+                    record_observation=settings.adsb_opensky_record_observations,
+                )
+                supplemented += 1
 
         self._opensky_poll_count += 1
         if self._opensky_poll_count <= 3 or self._opensky_poll_count % 10 == 0:
@@ -359,17 +416,14 @@ class AdsbPoller(BasePoller):
             resp = await client.get(url, headers={"User-Agent": "Vertex/1.0 (Situational Awareness Dashboard)"})
             resp.raise_for_status()
             data = resp.json()
-        aircraft: list[dict] = []
         for ac in data.get("aircraft", []):
             entity = normalize_tar1090(ac)
             if entity:
-                aircraft.append(entity)
-                await publish_entity(entity)
-                self._record_local_seen(entity)
-
-        # Always publish a snapshot, including empty lists, so stale aircraft
-        # do not linger in Redis/frontend when upstream temporarily returns none.
-        await self._publish_aircraft_snapshot(aircraft)
+                icao = (entity.get("identity") or {}).get("icao24", "").lower()
+                self._record_source_seen(icao, "ultrafeeder")
+                self._unified_entities[icao] = entity
+                if self._should_publish_from_source(icao, "ultrafeeder"):
+                    await publish_entity(entity)
 
     async def _poll_opensky(self):
         url = (
@@ -385,16 +439,10 @@ class AdsbPoller(BasePoller):
             return
         resp.raise_for_status()
         data = resp.json()
-        aircraft: list[dict] = []
         for state in data.get("states") or []:
             entity = normalize_opensky(state)
             if entity:
-                aircraft.append(entity)
                 await publish_entity(entity)
-
-        # Always publish a snapshot, including empty lists, so stale aircraft
-        # do not linger in Redis/frontend when upstream temporarily returns none.
-        await self._publish_aircraft_snapshot(aircraft)
 
     async def _publish_aircraft_snapshot(self, aircraft: list[dict]):
         enriched, airports = self._enrich_aircraft_cache_only(aircraft)

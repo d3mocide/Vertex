@@ -3,7 +3,7 @@ import type { Entity, Track, TrailPt } from './storeTypes'
 
 export const ALT_FT_TO_M  = 0.3048
 export const SPD_KT_TO_MS = 0.5144
-export const TRAIL_CAP    = 150
+export const TRAIL_CAP    = 250
 // DB-backed trails can hold much more history; cap the visible trail at this many points.
 export const DB_TRAIL_CAP = 600
 const PRED_STEP_S  = 20
@@ -57,7 +57,7 @@ export function entityToTrack(entity: Entity, existing?: Track): Track | null {
 
     // Trim to the most recent continuous flight segment.
     // Use 5-minute gap threshold so brief reception holes don't break history.
-    const MAX_TRAIL_GAP_MS = 5 * 60 * 1000
+    const MAX_TRAIL_GAP_MS = 10 * 60 * 1000
     let segmentStart = 0
     for (let i = 1; i < merged.length; i++) {
       const tA = merged[i - 1][4] ? new Date(merged[i - 1][4]!).getTime() : 0

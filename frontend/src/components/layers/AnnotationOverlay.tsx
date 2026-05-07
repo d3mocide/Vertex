@@ -162,10 +162,15 @@ export function AnnotationOverlay({ map }: Props) {
     else map.once('load', setup)
 
     return () => {
+      if (!map || typeof map.getLayer !== 'function') return
       for (const id of ['annotation-draw-points', 'annotation-draw-line', 'annotation-draw-fill']) {
-        if (map.getLayer(id)) map.removeLayer(id)
+        try {
+          if (map.getLayer(id)) map.removeLayer(id)
+        } catch (e) { /* ignore cleanup errors */ }
       }
-      if (map.getSource(SRC_DRAW)) map.removeSource(SRC_DRAW)
+      try {
+        if (map.getSource(SRC_DRAW)) map.removeSource(SRC_DRAW)
+      } catch (e) { /* ignore cleanup errors */ }
     }
   }, [map])
 

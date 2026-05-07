@@ -107,6 +107,7 @@ export function GeofenceLayer({ map }: Props) {
 
   // Draw preview layer
   useEffect(() => {
+    if (!map || typeof map.getSource !== 'function') return
     const drawGeoJSON = buildDrawGeoJSON(geofenceDrawPoints, geofenceDrawMode)
 
     if (!map.getSource(SRC_DRAW)) {
@@ -148,6 +149,8 @@ export function GeofenceLayer({ map }: Props) {
   }, [addGeofenceDrawPoint])
 
   useEffect(() => {
+    if (!map || typeof map.getCanvas !== 'function') return
+
     if (geofenceDrawing) {
       map.getCanvas().style.cursor = 'crosshair'
       map.on('click', handleMapClick)
@@ -156,8 +159,11 @@ export function GeofenceLayer({ map }: Props) {
       map.off('click', handleMapClick)
     }
     return () => {
-      map.getCanvas().style.cursor = ''
-      map.off('click', handleMapClick)
+      if (!map || typeof map.getCanvas !== 'function') return
+      try {
+        map.getCanvas().style.cursor = ''
+        map.off('click', handleMapClick)
+      } catch { /* ignore */ }
     }
   }, [geofenceDrawing, map, handleMapClick])
 

@@ -18,7 +18,7 @@ export function TerrainLayer({ map }: Props) {
 
   useEffect(() => {
     // Add the DEM source once on mount
-    if (!map.getSource(TERRAIN_SRC)) {
+    if (map && typeof map.getSource === 'function' && !map.getSource(TERRAIN_SRC)) {
       map.addSource(TERRAIN_SRC, {
         type:     'raster-dem',
         tiles:    TERRAIN_TILES,
@@ -30,6 +30,7 @@ export function TerrainLayer({ map }: Props) {
   }, [map])
 
   useEffect(() => {
+    if (!map || typeof map.setTerrain !== 'function') return
     if (terrainEnabled) {
       map.setTerrain({ source: TERRAIN_SRC, exaggeration: terrainExaggeration })
     } else {

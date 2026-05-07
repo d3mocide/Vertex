@@ -48,7 +48,7 @@ app.add_middleware(
 
 Instrumentator().instrument(app).expose(app)
 app.add_middleware(AuthMiddleware)
-app.add_middleware(RateLimitMiddleware, calls=60, period=60)
+app.add_middleware(RateLimitMiddleware, calls=600, period=60)
 
 app.include_router(health.router)
 app.include_router(auth.router, prefix="/api/v1")

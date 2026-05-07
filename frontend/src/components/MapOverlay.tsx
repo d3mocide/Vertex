@@ -461,7 +461,7 @@ export function MapOverlay({ map }: Props) {
 
     let last = performance.now()
     let lastLayerBuild = 0
-    const LAYER_BUILD_INTERVAL_MS = 100
+    const LAYER_BUILD_INTERVAL_MS = 16
     const tick = (now: number) => {
       const dt = now - last
       last = now
@@ -472,8 +472,7 @@ export function MapOverlay({ map }: Props) {
       // causing Deck to always be one RAF behind during map movement.
       deck.setProps({ viewState: getViewState(map) })
 
-      const interacting = map.isMoving() || map.isZooming() || map.isRotating()
-      const shouldRebuildLayers = !interacting && (now - lastLayerBuild >= LAYER_BUILD_INTERVAL_MS)
+      const shouldRebuildLayers = (now - lastLayerBuild >= LAYER_BUILD_INTERVAL_MS)
       if (!shouldRebuildLayers) {
         rafRef.current = requestAnimationFrame(tick)
         return
@@ -553,6 +552,9 @@ export function MapOverlay({ map }: Props) {
 
       const zoom = map.getZoom()
       const layers = [
+          ...buildCustomLayers(customLayersRef.current),
+          ...buildGeofenceLayers(geofencesRef.current, geofencesVisibleRef.current),
+          ...buildObservationRingLayers(DEFAULT_CENTER, OBSERVATION_RANGE_KM, true),
           ...buildTinyGSLayers(
             Object.values(entitiesRef.current),
             entityFilterRef.current.satellite,
@@ -585,9 +587,6 @@ export function MapOverlay({ map }: Props) {
             points: annotationDrawPointsRef.current,
             cursor: annotationDrawCursorRef.current,
           }),
-          ...buildGeofenceLayers(geofencesRef.current, geofencesVisibleRef.current),
-          ...buildObservationRingLayers(DEFAULT_CENTER, OBSERVATION_RANGE_KM, true),
-          ...buildCustomLayers(customLayersRef.current),
       ]
 
       layersRef.current = layers
