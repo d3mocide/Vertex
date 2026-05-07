@@ -39,6 +39,8 @@ class AdsbPoller(BasePoller):
         self._beast_frames_dropped: int = 0
         self._local_seen: dict[str, float] = {}  # icao24 → last local seen timestamp
         self._opensky_poll_count: int = 0
+        self._opensky_backoff_seconds: int = 0  # Adaptive backoff for 429s
+        self._last_opensky_poll_ts: float = 0.0
         self._started_ts: float = time.time()
         self._beast_unhealthy_logged: bool = False
         self._transport = BeastTransport(on_frame=self._enqueue_beast_frame)
@@ -337,7 +339,9 @@ class AdsbPoller(BasePoller):
 
     async def _opensky_supplement_loop(self) -> None:
         while True:
-            await asyncio.sleep(settings.adsb_opensky_interval)
+            # Respect adaptive backoff if we've hit rate limits recently
+            wait = max(settings.adsb_opensky_interval, self._opensky_backoff_seconds)
+            await asyncio.sleep(wait)
             # Purge _last_seen_by_source entries well beyond the stale window to prevent growth.
             cutoff = time.time() - 3600
             for icao in list(self._last_seen_by_source.keys()):
@@ -371,10 +375,20 @@ class AdsbPoller(BasePoller):
             resp = await client.get(url, headers=headers)
 
         if resp.status_code == 429:
-            logger.warning("[adsb] OpenSky supplement rate limited — backing off 60s")
-            await asyncio.sleep(60)
+            if self._opensky_backoff_seconds == 0:
+                self._opensky_backoff_seconds = 300  # Start with 5m
+            else:
+                self._opensky_backoff_seconds = min(self._opensky_backoff_seconds * 2, 3600)  # Max 1h
+            
+            logger.warning(
+                "[adsb] OpenSky supplement rate limited — backing off %ds (Interval: %ss)",
+                self._opensky_backoff_seconds,
+                settings.adsb_opensky_interval,
+            )
             return
+
         resp.raise_for_status()
+        self._opensky_backoff_seconds = 0  # Reset on success
         data = resp.json()
 
         supplemented = 0
@@ -426,18 +440,34 @@ class AdsbPoller(BasePoller):
                     await publish_entity(entity)
 
     async def _poll_opensky(self):
+        now = time.time()
+        wait = max(settings.adsb_opensky_interval, self._opensky_backoff_seconds)
+        if (now - self._last_opensky_poll_ts) < wait:
+            return
+
+        self._last_opensky_poll_ts = now
         url = (
             "https://opensky-network.org/api/states/all"
             f"?lamin={settings.bbox_min_lat}&lamax={settings.bbox_max_lat}"
             f"&lomin={settings.bbox_min_lon}&lomax={settings.bbox_max_lon}"
         )
+        headers: dict[str, str] = {"User-Agent": "Vertex/1.0 (Situational Awareness Dashboard)"}
+        if settings.adsb_opensky_username and settings.adsb_opensky_password:
+            import base64
+            creds = f"{settings.adsb_opensky_username}:{settings.adsb_opensky_password}"
+            headers["Authorization"] = f"Basic {base64.b64encode(creds.encode()).decode()}"
+
         async with httpx.AsyncClient(timeout=20) as client:
-            resp = await client.get(url)
+            resp = await client.get(url, headers=headers)
         if resp.status_code == 429:
-            logger.warning("[adsb] OpenSky rate limited — backing off 60s")
-            await asyncio.sleep(60)
+            if self._opensky_backoff_seconds == 0:
+                self._opensky_backoff_seconds = 300
+            else:
+                self._opensky_backoff_seconds = min(self._opensky_backoff_seconds * 2, 3600)
+            logger.warning("[adsb] OpenSky rate limited — backing off %ds", self._opensky_backoff_seconds)
             return
         resp.raise_for_status()
+        self._opensky_backoff_seconds = 0
         data = resp.json()
         for state in data.get("states") or []:
             entity = normalize_opensky(state)

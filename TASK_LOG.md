@@ -20,6 +20,8 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
     - Fixed Z-index ordering in `MapOverlay.tsx`: Background layers (Geofences, Custom Layers, Observation Rings) are now moved to the bottom of the stack, ensuring tactical entities (Aircraft, Vessels) and manual Annotations render on top and remain unobstructed.
     - Hardened trail continuity: Increased the "gap bridge" threshold to 15km and history segmentation to 10 minutes to maintain solid lines for high-speed aircraft during transient signal fades.
     - Map Lifecycle Stability: Hardened all MapLibre sub-components (`AnnotationOverlay`, `TerrainLayer`, `SmokeLayer`, `GeofenceLayer`) with defensive null-checks and try/catch blocks to prevent crashes during Hot Module Replacement (HMR) or component unmounting.
+    - Poller Resilience: Implemented adaptive exponential backoff (up to 1 hour) for OpenSky Network ADSB polling to handle 429 rate-limiting gracefully and reduce log noise.
+    - Data Relevance: Implemented time-fencing for fire incidents (30 days for local, 14 days for regional) to eliminate "undead" historical incidents from the tactical dashboard.
     - Validated PVB adaptive blending logic for local sources to ensure smooth motion and minimal latency.
 - **Validation**:
     - `cd frontend && npx tsc --noEmit` ✓ (Passed)

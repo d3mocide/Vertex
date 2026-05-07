@@ -104,14 +104,19 @@ def _latest_event_ts(event: dict) -> datetime | None:
 
 def _classify_relevance(lat: float, lon: float, event_ts: datetime | None) -> tuple[str | None, float]:
     distance_km = _distance_km(settings.region_lat, settings.region_lon, lat, lon)
+    age_hours = (datetime.now(timezone.utc) - event_ts).total_seconds() / 3600 if event_ts else 0
+
+    # Local relevance (within bbox or tight radius)
     if _in_region_bbox(lat, lon) or distance_km <= settings.fire_alert_radius_km:
+        if event_ts and age_hours > settings.fire_alert_recent_hours:
+            return None, distance_km
         return "local", distance_km
 
+    # Regional relevance (within wide radius)
     if distance_km > settings.fire_regional_radius_km:
         return None, distance_km
 
     if event_ts is not None:
-        age_hours = (datetime.now(timezone.utc) - event_ts).total_seconds() / 3600
         if age_hours > settings.fire_regional_recent_hours:
             return None, distance_km
 

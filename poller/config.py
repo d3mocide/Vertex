@@ -42,8 +42,9 @@ class Settings(BaseSettings):
     # Regional fires are retained for awareness, but older regional incidents
     # are dropped to keep the feed operationally relevant.
     fire_alert_radius_km: int = 150
+    fire_alert_recent_hours: int = 720    # 30 days
     fire_regional_radius_km: int = 1200
-    fire_regional_recent_hours: int = 336
+    fire_regional_recent_hours: int = 336  # 14 days
 
     # AI situational summary — configure any LiteLLM-compatible model.
     # Examples:
