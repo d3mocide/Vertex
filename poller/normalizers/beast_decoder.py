@@ -5,7 +5,6 @@ import time
 from collections import deque
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Optional
 
 from config import settings
 from .beast_math import haversine_km, bearing_deg, project_position
@@ -26,23 +25,23 @@ _POS_HISTORY_CAP = 150
 @dataclass
 class _AircraftState:
     icao: str
-    callsign: Optional[str] = None
-    category: Optional[str] = None
-    squawk: Optional[str] = None
-    lat: Optional[float] = None
-    lon: Optional[float] = None
-    altitude: Optional[float] = None
-    heading: Optional[float] = None
-    speed: Optional[float] = None
-    vertical_rate: Optional[float] = None
-    on_ground: Optional[bool] = None
-    even_msg: Optional[str] = None
-    odd_msg: Optional[str] = None
-    even_ts: Optional[float] = None
-    odd_ts: Optional[float] = None
-    last_position_ts: Optional[float] = None
-    last_mlat_ticks: Optional[int] = None
-    signal_peak: Optional[int] = None
+    callsign: str | None = None
+    category: str | None = None
+    squawk: str | None = None
+    lat: float | None = None
+    lon: float | None = None
+    altitude: float | None = None
+    heading: float | None = None
+    speed: float | None = None
+    vertical_rate: float | None = None
+    on_ground: bool | None = None
+    even_msg: str | None = None
+    odd_msg: str | None = None
+    even_ts: float | None = None
+    odd_ts: float | None = None
+    last_position_ts: float | None = None
+    last_mlat_ticks: int | None = None
+    signal_peak: int | None = None
     msg_count: int = 0
     last_seen_ts: float = 0.0
 
@@ -52,32 +51,32 @@ class _AircraftState:
     )
 
     # Comm-B/EHS state (best-effort)
-    selected_altitude_mcp_ft: Optional[float] = None
-    selected_altitude_fms_ft: Optional[float] = None
-    qnh_hpa: Optional[float] = None
-    bds40_at: Optional[float] = None
+    selected_altitude_mcp_ft: float | None = None
+    selected_altitude_fms_ft: float | None = None
+    qnh_hpa: float | None = None
+    bds40_at: float | None = None
 
-    wind_speed_kt: Optional[float] = None
-    wind_direction_deg: Optional[float] = None
-    static_air_temperature_c: Optional[float] = None
-    static_pressure_hpa: Optional[float] = None
-    turbulence: Optional[int] = None
-    humidity_pct: Optional[float] = None
-    bds44_at: Optional[float] = None
+    wind_speed_kt: float | None = None
+    wind_direction_deg: float | None = None
+    static_air_temperature_c: float | None = None
+    static_pressure_hpa: float | None = None
+    turbulence: int | None = None
+    humidity_pct: float | None = None
+    bds44_at: float | None = None
 
-    roll_deg: Optional[float] = None
-    true_track_deg: Optional[float] = None
-    groundspeed_kt: Optional[float] = None
-    track_rate_deg_per_s: Optional[float] = None
-    true_airspeed_kt: Optional[float] = None
-    bds50_at: Optional[float] = None
+    roll_deg: float | None = None
+    true_track_deg: float | None = None
+    groundspeed_kt: float | None = None
+    track_rate_deg_per_s: float | None = None
+    true_airspeed_kt: float | None = None
+    bds50_at: float | None = None
 
-    magnetic_heading_deg: Optional[float] = None
-    indicated_airspeed_kt: Optional[float] = None
-    mach: Optional[float] = None
-    baro_vertical_rate_fpm: Optional[float] = None
-    inertial_vertical_rate_fpm: Optional[float] = None
-    bds60_at: Optional[float] = None
+    magnetic_heading_deg: float | None = None
+    indicated_airspeed_kt: float | None = None
+    mach: float | None = None
+    baro_vertical_rate_fpm: float | None = None
+    inertial_vertical_rate_fpm: float | None = None
+    bds60_at: float | None = None
 
     comm_b_raw: dict[str, str] = field(default_factory=dict)
 
@@ -94,7 +93,7 @@ class BeastAircraftDecoder:
         self._warned_missing_dep = False
         self._last_prune_ts: float = 0.0
 
-    def ingest(self, message_bytes: bytes, *, mlat_ticks: int | None = None, signal: int | None = None) -> Optional[dict]:
+    def ingest(self, message_bytes: bytes, *, mlat_ticks: int | None = None, signal: int | None = None) -> dict | None:
         if pms is None:
             if not self._warned_missing_dep:
                 logger.warning("[adsb] pyModeS not available; BEAST decode disabled")
@@ -277,7 +276,7 @@ class BeastAircraftDecoder:
         ))
         ac._trail_dirty = True
 
-    def _to_entity(self, ac: _AircraftState, now: float | None = None) -> Optional[dict]:
+    def _to_entity(self, ac: _AircraftState, now: float | None = None) -> dict | None:
         if ac.lat is None or ac.lon is None:
             return None
 
@@ -328,7 +327,7 @@ class BeastAircraftDecoder:
             "trail_pts": trail_pts,
         }
 
-    def _decode_altitude_reply(self, hex_msg: str) -> Optional[float]:
+    def _decode_altitude_reply(self, hex_msg: str) -> float | None:
         alt = self._safe(lambda: pms.altcode(hex_msg))
         if alt is None:
             alt = self._safe(lambda: pms.common.altcode(hex_msg))
@@ -336,7 +335,7 @@ class BeastAircraftDecoder:
             return float(alt)
         return None
 
-    def _decode_squawk_reply(self, hex_msg: str) -> Optional[str]:
+    def _decode_squawk_reply(self, hex_msg: str) -> str | None:
         sq = self._safe(lambda: pms.idcode(hex_msg))
         if sq is None:
             sq = self._safe(lambda: pms.common.idcode(hex_msg))
@@ -396,7 +395,7 @@ class BeastAircraftDecoder:
                 ac.inertial_vertical_rate_fpm = values.get("inertial_vertical_rate_fpm")
                 ac.bds60_at = now
 
-    def _build_comm_b_snapshot(self, ac: _AircraftState, now_ts: float) -> Optional[dict]:
+    def _build_comm_b_snapshot(self, ac: _AircraftState, now_ts: float) -> dict | None:
         max_age = 120.0
 
         def fresh(ts: float | None) -> bool:
