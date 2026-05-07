@@ -1539,7 +1539,7 @@ function appendCallHistory(sysid, tg1, tg2, tag1, tag2, freq, sourceId1, sourceI
 		}
 
     // Helper to add a row
-		function addRow(tgid, tag, sourceId) {
+		function addRow(tgid, tag, sourceId, slotNum) {
 				
 			// Only proceed if tgid is defined and its string length > 2
 			if (tgid === undefined || String(tgid).length <= 2) return;
@@ -1549,11 +1549,10 @@ function appendCallHistory(sysid, tg1, tg2, tag1, tag2, freq, sourceId1, sourceI
 		
 			const newRow = document.createElement("tr");
 			
-			// TODO: src
 			newRow.innerHTML = `
 				<td>${timestamp}</td>
 				<td>${sysHex}</td>
-				<td>${freq}</td>
+				<td>${freq} &nbsp;&nbsp; ${slot}${slotNum}</td>
 				<td>${tgid}</td>
 				<td style="text-align: left;">${tgName}</td>
 				<td style="text-align: left;">${sourceId}</td>
@@ -1565,13 +1564,13 @@ function appendCallHistory(sysid, tg1, tg2, tag1, tag2, freq, sourceId1, sourceI
     // Process single or both entries, don't log entries where source id is not present.
 	if (tg1 !== undefined) {
 		if (!isDuplicate(tg1, sourceId1) && sourceId1) {
-			addRow(tg1, tag1, sourceId1);
+			addRow(tg1, tag1, sourceId1, 0);
 		}
 	}
 	
 	if (tg2 !== undefined && tg2 !== tg1) {
 		if (!isDuplicate(tg2, sourceId2) && sourceId2) {
-			addRow(tg2, tag2, sourceId2);
+			addRow(tg2, tag2, sourceId2, 1);
 		}
 	}
 	
@@ -1582,7 +1581,7 @@ function appendCallHistory(sysid, tg1, tg2, tag1, tag2, freq, sourceId1, sourceI
 	if (table) {
 	  const headerRow = table.querySelector("thead tr");
 	  if (headerRow && headerRow.cells.length > 2) {
-		headerRow.cells[2].innerText = "Frequency";
+		headerRow.cells[2].innerText = "Frequency / Slot";
 	  }
 	}
 } // end appendCallHistory()
