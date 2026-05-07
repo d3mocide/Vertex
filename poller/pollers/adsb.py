@@ -24,7 +24,6 @@ logger = logging.getLogger(__name__)
 class AdsbPoller(BasePoller):
     name = "adsb"
     interval = 5
-    _BEAST_WARMUP_SECONDS = 15
     _MAX_OPENSKY_LOCAL_HOLDOFF_SECONDS = 90
 
     def __init__(self):
@@ -34,25 +33,23 @@ class AdsbPoller(BasePoller):
         self._registry_tick_task: asyncio.Task | None = None
         self._enrichment_worker_task: asyncio.Task | None = None
         self._opensky_supplement_task: asyncio.Task | None = None
-        self._registry_work_queue: asyncio.Queue[tuple[str, Any]] = asyncio.Queue(maxsize=16384)
+        self._beast_queue: asyncio.Queue[tuple[bytes, int, int]] = asyncio.Queue(maxsize=16384)
         self._enrichment_queue: asyncio.Queue[Any] = asyncio.Queue(maxsize=256)
         self._beast_frames_dropped: int = 0
-        self._local_seen: dict[str, float] = {}  # icao24 → last local seen timestamp
+        self._last_seen_by_source: dict[str, dict[str, float]] = {}
         self._opensky_poll_count: int = 0
-        self._opensky_backoff_seconds: int = 0  # Adaptive backoff for 429s
+        self._opensky_backoff_seconds: int = 0
         self._last_opensky_poll_ts: float = 0.0
-        self._started_ts: float = time.time()
-        self._beast_unhealthy_logged: bool = False
-        self._transport = BeastTransport(on_frame=self._enqueue_beast_frame)
+        self._transport = BeastTransport(on_frame=self._on_beast_frame)
         self._beast_decoder = BeastAircraftDecoder()
-        self._unified_entities: dict[str, dict] = {}  # icao24 -> last seen entity snapshot
-        self._last_seen_by_source: dict[str, dict[str, float]] = {}  # icao24 -> {source: ts}
+        self._unified_entities: dict[str, dict] = {}
         self._adsbdb = AdsbdbClient()
         self._metar = MetarClient()
         self._aircraft_db = AircraftDb()
         self._airports_db = AirportsDb()
         self._airlines_db = AirlinesDb()
         self._navaids_db = NavaidsDb()
+        self._tick_count: int = 0
 
     async def setup(self):
         from db import get_pool
@@ -71,8 +68,6 @@ class AdsbPoller(BasePoller):
         # Keep local tracks authoritative for at least one OpenSky cadence window
         # to reduce local↔supplement source flapping in Mode D.
         holdoff = max(settings.adsb_opensky_stale_threshold, settings.adsb_opensky_interval + 5)
-        # Avoid excessively long holdoff when OpenSky interval is intentionally high
-        # for anonymous rate-limit safety.
         return min(holdoff, AdsbPoller._MAX_OPENSKY_LOCAL_HOLDOFF_SECONDS)
 
     async def _hydrate_from_redis(self) -> None:
@@ -121,6 +116,10 @@ class AdsbPoller(BasePoller):
             logger.warning("[adsb] Redis hydration failed (non-fatal): %s", exc)
 
     async def poll(self):
+        # Tick loop and enrichment worker run in every mode so the snapshot and
+        # stale eviction are always active (fixes the pure-OpenSky snapshot gap).
+        self._ensure_support_tasks()
+
         if settings.adsb_enable_beast:
             self._ensure_beast_task()
 
@@ -136,23 +135,8 @@ class AdsbPoller(BasePoller):
             # Fallback to pure OpenSky if no local sources are enabled/configured
             await self._poll_opensky()
 
-    def _ensure_beast_task(self):
-        if self._beast_task and not self._beast_task.done():
-            self._ensure_registry_tasks()
-            return
-
-        if self._beast_task and self._beast_task.done() and self._beast_task.exception():
-            logger.warning("[adsb] BEAST task ended with error: %s", self._beast_task.exception())
-
-        self._beast_task = asyncio.create_task(self._transport.run())
-        self._ensure_registry_tasks()
-
-    def _ensure_registry_tasks(self):
-        if not self._registry_worker_task or self._registry_worker_task.done():
-            if self._registry_worker_task and self._registry_worker_task.exception():
-                logger.warning("[adsb] registry worker task ended with error: %s", self._registry_worker_task.exception())
-            self._registry_worker_task = asyncio.create_task(self._process_registry_work())
-
+    def _ensure_support_tasks(self):
+        """Start the tick loop and enrichment worker — needed in every operating mode."""
         if not self._registry_tick_task or self._registry_tick_task.done():
             if self._registry_tick_task and self._registry_tick_task.exception():
                 logger.warning("[adsb] registry tick task ended with error: %s", self._registry_tick_task.exception())
@@ -163,65 +147,104 @@ class AdsbPoller(BasePoller):
                 logger.warning("[adsb] enrichment worker task ended with error: %s", self._enrichment_worker_task.exception())
             self._enrichment_worker_task = asyncio.create_task(self._enrichment_worker_loop())
 
-    def _enqueue_beast_frame(self, msg: bytes, mlat_ticks: int, signal: int) -> None:
-        """Callback wired into BeastTransport; routes frames to the registry queue."""
-        self._enqueue_registry_work("frame", (msg, mlat_ticks, signal))
+    def _ensure_beast_task(self):
+        if self._beast_task and not self._beast_task.done():
+            self._ensure_frame_worker()
+            return
 
-    async def _process_registry_work(self):
-        while True:
-            kind, payload = await self._registry_work_queue.get()
+        if self._beast_task and self._beast_task.done() and self._beast_task.exception():
+            logger.warning("[adsb] BEAST task ended with error: %s", self._beast_task.exception())
+
+        self._beast_task = asyncio.create_task(self._transport.run())
+        self._ensure_frame_worker()
+
+    def _ensure_frame_worker(self):
+        """Start the BEAST frame decode worker — only needed when BEAST is active."""
+        if not self._registry_worker_task or self._registry_worker_task.done():
+            if self._registry_worker_task and self._registry_worker_task.exception():
+                logger.warning("[adsb] registry worker task ended with error: %s", self._registry_worker_task.exception())
+            self._registry_worker_task = asyncio.create_task(self._process_beast_frames())
+
+    def _on_beast_frame(self, msg: bytes, mlat_ticks: int, signal: int) -> None:
+        """Sync callback from BeastTransport; drops oldest frame if queue is full."""
+        if self._beast_queue.full():
             try:
-                if kind == "frame":
-                    msg, mlat_ticks, signal = payload
-                    entity = self._beast_decoder.ingest(msg, mlat_ticks=mlat_ticks, signal=signal)
-                    if entity:
-                        icao = (entity.get("identity") or {}).get("icao24", "").lower()
-                        self._record_source_seen(icao, "beast")
-                        self._unified_entities[icao] = entity
-                        await publish_entity(entity)
-                elif kind == "tick":
-                    # Build unified Best Mode snapshot
-                    now = time.time()
-                    snapshot_ents = []
-                    
-                    # 1. Start with BEAST (highest priority)
+                self._beast_queue.get_nowait()
+                self._beast_frames_dropped += 1
+            except asyncio.QueueEmpty:
+                pass
+        try:
+            self._beast_queue.put_nowait((msg, mlat_ticks, signal))
+        except asyncio.QueueFull:
+            self._beast_frames_dropped += 1
+
+    async def _process_beast_frames(self):
+        while True:
+            msg, mlat_ticks, signal = await self._beast_queue.get()
+            try:
+                entity = self._beast_decoder.ingest(msg, mlat_ticks=mlat_ticks, signal=signal)
+                if entity:
+                    icao = (entity.get("identity") or {}).get("icao24", "").lower()
+                    self._record_source_seen(icao, "beast")
+                    self._unified_entities[icao] = entity
+                    await publish_entity(entity)
+            except Exception as exc:
+                logger.warning("[adsb] frame processing error: %s", exc)
+
+    async def _registry_tick_loop(self):
+        _SNAPSHOT_INTERVAL = 5  # publish full snapshot every N ticks (seconds)
+        _last_frames_seen = self._transport.frames_seen
+
+        while True:
+            await asyncio.sleep(1.0)
+            self._tick_count += 1
+            now = time.time()
+
+            # Hourly cleanup of stale source-tracking entries (prevents unbounded growth
+            # when BEAST + ultrafeeder run without the OpenSky supplement loop).
+            if self._tick_count % 3600 == 0:
+                cutoff = now - 3600
+                for icao in list(self._last_seen_by_source.keys()):
+                    self._last_seen_by_source[icao] = {
+                        src: ts for src, ts in self._last_seen_by_source[icao].items()
+                        if ts > cutoff
+                    }
+                    if not self._last_seen_by_source[icao]:
+                        del self._last_seen_by_source[icao]
+
+            try:
+                # Pull fresh BEAST positions into the unified registry only when
+                # new frames have arrived since the last tick — skips the O(aircraft)
+                # entity reconstruction when the decoder state is unchanged.
+                current_frames = self._transport.frames_seen
+                if current_frames != _last_frames_seen:
+                    _last_frames_seen = current_frames
                     for ac in self._beast_decoder.snapshot_entities():
                         icao = (ac.get("identity") or {}).get("icao24", "").lower()
                         self._unified_entities[icao] = ac
-                    
-                    # 2. Filter unified registry for staleness and collect Best Mode ents
-                    stale_cutoff = 120.0 # 2 mins max before dropping from registry
-                    to_remove = []
-                    for icao, entity in self._unified_entities.items():
-                        seen = self._last_seen_by_source.get(icao, {})
-                        last_any = max(seen.values()) if seen else 0
-                        if (now - last_any) > stale_cutoff:
-                            to_remove.append(icao)
-                            continue
-                        
-                        # Only include in snapshot if this is the currently preferred source
-                        source = entity.get("source", "unknown")
-                        if self._should_publish_from_source(icao, source):
-                            snapshot_ents.append(entity)
-                            
-                    for icao in to_remove:
-                        del self._unified_entities[icao]
-                        
+
+                # Evict entries silent for more than 2 minutes (runs every tick, cheap)
+                stale_cutoff = 120.0
+                to_remove = [
+                    icao for icao, entity in self._unified_entities.items()
+                    if (now - max(self._last_seen_by_source.get(icao, {}).values() or [0])) > stale_cutoff
+                ]
+                for icao in to_remove:
+                    del self._unified_entities[icao]
+
+                # Publish full enriched snapshot at reduced cadence — individual
+                # entity updates still arrive in real time via publish_entity().
+                if self._tick_count % _SNAPSHOT_INTERVAL == 0:
+                    snapshot_ents = [
+                        entity for icao, entity in self._unified_entities.items()
+                        if self._should_publish_from_source(icao, entity.get("source", "unknown"))
+                    ]
                     await self._publish_aircraft_snapshot(snapshot_ents)
             except Exception as exc:
-                logger.warning("[adsb] registry work processing error (%s): %s", kind, exc)
-
-    async def _registry_tick_loop(self):
-        while True:
-            await asyncio.sleep(1.0)
-            self._enqueue_registry_work("tick", None)
+                logger.warning("[adsb] tick error: %s", exc)
 
     async def _enrichment_worker_loop(self):
-        """Drains the bounded enrichment queue, executing one coroutine at a time.
-
-        This replaces fire-and-forget asyncio.create_task() for enrichment calls,
-        ensuring failures are logged and the task count is controlled.
-        """
+        """Drains the bounded enrichment queue, executing one coroutine at a time."""
         while True:
             coro = await self._enrichment_queue.get()
             try:
@@ -259,20 +282,9 @@ class AdsbPoller(BasePoller):
                     await task
                 except asyncio.CancelledError:
                     pass
-
-    def _enqueue_registry_work(self, kind: str, payload: Any):
-        if self._registry_work_queue.full():
-            try:
-                dropped_kind, _ = self._registry_work_queue.get_nowait()
-                if dropped_kind == "frame":
-                    self._beast_frames_dropped += 1
-            except asyncio.QueueEmpty:
-                pass
-        try:
-            self._registry_work_queue.put_nowait((kind, payload))
-        except asyncio.QueueFull:
-            if kind == "frame":
-                self._beast_frames_dropped += 1
+        # Flush any un-persisted enrichment cache entries accumulated since the
+        # last batch write so they survive the restart.
+        self._adsbdb.flush()
 
     # ── Best Mode Arbitration ──────────────────────────────────────────────
 
@@ -293,35 +305,58 @@ class AdsbPoller(BasePoller):
         icao = icao.lower()
         now = time.time()
         seen = self._last_seen_by_source.get(icao, {})
-
         priority = {"beast": 1, "ultrafeeder": 2, "opensky": 3}
         my_prio = priority.get(source, 99)
-
         for other_src, last_ts in seen.items():
             if other_src == source:
                 continue
             other_prio = priority.get(other_src, 99)
-            if other_prio < my_prio:
-                # A better source exists. Is it still fresh?
-                # BEAST/UF stale window is tight (12s).
-                if (now - last_ts) < 12.0:
-                    return False
+            if other_prio < my_prio and (now - last_ts) < 12.0:
+                return False
         return True
 
     def _is_local_recent(self, icao: str) -> bool:
-        """Legacy helper for OpenSky supplement logic."""
+        """Returns True if this aircraft was seen locally within the holdoff window."""
         icao = icao.lower()
-        now = time.time()
         seen = self._last_seen_by_source.get(icao, {})
-        # Local = beast or ultrafeeder
-        beast_ts = seen.get("beast", 0)
-        uf_ts = seen.get("ultrafeeder", 0)
-        local_ts = max(beast_ts, uf_ts)
-        if local_ts == 0:
-            return False
-        return (now - local_ts) < self._effective_opensky_stale_threshold()
+        local_ts = max(seen.get("beast", 0), seen.get("ultrafeeder", 0))
+        return local_ts > 0 and (time.time() - local_ts) < self._effective_opensky_stale_threshold()
 
-    # ── OpenSky supplement task (Mode D) ─────────────────────────────────────
+    # ── OpenSky ───────────────────────────────────────────────────────────
+
+    async def _fetch_opensky(self) -> dict | None:
+        """Fetch the OpenSky states/all endpoint, applying auth and 429 backoff.
+
+        Returns the parsed JSON on success, or None if rate-limited.
+        """
+        url = (
+            "https://opensky-network.org/api/states/all"
+            f"?lamin={settings.bbox_min_lat}&lamax={settings.bbox_max_lat}"
+            f"&lomin={settings.bbox_min_lon}&lomax={settings.bbox_max_lon}"
+        )
+        headers: dict[str, str] = {"User-Agent": "Vertex/1.0 (Situational Awareness Dashboard)"}
+        if settings.adsb_opensky_username and settings.adsb_opensky_password:
+            import base64
+            creds = f"{settings.adsb_opensky_username}:{settings.adsb_opensky_password}"
+            headers["Authorization"] = f"Basic {base64.b64encode(creds.encode()).decode()}"
+
+        async with httpx.AsyncClient(timeout=20) as client:
+            resp = await client.get(url, headers=headers)
+
+        if resp.status_code == 429:
+            self._opensky_backoff_seconds = (
+                min(self._opensky_backoff_seconds * 2, 3600)
+                if self._opensky_backoff_seconds else 300
+            )
+            logger.warning(
+                "[adsb] OpenSky rate limited — backing off %ds",
+                self._opensky_backoff_seconds,
+            )
+            return None
+
+        resp.raise_for_status()
+        self._opensky_backoff_seconds = 0
+        return resp.json()
 
     def _ensure_opensky_supplement_task(self) -> None:
         if self._opensky_supplement_task and not self._opensky_supplement_task.done():
@@ -339,19 +374,7 @@ class AdsbPoller(BasePoller):
 
     async def _opensky_supplement_loop(self) -> None:
         while True:
-            # Respect adaptive backoff if we've hit rate limits recently
-            wait = max(settings.adsb_opensky_interval, self._opensky_backoff_seconds)
-            await asyncio.sleep(wait)
-            # Purge _last_seen_by_source entries well beyond the stale window to prevent growth.
-            cutoff = time.time() - 3600
-            for icao in list(self._last_seen_by_source.keys()):
-                self._last_seen_by_source[icao] = {
-                    src: ts for src, ts in self._last_seen_by_source[icao].items()
-                    if ts > cutoff
-                }
-                if not self._last_seen_by_source[icao]:
-                    del self._last_seen_by_source[icao]
-
+            await asyncio.sleep(max(settings.adsb_opensky_interval, self._opensky_backoff_seconds))
             try:
                 await self._poll_opensky_supplement()
             except asyncio.CancelledError:
@@ -360,37 +383,9 @@ class AdsbPoller(BasePoller):
                 logger.warning("[adsb] OpenSky supplement poll error: %s", exc)
 
     async def _poll_opensky_supplement(self) -> None:
-        url = (
-            "https://opensky-network.org/api/states/all"
-            f"?lamin={settings.bbox_min_lat}&lamax={settings.bbox_max_lat}"
-            f"&lomin={settings.bbox_min_lon}&lomax={settings.bbox_max_lon}"
-        )
-        headers: dict[str, str] = {"User-Agent": "Vertex/1.0 (Situational Awareness Dashboard)"}
-        if settings.adsb_opensky_username and settings.adsb_opensky_password:
-            import base64
-            creds = f"{settings.adsb_opensky_username}:{settings.adsb_opensky_password}"
-            headers["Authorization"] = f"Basic {base64.b64encode(creds.encode()).decode()}"
-
-        async with httpx.AsyncClient(timeout=20) as client:
-            resp = await client.get(url, headers=headers)
-
-        if resp.status_code == 429:
-            if self._opensky_backoff_seconds == 0:
-                self._opensky_backoff_seconds = 300  # Start with 5m
-            else:
-                self._opensky_backoff_seconds = min(self._opensky_backoff_seconds * 2, 3600)  # Max 1h
-            
-            logger.warning(
-                "[adsb] OpenSky supplement rate limited — backing off %ds (Interval: %ss)",
-                self._opensky_backoff_seconds,
-                settings.adsb_opensky_interval,
-            )
+        data = await self._fetch_opensky()
+        if not data:
             return
-
-        resp.raise_for_status()
-        self._opensky_backoff_seconds = 0  # Reset on success
-        data = resp.json()
-
         supplemented = 0
         skipped_local = 0
         for state in data.get("states") or []:
@@ -420,11 +415,6 @@ class AdsbPoller(BasePoller):
                 skipped_local,
             )
 
-        logger.debug(
-            "[adsb] OpenSky supplement: %d published, %d skipped (seen locally)",
-            supplemented, skipped_local,
-        )
-
     async def _poll_ultrafeeder(self, url: str):
         async with httpx.AsyncClient(timeout=5) as client:
             resp = await client.get(url, headers={"User-Agent": "Vertex/1.0 (Situational Awareness Dashboard)"})
@@ -441,38 +431,18 @@ class AdsbPoller(BasePoller):
 
     async def _poll_opensky(self):
         now = time.time()
-        wait = max(settings.adsb_opensky_interval, self._opensky_backoff_seconds)
-        if (now - self._last_opensky_poll_ts) < wait:
+        if (now - self._last_opensky_poll_ts) < max(settings.adsb_opensky_interval, self._opensky_backoff_seconds):
             return
-
         self._last_opensky_poll_ts = now
-        url = (
-            "https://opensky-network.org/api/states/all"
-            f"?lamin={settings.bbox_min_lat}&lamax={settings.bbox_max_lat}"
-            f"&lomin={settings.bbox_min_lon}&lomax={settings.bbox_max_lon}"
-        )
-        headers: dict[str, str] = {"User-Agent": "Vertex/1.0 (Situational Awareness Dashboard)"}
-        if settings.adsb_opensky_username and settings.adsb_opensky_password:
-            import base64
-            creds = f"{settings.adsb_opensky_username}:{settings.adsb_opensky_password}"
-            headers["Authorization"] = f"Basic {base64.b64encode(creds.encode()).decode()}"
-
-        async with httpx.AsyncClient(timeout=20) as client:
-            resp = await client.get(url, headers=headers)
-        if resp.status_code == 429:
-            if self._opensky_backoff_seconds == 0:
-                self._opensky_backoff_seconds = 300
-            else:
-                self._opensky_backoff_seconds = min(self._opensky_backoff_seconds * 2, 3600)
-            logger.warning("[adsb] OpenSky rate limited — backing off %ds", self._opensky_backoff_seconds)
-            return
-        resp.raise_for_status()
-        self._opensky_backoff_seconds = 0
-        data = resp.json()
-        for state in data.get("states") or []:
-            entity = normalize_opensky(state)
-            if entity:
-                await publish_entity(entity)
+        data = await self._fetch_opensky()
+        if data:
+            for state in data.get("states") or []:
+                entity = normalize_opensky(state)
+                if entity:
+                    icao = (entity.get("identity") or {}).get("icao24", "").lower()
+                    self._record_source_seen(icao, "opensky")
+                    self._unified_entities[icao] = entity
+                    await publish_entity(entity)
 
     async def _publish_aircraft_snapshot(self, aircraft: list[dict]):
         enriched, airports = self._enrich_aircraft_cache_only(aircraft)
@@ -499,7 +469,7 @@ class AdsbPoller(BasePoller):
             "frames_dropped": self._beast_frames_dropped,
             "beast_connected": beast_connected,
             "beast_healthy": self._transport.is_healthy,
-            "queue_depth": self._registry_work_queue.qsize(),
+            "queue_depth": self._beast_queue.qsize(),
             "last_frame_age_s": last_frame_age_s,
             "aircraft": enriched,
             "airports": airports,
