@@ -6,6 +6,10 @@ from config import settings
 logger = logging.getLogger(__name__)
 
 _redis: Redis | None = None
+# In-memory mirror of the last-published entity state per entity_id.
+# Eliminates the Redis GET on every publish_entity call when adsb_publish_only_changes
+# is enabled — the comparison is done locally instead of via a round-trip.
+_entity_cache: dict[str, dict] = {}
 
 
 async def get_bus() -> Redis:
@@ -17,20 +21,20 @@ async def get_bus() -> Redis:
 
 async def publish_entity(entity: dict, ttl: int = 120, record_observation: bool = True):
     r = await get_bus()
-    key = f"entity:{entity['entity_id']}"
+    entity_id = entity["entity_id"]
+    key = f"entity:{entity_id}"
 
     should_publish = True
     if settings.adsb_publish_only_changes:
-        previous_raw = await r.get(key)
-        if previous_raw:
-            try:
-                previous = json.loads(previous_raw)
-                should_publish = _entity_changed(previous, entity)
-            except Exception:
-                should_publish = True
+        previous = _entity_cache.get(entity_id)
+        if previous is not None:
+            should_publish = _entity_changed(previous, entity)
 
+    # Always refresh the Redis TTL so the key stays alive while the entity is active.
     await r.set(key, json.dumps(entity), ex=ttl)
+
     if should_publish:
+        _entity_cache[entity_id] = entity
         await r.publish("civic:updates", json.dumps({"type": "entity_update", "data": entity}))
 
     from db import write_entity_observation  # lazy import — db imports geofence which imports bus
@@ -67,7 +71,6 @@ async def close():
 
 
 def _entity_changed(previous: dict, current: dict) -> bool:
-    # Core positional and state fields that should trigger updates
     compare_keys = (
         "entity_type",
         "source",
@@ -81,7 +84,6 @@ def _entity_changed(previous: dict, current: dict) -> bool:
         "status",
         "identity",
         "tags",
-        # BEAST-specific fields that represent meaningful state changes
         "position_stale",
         "trail_pts",
         "comm_b",

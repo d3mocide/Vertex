@@ -81,6 +81,10 @@ class _AircraftState:
 
     comm_b_raw: dict[str, str] = field(default_factory=dict)
 
+    # Cached trail list rebuilt only when pos_history changes.
+    _trail_dirty: bool = True
+    _trail_cache: list = field(default_factory=list)
+
 
 class BeastAircraftDecoder:
     """Best-effort ADS-B decode pipeline for BEAST Mode S messages."""
@@ -88,7 +92,7 @@ class BeastAircraftDecoder:
     def __init__(self):
         self._aircraft: dict[str, _AircraftState] = {}
         self._warned_missing_dep = False
-        self._messages_seen = 0
+        self._last_prune_ts: float = 0.0
 
     def ingest(self, message_bytes: bytes, *, mlat_ticks: int | None = None, signal: int | None = None) -> Optional[dict]:
         if pms is None:
@@ -179,9 +183,9 @@ class BeastAircraftDecoder:
         if df in (20, 21):
             self._decode_comm_b(ac, message_bytes, now)
 
-        self._messages_seen += 1
-        if self._messages_seen % 1000 == 0:
+        if now - self._last_prune_ts > 60.0:
             self._prune_stale()
+            self._last_prune_ts = now
 
         return self._to_entity(ac)
 
@@ -271,6 +275,7 @@ class BeastAircraftDecoder:
             ac.altitude if ac.altitude is not None else 0.0,
             now,
         ))
+        ac._trail_dirty = True
 
     def _to_entity(self, ac: _AircraftState, now: float | None = None) -> Optional[dict]:
         if ac.lat is None or ac.lon is None:
@@ -290,10 +295,10 @@ class BeastAircraftDecoder:
 
         comm_b = self._build_comm_b_snapshot(ac, now_ts)
 
-        trail_pts = [
-            [p[0], p[1], p[2], p[3]]
-            for p in ac.pos_history
-        ]
+        if ac._trail_dirty:
+            ac._trail_cache = [[p[0], p[1], p[2], p[3]] for p in ac.pos_history]
+            ac._trail_dirty = False
+        trail_pts = ac._trail_cache
 
         return {
             "entity_id": f"aircraft:{ac.icao}",

@@ -116,6 +116,10 @@ class AdsbPoller(BasePoller):
             logger.warning("[adsb] Redis hydration failed (non-fatal): %s", exc)
 
     async def poll(self):
+        # Tick loop and enrichment worker run in every mode so the snapshot and
+        # stale eviction are always active (fixes the pure-OpenSky snapshot gap).
+        self._ensure_support_tasks()
+
         if settings.adsb_enable_beast:
             self._ensure_beast_task()
 
@@ -131,23 +135,8 @@ class AdsbPoller(BasePoller):
             # Fallback to pure OpenSky if no local sources are enabled/configured
             await self._poll_opensky()
 
-    def _ensure_beast_task(self):
-        if self._beast_task and not self._beast_task.done():
-            self._ensure_registry_tasks()
-            return
-
-        if self._beast_task and self._beast_task.done() and self._beast_task.exception():
-            logger.warning("[adsb] BEAST task ended with error: %s", self._beast_task.exception())
-
-        self._beast_task = asyncio.create_task(self._transport.run())
-        self._ensure_registry_tasks()
-
-    def _ensure_registry_tasks(self):
-        if not self._registry_worker_task or self._registry_worker_task.done():
-            if self._registry_worker_task and self._registry_worker_task.exception():
-                logger.warning("[adsb] registry worker task ended with error: %s", self._registry_worker_task.exception())
-            self._registry_worker_task = asyncio.create_task(self._process_beast_frames())
-
+    def _ensure_support_tasks(self):
+        """Start the tick loop and enrichment worker — needed in every operating mode."""
         if not self._registry_tick_task or self._registry_tick_task.done():
             if self._registry_tick_task and self._registry_tick_task.exception():
                 logger.warning("[adsb] registry tick task ended with error: %s", self._registry_tick_task.exception())
@@ -157,6 +146,24 @@ class AdsbPoller(BasePoller):
             if self._enrichment_worker_task and self._enrichment_worker_task.exception():
                 logger.warning("[adsb] enrichment worker task ended with error: %s", self._enrichment_worker_task.exception())
             self._enrichment_worker_task = asyncio.create_task(self._enrichment_worker_loop())
+
+    def _ensure_beast_task(self):
+        if self._beast_task and not self._beast_task.done():
+            self._ensure_frame_worker()
+            return
+
+        if self._beast_task and self._beast_task.done() and self._beast_task.exception():
+            logger.warning("[adsb] BEAST task ended with error: %s", self._beast_task.exception())
+
+        self._beast_task = asyncio.create_task(self._transport.run())
+        self._ensure_frame_worker()
+
+    def _ensure_frame_worker(self):
+        """Start the BEAST frame decode worker — only needed when BEAST is active."""
+        if not self._registry_worker_task or self._registry_worker_task.done():
+            if self._registry_worker_task and self._registry_worker_task.exception():
+                logger.warning("[adsb] registry worker task ended with error: %s", self._registry_worker_task.exception())
+            self._registry_worker_task = asyncio.create_task(self._process_beast_frames())
 
     def _on_beast_frame(self, msg: bytes, mlat_ticks: int, signal: int) -> None:
         """Sync callback from BeastTransport; drops oldest frame if queue is full."""
@@ -185,14 +192,18 @@ class AdsbPoller(BasePoller):
                 logger.warning("[adsb] frame processing error: %s", exc)
 
     async def _registry_tick_loop(self):
+        _SNAPSHOT_INTERVAL = 5  # publish full snapshot every N ticks (seconds)
+        _last_frames_seen = self._transport.frames_seen
+
         while True:
             await asyncio.sleep(1.0)
             self._tick_count += 1
+            now = time.time()
 
             # Hourly cleanup of stale source-tracking entries (prevents unbounded growth
             # when BEAST + ultrafeeder run without the OpenSky supplement loop).
             if self._tick_count % 3600 == 0:
-                cutoff = time.time() - 3600
+                cutoff = now - 3600
                 for icao in list(self._last_seen_by_source.keys()):
                     self._last_seen_by_source[icao] = {
                         src: ts for src, ts in self._last_seen_by_source[icao].items()
@@ -202,14 +213,17 @@ class AdsbPoller(BasePoller):
                         del self._last_seen_by_source[icao]
 
             try:
-                now = time.time()
+                # Pull fresh BEAST positions into the unified registry only when
+                # new frames have arrived since the last tick — skips the O(aircraft)
+                # entity reconstruction when the decoder state is unchanged.
+                current_frames = self._transport.frames_seen
+                if current_frames != _last_frames_seen:
+                    _last_frames_seen = current_frames
+                    for ac in self._beast_decoder.snapshot_entities():
+                        icao = (ac.get("identity") or {}).get("icao24", "").lower()
+                        self._unified_entities[icao] = ac
 
-                # Pull fresh BEAST positions into the unified registry
-                for ac in self._beast_decoder.snapshot_entities():
-                    icao = (ac.get("identity") or {}).get("icao24", "").lower()
-                    self._unified_entities[icao] = ac
-
-                # Evict entries silent for more than 2 minutes
+                # Evict entries silent for more than 2 minutes (runs every tick, cheap)
                 stale_cutoff = 120.0
                 to_remove = [
                     icao for icao, entity in self._unified_entities.items()
@@ -218,12 +232,14 @@ class AdsbPoller(BasePoller):
                 for icao in to_remove:
                     del self._unified_entities[icao]
 
-                # Build best-source snapshot and publish
-                snapshot_ents = [
-                    entity for icao, entity in self._unified_entities.items()
-                    if self._should_publish_from_source(icao, entity.get("source", "unknown"))
-                ]
-                await self._publish_aircraft_snapshot(snapshot_ents)
+                # Publish full enriched snapshot at reduced cadence — individual
+                # entity updates still arrive in real time via publish_entity().
+                if self._tick_count % _SNAPSHOT_INTERVAL == 0:
+                    snapshot_ents = [
+                        entity for icao, entity in self._unified_entities.items()
+                        if self._should_publish_from_source(icao, entity.get("source", "unknown"))
+                    ]
+                    await self._publish_aircraft_snapshot(snapshot_ents)
             except Exception as exc:
                 logger.warning("[adsb] tick error: %s", exc)
 
@@ -420,6 +436,9 @@ class AdsbPoller(BasePoller):
             for state in data.get("states") or []:
                 entity = normalize_opensky(state)
                 if entity:
+                    icao = (entity.get("identity") or {}).get("icao24", "").lower()
+                    self._record_source_seen(icao, "opensky")
+                    self._unified_entities[icao] = entity
                     await publish_entity(entity)
 
     async def _publish_aircraft_snapshot(self, aircraft: list[dict]):
