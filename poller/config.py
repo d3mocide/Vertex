@@ -83,7 +83,7 @@ class Settings(BaseSettings):
     adsb_opensky_supplement: bool = False
     # Seconds between OpenSky polls. Anonymous budget ~400 req/day; keep >= 220s
     # for anonymous use. With credentials 30s is safe (~2880 req/day vs 4000 limit).
-    adsb_opensky_interval: int = 60
+    adsb_opensky_interval: int = 240
     # Seconds since last local sighting before OpenSky may update an aircraft.
     adsb_opensky_stale_threshold: int = 15
     # Write OpenSky supplement positions to the observations table.

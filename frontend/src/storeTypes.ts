@@ -54,6 +54,8 @@ export type TrailPt = [number, number, number, number, string?]
 export interface Track {
   uid:           string
   source:        string
+  lastSeen?:     string
+  positionStale?: boolean
   lat:           number
   lon:           number
   altMeters:     number        // metres MSL (0 for vessels)

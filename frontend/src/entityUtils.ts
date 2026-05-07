@@ -96,6 +96,8 @@ export function entityToTrack(entity: Entity, existing?: Track): Track | null {
   return {
     uid:          entity.entity_id,
     source:       entity.source,
+    lastSeen:     entity.last_seen,
+    positionStale: Boolean((entity as Entity & { position_stale?: boolean }).position_stale),
     lat:          entity.lat,
     lon:          entity.lon,
     altMeters,

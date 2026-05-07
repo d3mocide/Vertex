@@ -25,6 +25,7 @@ class AdsbPoller(BasePoller):
     name = "adsb"
     interval = 5
     _BEAST_WARMUP_SECONDS = 15
+    _MAX_OPENSKY_LOCAL_HOLDOFF_SECONDS = 90
 
     def __init__(self):
         self._source_urls: list[str] = []
@@ -65,7 +66,10 @@ class AdsbPoller(BasePoller):
     def _effective_opensky_stale_threshold() -> int:
         # Keep local tracks authoritative for at least one OpenSky cadence window
         # to reduce local↔supplement source flapping in Mode D.
-        return max(settings.adsb_opensky_stale_threshold, settings.adsb_opensky_interval + 5)
+        holdoff = max(settings.adsb_opensky_stale_threshold, settings.adsb_opensky_interval + 5)
+        # Avoid excessively long holdoff when OpenSky interval is intentionally high
+        # for anonymous rate-limit safety.
+        return min(holdoff, AdsbPoller._MAX_OPENSKY_LOCAL_HOLDOFF_SECONDS)
 
     async def _hydrate_from_redis(self) -> None:
         """Pre-populate the decoder registry from last-known Redis entity state.

@@ -12,10 +12,25 @@ export interface PVBState {
   sLon: number; sLat: number; sSpeedMs: number; sCourse: number; sTime: number
   // Visual anchor — the computed position at the moment the last update arrived
   vLon: number; vLat: number; vSpeedMs: number; vCourse: number; vTime: number
-  // Timestamp of the last trail point, used to detect new server reports
-  lastTs: string
+  // Signature of the last applied server report. Includes source/position/freshness
+  // so we still detect updates when trail timestamps are unchanged.
+  lastReportKey: string
+  source: string
   // Source-aware blend window (longer for sparse feeds like OpenSky)
   blendWindowMs: number
+}
+
+function reportKey(track: Track, lastTs: string): string {
+  // Prefer trail timestamp when available: BEAST updates last_seen frequently
+  // even without a new resolved position, which should not reset smoothing.
+  const timeKey = lastTs || track.lastSeen || ''
+  return [
+    track.source,
+    timeKey,
+    track.lon.toFixed(5),
+    track.lat.toFixed(5),
+    track.positionStale ? '1' : '0',
+  ].join('|')
 }
 
 function sourceBlendWindowMs(source: string, reportIntervalMs: number): number {
@@ -50,20 +65,36 @@ export function applyPVB(
   nowMs: number,
 ): [number, number] {
   const lastTs = track.trail[track.trail.length - 1]?.[4] ?? ''
+  const lastReportKey = reportKey(track, lastTs)
+  const projectedSpeed = track.positionStale ? 0 : track.speedMs
   const state  = pvb[track.uid]
 
   if (!state) {
     // First time we see this entity — start both anchors at the server position.
     pvb[track.uid] = {
-      sLon: track.lon, sLat: track.lat, sSpeedMs: track.speedMs, sCourse: track.courseTrue, sTime: nowMs,
-      vLon: track.lon, vLat: track.lat, vSpeedMs: track.speedMs, vCourse: track.courseTrue, vTime: nowMs,
-      lastTs,
+      sLon: track.lon, sLat: track.lat, sSpeedMs: projectedSpeed, sCourse: track.courseTrue, sTime: nowMs,
+      vLon: track.lon, vLat: track.lat, vSpeedMs: projectedSpeed, vCourse: track.courseTrue, vTime: nowMs,
+      lastReportKey,
+      source: track.source,
       blendWindowMs: sourceBlendWindowMs(track.source, BLEND_WINDOW_MS),
     }
     return [track.lon, track.lat]
   }
 
-  if (state.lastTs !== lastTs) {
+  if (state.lastReportKey !== lastReportKey) {
+    // When source changes (local <-> supplement), re-anchor immediately to avoid
+    // blending between potentially disjoint track histories.
+    if (state.source !== track.source) {
+      pvb[track.uid] = {
+        sLon: track.lon, sLat: track.lat, sSpeedMs: projectedSpeed, sCourse: track.courseTrue, sTime: nowMs,
+        vLon: track.lon, vLat: track.lat, vSpeedMs: projectedSpeed, vCourse: track.courseTrue, vTime: nowMs,
+        lastReportKey,
+        source: track.source,
+        blendWindowMs: sourceBlendWindowMs(track.source, BLEND_WINDOW_MS),
+      }
+      return [track.lon, track.lat]
+    }
+
     // A new server report arrived. Evaluate the old PVB at this instant to get
     // the position the icon was at, then use that as the new visual anchor so
     // the icon continues smoothly from where it was rather than jumping.
@@ -71,9 +102,10 @@ export function applyPVB(
     // Visual anchor inherits new server velocity so both projections travel in the same
     // direction during the blend window — blend only corrects position offset, not heading.
     pvb[track.uid] = {
-      sLon: track.lon, sLat: track.lat, sSpeedMs: track.speedMs, sCourse: track.courseTrue, sTime: nowMs,
-      vLon, vLat, vSpeedMs: track.speedMs, vCourse: track.courseTrue, vTime: nowMs,
-      lastTs,
+      sLon: track.lon, sLat: track.lat, sSpeedMs: projectedSpeed, sCourse: track.courseTrue, sTime: nowMs,
+      vLon, vLat, vSpeedMs: projectedSpeed, vCourse: track.courseTrue, vTime: nowMs,
+      lastReportKey,
+      source: track.source,
       blendWindowMs: sourceBlendWindowMs(track.source, Math.max(nowMs - state.sTime, BLEND_WINDOW_MS)),
     }
   }

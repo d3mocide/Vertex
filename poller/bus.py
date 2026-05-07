@@ -83,9 +83,6 @@ def _entity_changed(previous: dict, current: dict) -> bool:
         "tags",
         # BEAST-specific fields that represent meaningful state changes
         "position_stale",
-        "signal_peak",
-        "msg_count",
-        "mlat_ticks",
         "trail_pts",
         "comm_b",
     )

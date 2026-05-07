@@ -8,6 +8,7 @@ const RECONNECT_DELAY_MS = 3000
 
 export function useWebSocket() {
   const wsRef = useRef<WebSocket | null>(null)
+  const emptyAircraftSnapshotStreakRef = useRef(0)
   const {
     setEntities,
     setAircraftSnapshot,
@@ -64,7 +65,33 @@ export function useWebSocket() {
               console.warn('[ws] aircraft_snapshot schema_version mismatch:', msg.data.schema_version)
             }
             if (Array.isArray(msg.data?.aircraft)) {
-              setAircraftSnapshot(msg.data.aircraft)
+              const aircraft = msg.data.aircraft as Parameters<typeof setAircraftSnapshot>[0]
+              if (aircraft.length === 0) {
+                const state = useCivicStore.getState()
+                const existingLocalAircraft = Object.values(state.entities).filter(
+                  (e) => e.entity_type === 'aircraft' && (e.source ?? '').toLowerCase() !== 'opensky',
+                ).length
+                const beastHealthy = msg.data?.beast_healthy === true
+                const lastFrameAge = typeof msg.data?.last_frame_age_s === 'number' ? msg.data.last_frame_age_s : null
+
+                emptyAircraftSnapshotStreakRef.current += 1
+
+                // Ignore short empty bursts while BEAST is healthy to prevent global
+                // icon wipe/repopulate cycles caused by transient decoder/snapshot gaps.
+                if (
+                  existingLocalAircraft > 0
+                  && beastHealthy
+                  && (lastFrameAge === null || lastFrameAge < 20)
+                  && emptyAircraftSnapshotStreakRef.current < 3
+                ) {
+                  console.warn('[ws] ignoring transient empty aircraft_snapshot while BEAST is healthy')
+                  break
+                }
+              } else {
+                emptyAircraftSnapshotStreakRef.current = 0
+              }
+
+              setAircraftSnapshot(aircraft)
             }
             if (msg.data?.airports && typeof msg.data.airports === 'object') {
               setAirports(msg.data.airports)

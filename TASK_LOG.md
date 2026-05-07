@@ -5,6 +5,28 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 
 ---
 
+## 2026-05-06 — Fixed ADS-B icon reset/repopulate loops and BEAST smoothing regression
+
+- Root cause refinement after container/browser refresh: map behavior indicated a combination of transient empty aircraft snapshots, excessive BEAST update churn, and frontend blend-state reset conditions.
+- Updated `frontend/src/layers/pvb.ts` report-key logic so BEAST `last_seen` heartbeats no longer reset smoothing when there is no new resolved position (prefers trail timestamp when available).
+- Updated `frontend/src/hooks/useWebSocket.ts` to ignore short bursts of empty `aircraft_snapshot` payloads while BEAST is healthy, preventing full icon wipe/repopulate cycles from transient snapshot gaps.
+- Updated `frontend/src/hooks/useTrailHydration.ts` to include auth headers on trail fetches, eliminating unauthorized per-aircraft trail requests under auth-enabled deployments.
+- Updated `poller/bus.py` change detection to stop treating highly volatile BEAST counters (`msg_count`, `mlat_ticks`, `signal_peak`) as publish triggers, reducing frontend update spam and improving motion continuity.
+- Validation: `cd frontend && npx tsc --noEmit` ✓ · `python -m py_compile poller/bus.py` ✓
+
+## 2026-05-06 — Diagnosed ADS-B rubberbanding and hardened local/supplement smoothing
+
+- Root-cause diagnosis focused on local BEAST/UF motion artifacts under supplement mode: frontend PVB update detection relied only on trail timestamp changes and continued dead-reckoning even when decoder marked positions stale.
+- Updated `frontend/src/storeTypes.ts` and `frontend/src/entityUtils.ts` so `Track` now carries `lastSeen` and `positionStale` metadata from aircraft entities.
+- Updated `frontend/src/layers/pvb.ts` to:
+    - detect new reports with a richer signature (source + lastSeen + trail timestamp + pose/freshness) instead of trail timestamp alone,
+    - freeze extrapolation speed to `0` when `position_stale=true` to prevent stale-track drift and snapback,
+    - re-anchor immediately when source changes (local ↔ OpenSky) to avoid blending across disjoint track histories.
+- Tuned OpenSky supplement defaults and holdoff behavior:
+    - changed default `adsb_opensky_interval` from `60` → `240` in `poller/config.py` and `.env.example` to reduce anonymous rate-limit churn,
+    - capped effective local holdoff in `poller/pollers/adsb.py` at 90s to prevent excessively long local-authoritative windows when using high supplement intervals.
+- Validation: `cd frontend && npx tsc --noEmit` ✓ · `python -m py_compile poller/pollers/adsb.py poller/config.py` ✓
+
 ## 2026-05-06 — Reduced BEAST startup false-positive unhealthy log noise
 
 - Updated `poller/pollers/adsb.py` to add a 15-second BEAST warm-up window before logging `BEAST unhealthy — HTTP fallback active`.

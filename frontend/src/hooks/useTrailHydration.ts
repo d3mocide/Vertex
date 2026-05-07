@@ -14,6 +14,7 @@ import { useCivicStore } from '../store'
 import { historicalTrailCache, ALT_FT_TO_M, SPD_KT_TO_MS } from '../entityUtils'
 import type { TrailPt } from '../storeTypes'
 import { API_BASE } from '../config'
+import { authHeaders } from '../auth'
 
 // Fetch up to this many minutes of history for each aircraft.
 const HISTORY_MINUTES = 120
@@ -65,7 +66,7 @@ export function useTrailHydration(): void {
 
       const url = `${API_BASE}/entities/${encodeURIComponent(entityId)}/trail?minutes=${HISTORY_MINUTES}`
 
-      fetch(url, { credentials: 'same-origin' })
+      fetch(url, { headers: authHeaders() })
         .then((res) => {
           if (!res.ok) return null
           return res.json() as Promise<ObservationRow[]>
