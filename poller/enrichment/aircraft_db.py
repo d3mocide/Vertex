@@ -3,9 +3,12 @@ from __future__ import annotations
 import gzip
 import logging
 import os
+import re
 from typing import Optional
 
 from config import settings
+
+_ICAO_RE = re.compile(r"^[0-9a-f]{1,6}$")
 
 logger = logging.getLogger(__name__)
 
@@ -21,9 +24,7 @@ class AircraftDb:
         if not icao:
             return None
         key = icao.strip().lower()
-        if not key or len(key) > 6:
-            return None
-        if any(ch not in "0123456789abcdef" for ch in key):
+        if not _ICAO_RE.match(key):
             return None
         return key
 

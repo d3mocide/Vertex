@@ -2,12 +2,15 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 from typing import Optional
 
 import httpx
 
 from config import settings
 from .cache import CachedLookup, HttpThrottle, UpstreamRateLimitedError, load_gzip_json, save_gzip_json
+
+_ICAO_RE = re.compile(r"^[0-9a-f]{1,6}$")
 
 logger = logging.getLogger(__name__)
 
@@ -49,9 +52,7 @@ class AdsbdbClient:
         if not icao:
             return None
         key = icao.strip().lower()
-        if not key or len(key) > 6:
-            return None
-        if any(c not in "0123456789abcdef" for c in key):
+        if not _ICAO_RE.match(key):
             return None
         return key
 

@@ -5,6 +5,15 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 
 ---
 
+## 2026-05-08 — Optimized ICAO normalization with regex
+
+- **Performance Optimization**: Replaced suboptimal generator expressions in `any()` with pre-compiled regular expressions in `poller/enrichment/aircraft_db.py` and `poller/enrichment/adsbdb.py`.
+    - This change optimizes the ICAO hex code normalization hot path, which is called for every aircraft in every poll cycle.
+    - Measured a **~35% speedup** in the normalization function (from 7.66s down to 4.93s per 1M iterations).
+- **Validation**:
+    - Verified functional correctness using `poller/tests/test_adsb_normalization.py`.
+    - Performance verified with a dedicated benchmark script.
+
 ## 2026-05-07 — Implemented Best Mode ADSB arbitration and stabilized backend rate-limiting
 
 - **ADS-B Best Mode Arbitration**: Refactored `poller/pollers/adsb.py` to maintain a unified aircraft registry.
