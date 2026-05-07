@@ -1,7 +1,6 @@
 """Best-effort BDS (Comm-B Data Selector) register decoders for Mode S EHS."""
 from __future__ import annotations
 
-from typing import Optional
 
 
 def infer_bds(payload: bytes) -> str | None:

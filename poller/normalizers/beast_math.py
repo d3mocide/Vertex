@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import math
-from typing import Optional
 
 
 def haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
