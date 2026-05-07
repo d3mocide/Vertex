@@ -14,6 +14,34 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
     - Verified functional correctness using `poller/tests/test_adsb_normalization.py`.
     - Performance verified with a dedicated benchmark script.
 
+## 2026-05-07 — Reduced APRS and stream gauge map icon sizes
+
+- Updated `frontend/src/layers/buildEntityLayers.ts` to reduce APRS (`ground`) icon size at close zoom:
+    - Default: `24px` (was `32px`)
+    - Selected: `30px` (was `40px`)
+- Updated `frontend/src/layers/buildStreamGaugeLayer.ts` gauge icon sizes:
+    - Far: `7px` (was `8px`)
+    - Mid: `10px` (was `12px`)
+    - Close: `18px` (was `22px`)
+- Updated `docs/map-key.md` to keep symbol-size documentation in sync.
+- **Validation**:
+    - `cd frontend && npx tsc --noEmit` ✓
+
+## 2026-05-07 — Reduced ADS-B enrichment queue saturation under load
+
+- **Issue observed**: `pollers.adsb` repeatedly logged `enrichment queue full (256), dropping enrichment request` under high traffic after bounded queue rollout.
+- **Root cause** in `poller/pollers/adsb.py`:
+    - Missing enrichments were re-enqueued each snapshot tick before prior lookups entered cache/inflight state.
+    - Burst enqueue behavior could fill the bounded queue in a single tick, causing repeated drop warnings.
+- **Fix implemented**:
+    - Added pending-dedupe sets for route callsigns, aircraft ICAOs, and METAR ICAOs.
+    - Added typed helper schedulers (`_schedule_route_enrichment`, `_schedule_aircraft_enrichment`, `_schedule_metar_enrichment`) that dedupe and clear pending state on completion/failure.
+    - Updated `_schedule_enrichment(...)` to return enqueue success so pending state can be rolled back when queue is full.
+    - Added queue-aware per-tick budgeting in `_enrich_aircraft_cache_only(...)` so new enrichment requests are throttled by queue headroom rather than burst-enqueued.
+- **Expected impact**: Dramatically fewer duplicate queued enrichments and reduced queue-full/drop-warning storms while preserving bounded-memory behavior.
+- **Validation**:
+    - `python -m py_compile poller/pollers/adsb.py` ✓
+
 ## 2026-05-07 — Implemented Best Mode ADSB arbitration and stabilized backend rate-limiting
 
 - **ADS-B Best Mode Arbitration**: Refactored `poller/pollers/adsb.py` to maintain a unified aircraft registry.

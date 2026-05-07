@@ -35,6 +35,9 @@ class AdsbPoller(BasePoller):
         self._opensky_supplement_task: asyncio.Task | None = None
         self._beast_queue: asyncio.Queue[tuple[bytes, int, int]] = asyncio.Queue(maxsize=16384)
         self._enrichment_queue: asyncio.Queue[Any] = asyncio.Queue(maxsize=256)
+        self._pending_route_callsigns: set[str] = set()
+        self._pending_aircraft_icaos: set[str] = set()
+        self._pending_metar_codes: set[str] = set()
         self._beast_frames_dropped: int = 0
         self._last_seen_by_source: dict[str, dict[str, float]] = {}
         self._opensky_poll_count: int = 0
@@ -254,7 +257,7 @@ class AdsbPoller(BasePoller):
             finally:
                 self._enrichment_queue.task_done()
 
-    def _schedule_enrichment(self, coro: Any) -> None:
+    def _schedule_enrichment(self, coro: Any) -> bool:
         """Enqueue a coroutine for the supervised enrichment worker.
 
         Drops the item (with a warning) if the queue is full to prevent
@@ -262,9 +265,65 @@ class AdsbPoller(BasePoller):
         """
         try:
             self._enrichment_queue.put_nowait(coro)
+            return True
         except asyncio.QueueFull:
             logger.warning("[adsb] enrichment queue full (%d), dropping enrichment request", self._enrichment_queue.maxsize)
             coro.close()
+            return False
+
+    def _schedule_route_enrichment(self, callsign: str) -> bool:
+        key = self._adsbdb.normalize_callsign(callsign)
+        if not key or key in self._pending_route_callsigns:
+            return False
+        self._pending_route_callsigns.add(key)
+
+        async def _lookup() -> None:
+            try:
+                await self._adsbdb.lookup_route(key)
+            finally:
+                self._pending_route_callsigns.discard(key)
+
+        if not self._schedule_enrichment(_lookup()):
+            self._pending_route_callsigns.discard(key)
+            return False
+        return True
+
+    def _schedule_aircraft_enrichment(self, icao: str) -> bool:
+        key = self._adsbdb.normalize_icao(icao)
+        if not key or key in self._pending_aircraft_icaos:
+            return False
+        self._pending_aircraft_icaos.add(key)
+
+        async def _lookup() -> None:
+            try:
+                await self._adsbdb.lookup_aircraft(key)
+            finally:
+                self._pending_aircraft_icaos.discard(key)
+
+        if not self._schedule_enrichment(_lookup()):
+            self._pending_aircraft_icaos.discard(key)
+            return False
+        return True
+
+    def _schedule_metar_enrichment(self, codes: set[str]) -> bool:
+        clean = {k for code in codes if (k := self._metar.normalize_icao(code))}
+        todo = sorted(clean.difference(self._pending_metar_codes))
+        if not todo:
+            return False
+        self._pending_metar_codes.update(todo)
+
+        async def _lookup() -> None:
+            try:
+                await self._metar.lookup_many(todo)
+            finally:
+                for code in todo:
+                    self._pending_metar_codes.discard(code)
+
+        if not self._schedule_enrichment(_lookup()):
+            for code in todo:
+                self._pending_metar_codes.discard(code)
+            return False
+        return True
 
     async def close(self):
         """Cancel all spawned BEAST/registry tasks for clean shutdown."""
@@ -596,14 +655,30 @@ class AdsbPoller(BasePoller):
                 else:
                     missing_metar_codes.add(code)
 
-        for callsign in missing_callsigns:
-            self._schedule_enrichment(self._adsbdb.lookup_route(callsign))
+        # Queue-aware scheduling: cap how many new enrichments we enqueue per tick
+        # to avoid burst-filling the bounded queue during heavy traffic.
+        slots = max(0, self._enrichment_queue.maxsize - self._enrichment_queue.qsize())
+        if slots > 0:
+            metar_budget = 1 if missing_metar_codes else 0
+            route_budget = max(0, (slots - metar_budget) // 2)
+            aircraft_budget = max(0, slots - metar_budget - route_budget)
 
-        for icao in missing_icaos:
-            self._schedule_enrichment(self._adsbdb.lookup_aircraft(icao))
+            routes_enqueued = 0
+            for callsign in missing_callsigns:
+                if routes_enqueued >= route_budget:
+                    break
+                if self._schedule_route_enrichment(callsign):
+                    routes_enqueued += 1
 
-        if missing_metar_codes:
-            self._schedule_enrichment(self._metar.lookup_many(sorted(missing_metar_codes)))
+            aircraft_enqueued = 0
+            for icao in missing_icaos:
+                if aircraft_enqueued >= aircraft_budget:
+                    break
+                if self._schedule_aircraft_enrichment(icao):
+                    aircraft_enqueued += 1
+
+            if missing_metar_codes:
+                self._schedule_metar_enrichment(missing_metar_codes)
 
         return enriched, airports
 

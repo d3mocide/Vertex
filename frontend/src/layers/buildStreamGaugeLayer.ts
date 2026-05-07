@@ -40,9 +40,9 @@ function toGaugePoint(e: Entity): StreamGaugePoint | null {
 
 // Zoom bucket sizes matching Atlas spec.
 function gaugeIconSize(zoom: number): number {
-  if (zoom >= 9) return 22
-  if (zoom >= 6) return 12
-  return 8
+  if (zoom >= 9) return 18
+  if (zoom >= 6) return 10
+  return 7
 }
 
 function gaugeIconName(zoom: number): string {

@@ -38,6 +38,9 @@ function entityIconSize(selectedUid: string | null, track: Track, zoom: number):
     }
     return 10
   }
+  if (track.type === 'ground') {
+    return track.uid === selectedUid ? 30 : 24
+  }
   return track.uid === selectedUid ? 40 : 32
 }
 

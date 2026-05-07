@@ -54,8 +54,12 @@ Entity layer source: frontend/src/layers/buildEntityLayers.ts
     - Selected: 40 px
   - APRS/Hazard: 10 px
 - Close:
-  - Default: 32 px
-  - Selected: 40 px
+  - ADSB/AIS/Hazard:
+    - Default: 32 px
+    - Selected: 40 px
+  - APRS:
+    - Default: 24 px
+    - Selected: 30 px
 
 ### Colors
 
@@ -102,9 +106,9 @@ Layer source: frontend/src/layers/buildStreamGaugeLayer.ts
 
 ### Sizes
 
-- Far: 8 px
-- Mid: 12 px
-- Close: 22 px
+- Far: 7 px
+- Mid: 10 px
+- Close: 18 px
 
 ### Stage colors
 
