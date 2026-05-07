@@ -13,6 +13,8 @@ logger = logging.getLogger(__name__)
 
 
 class AdsbdbClient:
+    _PERSIST_EVERY = 20  # write cache file after this many new fetches
+
     def __init__(self):
         throttle = HttpThrottle(min_interval_seconds=1.2, default_cooldown_seconds=60)
         self._cache_path = os.path.join(settings.adsb_enrichment_cache_dir, "flight_routes.json.gz")
@@ -28,6 +30,7 @@ class AdsbdbClient:
             max_size=10000,
             throttle=throttle,
         )
+        self._dirty_count: int = 0
         self._load_cache()
 
     @staticmethod
@@ -69,7 +72,7 @@ class AdsbdbClient:
         if not key:
             return None
         result = await self._routes.get(key, self._fetch_route)
-        self._persist_cache()
+        self._mark_dirty()
         return result
 
     async def lookup_aircraft(self, icao: str | None) -> dict | None:
@@ -77,8 +80,23 @@ class AdsbdbClient:
         if not key:
             return None
         result = await self._aircraft.get(key, self._fetch_aircraft)
-        self._persist_cache()
+        self._mark_dirty()
         return result
+
+    def _mark_dirty(self) -> None:
+        """Increment the dirty counter and flush to disk every _PERSIST_EVERY fetches.
+
+        Batching writes prevents a gzip I/O call (blocking) on every single enrichment
+        lookup. The cache is also flushed at poller shutdown via flush().
+        """
+        self._dirty_count += 1
+        if self._dirty_count % self._PERSIST_EVERY == 0:
+            self._persist_cache()
+
+    def flush(self) -> None:
+        """Force an immediate cache flush — call on poller shutdown."""
+        if self._dirty_count > 0:
+            self._persist_cache()
 
     def _load_cache(self):
         payload = load_gzip_json(self._cache_path) or {}

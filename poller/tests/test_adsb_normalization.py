@@ -160,3 +160,4 @@ class TestNormalizeTar1090:
         result = normalize_tar1090(self._ac())
         assert result is not None
         assert result["entity_id"] == "aircraft:a1b2c3"
+

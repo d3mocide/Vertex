@@ -282,6 +282,9 @@ class AdsbPoller(BasePoller):
                     await task
                 except asyncio.CancelledError:
                     pass
+        # Flush any un-persisted enrichment cache entries accumulated since the
+        # last batch write so they survive the restart.
+        self._adsbdb.flush()
 
     # ── Best Mode Arbitration ──────────────────────────────────────────────
 

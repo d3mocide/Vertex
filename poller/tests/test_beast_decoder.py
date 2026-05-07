@@ -651,5 +651,63 @@ class TestCPRGuards(unittest.TestCase):
         self.assertAlmostEqual(ac.lat, west_lat, places=4)
 
 
+# ============================================================================
+# 8. Trail cache (_trail_dirty flag) — requires pyModeS v2
+# ============================================================================
+@_SKIP_V2
+class TestTrailCache(unittest.TestCase):
+    """Verify _trail_dirty flag controls trail_pts list reconstruction."""
+
+    # Reuse the known-good CPR pair from section 6.
+    POSITION_EVEN = "8D40621D58C382D690C8AC2863A7"
+    POSITION_ODD  = "8D40621D58C386435CC412692AD6"
+
+    def setUp(self):
+        self.decoder = BeastAircraftDecoder()
+
+    def _icao(self):
+        import pyModeS as pms
+        return pms.icao(self.POSITION_EVEN).lower()
+
+    def _feed_pair(self):
+        self.decoder.ingest(bytes.fromhex(self.POSITION_EVEN))
+        return self.decoder.ingest(bytes.fromhex(self.POSITION_ODD))
+
+    def test_cache_built_and_dirty_cleared_after_first_entity(self):
+        """After the first CPR fix, _trail_cache is populated and dirty flag is False."""
+        entity = self._feed_pair()
+        ac = self.decoder._aircraft[self._icao()]
+        self.assertIsNotNone(entity)
+        self.assertFalse(ac._trail_dirty)
+        self.assertIsInstance(ac._trail_cache, list)
+        self.assertGreater(len(ac._trail_cache), 0)
+
+    def test_cache_reused_without_new_position_fix(self):
+        """snapshot_entities() returns the same list object when no new fix arrived."""
+        self._feed_pair()
+        ac = self.decoder._aircraft[self._icao()]
+        cache_ref = ac._trail_cache
+
+        # snapshot_entities calls _to_entity on the same aircraft with no new frame
+        self.decoder.snapshot_entities()
+
+        self.assertIs(ac._trail_cache, cache_ref)
+
+    def test_cache_rebuilt_after_new_position_fix(self):
+        """A second CPR fix increments pos_history, rebuilds the cache as a new list."""
+        self._feed_pair()
+        ac = self.decoder._aircraft[self._icao()]
+        first_cache = ac._trail_cache
+
+        # Second pair — appends another entry to pos_history
+        entity = self._feed_pair()
+
+        self.assertIsNotNone(entity)
+        # New list object, longer than the first
+        self.assertIsNot(ac._trail_cache, first_cache)
+        self.assertGreaterEqual(len(ac._trail_cache), len(first_cache))
+        self.assertFalse(ac._trail_dirty)
+
+
 if __name__ == "__main__":
     unittest.main()
