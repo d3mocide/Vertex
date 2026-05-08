@@ -13,6 +13,7 @@ For progress history, see `TASK_LOG.md`.
 1. Read `CLAUDE.md` if you have not already — it contains the full architecture map, tech stack, and common failure modes. Do not run codebase discovery if CLAUDE.md already answers your question.
 2. Check `TASK_LOG.md` to understand recent changes and any open issues.
 3. Identify which services your changes touch (backend, poller, frontend, Docker config).
+4. Ensure frontend dependencies are installed — if `frontend/node_modules/` is absent or stale, run `cd frontend && npm install` before doing anything. Without this, `tsc` will report hundreds of false errors and any TypeScript check is meaningless.
 
 ### Before Every Commit
 
