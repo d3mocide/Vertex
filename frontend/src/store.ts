@@ -328,6 +328,7 @@ export const useCivicStore = create<CivicStore>((set) => ({
         satellite:    1_800_000,   // 30 min — matches poller TTL
         tinygs_station: 600_000,   // 10 min — station ping is every ~60 s
         stream_gauge:   600_000,   // 10 min — gauges are polled every 5 min
+        tak_client:     300_000,   // 5 min  — TAK SA ping is every 30 s–2 min
       }
       for (const [id, e] of Object.entries(next)) {
         const limit = STALE_MS[e.entity_type]
