@@ -3,6 +3,7 @@ import json
 import logging
 import time
 from abc import ABC, abstractmethod
+from sanitize import sanitize_payload
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +26,7 @@ class BasePoller(ABC):
         try:
             from bus import get_bus
             r = await get_bus()
-            payload = json.dumps({"ts": time.time(), "status": status, "last_error": last_error, "interval": self.interval})
+            payload = json.dumps(sanitize_payload({"ts": time.time(), "status": status, "last_error": last_error, "interval": self.interval}))
             await r.hset(_HEARTBEAT_KEY, self.name, payload)
         except Exception:
             pass  # heartbeat is best-effort; never block the poll loop

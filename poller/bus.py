@@ -2,6 +2,7 @@ import json
 import logging
 from redis.asyncio import Redis
 from config import settings
+from sanitize import sanitize_payload
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +22,7 @@ async def get_bus() -> Redis:
 
 async def publish_entity(entity: dict, ttl: int = 120, record_observation: bool = True):
     r = await get_bus()
+    entity = sanitize_payload(entity)
     entity_id = entity["entity_id"]
     key = f"entity:{entity_id}"
 
@@ -50,6 +52,8 @@ async def publish_entity(entity: dict, ttl: int = 120, record_observation: bool 
 
 async def set_feed(key: str, data):
     r = await get_bus()
+    key = sanitize_payload(key)
+    data = sanitize_payload(data)
     payload = json.dumps(data)
     await r.set(f"feed:{key}", payload)
     # Radio active state gets its own typed message so the frontend can react immediately
@@ -59,6 +63,7 @@ async def set_feed(key: str, data):
 
 async def set_aircraft_snapshot(snapshot: dict):
     r = await get_bus()
+    snapshot = sanitize_payload(snapshot)
     await r.set("feed:aircraft_snapshot", json.dumps(snapshot))
     await r.publish("civic:updates", json.dumps({"type": "aircraft_snapshot", "data": snapshot}))
 

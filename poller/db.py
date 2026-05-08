@@ -3,6 +3,7 @@ import logging
 import uuid
 import asyncpg
 from config import settings
+from sanitize import sanitize_payload, sanitize_text
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +40,7 @@ async def write_entity_observation(entity: dict, record_observation: bool = True
     """Upsert entity row and append an observation. Runs geofence check if positioned."""
     if _pool is None:
         return
+    entity = sanitize_payload(entity)
 
     from geofence import check_geofences  # lazy — breaks bus→db→geofence→bus cycle
 
@@ -132,6 +134,11 @@ async def write_event(
     """Persist an event row to Postgres. Returns the generated event_id."""
     if _pool is None:
         return ""
+    event_type = sanitize_text(event_type) or ""
+    entity_id = sanitize_text(entity_id)
+    severity = sanitize_text(severity) or ""
+    summary = sanitize_text(summary) or ""
+    details = sanitize_payload(details)
     event_id = str(uuid.uuid4())
     async with _pool.acquire() as conn:
         await conn.execute(

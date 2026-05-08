@@ -6,6 +6,7 @@ import httpx
 from db import write_event
 from bus import get_bus
 from config import settings
+from sanitize import sanitize_payload
 from .base import BasePoller
 
 logger = logging.getLogger(__name__)
@@ -114,7 +115,7 @@ class SeismicPoller(BasePoller):
                     await r.publish(
                         "civic:updates",
                         json.dumps(
-                            {
+                            sanitize_payload({
                                 "type": "event",
                                 "data": {
                                     "event_id": event_id,
@@ -125,7 +126,7 @@ class SeismicPoller(BasePoller):
                                     "summary": summary,
                                     "details": details,
                                 },
-                            }
+                            })
                         ),
                     )
                 _seen_ids.add(eid)

@@ -2,6 +2,7 @@ import json
 import logging
 import uuid
 from datetime import datetime, timezone
+from sanitize import sanitize_payload, sanitize_text
 
 logger = logging.getLogger(__name__)
 
@@ -95,13 +96,17 @@ async def check_geofences(entity: dict, conn) -> None:
 
     for event_type, fence, summary, severity in transitions:
         event_id = str(uuid.uuid4())
-        details = {
+        details = sanitize_payload({
             "geofence_id":   fence["id"],
             "geofence_name": fence["name"],
             "zone_type":     fence["zone_type"],
             "geofence_shape": fence.get("geofence_shape", "polygon"),
             "dwell_seconds": int(fence.get("dwell_seconds") or 0),
-        }
+        })
+        event_type = sanitize_text(event_type) or ""
+        entity_id = sanitize_text(entity_id) or ""
+        severity = sanitize_text(severity) or ""
+        summary = sanitize_text(summary) or ""
 
         await conn.execute(
             """
@@ -118,7 +123,7 @@ async def check_geofences(entity: dict, conn) -> None:
 
         await r.publish(
             "civic:updates",
-            json.dumps({
+            json.dumps(sanitize_payload({
                 "type": "event",
                 "data": {
                     "event_id":   event_id,
@@ -129,6 +134,6 @@ async def check_geofences(entity: dict, conn) -> None:
                     "summary":    summary,
                     "details":    details,
                 },
-            }),
+            })),
         )
         logger.info("[geofence] %s", summary)

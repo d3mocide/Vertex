@@ -14,6 +14,20 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
     - Verified functional correctness using `poller/tests/test_adsb_normalization.py`.
     - Performance verified with a dedicated benchmark script.
 
+## 2026-05-07 — Hardened poller payload sanitization for DB/Redis writes
+
+- **Issue observed**: Poller persistence failed on APRS entities when upstream payloads contained null bytes (`\u0000`), producing asyncpg `UntranslatableCharacterError` during entity writes.
+- **Root fix**:
+    - Added shared sanitization helpers in `poller/sanitize.py` to strip null bytes from strings and recursively sanitize nested payloads.
+    - Updated `poller/bus.py` to sanitize entity/feed/snapshot payloads before Redis key/value writes and websocket publishes.
+    - Updated `poller/db.py` to sanitize entity/event fields before Postgres inserts and JSONB serialization.
+    - Updated `poller/geofence.py`, `poller/pollers/p25.py`, `poller/pollers/seismic.py`, `poller/pollers/meshcore.py`, `poller/pollers/anomaly.py`, and `poller/pollers/base.py` so direct publish paths also use sanitized payloads.
+- **Additional hardening**:
+    - Updated `poller/normalizers/vessel.py` to safely handle non-string ship names instead of calling `.strip()` on raw upstream values.
+- **Validation**:
+    - `python -m py_compile poller/sanitize.py poller/bus.py poller/db.py poller/geofence.py poller/normalizers/vessel.py` ✓
+    - `python -m py_compile poller/pollers/p25.py poller/pollers/seismic.py poller/pollers/meshcore.py poller/pollers/anomaly.py poller/pollers/base.py` ✓
+
 ## 2026-05-07 — Reduced APRS and stream gauge map icon sizes
 
 - Updated `frontend/src/layers/buildEntityLayers.ts` to reduce APRS (`ground`) icon size at close zoom:

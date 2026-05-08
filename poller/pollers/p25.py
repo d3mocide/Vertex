@@ -15,6 +15,7 @@ from datetime import datetime, timezone
 import httpx
 
 from bus import set_feed, get_bus
+from sanitize import sanitize_payload
 from .base import BasePoller
 
 
@@ -244,7 +245,7 @@ async def _write_event(event_type: str, details: dict):
         "summary":    f"TGID {details.get('tgid')} — {details.get('tag', '')}",
         "details":    details,
     }
-    await r.publish("civic:updates", json.dumps({"type": "event", "data": event}))
+    await r.publish("civic:updates", json.dumps(sanitize_payload({"type": "event", "data": event})))
     logger.info("[p25] %s tgid=%s tag=%s", event_type, details.get("tgid"), details.get("tag"))
 
 

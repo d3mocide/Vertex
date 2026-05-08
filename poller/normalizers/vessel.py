@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 from typing import Optional
+from sanitize import safe_stripped
 
 
 def normalize_aisstream(data: dict) -> Optional[dict]:
@@ -12,12 +13,13 @@ def normalize_aisstream(data: dict) -> Optional[dict]:
 
     if msg_type == "PositionReport":
         pr = msg.get("PositionReport", {})
+        ship_name = safe_stripped(meta.get("ShipName"), mmsi)
         return {
             "entity_id": f"vessel:{mmsi}",
             "entity_type": "vessel",
             "source": "aisstream",
-            "display_name": meta.get("ShipName", mmsi).strip() or mmsi,
-            "identity": {"mmsi": mmsi, "ship_name": meta.get("ShipName", "").strip()},
+            "display_name": ship_name,
+            "identity": {"mmsi": mmsi, "ship_name": safe_stripped(meta.get("ShipName"))},
             "lat": pr.get("Latitude") or meta.get("latitude"),
             "lon": pr.get("Longitude") or meta.get("longitude"),
             "heading": pr.get("TrueHeading"),
@@ -33,14 +35,15 @@ def normalize_ais_catcher(data: dict) -> Optional[dict]:
     mmsi = str(data.get("mmsi", ""))
     if not mmsi or data.get("lat") is None or data.get("lon") is None:
         return None
+    ship_name = safe_stripped(data.get("shipname"), mmsi)
     return {
         "entity_id": f"vessel:{mmsi}",
         "entity_type": "vessel",
         "source": "ais-catcher",
-        "display_name": data.get("shipname", mmsi).strip() or mmsi,
+        "display_name": ship_name,
         "identity": {
             "mmsi": mmsi,
-            "ship_name": data.get("shipname", "").strip(),
+            "ship_name": safe_stripped(data.get("shipname")),
             "ship_type": data.get("shiptype"),
         },
         "lat": data.get("lat"),

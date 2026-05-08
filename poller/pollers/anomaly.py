@@ -18,6 +18,7 @@ from typing import NamedTuple
 from bus import get_bus
 from config import settings
 from db import get_pool
+from sanitize import sanitize_payload
 from .base import BasePoller
 
 logger = logging.getLogger(__name__)
@@ -135,7 +136,7 @@ class AnomalyDetectionPoller(BasePoller):
                 "ts": datetime.now(timezone.utc).isoformat(),
             }
             try:
-                await r.publish(_CHANNEL, json.dumps(event))
+                await r.publish(_CHANNEL, json.dumps(sanitize_payload(event)))
             except Exception as exc:
                 logger.debug("[anomaly] Redis publish failed: %s", exc)
 

@@ -20,6 +20,7 @@ import websockets
 
 from bus import get_bus, publish_entity, set_feed
 from normalizers.mesh_node import normalize_remoteterm_contact
+from sanitize import sanitize_payload
 from .base import BasePoller
 
 logger = logging.getLogger(__name__)
@@ -137,7 +138,7 @@ async def _handle_ws_event(event: dict, base_url: str):
 
     elif event_type == "message":
         r = await get_bus()
-        await r.publish("civic:updates", json.dumps({
+        await r.publish("civic:updates", json.dumps(sanitize_payload({
             "type": "mesh_message",
             "data": {
                 "id":               data.get("id"),
@@ -151,7 +152,7 @@ async def _handle_ws_event(event: dict, base_url: str):
                 "timestamp":        data.get("sender_timestamp"),
                 "source_url":       base_url,
             },
-        }))
+        })))
 
     elif event_type == "health":
         connected = data.get("connected", False)
