@@ -13,7 +13,7 @@
 | 1 | `poller/` — external ingestion, normalizers, geofence | ✅ Complete | 2026-05-08 |
 | 2 | `backend/` — API surface, auth, WebSocket | ✅ Complete | 2026-05-08 |
 | 3 | `frontend/` — TypeScript, Zustand, XSS vectors | ✅ Complete | 2026-05-08 |
-| 4 | `db/` — init SQL, schema, indexes | ⬜ Not Started | — |
+| 4 | `db/` — init SQL, schema, indexes | ✅ Complete | 2026-05-08 |
 | 5 | Cross-cutting — API contracts, Redis channels, env/config | ⬜ Not Started | — |
 
 ---
@@ -596,15 +596,77 @@ _Fix: Add `self.addEventListener('activate', e => e.waitUntil(self.clients.claim
 ## 4. Database (`db/`)
 
 **Files reviewed:**
-- [ ] `db/init/01_schema.sql`
-- [ ] `db/init/02_geofences.sql`
-- [ ] `db/init/03_sources.sql`
-- [ ] `db/init/04_entity_mission_tags.sql`
-- [ ] `db/init/05_annotations.sql`
+- [x] `db/init/01_schema.sql`
+- [x] `db/init/02_geofences.sql`
+- [x] `db/init/03_sources.sql`
+- [x] `db/init/04_entity_mission_tags.sql`
+- [x] `db/init/05_annotations.sql`
 
 **Findings:**
 
-_None logged yet._
+**[HIGH] `01_schema.sql:116-121` — Default role `'admin'` on every new `users` INSERT**
+`role VARCHAR(32) NOT NULL DEFAULT 'admin'` — any INSERT that omits the role column silently creates an admin account. A typo or missing parameter in application code grants administrative access by accident.
+_Fix: Change the default to `'viewer'` (least-privilege)._
+
+**[HIGH] `01_schema.sql:106-109` — `purge_old_observations()` has no privilege restriction**
+The function is callable by any connected role with no GRANT/REVOKE, carries no `SECURITY DEFINER`, and produces no audit trail. Exposed through a connection pool bug it becomes a data-destruction vector.
+_Fix: Add `SECURITY DEFINER SET search_path = public`, REVOKE EXECUTE from PUBLIC, GRANT EXECUTE only to the application role._
+
+**[HIGH] `01_schema.sql:51-64` — `events.entity_id` has no foreign key to `entities`**
+`entity_id VARCHAR(64)` on `events` is nullable with no `REFERENCES entities(entity_id)` constraint, despite being the join column. Orphaned event rows for deleted entities accumulate silently.
+_Fix: Add `REFERENCES entities(entity_id) ON DELETE SET NULL` (keeping nullable for system-level events)._
+
+**[MED] `04_entity_mission_tags.sql:2-9` — `entity_mission_tags.entity_id` has no foreign key**
+Tags for deleted or non-existent entities accumulate indefinitely with no constraint to catch them.
+_Fix: Add `REFERENCES entities(entity_id) ON DELETE CASCADE`._
+
+**[MED] `01_schema.sql:28-42` — `observations.lat` / `lon` / `geom` all nullable with no consistency constraint**
+All three columns are nullable independently. A row with `lat`/`lon` set but `geom = NULL` is skipped by the spatial index; a row with `geom` set but `lat`/`lon` NULL is invisible to non-spatial queries. The schema allows four inconsistent states.
+_Fix: Add `CHECK ((lat IS NULL) = (lon IS NULL) AND (lat IS NULL) = (geom IS NULL))` to enforce all-or-nothing, or drop `lat`/`lon` and derive them from `geom` in a view._
+
+**[MED] `01_schema.sql:69-84` — `geofences.geom` typed `GEOMETRY(POLYGON,4326)` but table also stores circles**
+Circle-type geofences cannot be stored as a typed POLYGON geometry — the INSERT will either fail with a type mismatch or silently store an approximation. No CHECK constraint enforces which columns must be non-null per shape type.
+_Fix: Change `geom` to `GEOMETRY(GEOMETRY, 4326)` (untyped). Add CHECK constraints per `geofence_shape` value._
+
+**[MED] `01_schema.sql:123` — `ix_users_username` index is redundant with the UNIQUE constraint**
+`UNIQUE NOT NULL` on `username` already creates an implicit B-tree index. The explicit `CREATE INDEX` doubles write overhead for zero query benefit.
+_Fix: Drop `ix_users_username`._
+
+**[MED] `02_geofences.sql:4` — Seed INSERTs are not idempotent**
+No `ON CONFLICT DO NOTHING` guard. Re-running init (e.g., after a partial failure) silently creates duplicate geofence rows since `name` has no UNIQUE constraint.
+_Fix: Add `UNIQUE(name)` to `geofences` and change INSERT to `ON CONFLICT (name) DO NOTHING`._
+
+**[MED] `03_sources.sql:18-28` — `news_feeds.url` is nullable with no explanation**
+Every other URL column in the file is `NOT NULL`. A NULL URL is silently skipped by the poller and indistinguishable from a misconfiguration.
+_Fix: Add `NOT NULL` to `news_feeds.url` unless nullable URLs are intentionally documented._
+
+**[LOW] `01_schema.sql:52` — `gen_random_uuid()` used while `uuid-ossp` is also installed**
+The schema installs `uuid-ossp` (line 5) for UUID generation but uses the built-in `gen_random_uuid()` everywhere. The extension is loaded without being used anywhere.
+_Fix: Either use `uuid_generate_v4()` from `uuid-ossp` consistently, or remove the extension install and rely solely on the built-in._
+
+**[LOW] `01_schema.sql:89-99` — `alert_rules.action_config` JSONB stores webhook URLs and secrets in plaintext**
+Any role with SELECT on `alert_rules` (including pg_dump) sees credentials in cleartext. No comment warns against storing secrets here.
+_Fix: Document that secrets must be stored as references (env vars, Vault) rather than inline values. Consider a CHECK constraint rejecting keys named `token`, `secret`, or `password`._
+
+**[LOW] `04_entity_mission_tags.sql:13-16` — Schema evolution via `ALTER TABLE` scattered across init files**
+`cooldown_seconds`, `max_per_hour`, and `dedup_key` are added to `alert_rules` here rather than in the original `CREATE TABLE` in `01_schema.sql`. The authoritative column list for `alert_rules` is now split across two files.
+_Fix: Move these columns into the `CREATE TABLE alert_rules` in `01_schema.sql`. Use a proper migration tool (Alembic) for runtime schema changes._
+
+**[LOW] `05_annotations.sql:1-14` — `annotations.created_by` has no FK to `users`**
+`created_by VARCHAR(64)` is nullable with no `REFERENCES users(username)`. Renaming or deleting a user leaves annotations with a stale username string. Same issue in `entity_mission_tags.created_by`.
+_Fix: Add `REFERENCES users(username) ON DELETE SET NULL`, or store `users.id` for rename-safety._
+
+**[NIT] `01_schema.sql:74` — `geofence_shape` naming inconsistent with all other `*_type` columns**
+Every other discriminator in the schema is named `*_type`; this one is `geofence_shape`.
+_Fix: Rename to `shape_type` for consistency._
+
+**[NIT] `03_sources.sql:31-43` — `poller_sources` has no UNIQUE constraint on `(type, name)`**
+Nothing prevents duplicate rows with identical type and name, preventing safe `ON CONFLICT` upserts.
+_Fix: Add `UNIQUE(type, name)`._
+
+**[NIT] `03_sources.sql:45-52` — `alert_zone_configs` missing index on `enabled`**
+All other source tables have an index on `enabled`; this one does not, inconsistent with expected `WHERE enabled = TRUE` queries.
+_Fix: Add `CREATE INDEX IF NOT EXISTS ix_alert_zone_configs_enabled ON alert_zone_configs (enabled)`._
 
 ---
 
@@ -643,6 +705,10 @@ _None logged yet._
 | 1 | 2026-05-08 | 1 CRIT, 5 HIGH, 10 MED, 12 LOW, 7 NIT | 43 (all of `poller/`) |
 | 2 | 2026-05-08 | 3 CRIT, 8 HIGH, 16 MED, 7 LOW, 2 NIT | 38 (all of `backend/`) |
 | 3 | 2026-05-08 | 2 CRIT, 8 HIGH, 14 MED, 7 LOW, 6 NIT | 80 (all of `frontend/`) |
+| 4 | 2026-05-08 | 0 CRIT, 3 HIGH, 6 MED, 5 LOW, 3 NIT | 5 (all of `db/init/`) |
+
+### Session 4 Highlights
+The schema is functional and the spatial plumbing is correctly in place, but has two systemic weaknesses. First, referential integrity is selectively enforced — FKs exist where tables were written carefully but are missing where columns were added later (`events.entity_id`, `entity_mission_tags.entity_id`, `annotations.created_by`), creating silent orphan-accumulation paths. Second, the `users` table defaults the role to `'admin'`, meaning any application-layer INSERT that omits the role grants admin access silently. The geofence geometry model is technically inconsistent (`POLYGON`-typed column used for both polygons and circles), and seed data in `02_geofences.sql` will create duplicates on any second run. Schema evolution via `ALTER TABLE` scattered across numbered init files will make future changes fragile.
 
 ### Session 3 Highlights
 The most critical issue is XSS via `innerHTML` in `MapOverlay.tsx`: every map tooltip interpolates server-controlled entity fields directly into the DOM with no sanitization — a single compromised WebSocket message achieves full XSS. The second critical cluster is `auth.ts`, where missing and malformed tokens both silently resolve to `'admin'`, which combined with the client-only admin route guard in `main.tsx` means the admin UI is currently accessible to unauthenticated users. Three map layer components (`MeshLayer`, `TinyGSLayer`, `StreamGaugeLayer`) leak MapLibre event listeners on every re-render and `GeofenceLayer` doesn't clean up its source/layers on unmount. The WebSocket handler's unguarded `JSON.parse` creates a silent total failure mode on a single bad frame. The recurring theme across the frontend is unvalidated `href` URLs from RSS/feed data rendered in `Sidebar`, `IncidentsPanel`, and `FireStatusCard`. 27 of 80 files were completely clean.
