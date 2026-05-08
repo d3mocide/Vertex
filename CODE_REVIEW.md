@@ -14,7 +14,7 @@
 | 2 | `backend/` — API surface, auth, WebSocket | ✅ Complete | 2026-05-08 |
 | 3 | `frontend/` — TypeScript, Zustand, XSS vectors | ✅ Complete | 2026-05-08 |
 | 4 | `db/` — init SQL, schema, indexes | ✅ Complete | 2026-05-08 |
-| 5 | Cross-cutting — API contracts, Redis channels, env/config | ⬜ Not Started | — |
+| 5 | Cross-cutting — API contracts, Redis channels, env/config | ✅ Complete | 2026-05-08 |
 
 ---
 
@@ -672,17 +672,35 @@ _Fix: Add `CREATE INDEX IF NOT EXISTS ix_alert_zone_configs_enabled ON alert_zon
 
 ## 5. Cross-Cutting
 
-**Areas to check:**
-- [ ] Backend API routes vs. frontend `config.ts` endpoint paths
-- [ ] Redis channel names: `redis_bus.py` vs. `poller/bus.py`
-- [ ] Pydantic schemas vs. frontend TypeScript types
-- [ ] `.env.example` completeness vs. all config.py fields
-- [ ] Docker Compose health checks and dependency ordering
-- [ ] `docker-compose.yml` vs. `docker-compose.dev.yml` drift
+**Areas checked:**
+- [x] Backend API routes vs. frontend `config.ts` endpoint paths — ✅ Clean
+- [x] Redis channel names: `redis_bus.py` vs. `poller/bus.py` — ✅ Clean
+- [x] `.env.example` completeness vs. all config.py fields — 2 gaps
+- [x] Docker Compose health checks and dependency ordering — ✅ Clean
+- [x] `docker-compose.yml` vs. `docker-compose.dev.yml` drift — 1 gap
 
 **Findings:**
 
-_None logged yet._
+**[LOW] `.env.example` documents `REGION_ALT=100ft` but no `config.py` reads it**
+`REGION_ALT` appears in `.env.example:29` but is declared in neither `backend/config.py` nor `poller/config.py`. It is silently ignored by both services, giving operators a false belief that it does something.
+_Fix: Either add `region_alt: str = "100ft"` to the relevant config, or remove `REGION_ALT` from `.env.example`._
+
+**[LOW] `VITE_RADAR_FALLBACK_MAX_ZOOM` and `VITE_RADAR_FALLBACK_LAYER` not plumbed through Docker build args**
+`frontend/src/config.ts` reads both `import.meta.env.VITE_RADAR_FALLBACK_MAX_ZOOM` and `import.meta.env.VITE_RADAR_FALLBACK_LAYER`, but neither is declared as a build arg in `docker-compose.yml` (lines 99-106) nor documented in `.env.example`. Both always resolve to their hardcoded defaults in a production Docker build — operators have no way to override them.
+_Fix: Add both to `docker-compose.yml` `frontend.build.args` (e.g. `VITE_RADAR_FALLBACK_MAX_ZOOM: ${VITE_RADAR_FALLBACK_MAX_ZOOM:-6}`) and add corresponding entries to `.env.example`._
+
+**[LOW] `docker-compose.dev.yml` missing `VITE_RADIO_STREAM_URL`**
+Production compose (`docker-compose.yml:104`) passes `VITE_RADIO_STREAM_URL` as a frontend build arg, but `docker-compose.dev.yml` omits it from its `frontend.environment` block. Operators using the dev stack always get the hardcoded fallback `/stream/radio.mp3` regardless of their `.env` configuration.
+_Fix: Add `VITE_RADIO_STREAM_URL: ${VITE_RADIO_STREAM_URL:-/stream/radio.mp3}` to `frontend.environment` in `docker-compose.dev.yml`._
+
+**[NIT] `poller/config.py` `adsb_enrichment_cache_dir` has no `.env.example` entry**
+The field defaults to `/data` (which matches the Docker volume mount) so this is benign, but an operator wanting to override the path has no hint the variable exists.
+_Fix: Add `# ADSB_ENRICHMENT_CACHE_DIR=/data` (commented out) to `.env.example` near the other `ADSB_*` entries._
+
+**Clean areas (no findings):**
+- Redis channels: `poller/bus.py` publishes only to `"civic:updates"`; `backend/redis_bus.py` subscribes only to `"civic:updates"`. ✅
+- Backend API routes vs frontend: all routes mounted at `/api/v1` match the frontend `API_BASE = '/api/v1'`; the WebSocket at `/ws` (no prefix) matches `WS_URL` construction. ✅
+- Docker Compose dependency chain: `db` and `redis` both have health checks; `backend` and `poller` gate on `service_healthy`; `frontend` gates on `backend:healthy`. ✅
 
 ---
 
@@ -706,6 +724,10 @@ _None logged yet._
 | 2 | 2026-05-08 | 3 CRIT, 8 HIGH, 16 MED, 7 LOW, 2 NIT | 38 (all of `backend/`) |
 | 3 | 2026-05-08 | 2 CRIT, 8 HIGH, 14 MED, 7 LOW, 6 NIT | 80 (all of `frontend/`) |
 | 4 | 2026-05-08 | 0 CRIT, 3 HIGH, 6 MED, 5 LOW, 3 NIT | 5 (all of `db/init/`) |
+| 5 | 2026-05-08 | 0 CRIT, 0 HIGH, 0 MED, 3 LOW, 1 NIT | Cross-cutting contracts, env, Docker |
+
+### Session 5 Highlights (Cross-Cutting)
+The cross-cutting pass found no critical or high-severity contract mismatches — the most important boundaries are clean. Redis pub/sub is solid: the poller publishes exclusively to `"civic:updates"` and the backend subscribes to exactly that channel. The Docker Compose dependency chain is correct with proper `service_healthy` gates throughout. Three low-severity gaps exist in environment configuration: `REGION_ALT` in `.env.example` is a dead variable no config.py reads; `VITE_RADAR_FALLBACK_MAX_ZOOM` and `VITE_RADAR_FALLBACK_LAYER` are read by `config.ts` but never plumbed through Docker build args, making them silently unconfigurable in production; and `docker-compose.dev.yml` drops `VITE_RADIO_STREAM_URL` relative to the production compose, causing the audio stream URL override to silently not work in dev.
 
 ### Session 4 Highlights
 The schema is functional and the spatial plumbing is correctly in place, but has two systemic weaknesses. First, referential integrity is selectively enforced — FKs exist where tables were written carefully but are missing where columns were added later (`events.entity_id`, `entity_mission_tags.entity_id`, `annotations.created_by`), creating silent orphan-accumulation paths. Second, the `users` table defaults the role to `'admin'`, meaning any application-layer INSERT that omits the role grants admin access silently. The geofence geometry model is technically inconsistent (`POLYGON`-typed column used for both polygons and circles), and seed data in `02_geofences.sql` will create duplicates on any second run. Schema evolution via `ALTER TABLE` scattered across numbered init files will make future changes fragile.
