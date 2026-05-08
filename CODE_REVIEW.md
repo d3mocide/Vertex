@@ -11,7 +11,7 @@
 | # | Scope | Status | Session |
 |---|-------|--------|---------|
 | 1 | `poller/` — external ingestion, normalizers, geofence | ✅ Complete | 2026-05-08 |
-| 2 | `backend/` — API surface, auth, WebSocket | ⬜ Not Started | — |
+| 2 | `backend/` — API surface, auth, WebSocket | ✅ Complete | 2026-05-08 |
 | 3 | `frontend/` — TypeScript, Zustand, XSS vectors | ⬜ Not Started | — |
 | 4 | `db/` — init SQL, schema, indexes | ⬜ Not Started | — |
 | 5 | Cross-cutting — API contracts, Redis channels, env/config | ⬜ Not Started | — |
@@ -206,44 +206,208 @@ _Fix: Import and use `haversine_km` from `normalizers.beast_math`._
 ## 2. Backend (`backend/`)
 
 **Files reviewed:**
-- [ ] `main.py`
-- [ ] `config.py` / `config_loader.py` / `config_writer.py`
-- [ ] `auth_middleware.py`
-- [ ] `deps.py`
-- [ ] `rate_limit.py`
-- [ ] `redis_bus.py`
-- [ ] `webhook_dispatcher.py`
-- [ ] `metrics_collector.py`
-- [ ] `db/models.py`
-- [ ] `db/session.py`
-- [ ] `schemas/entity.py` / `event.py` / `observation.py`
-- [ ] `routers/auth.py`
-- [ ] `routers/admin.py`
-- [ ] `routers/ws.py`
-- [ ] `routers/entities.py`
-- [ ] `routers/observations.py`
-- [ ] `routers/events.py`
-- [ ] `routers/geofences.py`
-- [ ] `routers/alerts.py`
-- [ ] `routers/alertrules.py`
-- [ ] `routers/aircraft.py`
-- [ ] `routers/annotations.py`
-- [ ] `routers/entity_tags.py`
-- [ ] `routers/health.py`
-- [ ] `routers/layers.py`
-- [ ] `routers/news.py`
-- [ ] `routers/radio.py`
-- [ ] `routers/sitrep.py`
-- [ ] `routers/sources.py`
-- [ ] `routers/summary.py`
-- [ ] `routers/traffic.py`
-- [ ] `routers/utilities.py`
-- [ ] `routers/weather.py`
-- [ ] `tests/test_geofences_crud.py`
+- [x] `main.py`
+- [x] `config.py` / `config_loader.py` ✦ / `config_writer.py`
+- [x] `auth_middleware.py`
+- [x] `deps.py` ✦
+- [x] `rate_limit.py`
+- [x] `redis_bus.py`
+- [x] `webhook_dispatcher.py`
+- [x] `metrics_collector.py`
+- [x] `db/models.py` ✦
+- [x] `db/session.py`
+- [x] `schemas/entity.py` ✦ / `event.py` ✦ / `observation.py` ✦
+- [x] `routers/auth.py`
+- [x] `routers/admin.py`
+- [x] `routers/ws.py`
+- [x] `routers/entities.py`
+- [x] `routers/observations.py`
+- [x] `routers/events.py` ✦
+- [x] `routers/geofences.py`
+- [x] `routers/alerts.py`
+- [x] `routers/alertrules.py`
+- [x] `routers/aircraft.py` ✦
+- [x] `routers/annotations.py`
+- [x] `routers/entity_tags.py`
+- [x] `routers/health.py` ✦
+- [x] `routers/layers.py`
+- [x] `routers/news.py`
+- [x] `routers/radio.py` ✦
+- [x] `routers/sitrep.py`
+- [x] `routers/sources.py`
+- [x] `routers/summary.py`
+- [x] `routers/traffic.py`
+- [x] `routers/utilities.py`
+- [x] `routers/weather.py`
+- [x] `tests/test_geofences_crud.py`
+
+✦ = no findings
 
 **Findings:**
 
-_None logged yet._
+---
+#### Security
+
+**[CRIT] `config.py:17` — Empty `auth_secret_key` default allows trivially-forged JWTs**
+`auth_secret_key` defaults to `""`. If an operator sets `AUTH_ENABLED=true` but omits the secret, `python-jose` happily signs and verifies tokens with an empty HMAC key — any attacker who knows the algorithm can forge admin tokens.
+_Fix: Raise `ValueError` at startup when `auth_enabled=True` and `auth_secret_key` is missing or shorter than 32 characters._
+
+**[CRIT] `auth_middleware.py:49` — Missing `role` claim silently promotes any token to admin**
+`role = payload.get("role", "admin")` — a token issued before the role claim was added, or any token intentionally crafted without a `role` field, is treated as admin. The identical pattern repeats in `routers/auth.py:80` and `routers/auth.py:146`.
+_Fix: Default to `"viewer"` (least-privilege), or explicitly reject tokens missing `role`._
+
+**[CRIT] `main.py:42-47` — CORS wildcard (`allow_origins=["*"]`)**
+All origins accepted for all methods and headers. Unnecessarily broad for a Pi dashboard and incompatible with any future `allow_credentials=True` addition.
+_Fix: Restrict `allow_origins` to the dashboard's actual LAN origin(s)._
+
+**[HIGH] `main.py:49` — Prometheus `/metrics` endpoint is publicly unauthenticated**
+`Instrumentator().expose(app)` mounts `/metrics` which is exempted from both `AuthMiddleware` and `RateLimitMiddleware`. It leaks request rates, latency histograms, and path labels — useful reconnaissance for an attacker.
+_Fix: Remove `/metrics` from `_PUBLIC_PATHS` and guard it, or serve it on an internal-only port not exposed by Nginx._
+
+**[HIGH] `routers/admin.py:36-88` — Admin endpoints fully public when `auth_enabled=False` (the default)**
+All `/admin/*` routes rely solely on `AuthMiddleware`, which is a no-op when auth is disabled. This exposes DB table sizes, query rates, poller heartbeats, and the ability to change data retention to anyone on the network.
+_Fix: Always require an admin JWT for admin routes, or enforce via Nginx that `/api/v1/admin/*` is only reachable from localhost._
+
+**[HIGH] `webhook_dispatcher.py:90-113` — SSRF via user-controlled webhook URL**
+`_dispatch_webhook` reads `url = cfg.get("url")` from `rule.action_config` stored in the DB and issues an HTTP POST to it with zero URL validation. A stored rule pointing to `http://169.254.169.254/` or `http://localhost:5432/` probes internal services.
+_Fix: Validate the URL scheme and reject RFC-1918, loopback, and link-local destinations before dispatching._
+
+**[HIGH] `routers/alertrules.py:62-64` — Webhook URL accepted without scheme/host validation**
+`create_alert_rule` only checks that the URL is truthy; `file:///etc/passwd` or `http://internal/` are accepted. Same on update.
+_Fix: Add a `HttpUrl` Pydantic validator on `action_config.url`, or validate scheme and reject non-HTTP(S) at the schema layer._
+
+**[HIGH] `routers/auth.py:72-82` — `_decode_admin` re-implements JWT decode, bypassing `AuthMiddleware`**
+User-management routes (`GET/PATCH/DELETE /auth/users`) use an inline `_decode_admin()` helper with `except Exception: pass` rather than the shared middleware path. A change to the secret or algorithm must be applied in three places independently.
+_Fix: Centralise JWT validation into a single `decode_token()` in a `security.py` module; use a `Depends(get_current_admin_user)` dependency everywhere._
+
+---
+#### Reliability
+
+**[HIGH] `main.py:28-36` — Shutdown catches `BaseException` and silences everything**
+`except BaseException: pass` during task cleanup hides real shutdown errors that aren't `CancelledError`.
+_Fix: Only catch `asyncio.CancelledError`; log all other exceptions._
+
+**[HIGH] `redis_bus.py:37-43` — `r.keys("entity:*")` O(N) blocking scan on every entity list request**
+Called on every `/entities` fetch and WebSocket snapshot. Blocks the Redis server while scanning, causing latency spikes as entity count grows.
+_Fix: Replace with `SCAN` iteration (`r.scan_iter`) or maintain a Redis Set `entities:index` and use `SMEMBERS` + pipeline._
+
+**[HIGH] `webhook_dispatcher.py:116-152` — `run_webhook_dispatcher` dies permanently on any Redis disconnect**
+A single uncaught exception from `pubsub.listen()` causes the function to return. The background task created in `main.py` is never restarted, silently ending all webhook evaluation for the process lifetime.
+_Fix: Wrap the body in an outer `while True` loop with exponential backoff reconnection._
+
+**[HIGH] `metrics_collector.py:89-99` — `run_metrics_collector` silently swallows all exceptions**
+`except Exception: pass` discards every error including Redis disconnections. The admin metrics panel shows stale data with no log output.
+_Fix: At minimum log: `except Exception as exc: logger.warning("[metrics] %s", exc)`._
+
+---
+#### Correctness
+
+**[MED] `auth_middleware.py:21` — All `/api/v1/auth/*` paths bypass middleware, including user-management routes**
+`path.startswith("/api/v1/auth/")` skips auth for the entire prefix. `GET /auth/users`, `PATCH /auth/users/{id}`, and `DELETE /auth/users/{id}` rely solely on the router's inline `_decode_admin` guard with no middleware backstop.
+_Fix: Only exempt specific login/setup paths, not the entire prefix._
+
+**[MED] `rate_limit.py:30` — Rate limit key uses `client.host`, which is always `127.0.0.1` behind Nginx**
+All clients appear as the proxy IP, so the rate limiter either never fires or fires for all clients simultaneously.
+_Fix: Read real IP from `X-Forwarded-For` / `X-Real-IP`, or configure Uvicorn with `--forwarded-allow-ips`._
+
+**[MED] `routers/observations.py:43` — `end` parameter not normalised to UTC**
+`start` gets explicit UTC normalisation; `end` does not. A timezone-naive `end` value causes a PostgreSQL type mismatch error at runtime.
+_Fix: Apply the same `replace(tzinfo=timezone.utc)` guard to `end`._
+
+**[MED] `routers/auth.py:100-101` — TOCTOU race in `/auth/setup`**
+`_user_count(db)` check then insert are not atomic. Two concurrent setup requests both pass the zero-count check and both insert, potentially creating two admin accounts.
+_Fix: Wrap check-and-insert in a serialisable transaction or rely on the DB unique constraint and catch `IntegrityError`._
+
+**[MED] `webhook_dispatcher.py:135` — DB session opened per Redis event with no error handling**
+An unavailable DB raises an unhandled exception that exits the `async for` loop and kills the dispatcher permanently.
+_Fix: Wrap per-event DB access in `try/except Exception` that logs and continues._
+
+**[MED] `webhook_dispatcher.py:76-86` — Redis rate-limit `INCR` + `EXPIRE` is non-atomic**
+A crash between the two commands leaves the key without a TTL, persisting indefinitely.
+_Fix: Use a Lua script or pipeline to atomically `INCR` and conditionally `EXPIRE`._
+
+**[MED] `routers/admin.py:84-88` — `POST /admin/retention` writes Redis but never prunes the DB**
+`config:retention_days` is stored but nothing reads it to perform actual `DELETE` pruning. Operators believe they are controlling retention but no data is ever purged.
+_Fix: Implement an actual purge task, or document clearly that the setting is informational only._
+
+**[MED] `routers/ws.py:9-60` — WebSocket handler cannot identify the authenticated user**
+`AuthMiddleware` validates the token from `?token=` but never attaches the decoded payload to `request.state`. The route handler has no access to user identity for per-user filtering or audit.
+_Fix: Attach decoded payload to `request.state.user` in `AuthMiddleware` for all request types._
+
+**[MED] `redis_bus.py:59-63` — New pubsub connection created per WebSocket client**
+`r.pubsub()` is called on the shared Redis singleton for every connecting WebSocket client, creating many concurrent subscriptions and risking file-descriptor exhaustion under load.
+_Fix: Use a single shared fan-out: subscribe once and broadcast in-process to all connected WebSocket clients._
+
+**[MED] `config_writer.py:23-30` — Synchronous file I/O on the async event loop**
+`CONFIG_PATH.read_text()` and `CONFIG_PATH.write_text()` block the event loop. On a Pi with an SD card, writes can stall all async tasks for tens of milliseconds.
+_Fix: Use `asyncio.to_thread()` to offload the blocking calls._
+
+**[MED] `routers/news.py:11`, `routers/traffic.py:11,17` — Unguarded `json.loads` raises HTTP 500 on malformed Redis data**
+`json.loads(raw)` without try/except; contrast with `weather.py` which correctly wraps the call.
+_Fix: Add `try/except (json.JSONDecodeError, TypeError): return []` as done in `weather.py`._
+
+**[MED] `webhook_dispatcher.py:97` — User-controlled `timeout_s` is unbounded**
+A rule stored with `timeout_s: 99999` holds an asyncio task and DB connection open for days, starving other webhook deliveries.
+_Fix: Clamp: `timeout = min(float(cfg.get("timeout_s") or 10), 30.0)`._
+
+**[MED] `routers/sitrep.py:86-91` — Unescaped Redis/DB content rendered into Markdown report**
+`ai_summary`, event `summary`, and entity type names from the DB are interpolated directly into the Markdown download. Attacker-controlled content (compromised RSS → Redis) can inject arbitrary Markdown including external image links that leak the operator's IP.
+_Fix: Strip/truncate all DB- and Redis-sourced strings before embedding in the report._
+
+**[MED] `routers/layers.py:55` — Unbounded GeoJSON accepted and stored to DB**
+`LayerCreate.geojson: dict` has no size limit, schema validation, or feature count cap. A multi-gigabyte payload can exhaust PostgreSQL storage.
+_Fix: Add a Pydantic validator enforcing valid GeoJSON structure and a maximum coordinate/feature count._
+
+**[MED] `routers/sources.py:208-213` — TOCTOU race on zone code uniqueness check**
+Check-then-insert with no serialisation; two concurrent requests with the same code both pass the check.
+_Fix: Handle `IntegrityError` from the DB unique constraint instead of pre-checking._
+
+---
+#### Code Quality
+
+**[MED] `redis_bus.py:35-36` — Loop variable `r` shadows the Redis client `r`**
+`for r in results:` inside `get_all_entities` overwrites the `r = get_redis()` variable. Any code added after the loop would silently use the last pipeline result instead of the Redis client.
+_Fix: Rename loop variable to `raw` or `result_item`._
+
+**[MED] `routers/auth.py:63` — `_make_token` defaults `role="admin"`**
+Calling `_make_token(username)` without specifying a role silently grants admin. A future call site that omits the role argument would create an unintended admin token.
+_Fix: Remove the default; require `role` to be passed explicitly._
+
+**[LOW] `db/session.py:35` — `IntegrityError` match on internal PostgreSQL index name**
+`"pg_class_relname_nsp_index" not in str(exc)` is fragile across PostgreSQL minor versions and non-English locales.
+_Fix: Match on the specific constraint name from the DDL or use `asyncpg.exceptions.UniqueViolationError`._
+
+**[LOW] `routers/admin.py:36` — GET admin routes readable by any valid viewer token**
+`AuthMiddleware` only enforces admin role for mutating methods. Viewer-role users can read the full admin metrics panel.
+_Fix: Add an explicit admin-role dependency check to the GET admin routes._
+
+**[LOW] `routers/entities.py:15` — `entity_id` path param not validated before Redis key construction**
+Raw path segment (potentially containing newlines or wildcards) is passed directly to Redis key construction.
+_Fix: Add `Path(max_length=64, pattern=r"^[a-zA-Z0-9_:.-]+$")` to `entity_id`._
+
+**[LOW] `routers/geofences.py:17-28` — `GeofencePayload.name` has no length limit**
+An unbounded name string is accepted and stored. Same for `description`.
+_Fix: `Field(min_length=1, max_length=128)` on `name`; length cap on `description`._
+
+**[LOW] `routers/sources.py:208-225` — `zone_code` has no format validation**
+Accepts any string; stored and passed to NWS API queries without format enforcement.
+_Fix: `Field(max_length=32, pattern=r"^[A-Z]{2}[ZC]\d{3}$")`._
+
+**[LOW] `routers/annotations.py:92-93` — `created_by` is always `None` when auth is disabled**
+Audit trail is empty in the default no-auth configuration.
+_Fix: Set `created_by = "local"` when `auth_enabled=False`._
+
+**[LOW] `tests/test_geofences_crud.py:32-35` — Mock settings use wrong attribute names**
+`_mock_settings.secret_key` and `_mock_settings.enable_auth` don't exist on `Settings`; the correct names are `auth_secret_key` and `auth_enabled`. Tests that check `settings.auth_enabled` get a truthy `MagicMock()` instead of `False`.
+_Fix: Use correct attribute names._
+
+**[NIT] `redis_bus.py:59-63` — Channel name mismatch: WS subscribes to `civic:updates`, annotations publish to `annotation_update`**
+Annotation events are never received by WebSocket clients. Either intentional or a bug.
+_Fix: Clarify intent with a comment, or add `annotation_update` to the WS subscription._
+
+**[NIT] Multiple GET routers — no `response_model` annotations**
+`weather.py`, `alerts.py`, `utilities.py`, `summary.py` return inconsistent shapes on Redis miss (`[]` vs `{}` vs domain object) with no Pydantic contract visible to clients.
+_Fix: Add `response_model=` to each route decorator._
 
 ---
 
@@ -323,6 +487,10 @@ _None logged yet._
 | Session | Date | Findings added | Files reviewed |
 |---------|------|---------------|----------------|
 | 1 | 2026-05-08 | 1 CRIT, 5 HIGH, 10 MED, 12 LOW, 7 NIT | 43 (all of `poller/`) |
+| 2 | 2026-05-08 | 3 CRIT, 8 HIGH, 16 MED, 7 LOW, 2 NIT | 38 (all of `backend/`) |
+
+### Session 2 Highlights
+The backend is well-structured with correct parameterised queries and async session handling throughout. The most serious cluster is the **auth system**: empty secret-key default allows trivially-forged JWTs, any token missing the `role` claim silently becomes admin, JWT decode logic is duplicated in three independent places, and the entire `/api/v1/auth/` prefix bypasses `AuthMiddleware` including user-management routes. The **webhook/alertrule subsystem** is a second critical cluster: SSRF via stored URLs with zero host validation, non-atomic Redis rate-limiting, and the dispatcher dying permanently on any Redis disconnect. The unauthenticated Prometheus `/metrics` and fully-public admin endpoints (when auth is off, the default) round out the high-priority items. 11 of 38 files were completely clean.
 
 ### Session 1 Highlights
 The poller is well-structured overall — consistent parameterised DB queries throughout, working `sanitize_payload()` at every ingestion boundary, and reasonable error handling in most pollers. The most urgent issues are: a SQL injection in `purge_observations()` (Redis-controlled integer string-formatted into an SQL interval), XML injection in the CoT emitter that affects every connected ATAK/WinTAK client, an indirect prompt injection vector in the AI summary poller, and a database schema mismatch in the anomaly poller that silently discards all anomaly event history. Several reliability gaps: `geofence._entity_state` and `seismic._seen_ids` are unbounded in memory; CoT receiver buffer is unbounded; APRS TCP read has no timeout. The TAT formula in `beast_decoder.py` produces physically impossible values (~−300°C). Haversine is duplicated five times and should be consolidated into `normalizers.beast_math`.
