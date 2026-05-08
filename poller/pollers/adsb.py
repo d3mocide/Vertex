@@ -87,11 +87,11 @@ class AdsbPoller(BasePoller):
         try:
             r = await get_bus()
             keys = []
-            cur = b"0"
+            cur = 0
             while True:
                 cur, batch = await r.scan(cur, match="entity:*", count=200)
                 keys.extend(batch)
-                if cur == b"0":
+                if not cur:
                     break
             hydrated = 0
             for key in keys:
@@ -490,8 +490,13 @@ class AdsbPoller(BasePoller):
             if entity:
                 icao = (entity.get("identity") or {}).get("icao24", "").lower()
                 self._record_source_seen(icao, "ultrafeeder")
-                self._unified_entities[icao] = entity
+                # Only update the shared entity registry when ultrafeeder is the best
+                # available source for this ICAO. If BEAST has been seen within the
+                # freshness window, keep the BEAST-decoded entity in the registry so
+                # the snapshot builder picks it up with source="beast" rather than
+                # "ultrafeeder" (which would then be filtered out by arbitration).
                 if self._should_publish_from_source(icao, "ultrafeeder"):
+                    self._unified_entities[icao] = entity
                     await publish_entity(entity)
 
     async def _poll_opensky(self):

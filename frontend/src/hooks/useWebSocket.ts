@@ -11,6 +11,7 @@ export function useWebSocket() {
   const wsRef = useRef<WebSocket | null>(null)
   const reconnectDelayRef = useRef(RECONNECT_DELAY_INITIAL_MS)
   const emptyAircraftSnapshotStreakRef = useRef(0)
+  const degradedAircraftSnapshotStreakRef = useRef(0)
   const {
     setEntities,
     setAircraftSnapshot,
@@ -81,32 +82,65 @@ export function useWebSocket() {
             }
             if (Array.isArray(msgData?.aircraft)) {
               const aircraft = msgData.aircraft as Parameters<typeof setAircraftSnapshot>[0]
-              if (aircraft.length === 0) {
-                const state = useCivicStore.getState()
-                const existingLocalAircraft = Object.values(state.entities).filter(
-                  (e) => e.entity_type === 'aircraft' && (e.source ?? '').toLowerCase() !== 'opensky',
-                ).length
-                const beastHealthy = msgData?.beast_healthy === true
-                const lastFrameAge = typeof msgData?.last_frame_age_s === 'number' ? msgData.last_frame_age_s : null
+              const state = useCivicStore.getState()
+              const existingLocalAircraft = Object.values(state.entities).filter(
+                (e) => e.entity_type === 'aircraft' && (e.source ?? '').toLowerCase() !== 'opensky',
+              ).length
+              const snapshotLocalAircraft = aircraft.filter(
+                (e) => e.entity_type === 'aircraft' && (e.source ?? '').toLowerCase() !== 'opensky',
+              ).length
+              const beastHealthy = msgData?.beast_healthy === true
+              const lastFrameAge = typeof msgData?.last_frame_age_s === 'number' ? msgData.last_frame_age_s : null
 
+              let shouldSkipSnapshot = false
+
+              if (aircraft.length === 0) {
                 emptyAircraftSnapshotStreakRef.current += 1
 
-                // Ignore short empty bursts while BEAST is healthy to prevent global
-                // icon wipe/repopulate cycles caused by transient decoder/snapshot gaps.
+                // While BEAST is healthy and frames are fresh, never wipe existing
+                // aircraft with an empty snapshot — empty bursts are always transient
+                // decoder/snapshot gaps during this mode.  Only allow the wipe when
+                // BEAST is definitively unhealthy or its last frame is stale (>20 s).
                 if (
                   existingLocalAircraft > 0
                   && beastHealthy
                   && (lastFrameAge === null || lastFrameAge < 20)
-                  && emptyAircraftSnapshotStreakRef.current < 3
                 ) {
-                  console.warn('[ws] ignoring transient empty aircraft_snapshot while BEAST is healthy')
-                  break
+                  console.warn('[ws] ignoring empty aircraft_snapshot while BEAST is healthy')
+                  shouldSkipSnapshot = true
                 }
               } else {
                 emptyAircraftSnapshotStreakRef.current = 0
+
+                // Guard against brief partial snapshots that would purge most local
+                // ADS-B tracks despite healthy decoder frames still arriving.
+                const severeDrop = (
+                  existingLocalAircraft >= 10
+                  && snapshotLocalAircraft > 0
+                  && snapshotLocalAircraft <= Math.max(2, Math.floor(existingLocalAircraft * 0.2))
+                )
+                if (
+                  severeDrop
+                  && beastHealthy
+                  && (lastFrameAge === null || lastFrameAge < 20)
+                  && degradedAircraftSnapshotStreakRef.current < 3
+                ) {
+                  degradedAircraftSnapshotStreakRef.current += 1
+                  console.warn(
+                    '[ws] ignoring degraded aircraft_snapshot while BEAST is healthy',
+                    { existingLocalAircraft, snapshotLocalAircraft, streak: degradedAircraftSnapshotStreakRef.current },
+                  )
+                  shouldSkipSnapshot = true
+                } else {
+                  // Only reset the streak when this snapshot is NOT a severe drop,
+                  // so the counter accumulates correctly across consecutive degraded frames.
+                  degradedAircraftSnapshotStreakRef.current = 0
+                }
               }
 
-              setAircraftSnapshot(aircraft)
+              if (!shouldSkipSnapshot) {
+                setAircraftSnapshot(aircraft)
+              }
             }
             if (msgData?.airports && typeof msgData.airports === 'object') {
               setAirports(msgData.airports as Parameters<typeof setAirports>[0])

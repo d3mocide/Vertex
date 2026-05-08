@@ -200,7 +200,7 @@ class CotEmitter(BasePoller):
 
         try:
             async with r.pubsub() as ps:
-                await ps.subscribe("entity_update", "annotation_update")
+                await ps.subscribe("civic:updates", "annotation_update")
                 async for msg in ps.listen():
                     if msg["type"] != "message":
                         continue
@@ -209,9 +209,12 @@ class CotEmitter(BasePoller):
                     except (json.JSONDecodeError, TypeError):
                         continue
 
-                    if msg["channel"] == "entity_update":
-                        xml = _build_cot(payload)
+                    if msg["channel"] == "civic:updates":
+                        if payload.get("type") != "entity_update":
+                            continue
+                        xml = _build_cot(payload.get("data", {}))
                     else:
+                        # annotation_update channel
                         # Skip annotations that originated from TAK to avoid feedback loops.
                         if payload.get("source") == "tak":
                             continue

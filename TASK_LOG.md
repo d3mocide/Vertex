@@ -5,6 +5,51 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 
 ---
 
+## 2026-05-08 — Restored broken ADS-B pipeline and fixed snapshot hydration
+- 2026-05-08 — Fixed infinite loop in Redis hydration caused by `cur = b"0"` mismatch.
+- 2026-05-08 — Fixed `CotEmitter` channel subscription; changed from `entity_update` to `civic:updates`.
+- 2026-05-08 — Verified live aircraft rendering (50+ units) and successful BEAST/OpenSky source arbitration.
+- 2026-05-08 — Fixed broken WebSocket aircraft snapshot handler:
+  - Issue discovered: Previous fix had two `break` statements that skipped the entire `setAircraftSnapshot()` call, causing all aircraft data to be dropped from the frontend store when BEAST was healthy but a snapshot burst was empty.
+  - Patch: Introduced `shouldSkipSnapshot` boolean flag to ensure `setAircraftSnapshot` is still called for valid updates while correctly suppressing transient empty/degraded bursts.
+
+## 2026-05-08 — Hardened ADS-B snapshot handling against transient near-empty wipes
+
+## 2026-05-08 — Fixed broken WebSocket aircraft snapshot handler
+
+- **Issue discovered**: Previous fix had two `break` statements that skipped the entire `setAircraftSnapshot()` call, causing all aircraft data to be dropped from the frontend store even though it was correctly arriving in Redis and being sent by the backend. Sidebar showed "Aircraft: 0" despite 11 aircraft in the snapshot.
+- **Root cause**: Using `break` in the case statement exited before reaching the `setAircraftSnapshot(aircraft)` line, so suppression of transient snapshots also suppressed normal snapshot updates.
+- **Frontend fix** (`frontend/src/hooks/useWebSocket.ts`):
+    - Replaced aggressive `break` statements with a `shouldSkipSnapshot` boolean flag.
+    - Now only skips the snapshot update for transient bad snapshots, but still calls `setAircraftSnapshot()` in normal cases.
+    - Preserved degraded-snapshot and empty-snapshot guards to handle Mode D transient snapshot gaps.
+- **Validation**:
+    - `cd frontend && npm install && npx tsc --noEmit` ✓
+    - `docker compose up -d --build frontend` ✓
+    - Browser reload shows "Aircraft (ADS-B): 11" ✓
+
+## 2026-05-08 — Hardened ADS-B snapshot handling against transient near-empty wipes
+
+- **Issue observed**: In Mode D, operators could briefly see ADS-B tracks and then lose most/all aircraft icons even while local decoder health appeared normal.
+- **Frontend fix** (`frontend/src/hooks/useWebSocket.ts`):
+    - Added a degraded-snapshot guard for `aircraft_snapshot` frames.
+    - While `beast_healthy=true` and frame age remains fresh, ignore short bursts where local aircraft count drops to a severe fraction of the currently rendered local set.
+    - Preserved existing empty-snapshot burst protection and reset logic so legitimate sustained drops still apply after a short streak.
+- **Validation**:
+- **Validation**:
+    - `cd frontend && npm install && npx tsc --noEmit` ✓ (later revised to fix break statement issue)
+
+## 2026-05-08 — Fixed backend/poller duplicate index startup race
+
+- **Issue observed**: Backend startup intermittently crashed with `IntegrityError`/`UniqueViolationError` involving `ix_annotations_tak_uid` and `pg_class_relname_nsp_index` during concurrent container startup.
+- **Fix implemented**:
+    - Updated `backend/db/session.py` migration loop to catch known-safe duplicate-relation race errors for `ix_annotations_tak_uid` and continue startup.
+    - Removed redundant `ix_annotations_tak_uid` index creation from `poller/db.py` so backend owns that index migration path, reducing cross-service DDL contention.
+- **Validation**:
+    - `python -m py_compile backend/db/session.py poller/db.py` ✓
+    - `docker compose up -d --build backend poller` ✓
+    - `docker compose logs --tail=200 backend` ✓ (no IntegrityError/UniqueViolationError/index race errors)
+
 ## 2026-05-08 — Optimized ICAO normalization with regex
 
 - **Performance Optimization**: Replaced suboptimal generator expressions in `any()` with pre-compiled regular expressions in `poller/enrichment/aircraft_db.py` and `poller/enrichment/adsbdb.py`.

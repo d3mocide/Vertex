@@ -1,6 +1,6 @@
 from sqlalchemy import text
-from sqlalchemy.exc import IntegrityError
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
+from sqlalchemy.exc import IntegrityError, ProgrammingError
+from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 from sqlalchemy.orm import DeclarativeBase
 from config import settings
 
@@ -47,5 +47,17 @@ async def init_db():
         "CREATE INDEX IF NOT EXISTS ix_annotations_tak_uid ON annotations (tak_uid) WHERE tak_uid IS NOT NULL",
     ]
     for migration in migrations:
-        async with engine.begin() as conn:
-            await conn.execute(text(migration))
+        try:
+            async with engine.begin() as conn:
+                await conn.execute(text(migration))
+        except (IntegrityError, ProgrammingError) as exc:
+            # Concurrent startup can still race on relation creation in Postgres
+            # even when using IF NOT EXISTS. Ignore only the known safe duplicate
+            # relation case for the TAK UID index migration.
+            msg = str(exc).lower()
+            if (
+                "ix_annotations_tak_uid" in migration
+                and "pg_class_relname_nsp_index" in msg
+            ):
+                continue
+            raise
