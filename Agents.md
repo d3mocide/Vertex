@@ -20,7 +20,11 @@ Run all of these. Do not commit if any fail.
 
 ```bash
 # 1. TypeScript type check (frontend Docker build will fail if this fails)
-cd /home/user/Vertex/frontend && npx tsc --noEmit
+#    node_modules must be installed first — run npm install if missing
+cd /home/user/Vertex/frontend && npm install && npx tsc --noEmit
+# PASS = exit code 0, zero errors printed. ANY error = FAIL.
+# Do NOT rationalize errors as "pre-existing" or "baseline" — if tsc prints
+# even one error the check has failed and you must fix it before committing.
 
 # 2. Docker Compose config validation
 cd /home/user/Vertex && docker compose config --quiet
@@ -28,6 +32,8 @@ cd /home/user/Vertex && docker compose config --quiet
 # 3. Python syntax check on staged Python files
 cd /home/user/Vertex && git diff --cached --name-only | grep '\.py$' | xargs -r python3 -m py_compile
 ```
+
+**TypeScript pass definition:** `npx tsc --noEmit` exits with code 0 and prints no errors. Comparing error counts before and after your change is not a valid pass. Pre-existing errors do not excuse new or unchanged errors — fix them.
 
 Use the `/pre-commit-check` skill to run all three automatically.
 
@@ -62,10 +68,11 @@ Update `TASK_LOG.md` using the `/update-task-log` skill or by appending an entry
 ### Making a frontend change
 
 1. Edit files in `frontend/src/`
-2. Run type check: `cd frontend && npx tsc --noEmit` — fix all errors before proceeding
-3. For visual changes, run the dev server: `cd frontend && npm run dev`
-4. For production validation: `cd frontend && npm run build` (this is what Docker runs)
-5. Never commit frontend changes with TypeScript errors — the Docker build runs `tsc && vite build` and will fail
+2. Ensure dependencies are installed: `cd frontend && npm install`
+3. Run type check: `cd frontend && npx tsc --noEmit` — must exit code 0 with zero errors printed. Fix every error before proceeding. A delta comparison ("I didn't introduce these errors") is not acceptable — all errors must be resolved.
+4. For visual changes, run the dev server: `cd frontend && npm run dev`
+5. For production validation: `cd frontend && npm run build` (this is what Docker runs)
+6. Never commit frontend changes with TypeScript errors — the Docker build runs `tsc && vite build` and will fail
 
 ### Adding a new poller
 
@@ -205,7 +212,8 @@ Always prefer an existing pattern over a new one:
 ## Pitfalls to Avoid
 
 - **Do not add `any` types in TypeScript** — strict mode is on and it will cascade into harder-to-catch bugs.
-- **Do not forget `--noEmit` type check** before committing frontend changes. The Docker build has no grace period for type errors.
+- **Do not forget `--noEmit` type check** before committing frontend changes. The Docker build has no grace period for type errors. A passing check means exit code 0 and zero errors — never rationalize errors as "pre-existing" or "baseline". Run `npm install` first if `node_modules` is absent.
+- **Do not compare error counts before/after your change** to declare a "pass". TypeScript either passes (zero errors, exit 0) or it fails. Fix every error you find.
 - **Do not add sync I/O in async Python contexts** — use `httpx.AsyncClient`, `asyncpg`, and `aioredis` throughout.
 - **Do not hard-code region coordinates** — use `config.py` Pydantic Settings that read from `.env`.
 - **Do not commit `.env` files** — `.gitignore` covers them but double-check.
