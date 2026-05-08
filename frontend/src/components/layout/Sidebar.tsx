@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
-import { useCivicStore } from '../../store'
+import { useCivicStore, ALT_RANGE_DEFAULT, SPD_RANGE_DEFAULT } from '../../store'
 import { isMajorTrafficIncident } from '../../incidentUtils'
 
 const INCIDENTS_COLLAPSE_KEY = 'vertex.sidebar.incidentsCollapsed'
+const SIDEBAR_COLLAPSE_KEY = 'vertex.sidebar.collapsed'
 
 function GridStatusDots({ ok }: { ok: boolean }) {
   return (
@@ -99,13 +100,38 @@ function NewsRow({ source, age, title }: { source: string; age: string; title: s
 }
 
 export function Sidebar() {
-  const { alerts, news, health, entities, connected, cameras, weather, trafficIncidents, setActiveTab } = useCivicStore()
+  const {
+    alerts,
+    news,
+    health,
+    entities,
+    connected,
+    cameras,
+    weather,
+    trafficIncidents,
+    lightningStrikes,
+    setActiveTab,
+    setEntityFilter,
+    setEntitySearchQuery,
+    setEntityAltRange,
+    setEntitySpeedRange,
+    setCamerasVisible,
+    setGaugesVisible,
+    setLightningVisible,
+  } = useCivicStore()
 
-  const aircraft  = Object.values(entities).filter((e) => e.entity_type === 'aircraft').length
-  const vessels   = Object.values(entities).filter((e) => e.entity_type === 'vessel').length
-  const meshNodes = Object.values(entities).filter((e) => e.entity_type === 'mesh_node').length
-  const cams      = cameras.length
-  const wAlerts   = weather.alerts.length
+  const entityList = Object.values(entities)
+  const aircraft     = entityList.filter((e) => e.entity_type === 'aircraft').length
+  const vessels      = entityList.filter((e) => e.entity_type === 'vessel').length
+  const aprs         = entityList.filter((e) => e.entity_type === 'aprs').length
+  const fire         = entityList.filter((e) => e.entity_type === 'fire_incident').length
+  const meshNodes    = entityList.filter((e) => e.entity_type === 'mesh_node').length
+  const streamGauges = entityList.filter((e) => e.entity_type === 'stream_gauge').length
+  const satellites   = entityList.filter((e) => e.entity_type === 'satellite').length
+  const tinygsStations = entityList.filter((e) => e.entity_type === 'tinygs_station').length
+  const lightningCount = lightningStrikes.length
+  const cams          = cameras.length
+  const wAlerts       = weather.alerts.length
   // Filter for major/local traffic incidents only
   const significantIncidents = trafficIncidents.filter(isMajorTrafficIncident)
 
@@ -125,11 +151,22 @@ export function Sidebar() {
 
   const incidentsCollapsed = incidentsCollapsedPref ?? activeInc >= 3
   const [compactExpandedIndex, setCompactExpandedIndex] = useState<number | null>(null)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return true
+    const stored = window.localStorage.getItem(SIDEBAR_COLLAPSE_KEY)
+    if (stored === null) return true
+    return stored === '1'
+  })
 
   useEffect(() => {
     if (incidentsCollapsedPref === null || typeof window === 'undefined') return
     window.localStorage.setItem(INCIDENTS_COLLAPSE_KEY, incidentsCollapsedPref ? '1' : '0')
   }, [incidentsCollapsedPref])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    window.localStorage.setItem(SIDEBAR_COLLAPSE_KEY, sidebarCollapsed ? '1' : '0')
+  }, [sidebarCollapsed])
 
   // News items from store, fallback to empty
   // News items filtered for Regional News only
@@ -141,14 +178,47 @@ export function Sidebar() {
       return bTs - aTs
     })
 
+  const focusSafetyMap = () => {
+    setActiveTab('safety')
+    setEntitySearchQuery('')
+    setEntityAltRange(ALT_RANGE_DEFAULT)
+    setEntitySpeedRange(SPD_RANGE_DEFAULT)
+  }
+
+  const focusEntityType = (target: {
+    aircraft?: boolean
+    adsbLocal?: boolean
+    adsbSupplement?: boolean
+    vessel?: boolean
+    mesh_node?: boolean
+    aprs?: boolean
+    fire_incident?: boolean
+    satellite?: boolean
+    tinygs_station?: boolean
+  }) => {
+    focusSafetyMap()
+    setEntityFilter({
+      aircraft: false,
+      adsbLocal: false,
+      adsbSupplement: false,
+      vessel: false,
+      mesh_node: false,
+      aprs: false,
+      fire_incident: false,
+      satellite: false,
+      tinygs_station: false,
+    })
+    setEntityFilter(target)
+  }
+
   return (
     <aside
-      className="w-80 h-full sidebar-panel flex flex-col shrink-0 z-30"
+      className={`h-full sidebar-panel flex flex-col shrink-0 z-30 transition-all duration-300 ${sidebarCollapsed ? 'w-16' : 'w-80'}`}
       aria-label="Vertex sidebar"
     >
       {/* Brand header */}
-      <div className="h-16 flex items-center px-5 border-b border-white/5 bg-onyx-deep/40 backdrop-blur-md shrink-0">
-        <div className="flex items-center gap-3">
+      <div className={`h-16 flex items-center border-b border-white/5 bg-onyx-deep/40 backdrop-blur-md shrink-0 ${sidebarCollapsed ? 'px-2 justify-center' : 'px-5 justify-between'}`}>
+        <div className="flex items-center gap-3 min-w-0">
           {/* Scope mark — Direction 07 · adopted 2026-05-01 */}
           <svg width="28" height="28" viewBox="0 0 32 32" aria-hidden="true" className="shrink-0 text-white">
             <g fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="square">
@@ -161,16 +231,94 @@ export function Sidebar() {
             <rect x="14" y="14" width="4" height="4" fill="#FFB800"/>
           </svg>
 
-          <div className="flex flex-col leading-none gap-1">
-            <span className="text-[16px] font-black tracking-[0.05em] text-white uppercase select-none leading-none">
-              VERTEX
-            </span>
-            <span className="font-mono text-[9px] tracking-[0.2em] text-amber-gold uppercase leading-none">
-              SITUATIONAL AWARENESS
-            </span>
+          {!sidebarCollapsed && (
+            <div className="flex flex-col leading-none gap-1 min-w-0">
+              <span className="text-[16px] font-black tracking-[0.05em] text-white uppercase select-none leading-none">
+                VERTEX
+              </span>
+              <span className="font-mono text-[9px] tracking-[0.2em] text-amber-gold uppercase leading-none">
+                SITUATIONAL AWARENESS
+              </span>
+            </div>
+          )}
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setSidebarCollapsed((v) => !v)}
+          className={`text-on-surface-variant hover:text-amber-gold transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-amber-gold ${sidebarCollapsed ? 'absolute top-5 right-1.5' : ''}`}
+          aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+        >
+          <span className="ms text-[18px] leading-none" aria-hidden="true">
+            {sidebarCollapsed ? 'chevron_right' : 'chevron_left'}
+          </span>
+        </button>
+      </div>
+
+      {sidebarCollapsed ? (
+        <div className="flex-1 flex flex-col items-center gap-4 py-3 bg-onyx-black border-r border-amber-gold-muted/20">
+          <button
+            type="button"
+            onClick={() => setActiveTab('safety')}
+            className="text-on-surface-variant hover:text-amber-gold transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-amber-gold"
+            aria-label="Overview"
+            title="Overview"
+          >
+            <span className="ms text-[20px]" aria-hidden="true">dashboard</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('incidents')}
+            className={`${activeInc > 0 ? 'text-red-emergency' : 'text-on-surface-variant'} hover:text-amber-gold transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-amber-gold`}
+            aria-label={`Incidents ${activeInc}`}
+            title={`Incidents: ${activeInc}`}
+          >
+            <span className="ms text-[20px]" aria-hidden="true">warning</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('environment')}
+            className={`${wAlerts > 0 ? 'text-amber-gold' : 'text-on-surface-variant'} hover:text-amber-gold transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-amber-gold`}
+            aria-label={`Weather alerts ${wAlerts}`}
+            title={`Weather alerts: ${wAlerts}`}
+          >
+            <span className="ms text-[20px]" aria-hidden="true">cloud_alert</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('community')}
+            className={`${alerts.length > 0 ? 'text-amber-gold' : 'text-on-surface-variant'} hover:text-amber-gold transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-amber-gold`}
+            aria-label={`Community alerts ${alerts.length}`}
+            title={`Community alerts: ${alerts.length}`}
+          >
+            <span className="ms text-[20px]" aria-hidden="true">groups</span>
+          </button>
+
+          <div className="mt-2 w-8 border-t border-white/10" aria-hidden="true" />
+
+          <div className="flex flex-col items-center gap-1.5 text-[9px] font-mono text-on-surface-variant">
+            <button type="button" onClick={() => focusEntityType({ aircraft: true, adsbLocal: true, adsbSupplement: true })} className="text-cyan-adsb hover:text-white transition-colors flex items-center gap-1" title="Show aircraft only"><span className="ms text-[12px]" aria-hidden="true">flight</span><span>{aircraft}</span></button>
+            <button type="button" onClick={() => focusEntityType({ vessel: true })} className="text-green-ais hover:text-white transition-colors flex items-center gap-1" title="Show vessels only"><span className="ms text-[12px]" aria-hidden="true">directions_boat</span><span>{vessels}</span></button>
+            <button type="button" onClick={() => focusEntityType({ aprs: true })} className="text-violet-space hover:text-white transition-colors flex items-center gap-1" title="Show APRS only"><span className="ms text-[12px]" aria-hidden="true">sensors</span><span>{aprs}</span></button>
+            <button type="button" onClick={() => focusEntityType({ fire_incident: true })} className="text-red-emergency hover:text-white transition-colors flex items-center gap-1" title="Show fire incidents only"><span className="ms text-[12px]" aria-hidden="true">local_fire_department</span><span>{fire}</span></button>
+            <button type="button" onClick={() => focusEntityType({ mesh_node: true })} className="text-amber-p25 hover:text-white transition-colors flex items-center gap-1" title="Show mesh nodes only"><span className="ms text-[12px]" aria-hidden="true">router</span><span>{meshNodes}</span></button>
+            <button type="button" onClick={() => { focusSafetyMap(); setGaugesVisible(true) }} className="text-cyan-adsb hover:text-white transition-colors flex items-center gap-1" title="Focus stream gauges"><span className="ms text-[12px]" aria-hidden="true">water</span><span>{streamGauges}</span></button>
+            <button type="button" onClick={() => { focusSafetyMap(); setLightningVisible(true) }} className="text-amber-gold hover:text-white transition-colors flex items-center gap-1" title="Focus lightning"><span className="ms text-[12px]" aria-hidden="true">electric_bolt</span><span>{lightningCount}</span></button>
+            <button type="button" onClick={() => focusEntityType({ satellite: true })} className="text-violet-space hover:text-white transition-colors flex items-center gap-1" title="Show satellites only"><span className="ms text-[12px]" aria-hidden="true">satellite_alt</span><span>{satellites}</span></button>
+            <button type="button" onClick={() => focusEntityType({ tinygs_station: true })} className="text-amber-p25 hover:text-white transition-colors flex items-center gap-1" title="Show TinyGS stations only"><span className="ms text-[12px]" aria-hidden="true">satellite</span><span>{tinygsStations}</span></button>
+            <button type="button" onClick={() => { focusSafetyMap(); setCamerasVisible(true) }} className="text-amber-gold hover:text-white transition-colors flex items-center gap-1" title="Focus traffic cameras"><span className="ms text-[12px]" aria-hidden="true">videocam</span><span>{cams}</span></button>
+          </div>
+
+          <div className="mt-auto mb-1">
+            <span
+              className={`w-2.5 h-2.5 rounded-full block ${connected ? 'bg-green-ais animate-pulse' : 'bg-red-emergency'}`}
+              title={connected ? 'WebSocket connected' : 'Disconnected'}
+            />
           </div>
         </div>
-      </div>
+      ) : (
+      <>
 
       {/* Grid status */}
       <div className="p-4 border-b border-amber-gold-muted bg-onyx-deep/60 shrink-0">
@@ -235,14 +383,48 @@ export function Sidebar() {
                 <span className="ms text-[14px] mr-1" aria-hidden="true">videocam</span>
                 {cams}
               </span>
-              {meshNodes > 0 && (
-                <span className="text-amber-p25 flex items-center" title="Mesh Nodes">
-                  <span className="ms text-[14px] mr-1" aria-hidden="true">router</span>
-                  {meshNodes}
-                </span>
-              )}
+              <span className="text-amber-p25 flex items-center" title="Mesh Nodes">
+                <span className="ms text-[14px] mr-1" aria-hidden="true">router</span>
+                {meshNodes}
+              </span>
             </div>
-                </div>
+          </div>
+
+          <div className="flex items-center justify-between">
+            <div className="flex gap-4">
+              <span className="text-violet-space flex items-center" title="APRS">
+                <span className="ms text-[14px] mr-1" aria-hidden="true">sensors</span>
+                {aprs}
+              </span>
+              <span className="text-red-emergency flex items-center" title="Fire incidents">
+                <span className="ms text-[14px] mr-1" aria-hidden="true">local_fire_department</span>
+                {fire}
+              </span>
+            </div>
+            <div className="flex gap-4">
+              <span className="text-cyan-adsb flex items-center" title="Stream gauges">
+                <span className="ms text-[14px] mr-1" aria-hidden="true">water</span>
+                {streamGauges}
+              </span>
+              <span className="text-amber-gold flex items-center" title="Lightning strikes">
+                <span className="ms text-[14px] mr-1" aria-hidden="true">electric_bolt</span>
+                {lightningCount}
+              </span>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between">
+            <div className="flex gap-4">
+              <span className="text-violet-space flex items-center" title="Satellites">
+                <span className="ms text-[14px] mr-1" aria-hidden="true">satellite_alt</span>
+                {satellites}
+              </span>
+              <span className="text-amber-p25 flex items-center" title="TinyGS stations">
+                <span className="ms text-[14px] mr-1" aria-hidden="true">satellite</span>
+                {tinygsStations}
+              </span>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -384,6 +566,8 @@ export function Sidebar() {
           )}
         </section>
       </div>
+      </>
+      )}
     </aside>
   )
 }

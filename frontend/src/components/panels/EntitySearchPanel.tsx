@@ -72,12 +72,22 @@ export function EntitySearchPanel() {
     entityAltRange, setEntityAltRange,
     entitySpeedRange, setEntitySpeedRange,
     entityFilter, setEntityFilter,
+    trailsVisible, setTrailsVisible,
     selectEntity, selectedEntityId,
     entityMissionTags,
   } = useCivicStore()
 
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [taggedOnly, setTaggedOnly] = useState(false)
+  const [advancedOpen, setAdvancedOpen] = useState(false)
+
+  const advancedFiltered = (
+    entityAltRange[0] !== ALT_RANGE_DEFAULT[0] ||
+    entityAltRange[1] !== ALT_RANGE_DEFAULT[1] ||
+    entitySpeedRange[0] !== SPD_RANGE_DEFAULT[0] ||
+    entitySpeedRange[1] !== SPD_RANGE_DEFAULT[1] ||
+    !entityFilter.adsbLocal || !entityFilter.adsbSupplement
+  )
 
   const isFiltered = (
     taggedOnly ||
@@ -86,6 +96,7 @@ export function EntitySearchPanel() {
     entityAltRange[1] !== ALT_RANGE_DEFAULT[1] ||
     entitySpeedRange[0] !== SPD_RANGE_DEFAULT[0] ||
     entitySpeedRange[1] !== SPD_RANGE_DEFAULT[1] ||
+    !trailsVisible ||
     !entityFilter.adsbLocal || !entityFilter.adsbSupplement ||
     !entityFilter.aircraft || !entityFilter.vessel || !entityFilter.mesh_node ||
     !entityFilter.aprs || !entityFilter.fire_incident ||
@@ -96,6 +107,7 @@ export function EntitySearchPanel() {
     setEntitySearchQuery('')
     setEntityAltRange(ALT_RANGE_DEFAULT)
     setEntitySpeedRange(SPD_RANGE_DEFAULT)
+    setTrailsVisible(true)
     setEntityFilter({ aircraft: true, adsbLocal: true, adsbSupplement: true, vessel: true, mesh_node: true, aprs: true, fire_incident: true, satellite: true, tinygs_station: true })
     setTaggedOnly(false)
   }
@@ -185,6 +197,44 @@ export function EntitySearchPanel() {
             </button>
           </div>
 
+          <div className="flex items-center justify-between gap-2">
+            <span className="label-caps text-[9px]">Filter Detail</span>
+            <button
+              onClick={() => setAdvancedOpen((v) => !v)}
+              className={`flex items-center gap-1 px-2 py-1 border text-[9px] uppercase tracking-widest font-bold transition-colors focus:outline-none ${
+                advancedOpen || advancedFiltered
+                  ? 'text-amber-gold border-amber-gold/60 bg-amber-gold/10'
+                  : 'text-on-surface-variant border-white/10 hover:border-white/20'
+              }`}
+              aria-expanded={advancedOpen}
+              aria-label="Toggle advanced filters"
+            >
+              <span className="ms text-[12px] leading-none">tune</span>
+              {advancedOpen ? 'Hide advanced' : 'Advanced'}
+              <span className="ms text-[12px] leading-none">{advancedOpen ? 'expand_less' : 'expand_more'}</span>
+            </button>
+          </div>
+
+          <div>
+            <button
+              onClick={() => setTrailsVisible(!trailsVisible)}
+              className={`flex items-center gap-1.5 px-2 py-1 border text-[9px] uppercase tracking-widest font-bold transition-colors focus:outline-none ${
+                trailsVisible
+                  ? 'text-amber-gold border-amber-gold/60 bg-amber-gold/10'
+                  : 'text-on-surface-variant border-white/10 hover:border-white/20'
+              }`}
+              aria-pressed={trailsVisible}
+            >
+              <span className="ms text-[12px] leading-none">timeline</span>
+              {trailsVisible ? 'History trails on' : 'History trails off'}
+            </button>
+            {!trailsVisible && (
+              <div className="mt-1 text-[9px] text-on-surface-variant font-mono">
+                Selected CoT trails remain visible on click.
+              </div>
+            )}
+          </div>
+
           {/* Type toggles */}
           <div>
             <span className="label-caps text-[9px] block mb-2">Entity Types</span>
@@ -243,54 +293,58 @@ export function EntitySearchPanel() {
             </div>
           </div>
 
-          {/* ADS-B source toggles */}
-          {entityFilter.aircraft && (
-            <div>
-              <span className="label-caps text-[9px] block mb-2">ADS-B Sources</span>
-              <div className="flex flex-wrap gap-2">
-                <button
-                  onClick={() => setEntityFilter({ adsbLocal: !entityFilter.adsbLocal })}
-                  className={`flex items-center gap-1 px-2 py-1 border text-[9px] uppercase tracking-widest font-bold transition-colors focus:outline-none ${
-                    entityFilter.adsbLocal
-                      ? 'text-cyan-adsb border-cyan-adsb/60 bg-cyan-adsb/10'
-                      : 'text-on-surface-variant border-white/10 hover:border-white/20'
-                  }`}
-                  aria-pressed={entityFilter.adsbLocal}
-                >
-                  <span className="ms text-[12px] leading-none">sensors</span>
-                  Local (BEAST/UF)
-                </button>
-                <button
-                  onClick={() => setEntityFilter({ adsbSupplement: !entityFilter.adsbSupplement })}
-                  className={`flex items-center gap-1 px-2 py-1 border text-[9px] uppercase tracking-widest font-bold transition-colors focus:outline-none ${
-                    entityFilter.adsbSupplement
-                      ? 'text-amber-gold border-amber-gold/60 bg-amber-gold/10'
-                      : 'text-on-surface-variant border-white/10 hover:border-white/20'
-                  }`}
-                  aria-pressed={entityFilter.adsbSupplement}
-                >
-                  <span className="ms text-[12px] leading-none">public</span>
-                  OpenSky Supplement
-                </button>
-              </div>
-            </div>
-          )}
+          {advancedOpen && (
+            <>
+              {/* ADS-B source toggles */}
+              {entityFilter.aircraft && (
+                <div>
+                  <span className="label-caps text-[9px] block mb-2">ADS-B Sources</span>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      onClick={() => setEntityFilter({ adsbLocal: !entityFilter.adsbLocal })}
+                      className={`flex items-center gap-1 px-2 py-1 border text-[9px] uppercase tracking-widest font-bold transition-colors focus:outline-none ${
+                        entityFilter.adsbLocal
+                          ? 'text-cyan-adsb border-cyan-adsb/60 bg-cyan-adsb/10'
+                          : 'text-on-surface-variant border-white/10 hover:border-white/20'
+                      }`}
+                      aria-pressed={entityFilter.adsbLocal}
+                    >
+                      <span className="ms text-[12px] leading-none">sensors</span>
+                      Local (BEAST/UF)
+                    </button>
+                    <button
+                      onClick={() => setEntityFilter({ adsbSupplement: !entityFilter.adsbSupplement })}
+                      className={`flex items-center gap-1 px-2 py-1 border text-[9px] uppercase tracking-widest font-bold transition-colors focus:outline-none ${
+                        entityFilter.adsbSupplement
+                          ? 'text-amber-gold border-amber-gold/60 bg-amber-gold/10'
+                          : 'text-on-surface-variant border-white/10 hover:border-white/20'
+                      }`}
+                      aria-pressed={entityFilter.adsbSupplement}
+                    >
+                      <span className="ms text-[12px] leading-none">public</span>
+                      OpenSky Supplement
+                    </button>
+                  </div>
+                </div>
+              )}
 
-          {/* Altitude range */}
-          {entityFilter.aircraft && (
-            <RangeSlider
-              label="Altitude" min={0} max={60_000}
-              value={entityAltRange} unit="ft"
-              onChange={setEntityAltRange}
-            />
-          )}
+              {/* Altitude range */}
+              {entityFilter.aircraft && (
+                <RangeSlider
+                  label="Altitude" min={0} max={60_000}
+                  value={entityAltRange} unit="ft"
+                  onChange={setEntityAltRange}
+                />
+              )}
 
-          {/* Speed range */}
-          <RangeSlider
-            label="Speed" min={0} max={600}
-            value={entitySpeedRange} unit="kts"
-            onChange={setEntitySpeedRange}
-          />
+              {/* Speed range */}
+              <RangeSlider
+                label="Speed" min={0} max={600}
+                value={entitySpeedRange} unit="kts"
+                onChange={setEntitySpeedRange}
+              />
+            </>
+          )}
 
           {isFiltered && (
             <button

@@ -27,7 +27,7 @@ const LEVEL_ICONS: Record<Level, string> = {
 }
 
 export function AlertStatusBar() {
-  const { mode, alerts, weather } = useCivicStore()
+  const { mode, alerts, weather, setActiveTab } = useCivicStore()
 
   const hasEmergency = weather.alerts.some(
     (a) => a.severity === 'Extreme' || a.severity === 'Severe'
@@ -36,17 +36,35 @@ export function AlertStatusBar() {
 
   const alertItem   = alerts[0]
   const weatherAlert = weather.alerts[0]
-  const message = alertItem?.title ?? weatherAlert?.headline ?? 'No active alerts'
+  const advisoryTitle = alertItem?.title?.trim() ?? ''
+  const advisorySummary = alertItem?.summary?.trim() ?? ''
+  const weatherHeadline = weatherAlert?.headline?.trim() ?? ''
+  const message = alertItem
+    ? (advisorySummary ? `${advisoryTitle} - ${advisorySummary}` : advisoryTitle)
+    : (weatherHeadline || 'No active alerts')
+
+  const openDetails = () => {
+    if (alertItem) {
+      setActiveTab('community')
+      return
+    }
+    if (weatherAlert) {
+      setActiveTab('incidents')
+    }
+  }
 
   // In calm mode show a slim indicator; in critical mode show the full bar
   if (mode === 'calm' && level === 'green') return null
 
   return (
-    <div
+    <button
+      type="button"
+      onClick={openDetails}
       role="alert"
       aria-live="assertive"
+      aria-label="Open advisory details"
       className={`
-        w-full flex items-center gap-3 px-4 shrink-0 transition-all duration-300
+        w-full flex items-center gap-3 px-4 shrink-0 transition-all duration-300 text-left
         ${LEVEL_STYLES[level]}
         ${mode === 'critical' ? 'h-8 text-[11px]' : 'h-6 text-[10px]'}
       `}
@@ -61,7 +79,12 @@ export function AlertStatusBar() {
       <span className="font-bold tracking-widest uppercase mr-2">
         {LEVEL_LABELS[level]}
       </span>
-      <span className="font-mono truncate opacity-80">{message}</span>
+      <div className="flex-1 min-w-0 overflow-hidden">
+        <span className="alert-marquee-track font-mono opacity-80">
+          <span className="alert-marquee-item">{message}</span>
+          <span className="alert-marquee-item" aria-hidden="true">{message}</span>
+        </span>
+      </div>
 
       {/* Scrolling ticker in critical mode */}
       {mode === 'critical' && alerts.length > 1 && (
@@ -69,6 +92,6 @@ export function AlertStatusBar() {
           +{alerts.length - 1} MORE
         </span>
       )}
-    </div>
+    </button>
   )
 }

@@ -46,6 +46,7 @@ interface CivicStore {
   radarOpacity:     number
   camerasVisible:   boolean
   geofencesVisible: boolean
+  trailsVisible:    boolean
 
   // Actions — data
   setEntities:      (entities: Entity[]) => void
@@ -83,6 +84,7 @@ interface CivicStore {
   setSmokeVisible:     (v: boolean) => void
   setCamerasVisible:   (v: boolean) => void
   setGeofencesVisible: (v: boolean) => void
+  setTrailsVisible:    (v: boolean) => void
   mobileNavOpen:       boolean
   setMobileNavOpen:    (v: boolean) => void
   settingsOpen:        boolean
@@ -228,6 +230,7 @@ export const useCivicStore = create<CivicStore>((set) => ({
   smokeVisible:        false,
   camerasVisible:      false,
   geofencesVisible:    true,
+  trailsVisible:       true,
   lightningStrikes:    [],
   lightningVisible:    true,
   gaugesVisible:       true,
@@ -400,6 +403,7 @@ export const useCivicStore = create<CivicStore>((set) => ({
   setSmokeVisible:   (smokeVisible)   => set({ smokeVisible }),
   setCamerasVisible: (camerasVisible) => set({ camerasVisible }),
   setGeofencesVisible: (geofencesVisible) => set({ geofencesVisible }),
+  setTrailsVisible:  (trailsVisible)  => set({ trailsVisible }),
   appendLightningStrikes: (incoming) =>
     set((s) => {
       const MAX = 1000

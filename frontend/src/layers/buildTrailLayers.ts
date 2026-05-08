@@ -27,15 +27,18 @@ function trailPath(t: Track): Position[] {
 export function buildTrailLayers(
   tracks: Record<string, Track>,
   selectedUid: string | null,
+  trailsVisible: boolean,
 ): Layer[] {
   const trackArr = Object.values(tracks)
 
   // ── All non-selected history trails ─────────────────────────────────────
   const trailLayer = new PathLayer<Track>({
     id:             'history-trails',
-    data:           trackArr.filter(t =>
-      t.uid !== selectedUid && (t.smoothedTrail.length >= 2 || t.trail.length >= 2),
-    ),
+    data:           trailsVisible
+      ? trackArr.filter(t =>
+        t.uid !== selectedUid && (t.smoothedTrail.length >= 2 || t.trail.length >= 2),
+      )
+      : [],
     getPath:        trailPath,
     getColor:       (t) => entityColor(t, 180),
     getWidth:       () => 2.5,
@@ -52,16 +55,18 @@ export function buildTrailLayers(
   // BEAST lost the aircraft between sessions — don't draw a cross-map line.
   const MAX_GAP_BRIDGE_M = 15_000  // 15 km — anything larger is a tracking gap
   const gapData: GapBridge[] = []
-  for (const t of trackArr) {
-    if (!t.smoothedTrail.length) continue
-    const last = t.smoothedTrail[t.smoothedTrail.length - 1]
-    const gapM = getDistanceMeters(last[0], last[1], t.lon, t.lat)
-    if (gapM > 5 && gapM < MAX_GAP_BRIDGE_M) {
-      gapData.push({
-        from:  last,
-        to:    [t.lon, t.lat, t.altMeters],
-        color: entityColor(t),
-      })
+  if (trailsVisible) {
+    for (const t of trackArr) {
+      if (!t.smoothedTrail.length) continue
+      const last = t.smoothedTrail[t.smoothedTrail.length - 1]
+      const gapM = getDistanceMeters(last[0], last[1], t.lon, t.lat)
+      if (gapM > 5 && gapM < MAX_GAP_BRIDGE_M) {
+        gapData.push({
+          from:  last,
+          to:    [t.lon, t.lat, t.altMeters],
+          color: entityColor(t),
+        })
+      }
     }
   }
 
@@ -99,9 +104,10 @@ export function buildTrailLayers(
 
   // ── Selected track trail (on top, brighter) ──────────────────────────────
   const sel = selectedUid ? tracks[selectedUid] : undefined
+  const showSelectedTrail = trailsVisible || sel?.type === 'tak'
   const selectedTrailLayer = new PathLayer<Track>({
     id:             'selected-trail',
-    data:           sel && (sel.smoothedTrail.length >= 2 || sel.trail.length >= 2) ? [sel] : [],
+    data:           showSelectedTrail && sel && (sel.smoothedTrail.length >= 2 || sel.trail.length >= 2) ? [sel] : [],
     getPath:        trailPath,
     getColor:       (t) => entityColor(t, 255),
     getWidth:       () => 3.5,

@@ -243,3 +243,26 @@
   animation: spin-slow 8s linear infinite;
 }
 
+@keyframes alert-marquee {
+  0% {
+    transform: translateX(0%);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.alert-marquee-track {
+  display: inline-flex;
+  min-width: 200%;
+  white-space: nowrap;
+  will-change: transform;
+  animation: alert-marquee 45s linear infinite;
+}
+
+.alert-marquee-item {
+  display: inline-flex;
+  align-items: center;
+  padding-right: 3rem;
+}
+

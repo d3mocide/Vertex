@@ -131,6 +131,7 @@ export function MapOverlay({ map }: Props) {
   const setSelectedCamId  = useCivicStore((s) => s.setSelectedCamId)
   const setActiveTab      = useCivicStore((s) => s.setActiveTab)
   const geofencesVisible  = useCivicStore((s) => s.geofencesVisible)
+  const trailsVisible     = useCivicStore((s) => s.trailsVisible)
   const annotations       = useCivicStore((s) => s.annotations)
   const annotationsVisible = useCivicStore((s) => s.annotationsVisible)
   const customLayers      = useCivicStore((s) => s.customLayers)
@@ -177,6 +178,8 @@ export function MapOverlay({ map }: Props) {
   useEffect(() => { activeTabRef.current = activeTab            }, [activeTab])
   const geofencesVisibleRef = useRef(true)
   useEffect(() => { geofencesVisibleRef.current = geofencesVisible }, [geofencesVisible])
+  const trailsVisibleRef = useRef(true)
+  useEffect(() => { trailsVisibleRef.current = trailsVisible }, [trailsVisible])
   useEffect(() => {
     let cancelled = false
     const loadGeofences = async () => {
@@ -578,7 +581,7 @@ export function MapOverlay({ map }: Props) {
             const source = wsGauges.length > 0 ? wsGauges : fallback
             return buildStreamGaugeLayers(source, gaugesVisibleRef.current, zoom)
           })(),
-          ...buildTrailLayers(rawTracks, sel),
+          ...buildTrailLayers(rawTracks, sel, trailsVisibleRef.current),
           ...buildEntityLayers(pvbTracks, sel, cycleRef.current, zoom, missionTagsRef.current),
           ...buildEventLayers(systemEventsRef.current, now),
           ...(lightningVisibleRef.current

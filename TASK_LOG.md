@@ -5,6 +5,65 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 
 ---
 
+## 2026-05-08 — Replaced compact rail abbreviations with icon counters
+- Updated [frontend/src/components/layout/Sidebar.tsx](frontend/src/components/layout/Sidebar.tsx) compact collapsed counters from 3-letter labels to icon + count buttons for visual consistency with expanded state.
+- Preserved existing click actions for quick filter/overlay focus from each counter.
+- Validation:
+    - `cd frontend; npx tsc --noEmit` ✓
+
+## 2026-05-08 — Made compact sidebar counters clickable for quick filter focus
+- Updated [frontend/src/components/layout/Sidebar.tsx](frontend/src/components/layout/Sidebar.tsx) so compact rail counters are interactive actions.
+- Added one-click filter focus presets for entity-backed categories (AIR, SEA, APR, FIR, MES, SAT, TGS) that jump to safety view and apply matching map/search filters.
+- Added overlay focus actions for STM, LTG, and CAM counters to jump to safety view and enable stream gauge, lightning, or camera overlays.
+- Validation:
+    - `cd frontend; npx tsc --noEmit` ✓
+
+## 2026-05-08 — Defaulted sidebar to collapsed and expanded map entity counters
+- Updated [frontend/src/components/layout/Sidebar.tsx](frontend/src/components/layout/Sidebar.tsx) so first-load behavior defaults to collapsed (while still honoring persisted operator preference).
+- Extended sidebar counters to include additional rendered map categories: APRS, fire incidents, stream gauges, lightning strikes, satellites, TinyGS stations, mesh nodes, plus existing aircraft/vessels/cameras.
+- Added the expanded counter set to both full sidebar and compact rail views for quick at-a-glance totals.
+- Validation:
+    - `cd frontend; npx tsc --noEmit` ✓
+
+## 2026-05-08 — Added collapsible left sidebar with compact rail mode
+- Updated [frontend/src/components/layout/Sidebar.tsx](frontend/src/components/layout/Sidebar.tsx) to support collapse/expand via a header toggle.
+- Added persisted sidebar state (`vertex.sidebar.collapsed`) so the chosen width is restored across reloads.
+- Implemented compact collapsed rail with quick-access icons (Overview, Incidents, Environment, Community), live counts, and connection indicator.
+- Preserved full existing sidebar content/behavior when expanded.
+- Validation:
+    - `cd frontend; npx tsc --noEmit` ✓
+
+## 2026-05-08 — Added marquee motion for advisory subject text
+- Updated [frontend/src/components/layout/AlertStatusBar.tsx](frontend/src/components/layout/AlertStatusBar.tsx) to render the advisory subject/message as a continuous scrolling marquee instead of a hard truncation.
+- Updated [frontend/src/index.css](frontend/src/index.css) with `alert-marquee` keyframes and utility classes for seamless horizontal ticker motion.
+- Preserved click-through behavior so selecting the banner still opens detailed advisory context.
+- Validation:
+    - `cd frontend; npx tsc --noEmit` ✓
+
+## 2026-05-08 — Streamlined congested entity filter panel
+- Updated [frontend/src/components/panels/EntitySearchPanel.tsx](frontend/src/components/panels/EntitySearchPanel.tsx) to reduce visual congestion by introducing a collapsible Advanced Filters section.
+- Moved ADS-B source toggles and altitude/speed range sliders behind the new Advanced Filters disclosure.
+- Kept high-frequency controls (entity types, tagged-only, history trails) visible in the default filter view for faster map interaction.
+- Added active-state highlighting on the Advanced Filters button when advanced criteria are applied.
+- Validation:
+    - `cd frontend; npx tsc --noEmit` ✓
+
+## 2026-05-08 — Added history trail toggle to global settings drawer
+- Added a Map Layers toggle in [frontend/src/components/layout/SettingsPanel.tsx](frontend/src/components/layout/SettingsPanel.tsx) for History Trails using the shared store state.
+- This keeps the global settings drawer and entity filter panel in sync because both now drive the same `trailsVisible` store flag.
+- Validation:
+    - `cd frontend; npx tsc --noEmit` ✓
+
+## 2026-05-08 — Added history trail visibility toggle with CoT click override
+- Added trail visibility UI control in [frontend/src/components/panels/EntitySearchPanel.tsx](frontend/src/components/panels/EntitySearchPanel.tsx) so operators can toggle history trails on/off directly from the filters panel.
+- Added `trailsVisible` store state and setter in [frontend/src/store.ts](frontend/src/store.ts), and wired reset behavior so "Reset all filters" restores trail visibility.
+- Updated trail rendering pipeline in [frontend/src/layers/buildTrailLayers.ts](frontend/src/layers/buildTrailLayers.ts) and [frontend/src/components/MapOverlay.tsx](frontend/src/components/MapOverlay.tsx):
+    - When trails are on, behavior is unchanged.
+    - When trails are off, non-selected history trails are hidden.
+    - If a selected object is CoT (`tak_client` track), its trail still renders while trails are globally hidden.
+- Validation:
+    - `cd frontend; npm install; npx tsc --noEmit` ✓
+
 ## 2026-05-08 — Restored broken ADS-B pipeline and fixed snapshot hydration
 - 2026-05-08 — Fixed infinite loop in Redis hydration caused by `cur = b"0"` mismatch.
 - 2026-05-08 — Fixed `CotEmitter` channel subscription; changed from `entity_update` to `civic:updates`.

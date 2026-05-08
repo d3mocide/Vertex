@@ -14,6 +14,7 @@ export function SettingsPanel() {
     smokeVisible, setSmokeVisible,
     camerasVisible, setCamerasVisible,
     geofencesVisible, setGeofencesVisible,
+    trailsVisible, setTrailsVisible,
     lightningVisible, setLightningVisible,
     gaugesVisible, setGaugesVisible,
     terrainEnabled, setTerrainEnabled,
@@ -93,6 +94,7 @@ export function SettingsPanel() {
               <ToggleRow label="Smoke Overlay" icon="air" checked={smokeVisible} onChange={setSmokeVisible} />
               <ToggleRow label="Cameras" icon="videocam" checked={camerasVisible} onChange={setCamerasVisible} />
               <ToggleRow label="Zone Monitor" icon="verified_user" checked={geofencesVisible} onChange={setGeofencesVisible} />
+              <ToggleRow label="History Trails" icon="timeline" checked={trailsVisible} onChange={setTrailsVisible} />
               <ToggleRow label="Lightning" icon="bolt" checked={lightningVisible} onChange={setLightningVisible} />
               <ToggleRow label="Stream Gauges" icon="water" checked={gaugesVisible} onChange={setGaugesVisible} />
               <ToggleRow label="3D Terrain" icon="landscape" checked={terrainEnabled} onChange={setTerrainEnabled} />
