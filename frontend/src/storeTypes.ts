@@ -165,6 +165,7 @@ export interface AnnotationItem {
   created_by: string | null
   expires_at: string | null
   created_at: string
+  tak_uid: string | null
 }
 
 // ─── Entity Mission Tags (operator-assigned labels) ──────────────────────────

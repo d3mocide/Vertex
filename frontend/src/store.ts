@@ -138,6 +138,7 @@ interface CivicStore {
   annotations:             AnnotationItem[]
   setAnnotations:          (items: AnnotationItem[]) => void
   addAnnotation:           (item: AnnotationItem) => void
+  updateAnnotation:        (item: AnnotationItem) => void
   removeAnnotation:        (id: number) => void
   annotationDrawMode:      'marker' | 'line' | 'polygon' | null
   setAnnotationDrawMode:   (mode: 'marker' | 'line' | 'polygon' | null) => void
@@ -456,6 +457,7 @@ export const useCivicStore = create<CivicStore>((set) => ({
 
   setAnnotations:       (annotations) => set({ annotations }),
   addAnnotation:        (item) => set((s) => ({ annotations: [...s.annotations, item] })),
+  updateAnnotation:     (item) => set((s) => ({ annotations: s.annotations.map((a) => a.id === item.id ? item : a) })),
   removeAnnotation:     (id) => set((s) => ({ annotations: s.annotations.filter((a) => a.id !== id) })),
   setAnnotationDrawMode: (annotationDrawMode) => set({ annotationDrawMode }),
   setAnnotationDrawPreview: (annotationDrawPoints, annotationDrawCursor) => set({ annotationDrawPoints, annotationDrawCursor }),

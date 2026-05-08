@@ -22,6 +22,13 @@ class AnnotationCreate(BaseModel):
     expires_at: Optional[datetime] = None
 
 
+class AnnotationUpdate(BaseModel):
+    label: Optional[str] = None
+    color: Optional[str] = None
+    expires_at: Optional[datetime] = None
+    clear_expiry: bool = False  # set true to make permanent
+
+
 class AnnotationResponse(BaseModel):
     id: int
     annotation_type: str
@@ -96,6 +103,28 @@ async def create_annotation(
     await db.commit()
     await db.refresh(a)
     await _publish_annotation("create", a)
+    return _to_response(a)
+
+
+@router.put("/{annotation_id}", response_model=AnnotationResponse)
+async def update_annotation(
+    annotation_id: int, body: AnnotationUpdate, db: AsyncSession = Depends(get_db)
+):
+    result = await db.execute(select(Annotation).where(Annotation.id == annotation_id))
+    a = result.scalar_one_or_none()
+    if not a:
+        raise HTTPException(404, "Annotation not found")
+    if body.label is not None:
+        a.label = body.label or None
+    if body.color is not None:
+        a.color = body.color
+    if body.clear_expiry:
+        a.expires_at = None
+    elif body.expires_at is not None:
+        a.expires_at = body.expires_at
+    await db.commit()
+    await db.refresh(a)
+    await _publish_annotation("update", a)
     return _to_response(a)
 
 
