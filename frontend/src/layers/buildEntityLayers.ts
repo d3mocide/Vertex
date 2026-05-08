@@ -45,6 +45,7 @@ function entityIconSize(selectedUid: string | null, track: Track, zoom: number):
 }
 
 const APRS_ICON_COLOR: [number, number, number, number] = [179, 136, 255, 230]
+const TAK_ICON_COLOR:  [number, number, number, number] = [0, 230, 180, 240]   // teal — friendly ground
 
 // ─── buildEntityLayers ────────────────────────────────────────────────────────
 // Returns: [selectionRingLayer, iconLayer, labelLayer]
@@ -84,6 +85,7 @@ export function buildEntityLayers(
     t.type === 'sea'    ? 'vessel'
     : t.type === 'ground' ? 'aprs'
     : t.type === 'hazard' ? 'fire'
+    : t.type === 'tak'    ? 'tak_client'
     : 'aircraft'
 
   const iconLayer = new IconLayer<Track>({
@@ -95,8 +97,8 @@ export function buildEntityLayers(
       const icon = baseIcon(t)
       if (zoom >= 9) return icon
       if (zoom >= 6) {
-        // Keep ADSB (air) and AIS (sea) as full icons at mid zoom.
-        if (t.type === 'air' || t.type === 'sea') return icon
+        // Keep ADSB (air), AIS (sea), and TAK clients as full icons at mid zoom.
+        if (t.type === 'air' || t.type === 'sea' || t.type === 'tak') return icon
         return 'dot'
       }
       return 'dot'
@@ -105,6 +107,7 @@ export function buildEntityLayers(
     getAngle:    (t) => -t.courseTrue,
     getColor:    (t) => {
       if (t.type === 'ground') return APRS_ICON_COLOR
+      if (t.type === 'tak')    return TAK_ICON_COLOR
       return tagColorMap?.[t.uid] ?? entityColor(t)
     },
     getSize:     (t) => entityIconSize(selectedUid, t, zoom),
@@ -127,12 +130,27 @@ export function buildEntityLayers(
     getText: (t) => t.callsign ?? t.uid,
     getSize: 10,
     sizeUnits: 'pixels',
-    getColor: [179, 136, 255, 220],   // atlas --cat-aprs #B388FF
+    getColor: [179, 136, 255, 220],
     getPixelOffset: [0, 12],
     getTextAnchor: 'middle',
     getAlignmentBaseline: 'top',
     fontFamily: 'monospace',
   })
 
-  return [selectionRingLayer, iconLayer, aprsLabelLayer]
+  // TAK client labels: show at z9+ with teal tint
+  const takLabelLayer = new TextLayer<Track>({
+    id: 'tak-labels',
+    data: zoom >= 9 ? trackArr.filter((t) => t.type === 'tak') : [],
+    getPosition: (t) => [t.lon, t.lat],
+    getText: (t) => t.callsign ?? t.uid,
+    getSize: 11,
+    sizeUnits: 'pixels',
+    getColor: TAK_ICON_COLOR,
+    getPixelOffset: [0, 14],
+    getTextAnchor: 'middle',
+    getAlignmentBaseline: 'top',
+    fontFamily: 'monospace',
+  })
+
+  return [selectionRingLayer, iconLayer, aprsLabelLayer, takLabelLayer]
 }

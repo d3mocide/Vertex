@@ -19,6 +19,7 @@ from pollers.seismic import SeismicPoller
 from pollers.fire import FirePoller
 from pollers.aprs import AprsPoller
 from pollers.cot_emitter import CotEmitter
+from pollers.cot_receiver import CotReceiver
 from pollers.anomaly import AnomalyDetectionPoller
 from pollers.tinygs import TinyGSPoller
 from pollers.lightning import LightningPoller
@@ -72,6 +73,7 @@ async def main():
         FirePoller(),
         AprsPoller(),
         CotEmitter(),
+        CotReceiver(),
         AnomalyDetectionPoller(),
         LightningPoller(),
         StreamGaugePoller(),

@@ -61,7 +61,7 @@ export interface Track {
   altMeters:     number        // metres MSL (0 for vessels)
   speedMs:       number        // m/s
   courseTrue:    number        // 0–360°, true north
-  type:          'air' | 'sea' | 'ground' | 'hazard'
+  type:          'air' | 'sea' | 'ground' | 'hazard' | 'tak'
   callsign?:     string
   category?:     string
   trail:         TrailPt[]     // raw history, newest last, capped at 150 pts

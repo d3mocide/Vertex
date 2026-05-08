@@ -25,6 +25,8 @@ async def init_db():
         await conn.execute("ALTER TABLE geofences ADD COLUMN IF NOT EXISTS center_lon DOUBLE PRECISION")
         await conn.execute("ALTER TABLE geofences ADD COLUMN IF NOT EXISTS radius_m DOUBLE PRECISION")
         await conn.execute("ALTER TABLE geofences ADD COLUMN IF NOT EXISTS dwell_seconds INTEGER NOT NULL DEFAULT 0")
+        await conn.execute("ALTER TABLE annotations ADD COLUMN IF NOT EXISTS tak_uid VARCHAR(128)")
+        await conn.execute("CREATE INDEX IF NOT EXISTS ix_annotations_tak_uid ON annotations (tak_uid) WHERE tak_uid IS NOT NULL")
     logger.info("DB pool initialized")
 
 

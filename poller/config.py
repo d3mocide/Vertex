@@ -114,6 +114,13 @@ class Settings(BaseSettings):
     cot_takserver_host: str = ""
     cot_takserver_port: int = 8087
 
+    # TAK/CoT ingest — set COT_RECEIVE_ENABLED=true to receive CoT from openTAK.
+    # Connects to openTAK via TCP streaming; ingests field operator positions as
+    # tak_client entities and TAK map markers as Vertex annotations.
+    cot_receive_enabled: bool = False
+    cot_receive_host: str = ""
+    cot_receive_port: int = 8087
+
     # Anomaly detection — statistical baseline monitoring
     anomaly_enabled: bool = True
     anomaly_window_minutes: int = 60   # rolling window for baseline

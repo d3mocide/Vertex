@@ -1,3 +1,4 @@
+import json
 from datetime import datetime, timezone
 from typing import Literal, Optional
 
@@ -8,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from db.models import Annotation
 from deps import get_db
+from redis_bus import get_redis
 
 router = APIRouter(prefix="/annotations", tags=["annotations"])
 
@@ -29,6 +31,7 @@ class AnnotationResponse(BaseModel):
     created_by: Optional[str] = None
     expires_at: Optional[datetime] = None
     created_at: datetime
+    tak_uid: Optional[str] = None
 
 
 def _to_response(a: Annotation) -> AnnotationResponse:
@@ -41,7 +44,27 @@ def _to_response(a: Annotation) -> AnnotationResponse:
         created_by=a.created_by,
         expires_at=a.expires_at,
         created_at=a.created_at,
+        tak_uid=a.tak_uid,
     )
+
+
+async def _publish_annotation(action: str, annotation: Annotation) -> None:
+    try:
+        r = get_redis()
+        payload = {
+            "action": action,
+            "id": annotation.id,
+            "annotation_type": annotation.annotation_type,
+            "label": annotation.label,
+            "color": annotation.color,
+            "geojson": annotation.geojson,
+            "expires_at": annotation.expires_at.isoformat() if annotation.expires_at else None,
+            "tak_uid": annotation.tak_uid,
+            "source": "tak" if annotation.tak_uid else "vertex",
+        }
+        await r.publish("annotation_update", json.dumps(payload))
+    except Exception:
+        pass  # non-fatal — TAK bridge operates best-effort
 
 
 @router.get("", response_model=list[AnnotationResponse])
@@ -72,6 +95,7 @@ async def create_annotation(
     db.add(a)
     await db.commit()
     await db.refresh(a)
+    await _publish_annotation("create", a)
     return _to_response(a)
 
 
@@ -81,5 +105,6 @@ async def delete_annotation(annotation_id: int, db: AsyncSession = Depends(get_d
     a = result.scalar_one_or_none()
     if not a:
         raise HTTPException(404, "Annotation not found")
+    await _publish_annotation("delete", a)
     await db.delete(a)
     await db.commit()
