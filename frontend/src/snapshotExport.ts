@@ -24,6 +24,11 @@ export async function exportDashboardSnapshot(): Promise<void> {
   const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5)
   const link = document.createElement('a')
   link.download = `vertex-snapshot-${ts}.png`
-  link.href = composite.toDataURL('image/png')
+  try {
+    link.href = composite.toDataURL('image/png')
+  } catch {
+    console.warn('[snapshot] toDataURL failed — cross-origin tiles may be blocking canvas export')
+    return
+  }
   link.click()
 }

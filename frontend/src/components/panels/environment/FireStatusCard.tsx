@@ -61,11 +61,11 @@ function renderFireRow(fire: FirePanelEntity) {
           {fire.relevance === 'local' ? 'ALERT' : 'WATCH'}
         </span>
       </div>
-      {fire.link && (
+      {fire.link && /^https?:\/\//i.test(fire.link) && (
         <a
           href={fire.link}
           target="_blank"
-          rel="noreferrer"
+          rel="noopener noreferrer"
           className="mt-2 inline-flex text-[8px] font-mono uppercase tracking-widest text-amber-gold hover:text-amber-200"
         >
           SOURCE

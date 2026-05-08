@@ -8,4 +8,9 @@ router = APIRouter(prefix="/news", tags=["news"])
 @router.get("")
 async def get_news():
     raw = await get_redis().get("feed:news:local")
-    return json.loads(raw) if raw else []
+    if not raw:
+        return []
+    try:
+        return json.loads(raw)
+    except (json.JSONDecodeError, TypeError):
+        return []

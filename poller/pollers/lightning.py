@@ -125,6 +125,9 @@ class LightningPoller(BasePoller):
 
             ns_time = s.get("time")
             if ns_time:
+                if not isinstance(ns_time, (int, float)) or not (0 < ns_time < 2e18):
+                    logger.debug("[lightning] invalid timestamp %r, skipping strike", ns_time)
+                    continue
                 ts_ms = int(ns_time) // 1_000_000
             else:
                 ts_ms = int(time.time() * 1000)

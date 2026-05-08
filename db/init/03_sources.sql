@@ -18,7 +18,7 @@ CREATE INDEX IF NOT EXISTS ix_radio_streams_enabled ON radio_streams (enabled);
 CREATE TABLE IF NOT EXISTS news_feeds (
     id          SERIAL        PRIMARY KEY,
     name        VARCHAR(128)  NOT NULL,
-    url         VARCHAR(512),
+    url         TEXT          NOT NULL,
     format      VARCHAR(32)   NOT NULL DEFAULT 'rss',
     enabled     BOOLEAN       NOT NULL DEFAULT TRUE,
     source      VARCHAR(16)   NOT NULL DEFAULT 'config',
@@ -36,7 +36,8 @@ CREATE TABLE IF NOT EXISTS poller_sources (
     enabled     BOOLEAN       NOT NULL DEFAULT TRUE,
     source      VARCHAR(16)   NOT NULL DEFAULT 'config',
     created_at  TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
-    updated_at  TIMESTAMPTZ   NOT NULL DEFAULT NOW()
+    updated_at  TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+    UNIQUE(type, name)
 );
 
 CREATE INDEX IF NOT EXISTS ix_poller_sources_type    ON poller_sources (type);
@@ -50,6 +51,8 @@ CREATE TABLE IF NOT EXISTS alert_zone_configs (
     created_at  TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
     updated_at  TIMESTAMPTZ   NOT NULL DEFAULT NOW()
 );
+
+CREATE INDEX IF NOT EXISTS ix_alert_zone_configs_enabled ON alert_zone_configs (enabled);
 
 CREATE TABLE IF NOT EXISTS alert_feed_configs (
     id          SERIAL        PRIMARY KEY,

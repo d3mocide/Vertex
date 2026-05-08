@@ -8,6 +8,7 @@ import type {
   TrafficCamera, SystemEvent, CustomLayerItem, SystemHealth, TrafficIncident,
   SummaryState, TrailPoint, AirportSnapshot, AppMode, NavTab, EntityTypeFilter,
   RangeFilter, ReplayData, EntityMissionTag, AnnotationItem,
+  TrafficFlowSensor, UtilityStatus, OregonStatus,
 } from './storeTypes'
 import { ALT_RANGE_DEFAULT, SPD_RANGE_DEFAULT } from './storeTypes'
 
@@ -21,10 +22,10 @@ interface CivicStore {
   weather:          WeatherState
   radio:            RadioState
   cameras:          TrafficCamera[]
-  trafficFlow:      any[]
+  trafficFlow:      TrafficFlowSensor[]
   trafficIncidents: TrafficIncident[]
-  utilityStatus:    any
-  oregonStatus:     any
+  utilityStatus:    UtilityStatus | null
+  oregonStatus:     OregonStatus | null
   trail:            TrailPoint[]
   airports:         Record<string, AirportSnapshot>
   summary:          SummaryState
@@ -58,10 +59,10 @@ interface CivicStore {
   setWeather:       (weather: Partial<WeatherState>) => void
   setRadio:         (radio: RadioState) => void
   setCameras:       (cameras: TrafficCamera[]) => void
-  setTrafficFlow:   (flow: any[]) => void
+  setTrafficFlow:   (flow: TrafficFlowSensor[]) => void
   setTrafficIncidents: (incidents: TrafficIncident[]) => void
-  setUtilityStatus: (status: any) => void
-  setOregonStatus:  (status: any) => void
+  setUtilityStatus: (status: UtilityStatus) => void
+  setOregonStatus:  (status: OregonStatus) => void
   setTrail:         (trail: TrailPoint[]) => void
   refreshEntityTrack: (entityId: string) => void
   setAirports:      (airports: Record<string, AirportSnapshot>) => void
@@ -404,7 +405,7 @@ export const useCivicStore = create<CivicStore>((set) => ({
       const MAX = 1000
       const WINDOW_MS = 60_000
       const now = Date.now()
-      const fresh = s.lightningStrikes.filter((s) => now - s.ts < WINDOW_MS)
+      const fresh = s.lightningStrikes.filter((strike) => now - strike.ts < WINDOW_MS)
       return { lightningStrikes: [...fresh, ...incoming].slice(-MAX) }
     }),
   setLightningVisible:    (lightningVisible)    => set({ lightningVisible }),

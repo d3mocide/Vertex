@@ -15,8 +15,10 @@ class UtilityPoller(BasePoller):
     name = "utilities"
     interval = 300  # 5 minutes is plenty for statewide aggregated data
 
-    async def setup(self):
+    def __init__(self):
         self._consecutive_failures = 0
+
+    async def setup(self):
         logger.info("[utilities] Utility poller initialized (Oregon ODIN)")
 
     async def poll(self):

@@ -142,8 +142,6 @@ export function EntitySearchPanel() {
     return scoreA - scoreB
   })
 
-  const showList = true
-
   return (
     <div className="absolute top-28 left-4 z-30 w-64 hud-panel overflow-hidden">
       {/* Search input */}
@@ -306,8 +304,7 @@ export function EntitySearchPanel() {
       )}
 
       {/* Matched entity list */}
-      {showList && (
-        <div className="max-h-48 overflow-y-auto divide-y divide-white/5">
+      <div className="max-h-48 overflow-y-auto divide-y divide-white/5">
           {matchedTracks.length === 0 ? (
             <div className="px-3 py-4 flex flex-col items-center gap-1 text-on-surface-variant/50">
               <span className="ms text-[20px]">search_off</span>
@@ -409,7 +406,6 @@ export function EntitySearchPanel() {
             )
           })}
         </div>
-      )}
     </div>
   )
 }

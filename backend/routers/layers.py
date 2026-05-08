@@ -1,8 +1,9 @@
+import json
 from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -17,6 +18,13 @@ class LayerCreate(BaseModel):
     geojson: dict
     style: Optional[dict] = None
     visible: bool = True
+
+    @field_validator("geojson")
+    @classmethod
+    def validate_geojson_size(cls, v: dict) -> dict:
+        if len(json.dumps(v)) > 5 * 1024 * 1024:
+            raise ValueError("GeoJSON payload exceeds 5 MB limit")
+        return v
 
 
 class LayerUpdate(BaseModel):

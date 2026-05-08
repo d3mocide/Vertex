@@ -1,7 +1,7 @@
 import json
 import logging
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from sanitize import sanitize_payload, sanitize_text
 
 logger = logging.getLogger(__name__)
@@ -88,6 +88,19 @@ async def check_geofences(entity: dict, conn) -> None:
             state.pop(row["id"], None)
 
     _entity_state[entity_id] = state
+
+    # Evict entries older than 6 hours to bound memory
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=6)
+    stale = [
+        eid for eid, fence_state in _entity_state.items()
+        if all(
+            (s.get("entered_at") if isinstance(s.get("entered_at"), datetime)
+             else datetime.now(timezone.utc)) < cutoff
+            for s in fence_state.values()
+        )
+    ]
+    for eid in stale:
+        del _entity_state[eid]
 
     from bus import get_bus  # lazy import — breaks the db→geofence→bus→db cycle
 

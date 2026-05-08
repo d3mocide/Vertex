@@ -1,4 +1,5 @@
 import json
+import re
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, Query
@@ -10,6 +11,12 @@ from deps import get_db, get_redis_client
 from db.models import Entity, Event
 
 router = APIRouter(prefix="/sitrep", tags=["sitrep"])
+
+
+def _safe_md(text: str, max_len: int = 500) -> str:
+    text = re.sub(r'!\[.*?\]\(.*?\)', '', text)
+    text = re.sub(r'\[.*?\]\(.*?\)', '', text)
+    return text[:max_len]
 
 
 @router.get("")
@@ -65,7 +72,7 @@ async def generate_sitrep(
         if raw_w:
             alerts_data = json.loads(raw_w)
             if isinstance(alerts_data, list):
-                weather_alerts = [a.get("headline") or a.get("event", "") for a in alerts_data[:5]]
+                weather_alerts = [_safe_md(a.get("headline") or a.get("event", "")) for a in alerts_data[:5]]
     except Exception:
         pass
 
@@ -128,14 +135,14 @@ async def generate_sitrep(
         lines += [f"### Critical / High Severity ({len(critical_events)})", ""]
         for e in critical_events[:10]:
             ts = e.ts.strftime("%H:%M")
-            lines.append(f"- **[{e.severity.upper()}]** `{ts}` {e.summary}")
+            lines.append(f"- **[{e.severity.upper()}]** `{ts}` {_safe_md(e.summary)}")
         lines.append("")
 
     if geofence_events:
         lines += [f"### Geofence Triggers ({len(geofence_events)})", ""]
         for e in geofence_events[:10]:
             ts = e.ts.strftime("%H:%M")
-            lines.append(f"- `{ts}` {e.summary}")
+            lines.append(f"- `{ts}` {_safe_md(e.summary)}")
         lines.append("")
 
     if p25_events:
@@ -145,7 +152,7 @@ async def generate_sitrep(
         lines += [f"### Seismic Events ({len(seismic_events)})", ""]
         for e in seismic_events[:5]:
             ts = e.ts.strftime("%H:%M")
-            lines.append(f"- `{ts}` {e.summary}")
+            lines.append(f"- `{ts}` {_safe_md(e.summary)}")
         lines.append("")
 
     if not critical_events and not geofence_events and not p25_events and not seismic_events:

@@ -33,7 +33,8 @@ class AdsbdbClient:
             max_size=10000,
             throttle=throttle,
         )
-        self._dirty_count: int = 0
+        self._route_dirty_count: int = 0
+        self._aircraft_dirty_count: int = 0
         self._load_cache()
 
     @staticmethod
@@ -73,7 +74,7 @@ class AdsbdbClient:
         if not key:
             return None
         result = await self._routes.get(key, self._fetch_route)
-        self._mark_dirty()
+        self._mark_route_dirty()
         return result
 
     async def lookup_aircraft(self, icao: str | None) -> dict | None:
@@ -81,22 +82,28 @@ class AdsbdbClient:
         if not key:
             return None
         result = await self._aircraft.get(key, self._fetch_aircraft)
-        self._mark_dirty()
+        self._mark_aircraft_dirty()
         return result
 
-    def _mark_dirty(self) -> None:
-        """Increment the dirty counter and flush to disk every _PERSIST_EVERY fetches.
+    def _mark_route_dirty(self) -> None:
+        """Increment the route dirty counter and flush to disk every _PERSIST_EVERY fetches.
 
         Batching writes prevents a gzip I/O call (blocking) on every single enrichment
         lookup. The cache is also flushed at poller shutdown via flush().
         """
-        self._dirty_count += 1
-        if self._dirty_count % self._PERSIST_EVERY == 0:
+        self._route_dirty_count += 1
+        if self._route_dirty_count % self._PERSIST_EVERY == 0:
+            self._persist_cache()
+
+    def _mark_aircraft_dirty(self) -> None:
+        """Increment the aircraft dirty counter and flush to disk every _PERSIST_EVERY fetches."""
+        self._aircraft_dirty_count += 1
+        if self._aircraft_dirty_count % self._PERSIST_EVERY == 0:
             self._persist_cache()
 
     def flush(self) -> None:
         """Force an immediate cache flush — call on poller shutdown."""
-        if self._dirty_count > 0:
+        if self._route_dirty_count > 0 or self._aircraft_dirty_count > 0:
             self._persist_cache()
 
     def _load_cache(self):

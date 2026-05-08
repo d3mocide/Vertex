@@ -40,6 +40,8 @@ async def get_replay(
     now = datetime.now(timezone.utc)
     if end is None:
         end = now
+    if end.tzinfo is None:
+        end = end.replace(tzinfo=timezone.utc)
     start = max(start.replace(tzinfo=timezone.utc) if start.tzinfo is None else start,
                 now - timedelta(days=30))
 

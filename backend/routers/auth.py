@@ -6,6 +6,7 @@ from jose import jwt
 from passlib.context import CryptContext
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from config import settings
@@ -60,7 +61,7 @@ class UpdateRoleRequest(BaseModel):
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
-def _make_token(username: str, role: str = "admin") -> str:
+def _make_token(username: str, role: str) -> str:
     exp = datetime.now(timezone.utc) + timedelta(hours=settings.auth_token_expire_hours)
     return jwt.encode({"sub": username, "role": role, "exp": exp}, settings.auth_secret_key, algorithm=_ALGORITHM)
 
@@ -77,7 +78,7 @@ def _decode_admin(request: Request) -> dict:
         payload = jwt.decode(token, settings.auth_secret_key, algorithms=[_ALGORITHM])
     except Exception:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
-    if payload.get("role", "admin") != "admin":
+    if (payload.get("role") or "viewer") != "admin":
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin role required")
     return payload
 
@@ -97,8 +98,6 @@ async def setup(body: SetupRequest, db: AsyncSession = Depends(get_db)):
     Responds 409 once any user exists — setup cannot be repeated."""
     if not settings.auth_enabled:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
-    if await _user_count(db) > 0:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Setup already complete")
 
     user = User(
         username=body.username,
@@ -107,8 +106,12 @@ async def setup(body: SetupRequest, db: AsyncSession = Depends(get_db)):
         created_at=datetime.now(timezone.utc),
     )
     db.add(user)
-    await db.commit()
-    return Token(access_token=_make_token(body.username))
+    try:
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Setup already complete")
+    return Token(access_token=_make_token(body.username, "admin"))
 
 
 @router.post("/token", response_model=Token)
@@ -143,7 +146,7 @@ async def me(request: Request, db: AsyncSession = Depends(get_db)):
     except Exception:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
     username = payload.get("sub", "")
-    role = payload.get("role", "admin")  # legacy tokens without role default to admin
+    role = payload.get("role") or "viewer"
     return UserInfo(username=username, role=role)
 
 

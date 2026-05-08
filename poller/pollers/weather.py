@@ -51,7 +51,7 @@ class WeatherPoller(BasePoller):
         lat = settings.region_lat
         lon = settings.region_lon
         
-        url = "http://www.airnowapi.org/aq/observation/latLong/current/"
+        url = "https://www.airnowapi.org/aq/observation/latLong/current/"
         params = {
             "format": "application/json",
             "latitude": lat,
@@ -59,7 +59,7 @@ class WeatherPoller(BasePoller):
             "distance": 50,
             "API_KEY": settings.airnow_api_key,
         }
-        logger.info("[weather] AirNow request: %s lat=%s lon=%s", url, lat, lon)
+        _success = False
         try:
             async with httpx.AsyncClient(timeout=30, follow_redirects=True) as client:
                 resp = await client.get(url, params=params)
@@ -67,9 +67,10 @@ class WeatherPoller(BasePoller):
             data = resp.json()
             if not isinstance(data, list) or not data:
                 return {}
-            
+
             # Find the max AQI across pollutants like PM2.5 and O3
             max_aqi_obs = max(data, key=lambda d: d.get("AQI", -1))
+            _success = True
             return {
                 "aqi": max_aqi_obs.get("AQI"),
                 "aqi_label": max_aqi_obs.get("Category", {}).get("Name"),
@@ -105,7 +106,7 @@ class WeatherPoller(BasePoller):
             return {}
         finally:
             # Reset only on success path where data parsing completed with no exception.
-            if "data" in locals():
+            if _success:
                 if self._airnow_consecutive_failures > 0:
                     logger.info("[weather] AirNow AQI recovered after %d failures", self._airnow_consecutive_failures)
                 self._airnow_consecutive_failures = 0

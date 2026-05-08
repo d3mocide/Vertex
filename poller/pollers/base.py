@@ -44,8 +44,7 @@ class BasePoller(ABC):
                     await self._heartbeat("error", str(exc)[:256])
                 await asyncio.sleep(self.interval)
         finally:
-            if hasattr(self, 'close'):
-                await self.close()
+            await self.close()
 
     async def close(self):
         """Called when the polling loop is shutting down. Override to perform cleanup tasks."""

@@ -61,4 +61,5 @@ INSERT INTO geofences (name, description, zone_type, geom, active) VALUES
         4326
     ),
     TRUE
-);
+)
+ON CONFLICT (name) DO NOTHING;

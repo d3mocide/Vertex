@@ -64,14 +64,14 @@ class NewsPoller(BasePoller):
         logger.info("[news] %d RSS source(s) loaded from DB", len(self._rss_sources))
 
     async def poll(self):
-        items: list[dict] = list({
+        items: list[dict] = [{
             "source": s["source"],
             "title": s["title"],
             "summary": s["summary"],
             "link": s["link"],
             "published": "",
             "category": s["category"],
-        } for s in _STATIC_SOURCES)
+        } for s in _STATIC_SOURCES]
 
         for src in self._rss_sources:
             try:

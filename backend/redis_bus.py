@@ -34,23 +34,29 @@ async def get_entity_state(entity_id: str) -> dict | None:
 
 async def get_all_entities(entity_type: str | None = None) -> list[dict]:
     r = get_redis()
-    keys = await r.keys("entity:*")
+    keys: list[str] = []
+    cur: int = 0
+    while True:
+        cur, batch = await r.scan(cur, match="entity:*", count=100)
+        keys.extend(batch)
+        if cur == 0:
+            break
     if not keys:
         return []
     pipeline = r.pipeline()
     for key in keys:
         pipeline.get(key)
     results = await pipeline.execute()
-    
+
     entities = []
-    for r in results:
-        if not r or isinstance(r, Exception):
+    for raw in results:
+        if not raw or isinstance(raw, Exception):
             continue
         try:
-            entities.append(json.loads(r))
+            entities.append(json.loads(raw))
         except (json.JSONDecodeError, TypeError):
             continue
-            
+
     if entity_type:
         entities = [e for e in entities if e.get("entity_type") == entity_type]
     return entities

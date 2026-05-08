@@ -12,6 +12,7 @@ from typing import Literal
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from config_writer import add_entry, add_alert_zone, remove_entry, remove_alert_zone, update_entry
@@ -207,11 +208,6 @@ async def list_alert_zones(db: AsyncSession = Depends(get_db)):
 
 @router.post("/alert-zones", response_model=AlertZoneResponse, status_code=201)
 async def create_alert_zone(body: AlertZoneCreate, db: AsyncSession = Depends(get_db)):
-    existing = await db.execute(
-        select(AlertZoneConfig).where(AlertZoneConfig.zone_code == body.zone_code)
-    )
-    if existing.scalar_one_or_none():
-        raise HTTPException(409, f"Zone {body.zone_code!r} already exists")
     az = AlertZoneConfig(
         zone_code=body.zone_code.upper(), enabled=body.enabled,
         source="user",
@@ -219,7 +215,11 @@ async def create_alert_zone(body: AlertZoneCreate, db: AsyncSession = Depends(ge
         updated_at=datetime.now(timezone.utc),
     )
     db.add(az)
-    await db.commit()
+    try:
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(409, f"Zone {body.zone_code!r} already exists")
     await db.refresh(az)
     await add_alert_zone(az.zone_code)
     return _az_response(az)

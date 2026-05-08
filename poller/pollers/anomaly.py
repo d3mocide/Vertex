@@ -17,7 +17,7 @@ from typing import NamedTuple
 
 from bus import get_bus
 from config import settings
-from db import get_pool
+from db import get_pool, write_event
 from sanitize import sanitize_payload
 from .base import BasePoller
 
@@ -60,15 +60,13 @@ async def _count_entities(pool) -> dict[str, int]:
 
 async def _insert_anomaly_event(pool, entity_type: str, description: str) -> None:
     try:
-        async with pool.acquire() as conn:
-            await conn.execute(
-                """
-                INSERT INTO events (event_type, entity_type, severity, description, ts)
-                VALUES ('anomaly', $1, 'high', $2, NOW())
-                """,
-                entity_type,
-                description,
-            )
+        await write_event(
+            event_type="anomaly",
+            entity_id=None,
+            severity="high",
+            summary=description,
+            details={"anomaly_type": entity_type},
+        )
     except Exception as exc:
         logger.warning("[anomaly] DB insert failed: %s", exc)
 

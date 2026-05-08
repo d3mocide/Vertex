@@ -29,7 +29,8 @@ export function TacticalAudio() {
   const mode  = useCivicStore((s) => s.mode)
 
   const isActive = radio?.state === 'call'
-  const activeStreamUrl = selectedStream?.url ?? STREAM_URL
+  const rawStreamUrl = selectedStream?.url ?? STREAM_URL
+  const activeStreamUrl = /^https?:\/\//i.test(rawStreamUrl) ? rawStreamUrl : ''
 
   useEffect(() => {
     const el = audioRef.current

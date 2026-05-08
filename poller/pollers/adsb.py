@@ -1,6 +1,5 @@
 import asyncio
 import logging
-import math
 import time
 from typing import Any
 import httpx
@@ -16,6 +15,7 @@ from enrichment.route_plausibility import is_route_plausible
 from .beast_transport import BeastTransport
 from normalizers.beast_decoder import BeastAircraftDecoder
 from normalizers.aircraft import normalize_opensky, normalize_tar1090
+from normalizers.beast_math import haversine_km as _haversine_km
 from .base import BasePoller
 
 logger = logging.getLogger(__name__)
@@ -86,7 +86,13 @@ class AdsbPoller(BasePoller):
         from normalizers.beast_decoder import _AircraftState
         try:
             r = await get_bus()
-            keys = await r.keys("entity:*")
+            keys = []
+            cur = b"0"
+            while True:
+                cur, batch = await r.scan(cur, match="entity:*", count=200)
+                keys.extend(batch)
+                if cur == b"0":
+                    break
             hydrated = 0
             for key in keys:
                 raw = await r.get(key)
@@ -740,17 +746,3 @@ class AdsbPoller(BasePoller):
         return {"icao": code.upper(), "name": code.upper(), "metar": None}
 
 
-def _haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-    earth_radius_km = 6371.0088
-
-    lat1_rad = math.radians(lat1)
-    lat2_rad = math.radians(lat2)
-    dlat_rad = math.radians(lat2 - lat1)
-    dlon_rad = math.radians(lon2 - lon1)
-
-    a = (
-        math.sin(dlat_rad / 2) ** 2
-        + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(dlon_rad / 2) ** 2
-    )
-    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
-    return earth_radius_km * c

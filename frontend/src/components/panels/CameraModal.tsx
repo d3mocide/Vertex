@@ -13,6 +13,8 @@ export function CameraModal() {
   if (!selectedCam) return null
 
   const isFavorite = favoriteCamIds.includes(selectedCam.id)
+  const rawUrl = ldiMode && selectedCam.ldi_url ? selectedCam.ldi_url : selectedCam.url
+  const safeUrl = /^https?:\/\//i.test(rawUrl ?? '') ? rawUrl : ''
 
   const closeModal = () => {
     setSelectedCamId(null)
@@ -60,7 +62,7 @@ export function CameraModal() {
         
         <div className="aspect-video bg-surface-container relative overflow-hidden">
           <img 
-            src={ldiMode && selectedCam.ldi_url ? selectedCam.ldi_url : selectedCam.url} 
+            src={safeUrl ?? ''}
             alt={selectedCam.name}
             className="w-full h-full object-contain"
           />

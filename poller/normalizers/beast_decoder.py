@@ -417,7 +417,9 @@ class BeastAircraftDecoder:
 
         tat = None
         if sat is not None and ac.mach is not None:
-            tat = sat + (0.2 * float(ac.mach) ** 2) * (sat + 273.15) - 273.15
+            sat_k = sat + 273.15
+            tat_k = sat_k * (1 + 0.2 * float(ac.mach) ** 2)
+            tat = tat_k - 273.15
 
         snapshot = {
             "selected_altitude_mcp_ft": ac.selected_altitude_mcp_ft if fresh(ac.bds40_at) else None,

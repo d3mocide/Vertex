@@ -4,7 +4,7 @@ CREATE TABLE IF NOT EXISTS annotations (
     label           VARCHAR(256),
     color           VARCHAR(16)  NOT NULL DEFAULT '#FFB800',
     geojson         JSONB        NOT NULL,
-    created_by      VARCHAR(64),
+    created_by      VARCHAR(64)  REFERENCES users(username) ON DELETE SET NULL,
     expires_at      TIMESTAMPTZ,
     created_at      TIMESTAMPTZ  NOT NULL DEFAULT NOW()
 );

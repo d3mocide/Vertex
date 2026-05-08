@@ -44,6 +44,7 @@ export function AlertRulesSection({ open }: AlertRulesSectionProps) {
   const createAlertRule = async () => {
     if (!newRuleName.trim()) return
     if (newRuleAction === 'webhook_post' && !newRuleUrl.trim()) return
+    if (newRuleAction === 'webhook_post' && !/^https?:\/\//i.test(newRuleUrl.trim())) return
     try {
       const payload: Record<string, unknown> = {
         name: newRuleName.trim(),

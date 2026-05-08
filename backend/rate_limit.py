@@ -27,7 +27,11 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
         from redis_bus import get_redis
 
-        client_ip = request.client.host if request.client else '0.0.0.0'
+        client_ip = (
+            request.headers.get("X-Real-IP")
+            or request.headers.get("X-Forwarded-For", "").split(",")[0].strip()
+            or (request.client.host if request.client else "0.0.0.0")
+        )
         window = int(time.time() // self.period)
         key = f'rl:{client_ip}:{window}'
 

@@ -75,7 +75,11 @@ class TinyGSPoller(BasePoller):
 
             # Stations that heard a packet in the last hour count as "online"
             last_ts = stn.get("lastPacketTime") or stn.get("lastSeen") or 0
-            is_online = bool(last_ts) and (time.time() - float(last_ts)) < 3600
+            try:
+                last_ts_f = float(last_ts)
+            except (TypeError, ValueError):
+                last_ts_f = 0.0
+            is_online = last_ts_f > 0 and (time.time() - last_ts_f) < 3600
 
             entity = {
                 "entity_id":    f"tinygs:station:{name}",

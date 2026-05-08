@@ -128,7 +128,11 @@ class AprsPoller(BasePoller):
                 await writer.drain()
 
                 while True:
-                    raw = await reader.readline()
+                    try:
+                        raw = await asyncio.wait_for(reader.readline(), timeout=120)
+                    except asyncio.TimeoutError:
+                        logger.warning("[aprs] read timeout, reconnecting")
+                        break
                     if not raw:
                         break
                     line = raw.decode("utf-8", errors="ignore").strip()

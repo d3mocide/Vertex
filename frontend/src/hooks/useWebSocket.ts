@@ -4,10 +4,12 @@ import { useCivicStore } from '../store'
 import { wsTokenParam } from '../auth'
 import { initNotifications, maybeNotify } from '../notifications'
 
-const RECONNECT_DELAY_MS = 3000
+const RECONNECT_DELAY_INITIAL_MS = 1000
+const RECONNECT_DELAY_MAX_MS = 60_000
 
 export function useWebSocket() {
   const wsRef = useRef<WebSocket | null>(null)
+  const reconnectDelayRef = useRef(RECONNECT_DELAY_INITIAL_MS)
   const emptyAircraftSnapshotStreakRef = useRef(0)
   const {
     setEntities,
@@ -44,35 +46,48 @@ export function useWebSocket() {
       const ws = new WebSocket(WS_URL + wsTokenParam())
       wsRef.current = ws
 
-      ws.onopen  = () => setConnected(true)
+      ws.onopen  = () => {
+        setConnected(true)
+        reconnectDelayRef.current = RECONNECT_DELAY_INITIAL_MS
+      }
       ws.onerror = () => ws.close()
       ws.onclose = () => {
         setConnected(false)
-        if (!cancelled) setTimeout(connect, RECONNECT_DELAY_MS)
+        if (!cancelled) {
+          setTimeout(connect, reconnectDelayRef.current)
+          reconnectDelayRef.current = Math.min(reconnectDelayRef.current * 2, RECONNECT_DELAY_MAX_MS)
+        }
       }
 
       ws.onmessage = (e) => {
-        const msg = JSON.parse(e.data as string)
+        let msg: Record<string, unknown>
+        try {
+          msg = JSON.parse(e.data as string)
+        } catch (err) {
+          console.warn('[ws] malformed frame, ignoring:', err)
+          return
+        }
+        const msgData = msg.data as Record<string, unknown> | undefined
         switch (msg.type) {
           case 'snapshot':
-            setEntities(msg.data)
+            setEntities(msg.data as Parameters<typeof setEntities>[0])
             break
           case 'entity_update':
-            upsertEntity(msg.data)
+            upsertEntity(msg.data as Parameters<typeof upsertEntity>[0])
             break
-          case 'aircraft_snapshot':
-            if (msg.data?.schema_version !== undefined && msg.data.schema_version !== 1) {
-              console.warn('[ws] aircraft_snapshot schema_version mismatch:', msg.data.schema_version)
+          case 'aircraft_snapshot': {
+            if (msgData?.schema_version !== undefined && msgData.schema_version !== 1) {
+              console.warn('[ws] aircraft_snapshot schema_version mismatch:', msgData.schema_version)
             }
-            if (Array.isArray(msg.data?.aircraft)) {
-              const aircraft = msg.data.aircraft as Parameters<typeof setAircraftSnapshot>[0]
+            if (Array.isArray(msgData?.aircraft)) {
+              const aircraft = msgData.aircraft as Parameters<typeof setAircraftSnapshot>[0]
               if (aircraft.length === 0) {
                 const state = useCivicStore.getState()
                 const existingLocalAircraft = Object.values(state.entities).filter(
                   (e) => e.entity_type === 'aircraft' && (e.source ?? '').toLowerCase() !== 'opensky',
                 ).length
-                const beastHealthy = msg.data?.beast_healthy === true
-                const lastFrameAge = typeof msg.data?.last_frame_age_s === 'number' ? msg.data.last_frame_age_s : null
+                const beastHealthy = msgData?.beast_healthy === true
+                const lastFrameAge = typeof msgData?.last_frame_age_s === 'number' ? msgData.last_frame_age_s : null
 
                 emptyAircraftSnapshotStreakRef.current += 1
 
@@ -93,28 +108,28 @@ export function useWebSocket() {
 
               setAircraftSnapshot(aircraft)
             }
-            if (msg.data?.airports && typeof msg.data.airports === 'object') {
-              setAirports(msg.data.airports)
+            if (msgData?.airports && typeof msgData.airports === 'object') {
+              setAirports(msgData.airports as Parameters<typeof setAirports>[0])
             }
             break
+          }
           case 'feed_update':
           case 'radio_update':
             if (msg.key === 'radio:active' || msg.type === 'radio_update') {
-              setRadio(msg.data ?? msg)
+              setRadio((msgData ?? msg) as unknown as Parameters<typeof setRadio>[0])
             } else if (msg.key === 'utility:pge') {
-              setUtilityStatus(msg.data)
+              setUtilityStatus(msg.data as Parameters<typeof setUtilityStatus>[0])
             } else if (msg.key === 'utility:oregon') {
-              setOregonStatus(msg.data)
-            } else if (msg.key === 'weather:current' && msg.data && typeof msg.data === 'object') {
-              const data = msg.data as Record<string, unknown>
+              setOregonStatus(msg.data as Parameters<typeof setOregonStatus>[0])
+            } else if (msg.key === 'weather:current' && msgData) {
               setWeather({
-                temp_f: typeof data.temp_f === 'number' ? data.temp_f : undefined,
-                wind_mph: typeof data.wind_mph === 'number' ? data.wind_mph : undefined,
-                wind_dir: typeof data.wind_dir === 'string' ? data.wind_dir : undefined,
-                condition: typeof data.condition === 'string' ? data.condition : undefined,
-                humidity: typeof data.humidity === 'number' ? data.humidity : undefined,
-                aqi: typeof data.aqi === 'number' ? data.aqi : undefined,
-                aqi_label: typeof data.aqi_label === 'string' ? data.aqi_label : undefined,
+                temp_f: typeof msgData.temp_f === 'number' ? msgData.temp_f : undefined,
+                wind_mph: typeof msgData.wind_mph === 'number' ? msgData.wind_mph : undefined,
+                wind_dir: typeof msgData.wind_dir === 'string' ? msgData.wind_dir : undefined,
+                condition: typeof msgData.condition === 'string' ? msgData.condition : undefined,
+                humidity: typeof msgData.humidity === 'number' ? msgData.humidity : undefined,
+                aqi: typeof msgData.aqi === 'number' ? msgData.aqi : undefined,
+                aqi_label: typeof msgData.aqi_label === 'string' ? msgData.aqi_label : undefined,
               })
             } else if (msg.key === 'weather:alerts' && Array.isArray(msg.data)) {
               setWeather({ alerts: msg.data as Parameters<typeof setWeather>[0]['alerts'] })
@@ -125,23 +140,22 @@ export function useWebSocket() {
             } else if (msg.key === 'traffic:cameras' && Array.isArray(msg.data)) {
               setCameras(msg.data as Parameters<typeof setCameras>[0])
             } else if (msg.key === 'traffic:flow' && Array.isArray(msg.data)) {
-              setTrafficFlow(msg.data)
+              setTrafficFlow(msg.data as Parameters<typeof setTrafficFlow>[0])
             } else if (msg.key === 'traffic:incidents' && Array.isArray(msg.data)) {
-              setTrafficIncidents(msg.data)
+              setTrafficIncidents(msg.data as Parameters<typeof setTrafficIncidents>[0])
             } else if (msg.key === 'lightning:strikes' && Array.isArray(msg.data)) {
-              appendLightningStrikes(msg.data)
-            } else if (msg.key === 'summary:latest' && msg.data && typeof msg.data === 'object') {
-              const data = msg.data as Record<string, unknown>
+              appendLightningStrikes(msg.data as Parameters<typeof appendLightningStrikes>[0])
+            } else if (msg.key === 'summary:latest' && msgData) {
               setSummary({
-                summary: typeof data.summary === 'string' ? data.summary : '',
-                ts: typeof data.ts === 'string' ? data.ts : null,
-                model: typeof data.model === 'string' ? data.model : null,
+                summary: typeof msgData.summary === 'string' ? msgData.summary : '',
+                ts: typeof msgData.ts === 'string' ? msgData.ts : null,
+                model: typeof msgData.model === 'string' ? msgData.model : null,
               })
             }
             break
           case 'event':
-            appendSystemEvent(msg.data)
-            maybeNotify(msg.data)
+            appendSystemEvent(msg.data as Parameters<typeof appendSystemEvent>[0])
+            maybeNotify(msg.data as Parameters<typeof maybeNotify>[0])
             break
         }
       }

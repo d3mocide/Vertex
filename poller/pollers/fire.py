@@ -85,8 +85,11 @@ def _latest_lon_lat(event: dict) -> tuple[float, float] | None:
         ring = coords[0]
         if not ring:
             return None
-        lon = sum(p[0] for p in ring if isinstance(p, list) and len(p) >= 2) / len(ring)
-        lat = sum(p[1] for p in ring if isinstance(p, list) and len(p) >= 2) / len(ring)
+        valid = [p for p in ring if isinstance(p, list) and len(p) >= 2]
+        if not valid:
+            return None
+        lon = sum(p[0] for p in valid) / len(valid)
+        lat = sum(p[1] for p in valid) / len(valid)
         return float(lon), float(lat)
 
     return None

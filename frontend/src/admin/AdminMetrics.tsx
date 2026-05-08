@@ -22,18 +22,16 @@ export default function AdminMetrics() {
   const [retentionSaving, setRetentionSaving] = useState(false)
   const [retentionSaved, setRetentionSaved] = useState(false)
 
-  const h = authHeaders()
-
   const loadMetrics = useCallback(async () => {
     try {
-      const res = await fetch(`${API_BASE}/admin/metrics`, { headers: h })
+      const res = await fetch(`${API_BASE}/admin/metrics`, { headers: authHeaders() })
       if (res.ok) setMetrics(await res.json())
     } catch { /* non-fatal */ }
   }, [])
 
   const loadStorage = useCallback(async () => {
     try {
-      const res = await fetch(`${API_BASE}/admin/storage`, { headers: h })
+      const res = await fetch(`${API_BASE}/admin/storage`, { headers: authHeaders() })
       if (res.ok) {
         const data: StorageData = await res.json()
         setStorage(data)
@@ -44,7 +42,7 @@ export default function AdminMetrics() {
 
   const loadPollers = useCallback(async () => {
     try {
-      const res = await fetch(`${API_BASE}/admin/pollers`, { headers: h })
+      const res = await fetch(`${API_BASE}/admin/pollers`, { headers: authHeaders() })
       if (res.ok) {
         const data = await res.json()
         setPollers(data.pollers ?? [])
@@ -54,7 +52,7 @@ export default function AdminMetrics() {
 
   const loadIngestion = useCallback(async () => {
     try {
-      const res = await fetch(`${API_BASE}/admin/ingestion-rate?window_minutes=60`, { headers: h })
+      const res = await fetch(`${API_BASE}/admin/ingestion-rate?window_minutes=60`, { headers: authHeaders() })
       if (res.ok) {
         const data = await res.json()
         setIngestion(data.buckets ?? [])
@@ -64,7 +62,7 @@ export default function AdminMetrics() {
 
   const loadDbPool = useCallback(async () => {
     try {
-      const res = await fetch(`${API_BASE}/admin/db-pool`, { headers: h })
+      const res = await fetch(`${API_BASE}/admin/db-pool`, { headers: authHeaders() })
       if (res.ok) setDbPool(await res.json())
     } catch { /* non-fatal */ }
   }, [])
@@ -85,7 +83,7 @@ export default function AdminMetrics() {
     try {
       await fetch(`${API_BASE}/admin/retention`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...h },
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
         body: JSON.stringify({ retention_days: retentionDays }),
       })
       setRetentionSaved(true)

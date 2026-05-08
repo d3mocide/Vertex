@@ -236,11 +236,11 @@ export function IncidentsPanel() {
                   <span className="bg-amber-gold/20 text-amber-gold text-[8px] font-bold px-1.5 py-0.5 uppercase tracking-tighter rounded-sm">
                     High Priority
                   </span>
-                  {incident.link && (
+                  {incident.link && /^https?:\/\//i.test(incident.link) && (
                     <a
                       href={incident.link}
                       target="_blank"
-                      rel="noreferrer noopener"
+                      rel="noopener noreferrer"
                       className="font-mono text-[9px] uppercase tracking-widest text-amber-gold hover:text-white"
                     >
                       Report Source
