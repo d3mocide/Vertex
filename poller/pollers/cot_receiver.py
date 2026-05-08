@@ -59,6 +59,13 @@ def _parse_cot(xml_bytes: bytes) -> dict[str, Any] | None:
         if contact is not None:
             callsign = contact.get("callsign", uid)
 
+    if lat == 0.0 and lon == 0.0:
+        logger.debug("[cot_rx] dropping null-island event: %s", uid)
+        return None
+    if not (-90 <= lat <= 90 and -180 <= lon <= 180):
+        logger.debug("[cot_rx] dropping out-of-range coordinates: %s (%.4f, %.4f)", uid, lat, lon)
+        return None
+
     return {
         "uid":      uid,
         "cot_type": cot_type,
@@ -181,12 +188,14 @@ class CotReceiver(BasePoller):
         )
 
         delay = 2.0
+        _consecutive_failures = 0
 
         while True:
             try:
                 reader, writer = await asyncio.open_connection(
                     settings.cot_receive_host, settings.cot_receive_port
                 )
+                _consecutive_failures = 0
                 delay = 2.0
                 logger.info("[cot_rx] Connected to openTAK")
                 buf = b""
@@ -198,6 +207,10 @@ class CotReceiver(BasePoller):
                             logger.warning("[cot_rx] openTAK closed connection")
                             break
                         buf += chunk
+
+                        if len(buf) > 1_000_000:
+                            logger.warning("[cot_rx] receive buffer overflow, resetting connection")
+                            break
 
                         while _EVENT_END in buf:
                             idx = buf.index(_EVENT_END) + len(_EVENT_END)
@@ -222,9 +235,23 @@ class CotReceiver(BasePoller):
                         pass
 
             except (ConnectionRefusedError, OSError) as exc:
-                logger.warning("[cot_rx] Connection failed: %s — retry in %.0fs", exc, delay)
+                _consecutive_failures += 1
+                if _consecutive_failures >= 5:
+                    logger.error(
+                        "[cot_rx] Connection failed (%d consecutive): %s — retry in %.0fs",
+                        _consecutive_failures, exc, delay,
+                    )
+                else:
+                    logger.warning("[cot_rx] Connection failed: %s — retry in %.0fs", exc, delay)
             except Exception as exc:
-                logger.exception("[cot_rx] Unexpected error: %s", exc)
+                _consecutive_failures += 1
+                if _consecutive_failures >= 5:
+                    logger.error(
+                        "[cot_rx] Unexpected error (%d consecutive): %s — retry in %.0fs",
+                        _consecutive_failures, exc, delay,
+                    )
+                else:
+                    logger.exception("[cot_rx] Unexpected error: %s", exc)
 
             await asyncio.sleep(delay)
             delay = min(delay * 2, 60.0)

@@ -163,6 +163,10 @@ export function GeofenceLayer({ map }: Props) {
       try {
         map.getCanvas().style.cursor = ''
         map.off('click', handleMapClick)
+        if (map.getLayer('draw-fill')) map.removeLayer('draw-fill')
+        if (map.getLayer('draw-line')) map.removeLayer('draw-line')
+        if (map.getLayer('draw-points')) map.removeLayer('draw-points')
+        if (map.getSource(SRC_DRAW)) map.removeSource(SRC_DRAW)
       } catch { /* ignore */ }
     }
   }, [geofenceDrawing, map, handleMapClick])

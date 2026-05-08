@@ -18,6 +18,14 @@ litellm.suppress_debug_info = True
 warnings.filterwarnings("ignore", category=UserWarning, message="Pydantic serializer warnings")
 
 _MAX_TOKENS = 1536
+
+_INJECTION_PATTERNS = ('###', 'SYSTEM:', '<|', '[INST]', '<<SYS>>')
+
+
+def _sanitise(text: str, max_len: int = 300) -> str:
+    for pat in _INJECTION_PATTERNS:
+        text = text.replace(pat, '')
+    return text[:max_len].strip()
 # How often to run the check loop regardless of demand (fallback background refresh).
 _BACKGROUND_INTERVAL_S = 3600  # 1 hour
 # Minimum seconds between any two generations (rate-limit on-demand requests).
@@ -86,7 +94,10 @@ class AISummaryPoller(BasePoller):
         if raw:
             alerts = json.loads(raw)
             if alerts:
-                lines = [f"- {a.get('event', '')}: {a.get('headline', '')}" for a in alerts[:10]]
+                lines = [
+                    f"- {_sanitise(a.get('event', ''))}: {_sanitise(a.get('headline', ''))}"
+                    for a in alerts[:10]
+                ]
                 context_parts.append("Weather Hazards:\n" + "\n".join(lines))
 
         # 2. Fire Activity
@@ -94,7 +105,10 @@ class AISummaryPoller(BasePoller):
         if raw:
             fires = json.loads(raw)
             if fires:
-                lines = [f"- {f.get('name', '')}: {f.get('location', '')} ({f.get('size_acres', 0)} acres)" for f in fires[:10]]
+                lines = [
+                    f"- {_sanitise(f.get('name', ''))}: {_sanitise(f.get('location', ''))} ({f.get('size_acres', 0)} acres)"
+                    for f in fires[:10]
+                ]
                 context_parts.append("Wildfire/Fire Activity:\n" + "\n".join(lines))
 
         # 3. Traffic
@@ -102,7 +116,10 @@ class AISummaryPoller(BasePoller):
         if raw:
             incidents = json.loads(raw)
             if incidents:
-                lines = [f"- {i.get('title', '')}: {i.get('description', '')[:250]}" for i in incidents[:10]]
+                lines = [
+                    f"- {_sanitise(i.get('title', ''))}: {_sanitise(i.get('description', ''), max_len=250)}"
+                    for i in incidents[:10]
+                ]
                 context_parts.append("Traffic Impacts:\n" + "\n".join(lines))
 
         # 4. Utilities
@@ -118,7 +135,7 @@ class AISummaryPoller(BasePoller):
         if raw:
             items = json.loads(raw)
             if items:
-                lines = [f"- {n.get('title', '')}" for n in items[:10]]
+                lines = [f"- {_sanitise(n.get('title', ''))}" for n in items[:10]]
                 context_parts.append("Regional News Headlines:\n" + "\n".join(lines))
 
         if not context_parts:

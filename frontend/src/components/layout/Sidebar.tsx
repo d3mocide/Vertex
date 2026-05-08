@@ -330,11 +330,11 @@ export function Sidebar() {
                       {incident.description}
                     </p>
                   )}
-                  {compactExpandedIndex === i && incident.link && (
+                  {compactExpandedIndex === i && incident.link && /^https?:\/\//i.test(incident.link) && (
                     <a
                       href={incident.link}
                       target="_blank"
-                      rel="noreferrer noopener"
+                      rel="noopener noreferrer"
                       className="inline-flex mt-2 font-mono text-[9px] uppercase tracking-widest text-amber-gold hover:text-white"
                     >
                       Open Incident Source

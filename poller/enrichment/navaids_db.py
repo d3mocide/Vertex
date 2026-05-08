@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import csv
 import logging
-import math
 import os
 
 from config import settings
+from normalizers.beast_math import haversine_km as _haversine_km
 
 logger = logging.getLogger(__name__)
 
@@ -112,17 +112,3 @@ def _to_float(raw: str | None) -> float | None:
         return None
 
 
-def _haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-    earth_radius_km = 6371.0088
-
-    lat1_rad = math.radians(lat1)
-    lat2_rad = math.radians(lat2)
-    dlat_rad = math.radians(lat2 - lat1)
-    dlon_rad = math.radians(lon2 - lon1)
-
-    a = (
-        math.sin(dlat_rad / 2) ** 2
-        + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(dlon_rad / 2) ** 2
-    )
-    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
-    return earth_radius_km * c

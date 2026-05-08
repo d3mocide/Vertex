@@ -20,6 +20,7 @@ async def init_db():
     global _pool
     dsn = settings.database_url.replace("postgresql+asyncpg://", "postgresql://")
     _pool = await asyncpg.create_pool(dsn, min_size=2, max_size=8)
+    # TODO: migrate to Alembic for schema evolution tracking
     async with _pool.acquire() as conn:
         await conn.execute("ALTER TABLE geofences ADD COLUMN IF NOT EXISTS geofence_shape VARCHAR(16) NOT NULL DEFAULT 'polygon'")
         await conn.execute("ALTER TABLE geofences ADD COLUMN IF NOT EXISTS center_lat DOUBLE PRECISION")
@@ -113,13 +114,14 @@ async def purge_observations() -> int:
         r = await get_bus()
         raw = await r.get("config:retention_days")
         if raw:
-            retention_days = max(1, int(raw))
+            retention_days = max(1, min(int(raw), 3650))
     except Exception as exc:
         logger.warning("[db] could not read retention config from Redis: %s", exc)
 
     async with _pool.acquire() as conn:
         result = await conn.execute(
-            f"DELETE FROM observations WHERE ts < NOW() - INTERVAL '{retention_days} days'"
+            "DELETE FROM observations WHERE ts < NOW() - ($1 * INTERVAL '1 day')",
+            int(retention_days),
         )
     deleted = int(result.split()[-1])
     logger.info("[db] purged %d old observations (retention: %d days)", deleted, retention_days)

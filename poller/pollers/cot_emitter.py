@@ -13,6 +13,7 @@ import asyncio
 import json
 import logging
 import socket
+import xml.sax.saxutils
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -45,6 +46,11 @@ _COLOR_MAP: dict[str, str] = {
 }
 
 
+def _xe(val: object) -> str:
+    """Escape a value for safe interpolation into XML text or attribute values."""
+    return xml.sax.saxutils.escape(str(val))
+
+
 def _ts(dt: datetime) -> str:
     return dt.strftime("%Y-%m-%dT%H:%M:%S.00Z")
 
@@ -55,25 +61,29 @@ def _build_cot(entity: dict[str, Any]) -> str | None:
     if lat is None or lon is None:
         return None
 
-    uid = f"VERTEX-{entity.get('id', 'unknown')}"
+    raw_uid = f"VERTEX-{entity.get('id', 'unknown')}"
     cot_type = _COT_TYPES.get(entity.get("entity_type", ""), _COT_DEFAULT)
-    callsign = (
+    raw_callsign = (
         entity.get("callsign")
         or entity.get("name")
         or entity.get("mmsi")
-        or uid
+        or raw_uid
     )
-    alt_m = entity.get("alt_m") or entity.get("altitude_m") or 0.0
-    speed_ms = (entity.get("speed_ms") or 0.0)
-    heading = entity.get("heading") or 0.0
-    remarks = entity.get("entity_type", "")
+    alt_m = float(entity.get("alt_m") or entity.get("altitude_m") or 0.0)
+    speed_ms = float(entity.get("speed_ms") or 0.0)
+    heading = float(entity.get("heading") or 0.0)
+
+    uid = _xe(raw_uid)
+    cot_type_s = _xe(cot_type)
+    callsign = _xe(raw_callsign)
+    remarks = _xe(entity.get("entity_type", ""))
 
     now = datetime.now(timezone.utc)
     stale = now + timedelta(seconds=settings.cot_stale_seconds)
 
     return (
         '<?xml version="1.0" encoding="UTF-8"?>'
-        f'<event version="2.0" uid="{uid}" type="{cot_type}"'
+        f'<event version="2.0" uid="{uid}" type="{cot_type_s}"'
         f' time="{_ts(now)}" start="{_ts(now)}" stale="{_ts(stale)}" how="m-g">'
         f'<point lat="{lat:.6f}" lon="{lon:.6f}" hae="{alt_m:.1f}"'
         f' ce="9999999.0" le="9999999.0"/>'
@@ -95,7 +105,7 @@ def _build_annotation_cot(ann: dict[str, Any]) -> str | None:
     color_hex = ann.get("color", "#FFB800").lower()
     color_name = _COLOR_MAP.get(color_hex, "Yellow")
     ann_id = ann.get("id", "unknown")
-    uid = ann.get("tak_uid") or f"VERTEX-ANN-{ann_id}"
+    raw_uid = ann.get("tak_uid") or f"VERTEX-ANN-{ann_id}"
 
     # Extract representative lat/lon
     coords = geojson.get("coordinates")
@@ -117,6 +127,11 @@ def _build_annotation_cot(ann: dict[str, Any]) -> str | None:
     if lat is None or lon is None:
         return None
 
+    uid = _xe(raw_uid)
+    label_s = _xe(label)
+    ann_type_s = _xe(ann_type)
+    color_name_s = _xe(color_name)
+
     now = datetime.now(timezone.utc)
     stale_dt = ann.get("expires_at")
     if stale_dt:
@@ -133,11 +148,11 @@ def _build_annotation_cot(ann: dict[str, Any]) -> str | None:
         f' time="{_ts(now)}" start="{_ts(now)}" stale="{_ts(stale)}" how="h-g-i-g-o">'
         f'<point lat="{lat:.6f}" lon="{lon:.6f}" hae="0.0" ce="9999999.0" le="9999999.0"/>'
         "<detail>"
-        f'<contact callsign="{label}"/>'
-        f'<uid Droid="{label}"/>'
+        f'<contact callsign="{label_s}"/>'
+        f'<uid Droid="{label_s}"/>'
         f'<color argb="-1"/>'
         f'<usericon iconsetpath="COT_MAPPING_2525B/a-f-G/a-f-G.png"/>'
-        f'<remarks>Vertex {ann_type} — color:{color_name}</remarks>'
+        f'<remarks>Vertex {ann_type_s} — color:{color_name_s}</remarks>'
         "</detail>"
         "</event>"
     )

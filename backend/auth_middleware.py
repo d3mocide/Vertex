@@ -8,6 +8,8 @@ from config import settings
 _ALGORITHM = "HS256"
 _PUBLIC_PATHS = frozenset({"/health", "/metrics"})
 _MUTATING_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
+# Auth routes accessible without an existing token
+_AUTH_PUBLIC_PATHS = frozenset({"/api/v1/auth/login", "/api/v1/auth/token", "/api/v1/auth/setup", "/api/v1/auth/status"})
 # Auth routes that are mutating but don't require an existing token (login, setup)
 _AUTH_WRITE_EXEMPT = frozenset({"/api/v1/auth/token", "/api/v1/auth/setup"})
 
@@ -18,7 +20,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
 
         path = request.url.path
-        if path in _PUBLIC_PATHS or path.startswith("/api/v1/auth/"):
+        if path in _PUBLIC_PATHS or path in _AUTH_PUBLIC_PATHS:
             return await call_next(request)
 
         is_ws = request.scope.get("type") == "websocket"
@@ -46,7 +48,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
             and request.method in _MUTATING_METHODS
             and path not in _AUTH_WRITE_EXEMPT
         ):
-            role = payload.get("role", "admin")  # legacy tokens without role default to admin
+            role = payload.get("role") or "viewer"
             if role != "admin":
                 return JSONResponse({"detail": "Admin role required"}, status_code=403)
 

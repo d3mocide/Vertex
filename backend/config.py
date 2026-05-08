@@ -1,3 +1,4 @@
+from pydantic import model_validator
 from pydantic_settings import BaseSettings
 
 
@@ -17,6 +18,14 @@ class Settings(BaseSettings):
     auth_enabled: bool = False
     auth_secret_key: str = ""       # generate: openssl rand -hex 32
     auth_token_expire_hours: int = 24
+
+    cors_origins: list[str] = ["http://localhost:3000", "http://localhost"]
+
+    @model_validator(mode="after")
+    def _check_secret(self):
+        if self.auth_enabled and len(self.auth_secret_key) < 32:
+            raise ValueError("AUTH_SECRET_KEY must be ≥32 chars when AUTH_ENABLED=true")
+        return self
 
     class Config:
         env_file = ".env"

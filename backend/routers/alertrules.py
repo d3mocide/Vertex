@@ -2,14 +2,24 @@ from datetime import datetime, timezone
 from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from db.models import AlertRule
 from deps import get_db
+from security import validate_webhook_url
 
 router = APIRouter(prefix="/alertrules", tags=["alertrules"])
+
+
+def _validate_action_config_url(v: dict[str, Any] | None) -> dict[str, Any] | None:
+    if v and v.get("url"):
+        try:
+            validate_webhook_url(str(v["url"]))
+        except ValueError as exc:
+            raise ValueError(f"Invalid webhook URL: {exc}") from exc
+    return v
 
 
 class AlertRuleCreate(BaseModel):
@@ -23,6 +33,11 @@ class AlertRuleCreate(BaseModel):
     max_per_hour: int | None = None
     dedup_key: str | None = None
 
+    @field_validator("action_config")
+    @classmethod
+    def validate_webhook_url_field(cls, v: dict[str, Any]) -> dict[str, Any]:
+        return _validate_action_config_url(v) or v
+
 
 class AlertRuleUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=128)
@@ -34,6 +49,11 @@ class AlertRuleUpdate(BaseModel):
     cooldown_seconds: int | None = None
     max_per_hour: int | None = None
     dedup_key: str | None = None
+
+    @field_validator("action_config")
+    @classmethod
+    def validate_webhook_url_field(cls, v: dict[str, Any] | None) -> dict[str, Any] | None:
+        return _validate_action_config_url(v)
 
 
 class AlertRuleResponse(BaseModel):

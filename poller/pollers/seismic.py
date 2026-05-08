@@ -1,12 +1,13 @@
 import logging
 import json
-import math
+import time
 from datetime import datetime, timezone
 import httpx
 from db import write_event
 from bus import get_bus
 from config import settings
 from sanitize import sanitize_payload
+from normalizers.beast_math import haversine_km
 from .base import BasePoller
 
 logger = logging.getLogger(__name__)
@@ -16,18 +17,8 @@ _HEADERS = {"User-Agent": "Vertex/1.0 (Situational Awareness Dashboard)"}
 
 # In-memory deduplication for this process lifetime.
 # On restart, at most ~1 hour of earthquakes may be re-written — acceptable.
-_seen_ids: set[str] = set()
+_seen_ids: dict[str, float] = {}
 
-
-def _haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-    r = 6371.0
-    phi1 = math.radians(lat1)
-    phi2 = math.radians(lat2)
-    delta_phi = math.radians(lat2 - lat1)
-    delta_lambda = math.radians(lon2 - lon1)
-    a = math.sin(delta_phi / 2.0) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(delta_lambda / 2.0) ** 2
-    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
-    return r * c
 
 
 class SeismicPoller(BasePoller):
@@ -46,6 +37,11 @@ class SeismicPoller(BasePoller):
 
         features = data.get("features", [])
         new_count = 0
+
+        # Evict old entries (older than 2 hours) before processing this batch
+        global _seen_ids
+        cutoff = time.time() - 7200
+        _seen_ids = {k: v for k, v in _seen_ids.items() if v > cutoff}
 
         for feature in features:
             eid = feature.get("id", "")
@@ -69,7 +65,7 @@ class SeismicPoller(BasePoller):
                 continue
 
             # Distance-based gating
-            dist_km = _haversine_km(lat, lon, settings.region_lat, settings.region_lon)
+            dist_km = haversine_km(lat, lon, settings.region_lat, settings.region_lon)
             if dist_km <= 300:
                 pass  # Local (< ~160 nm): accept all
             elif dist_km <= 1500:
@@ -129,7 +125,7 @@ class SeismicPoller(BasePoller):
                             })
                         ),
                     )
-                _seen_ids.add(eid)
+                _seen_ids[eid] = time.time()
                 new_count += 1
             except Exception as exc:
                 logger.warning("[seismic] write_event failed for %s: %s", eid, exc)

@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import { API_BASE, ALERTS_POLL_MS, NEWS_POLL_MS, WEATHER_POLL_MS, CAMERAS_POLL_MS } from '../config'
 import { useCivicStore } from '../store'
 import { authHeaders, clearToken } from '../auth'
+import type { TrafficFlowSensor, UtilityStatus, OregonStatus } from '../storeTypes'
 
 async function fetchJson<T>(url: string): Promise<T | null> {
   try {
@@ -72,7 +73,7 @@ export function useAlerts() {
     // Fetch flow
     const pollFlow = async () => {
       const data = await fetchJson<unknown[]>(`${API_BASE}/traffic/flow`)
-      if (Array.isArray(data)) setTrafficFlow(data as any[])
+      if (Array.isArray(data)) setTrafficFlow(data as TrafficFlowSensor[])
     }
 
     // Fetch incidents
@@ -95,8 +96,8 @@ export function useAlerts() {
     // Fetch utilities
     const pollUtilities = async () => {
       const [pge, oregon] = await Promise.all([
-        fetchJson<any>(`${API_BASE}/utilities/pge`),
-        fetchJson<any>(`${API_BASE}/utilities/oregon`),
+        fetchJson<UtilityStatus>(`${API_BASE}/utilities/pge`),
+        fetchJson<OregonStatus>(`${API_BASE}/utilities/oregon`),
       ])
       if (pge) setUtilityStatus(pge)
       if (oregon) setOregonStatus(oregon)

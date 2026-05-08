@@ -67,9 +67,43 @@ export function StreamGaugeLayer({ map }: Props) {
   )
 
   useEffect(() => {
-    const visible = gaugesVisible ? displayGauges : []
+    const handleClick = (e: maplibregl.MapMouseEvent & { features?: maplibregl.MapGeoJSONFeature[] }) => {
+      const f = e.features?.[0]
+      if (f?.properties?.id) selectEntity(f.properties.id as string)
+    }
+    const handleEnter = () => { map.getCanvas().style.cursor = 'pointer' }
+    const handleLeave = () => { map.getCanvas().style.cursor = '' }
 
-    const geojson: GeoJSON.FeatureCollection = {
+    if (!map.getSource(SRC)) {
+      map.addSource(SRC, { type: 'geojson', data: { type: 'FeatureCollection', features: [] } })
+      map.addLayer({ id: RING, type: 'circle', source: SRC, paint: { 'circle-radius': 14, 'circle-color': ['get', 'color'], 'circle-opacity': 0.45 } })
+      map.addLayer({ id: LAYER, type: 'circle', source: SRC, paint: { 'circle-radius': 7, 'circle-color': ['get', 'color'], 'circle-stroke-width': 2, 'circle-stroke-color': '#fff' } })
+      map.addLayer({
+        id: LABEL, type: 'symbol', source: SRC,
+        layout: { 'text-field': ['get', 'label'], 'text-font': ['Open Sans Regular', 'Arial Unicode MS Regular'], 'text-size': 10, 'text-offset': [0, 1.6], 'text-anchor': 'top', 'text-max-width': 8 },
+        paint: { 'text-color': '#e0f7fa', 'text-halo-color': '#050505', 'text-halo-width': 1 },
+      })
+      map.on('click', LAYER, handleClick)
+      map.on('mouseenter', LAYER, handleEnter)
+      map.on('mouseleave', LAYER, handleLeave)
+    }
+
+    return () => {
+      map.off('click', LAYER, handleClick)
+      map.off('mouseenter', LAYER, handleEnter)
+      map.off('mouseleave', LAYER, handleLeave)
+      if (map.getLayer(LABEL)) map.removeLayer(LABEL)
+      if (map.getLayer(LAYER)) map.removeLayer(LAYER)
+      if (map.getLayer(RING))  map.removeLayer(RING)
+      if (map.getSource(SRC))  map.removeSource(SRC)
+    }
+  }, [map, selectEntity])
+
+  useEffect(() => {
+    const src = map.getSource(SRC) as maplibregl.GeoJSONSource | undefined
+    if (!src) return
+    const visible = gaugesVisible ? displayGauges : []
+    src.setData({
       type: 'FeatureCollection',
       features: visible.map((g) => {
         const ident  = (g.identity ?? {}) as Record<string, unknown>
@@ -77,82 +111,17 @@ export function StreamGaugeLayer({ map }: Props) {
         const height = typeof ident.height_ft === 'number' ? ident.height_ft : null
         const stage  = typeof ident.stage     === 'string' ? ident.stage     : 'unknown'
         const color  = STAGE_COLOR[stage] ?? STAGE_COLOR.unknown
-
         let label = g.display_name ?? g.entity_id
         if (flow !== null) label += `\n${Math.round(flow)} cfs`
         else if (height !== null) label += `\n${height.toFixed(1)} ft`
-
         return {
           type: 'Feature',
           geometry: { type: 'Point', coordinates: [g.lon!, g.lat!] },
-          properties: {
-            id:     g.entity_id,
-            name:   g.display_name ?? g.entity_id,
-            stage,
-            color,
-            label,
-            flow:   flow ?? '',
-            height: height ?? '',
-          },
+          properties: { id: g.entity_id, name: g.display_name ?? g.entity_id, stage, color, label, flow: flow ?? '', height: height ?? '' },
         }
       }),
-    }
-
-    if (!map.getSource(SRC)) {
-      map.addSource(SRC, { type: 'geojson', data: geojson })
-
-      map.addLayer({
-        id:     RING,
-        type:   'circle',
-        source: SRC,
-        paint: {
-          'circle-radius':  14,
-          'circle-color':   ['get', 'color'],
-          'circle-opacity': 0.45,
-        },
-      })
-
-      map.addLayer({
-        id:     LAYER,
-        type:   'circle',
-        source: SRC,
-        paint: {
-          'circle-radius':        7,
-          'circle-color':         ['get', 'color'],
-          'circle-stroke-width':  2,
-          'circle-stroke-color':  '#fff',
-        },
-      })
-
-      map.addLayer({
-        id:     LABEL,
-        type:   'symbol',
-        source: SRC,
-        layout: {
-          'text-field':      ['get', 'label'],
-          'text-font':       ['Open Sans Regular', 'Arial Unicode MS Regular'],
-          'text-size':       10,
-          'text-offset':     [0, 1.6],
-          'text-anchor':     'top',
-          'text-max-width':  8,
-        },
-        paint: {
-          'text-color':      '#e0f7fa',
-          'text-halo-color': '#050505',
-          'text-halo-width': 1,
-        },
-      })
-
-      map.on('click', LAYER, (e) => {
-        const f = e.features?.[0]
-        if (f?.properties?.id) selectEntity(f.properties.id as string)
-      })
-      map.on('mouseenter', LAYER, () => { map.getCanvas().style.cursor = 'pointer' })
-      map.on('mouseleave', LAYER, () => { map.getCanvas().style.cursor = '' })
-    } else {
-      (map.getSource(SRC) as maplibregl.GeoJSONSource).setData(geojson)
-    }
-  }, [displayGauges, map, gaugesVisible, selectEntity])
+    })
+  }, [displayGauges, map, gaugesVisible])
 
   return null
 }

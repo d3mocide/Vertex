@@ -4,7 +4,10 @@ stores them in Redis as a rolling 60-minute history for the admin panel.
 """
 import asyncio
 import json
+import logging
 import time
+
+logger = logging.getLogger(__name__)
 
 _HISTORY_KEY = "metrics:history"
 _HISTORY_LEN = 360  # 360 × 10 s = 60 minutes
@@ -94,6 +97,6 @@ async def run_metrics_collector() -> None:
             snap = collect_snapshot()
             await redis.rpush(_HISTORY_KEY, json.dumps(snap))
             await redis.ltrim(_HISTORY_KEY, -_HISTORY_LEN, -1)
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("[metrics] collection error: %s", exc)
         await asyncio.sleep(10)

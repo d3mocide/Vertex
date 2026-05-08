@@ -80,5 +80,8 @@ class AisPoller(BasePoller):
                         if entity:
                             await publish_entity(entity)
             except Exception as exc:
-                logger.error("[ais] aisstream error: %s — retrying in %ds", exc, _RETRY_DELAY)
+                exc_msg = str(exc)
+                if settings.aisstream_api_key and settings.aisstream_api_key in exc_msg:
+                    exc_msg = exc_msg.replace(settings.aisstream_api_key, "***")
+                logger.error("[ais] aisstream error: %s — retrying in %ds", exc_msg, _RETRY_DELAY)
                 await asyncio.sleep(_RETRY_DELAY)

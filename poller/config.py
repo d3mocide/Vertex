@@ -126,6 +126,12 @@ class Settings(BaseSettings):
     anomaly_window_minutes: int = 60   # rolling window for baseline
     anomaly_sigma_threshold: float = 2.5
 
+    # FlashAlert and TVFR alert feed env-var fallbacks
+    flashalert_enabled: bool = False
+    flashalert_url: str = ""
+    tvfr_enabled: bool = False
+    tvfr_rss_url: str = ""
+
     # TinyGS integration is sunset by default due to upstream API instability.
     # Set true to opt in and re-enable the poller.
     tinygs_enabled: bool = False

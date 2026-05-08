@@ -32,8 +32,10 @@ async def lifespan(app: FastAPI):
         task.cancel()
         try:
             await task
-        except BaseException:
+        except asyncio.CancelledError:
             pass
+        except Exception as exc:
+            logging.getLogger(__name__).error("[shutdown] task cleanup error: %s", exc)
     await close_redis()
 
 
@@ -41,7 +43,7 @@ app = FastAPI(title="Vertex API", version="0.1.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=settings.cors_origins,
     allow_methods=["*"],
     allow_headers=["*"],
 )

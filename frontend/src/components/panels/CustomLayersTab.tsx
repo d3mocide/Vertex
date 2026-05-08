@@ -79,6 +79,10 @@ export function CustomLayersTab() {
   const processFile = async (file: File) => {
     setLayerImportError(null)
     setLayerImportGeoJson(null)
+    if (file.size > 5 * 1024 * 1024) {
+      setLayerImportError('File too large — maximum 5 MB.')
+      return
+    }
     const text = await file.text()
     try {
       let geojson: object

@@ -151,8 +151,34 @@ export interface SystemEvent {
     lon?: number
     magnitude?: number
     depth_km?: number
-    [key: string]: any
+    [key: string]: unknown
   }
+}
+
+// ─── Traffic / Utility ────────────────────────────────────────────────────────
+export interface TrafficFlowSensor {
+  road?: string
+  loc?: string
+  speed?: number
+  [key: string]: unknown
+}
+
+export interface UtilityStatus {
+  status: string
+  active_outages: number
+  customers_affected: number
+  last_updated: string
+  [key: string]: unknown
+}
+
+export interface OregonStatus {
+  status: string
+  state_affected: number
+  metro_affected: number
+  pge_affected: number
+  pacificorp_affected: number
+  last_updated: string
+  [key: string]: unknown
 }
 
 // ─── Map Annotations ─────────────────────────────────────────────────────────

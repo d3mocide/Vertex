@@ -1,8 +1,10 @@
+import ipaddress
 import logging
 import httpx
-import math
+from urllib.parse import urlparse
 from config import settings
 from bus import set_feed
+from normalizers.beast_math import haversine_km
 from .base import BasePoller
 
 logger = logging.getLogger(__name__)
@@ -18,7 +20,9 @@ _ODOT_INV_PATH = "/TrafficDetector/Inventory"
 class TrafficPoller(BasePoller):
     name = "traffic"
     interval = 60
-    _station_map = {}
+
+    def __init__(self):
+        self._station_map: dict = {}
 
     async def setup(self):
         if not settings.odot_api_key:
@@ -174,9 +178,7 @@ def _first_number(*values):
 
 
 def _distance_km(h_lat: float, h_lon: float, lat: float, lon: float) -> float:
-    dy = (lat - h_lat) * 111.0
-    dx = (lon - h_lon) * 78.0
-    return math.sqrt(dx**2 + dy**2)
+    return haversine_km(h_lat, h_lon, lat, lon)
 
 
 def _parse_odot_cameras(data: dict) -> list[dict]:
@@ -188,10 +190,6 @@ def _parse_odot_cameras(data: dict) -> list[dict]:
     h_lat = settings.region_lat
     h_lon = settings.region_lon
     
-    # 0.15 degrees is roughly 15-20km in Oregon
-    # We'll use a slightly larger buffer for the 'metro' feel
-    RADIUS_DEG = 0.15 
-
     for cam in records:
         lat = cam.get("latitude")
         lon = cam.get("longitude")
@@ -199,13 +197,7 @@ def _parse_odot_cameras(data: dict) -> list[dict]:
         if lat is None or lon is None:
             continue
             
-        # Simple Euclidean distance check (degrees to km conversion)
-        # 1 deg lat is ~111km. 1 deg lon at 45N is ~78km.
-        # For simplicity in local radius, we'll use a mean of 100km per deg or just return the squared deg for sorting.
-        # But let's actually return a rough KM for the UI.
-        dy = (lat - h_lat) * 111.0
-        dx = (lon - h_lon) * 78.0
-        dist_km = math.sqrt(dx**2 + dy**2)
+        dist_km = haversine_km(h_lat, h_lon, lat, lon)
 
         # Filter by global bounding box to ensure consistency across tactical layers
         if not (settings.bbox_min_lat <= lat <= settings.bbox_max_lat and
@@ -283,6 +275,22 @@ def _parse_odot_inventory(data: dict) -> dict:
     return mapping
 
 
+def _is_public_url(url: str) -> bool:
+    try:
+        parsed = urlparse(url)
+        if parsed.scheme not in ("http", "https"):
+            return False
+        hostname = parsed.hostname or ""
+        try:
+            ip = ipaddress.ip_address(hostname)
+            return ip.is_global
+        except ValueError:
+            pass  # hostname, not IP literal — DNS not pre-resolved on Pi
+        return bool(hostname)
+    except Exception:
+        return False
+
+
 async def _check_camera_health(cameras: list[dict]) -> None:
     """HEAD-check each camera URL and annotate with health status + last_ok_ts.
 
@@ -294,7 +302,7 @@ async def _check_camera_health(cameras: list[dict]) -> None:
 
     async def _probe(cam: dict) -> None:
         url = cam.get("url", "")
-        if not url:
+        if not url or not _is_public_url(url):
             cam["health"] = "unknown"
             cam["last_ok_ts"] = None
             return

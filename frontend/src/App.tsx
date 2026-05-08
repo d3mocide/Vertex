@@ -126,7 +126,7 @@ export default function App() {
         setAuthChecked(true)
       })
       .catch(() => {
-        setAuthed(true)
+        setAuthed(false)
         setAuthChecked(true)
       })
   }, [])

@@ -57,8 +57,16 @@ export function useTrailHydration(): void {
   const fetchedRef = useRef(new Set<string>())
   const queueRef = useRef<string[]>([])
   const processingRef = useRef(false)
+  const abortRef = useRef<AbortController | null>(null)
 
+  // Prune fetchedRef entries for entities that have left the store, so they
+  // can be re-fetched if they reappear.
   useEffect(() => {
+    const currentIds = new Set(Object.keys(entities))
+    for (const id of fetchedRef.current) {
+      if (!currentIds.has(id)) fetchedRef.current.delete(id)
+    }
+
     const newEntities = Object.entries(entities)
       .filter(([id, e]) => e.entity_type === 'aircraft' && !fetchedRef.current.has(id))
       .map(([id]) => id)
@@ -73,6 +81,13 @@ export function useTrailHydration(): void {
     }
   }, [entities])
 
+  // Abort any in-flight fetch on unmount.
+  useEffect(() => {
+    return () => {
+      abortRef.current?.abort()
+    }
+  }, [])
+
   const processQueue = async () => {
     if (processingRef.current || queueRef.current.length === 0) return
     processingRef.current = true
@@ -80,9 +95,11 @@ export function useTrailHydration(): void {
     while (queueRef.current.length > 0) {
       const entityId = queueRef.current.shift()!
       const url = `${API_BASE}/entities/${encodeURIComponent(entityId)}/trail?minutes=${HISTORY_MINUTES}`
+      const controller = new AbortController()
+      abortRef.current = controller
 
       try {
-        const res = await fetch(url, { headers: authHeaders() })
+        const res = await fetch(url, { headers: authHeaders(), signal: controller.signal })
         if (res.status === 429) {
           // Back off and re-queue if rate limited
           console.warn(`[trail] Rate limited (429) for ${entityId}, backing off...`)
@@ -106,6 +123,7 @@ export function useTrailHydration(): void {
           }
         }
       } catch (err) {
+        if (err instanceof DOMException && err.name === 'AbortError') break
         console.error(`[trail] Failed to fetch trail for ${entityId}`, err)
       }
 
@@ -113,6 +131,7 @@ export function useTrailHydration(): void {
       await new Promise(resolve => setTimeout(resolve, 400))
     }
 
+    abortRef.current = null
     processingRef.current = false
   }
 }

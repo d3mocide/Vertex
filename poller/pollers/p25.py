@@ -32,6 +32,7 @@ class P25Poller(BasePoller):
 
     def __init__(self):
         self._last_tgid: int | None = None
+        self._last_tag: str = ""
         self._call_start: str | None = None
         self._op25_url: str | None = None
 
@@ -78,11 +79,12 @@ class P25Poller(BasePoller):
             if self._last_tgid is not None and self._call_start:
                 await _write_event("p25_call_end", {
                     "tgid":       self._last_tgid,
-                    "tag":        tag,
+                    "tag":        self._last_tag,
                     "started_at": self._call_start,
                     "ended_at":   _now(),
                 })
             if tgid and is_call:
+                self._last_tag = tag
                 self._call_start = _now()
                 await _write_event("p25_call_start", {
                     "tgid":       tgid,
