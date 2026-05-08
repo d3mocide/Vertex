@@ -12,7 +12,7 @@
 |---|-------|--------|---------|
 | 1 | `poller/` — external ingestion, normalizers, geofence | ✅ Complete | 2026-05-08 |
 | 2 | `backend/` — API surface, auth, WebSocket | ✅ Complete | 2026-05-08 |
-| 3 | `frontend/` — TypeScript, Zustand, XSS vectors | ⬜ Not Started | — |
+| 3 | `frontend/` — TypeScript, Zustand, XSS vectors | ✅ Complete | 2026-05-08 |
 | 4 | `db/` — init SQL, schema, indexes | ⬜ Not Started | — |
 | 5 | Cross-cutting — API contracts, Redis channels, env/config | ⬜ Not Started | — |
 
@@ -414,28 +414,182 @@ _Fix: Add `response_model=` to each route decorator._
 ## 3. Frontend (`frontend/src/`)
 
 **Files reviewed:**
-- [ ] `main.tsx` / `App.tsx` / `AdminApp.tsx`
-- [ ] `store.ts` / `storeTypes.ts`
-- [ ] `config.ts`
-- [ ] `auth.ts`
-- [ ] `hooks/useWebSocket.ts`
-- [ ] `hooks/useEntities.ts` / `useAlerts.ts` / `useRadioStreams.ts`
-- [ ] `hooks/useSystemHealth.ts` / `useTrailHydration.ts`
-- [ ] `components/LoginPage.tsx`
-- [ ] `components/Map.tsx` / `MapOverlay.tsx`
-- [ ] `components/layout/*` (6 files)
-- [ ] `components/panels/*` (16 files)
-- [ ] `components/layers/*` (10 files)
-- [ ] `layers/build*.ts` (12 files)
-- [ ] `layers/colorUtils.ts` / `geoUtils.ts` / `iconAtlas.ts` / `pvb.ts`
-- [ ] `admin/*` (3 files + metrics/)
-- [ ] `entityUtils.ts` / `incidentUtils.ts`
-- [ ] `notifications.ts` / `snapshotExport.ts`
-- [ ] `tsconfig.json` / `vite.config.ts` / `nginx.conf`
+- [x] `main.tsx` / `App.tsx` / `AdminApp.tsx`
+- [x] `store.ts` / `storeTypes.ts`
+- [x] `config.ts`
+- [x] `auth.ts`
+- [x] `hooks/useWebSocket.ts`
+- [x] `hooks/useEntities.ts` / `useAlerts.ts` ✦ / `useRadioStreams.ts` ✦
+- [x] `hooks/useSystemHealth.ts` ✦ / `useTrailHydration.ts`
+- [x] `components/LoginPage.tsx` ✦
+- [x] `components/Map.tsx` ✦ / `MapOverlay.tsx`
+- [x] `components/layout/AlertRulesSection.tsx` / `AlertStatusBar.tsx` ✦ / `EnvBar.tsx` ✦ / `Header.tsx` ✦ / `MobileNav.tsx` ✦ / `SettingsPanel.tsx` ✦ / `SettingsPrimitives.tsx` ✦ / `Sidebar.tsx`
+- [x] `components/panels/AnnotationController.tsx` ✦ / `CameraModal.tsx` / `ChannelsPanel.tsx` ✦ / `CommunityPanel.tsx` ✦ / `CustomLayersTab.tsx` / `EntityDetail.tsx` ✦ / `EntitySearchPanel.tsx` / `EnvironmentPanel.tsx` ✦ / `EventLogPanel.tsx` ✦ / `GeofenceController.tsx` ✦ / `GeofencePanel.tsx` ✦ / `IncidentsPanel.tsx` / `InfrastructureGrid.tsx` / `PlaybackController.tsx` ✦ / `TacticalAudio.tsx`
+- [x] `components/panels/environment/AqiGauge.tsx` ✦ / `FireStatusCard.tsx` / `RadarMiniMap.tsx` ✦ / `SeismicCard.tsx` ✦ / `WeatherAlertCard.tsx` ✦ / `WeatherCard.tsx` ✦
+- [x] `components/layers/AnnotationOverlay.tsx` ✦ / `CustomLayersLayer.tsx` ✦ / `GeofenceLayer.tsx` / `MeshLayer.tsx` / `ObservationRingLayer.tsx` ✦ / `RadarLayer.tsx` / `SmokeLayer.tsx` ✦ / `StreamGaugeLayer.tsx` / `TerrainLayer.tsx` ✦ / `TinyGSLayer.tsx`
+- [x] `layers/AnnotationLayer.tsx` ✦ / `atlasIcons.ts` ✦ / `buildCameraLayer.ts` ✦ / `buildCustomLayers.ts` / `buildEntityLayers.ts` ✦ / `buildEventLayers.ts` ✦ / `buildGeofenceLayers.ts` / `buildLightningLayer.ts` ✦ / `buildMeshNodeLayer.ts` ✦ / `buildObservationRingLayer.ts` ✦ / `buildStreamGaugeLayer.ts` ✦ / `buildTinyGSLayer.ts` ✦ / `buildTrailLayers.ts` / `colorUtils.ts` ✦ / `geoUtils.ts` ✦ / `iconAtlas.ts` / `pvb.ts` ✦
+- [x] `admin/AdminFeeds.tsx` ✦ / `AdminMetrics.tsx` / `AdminUsers.tsx` ✦
+- [x] `admin/metrics/DbPoolPanel.tsx` ✦ / `EntityDonut.tsx` ✦ / `EventActivity.tsx` ✦ / `HealthBar.tsx` ✦ / `IngestionChart.tsx` ✦ / `LivePerformance.tsx` ✦ / `PollerGrid.tsx` ✦ / `Primitives.tsx` / `StoragePanel.tsx` ✦ / `types.ts` ✦
+- [x] `entityUtils.ts` ✦ / `incidentUtils.ts` ✦ / `notifications.ts` ✦ / `snapshotExport.ts`
+- [x] `tsconfig.json` ✦ / `vite.config.ts` ✦ / `nginx.conf` / `public/sw.js`
+
+✦ = no findings
 
 **Findings:**
 
-_None logged yet._
+---
+#### Security
+
+**[CRIT] `components/MapOverlay.tsx` — XSS via `innerHTML` with server-controlled fields**
+The tooltip element is populated via `tooltip.innerHTML = html` where `html` is built by direct f-string interpolation of `t.callsign`, `t.uid`, `t.category`, `cam.name`, `cam.road`, `ev.summary`, `gauge.name`, `node.name`, `node.status`, `sat.name`, `geofence.name`, and others — all sourced from WebSocket/backend data. A compromised backend message or DB record containing `<img src=x onerror=alert(document.cookie)>` executes immediately on tooltip hover.
+_Fix: Replace `tooltip.innerHTML = html` with safe DOM construction using `document.createTextNode` / `element.textContent`, or run every interpolated field through an HTML-escaping helper before insertion._
+
+**[CRIT] `auth.ts:10,17` — Missing/malformed token silently falls through to `'admin'` role**
+`getUserRole()` returns `'admin'` when no token is present (line 10) and again inside the `catch` block (line 17). An unauthenticated visitor, a user with a corrupt token, and a token without a `role` claim all receive admin privileges in every client-side role gate.
+_Fix: Return `'viewer'` as the safe fallback on missing or unparseable tokens._
+
+**[HIGH] `main.tsx:10` — Admin route guard relies on the broken `getUserRole()`**
+`if (isAdmin && getUserRole() !== 'admin') { window.location.replace('/') }` — because `getUserRole()` returns `'admin'` on a missing token, an unauthenticated browser visiting `/admin` passes the check and renders the full admin UI.
+_Fix: Fix `getUserRole()` first. Also ensure every admin API endpoint enforces server-side JWT validation so the admin UI can't perform destructive operations without a valid token._
+
+**[HIGH] `auth.ts:21` — JWT sent as URL query parameter on WebSocket connection**
+`wsTokenParam()` appends `?token=<jwt>` to the WebSocket URL. Tokens in query strings appear in server access logs, browser history, and `Referer` headers — effectively durable credentials at rest in logs.
+_Fix: Pass the JWT in the first WebSocket message frame after connection opens (`{type:"auth",token:...}`), or exchange for a short-lived opaque ticket from a `/ws/ticket` endpoint._
+
+**[HIGH] `hooks/useWebSocket.ts:55` — Unguarded `JSON.parse` silently kills all real-time updates**
+A single malformed WebSocket frame throws an unhandled `SyntaxError` inside `onmessage`. The connection stays open but `onmessage` is never re-attached, so the app silently stops receiving all real-time updates for the rest of the session.
+_Fix: Wrap in try/catch, log the error, and `return` early on bad frames._
+
+**[HIGH] `hooks/useWebSocket.ts:~70` — Fixed 3 s reconnect with no backoff or cap**
+Every disconnect schedules a 3 s reconnect forever, hammering the server during sustained outages with no exponential backoff.
+_Fix: Implement exponential backoff starting at 1 s, doubling each attempt, capped at 60 s, reset on successful connection._
+
+**[HIGH] `components/layers/MeshLayer.tsx:~40` — MapLibre event listeners accumulate on every re-render**
+`map.on('click', ...)`, `map.on('mouseenter', ...)`, `map.on('mouseleave', ...)` registered in a `useEffect` with no cleanup return. Each dependency change adds a new set of listeners without removing the previous ones — after 10 renders, 30 listeners fire on every map interaction.
+_Fix: Capture handler references in `const` before registering and return `() => { map.off(...) }` from the effect._
+
+**[HIGH] `components/layers/TinyGSLayer.tsx:~35,~65` — MapLibre listeners never removed**
+Both `useEffect` calls register click/hover events with no `map.off(...)` cleanup. Same unbounded accumulation as `MeshLayer.tsx`.
+_Fix: Same pattern — capture and remove handlers in effect cleanup._
+
+**[HIGH] `components/layers/StreamGaugeLayer.tsx:~30` — MapLibre listeners never removed**
+Click and hover events registered without cleanup. Same issue.
+_Fix: Same pattern._
+
+**[HIGH] `components/panels/CameraModal.tsx:~45` — Camera image/iframe URL sourced from backend without protocol check**
+`src={selectedCam.ldi_url ?? selectedCam.url}` sets an `<img>` / `<iframe>` src directly from the store. A `javascript:` or `data:text/html` URL in a camera record reaches the element unchecked.
+_Fix: Validate before use: `const safe = /^https?:\/\//i.test(url) ? url : ''`._
+
+---
+#### Correctness
+
+**[MED] `App.tsx:129` — Network error on auth check silently grants full access**
+`.catch(() => { setAuthed(true); setAuthChecked(true) })` — a backend outage or DNS failure admits the user as authenticated, bypassing the login gate entirely.
+_Fix: On fetch failure, set `authed = false` and show an error state rather than granting access._
+
+**[MED] `components/layout/Sidebar.tsx:77,335` — Unvalidated `href` from server RSS data**
+`href={incident.link}` renders an anchor whose URL comes from the RSS/feed pipeline without protocol validation. A `javascript:` link executes on click.
+_Fix: `const safeLink = /^https?:\/\//i.test(link) ? link : '#'`. Apply `rel="noopener noreferrer"` to all external links._
+
+**[MED] `components/panels/IncidentsPanel.tsx:~50,~90` — Unvalidated `href` + ReactMarkdown trust surface**
+Same unvalidated `href={incident.link}` risk. AI-generated `summary.summary` is passed to `<ReactMarkdown>` — safe today but any future addition of `rehype-raw` would enable arbitrary HTML from model output.
+_Fix: Validate all `href` values. Add an explicit comment in the `ReactMarkdown` call prohibiting `rehype-raw`._
+
+**[MED] `components/panels/environment/FireStatusCard.tsx:65` — Unvalidated `href` from fire entity link**
+`href={fire.link}` from an RSS/API-sourced field. Same protocol-validation gap.
+_Fix: Same validation as above._
+
+**[MED] `components/layout/AlertRulesSection.tsx:~80` — Webhook URL submitted without client-side scheme check**
+Form input is POSTed to the backend without validating `https?://`. Defence-in-depth requires the client to reject non-HTTP(S) schemes.
+_Fix: Reject on submit if `!/^https?:\/\//i.test(webhookUrl)`._
+
+**[MED] `components/panels/TacticalAudio.tsx:~55` — Audio stream URL from backend without protocol validation**
+`selectedStream.url` from the backend radio config is set as `<audio src>` without a scheme check.
+_Fix: Validate before assignment._
+
+**[MED] `hooks/useTrailHydration.ts:~15` — `fetchedRef` Set grows unbounded**
+Records every entity UID whose trail has been fetched and is never pruned when entities leave the store. Accumulates indefinitely over a long session with many transient aircraft.
+_Fix: On each fetch cycle, remove entries from `fetchedRef` for UIDs no longer present in the entity store._
+
+**[MED] `hooks/useTrailHydration.ts:~40` — In-flight fetch has no abort on unmount**
+No `AbortController` and no mount-check guard — a fetch completing after unmount fires `refreshEntityTrack` on a stale store reference.
+_Fix: Create an `AbortController` per fetch; call `controller.abort()` in the effect cleanup._
+
+**[MED] `store.ts` — `trafficFlow: any[]`, `utilityStatus: any`, `oregonStatus: any`**
+Three store slices typed `any`, bypassing strict-mode checking for all downstream consumers.
+_Fix: Define minimal concrete interfaces and replace `any` with them._
+
+**[MED] `components/layers/GeofenceLayer.tsx:~50` — MapLibre source and layers not removed on unmount**
+The `'geofence-draw'` source and its layers are added but never cleaned up. On remount, attempting to re-add the same source ID throws a MapLibre error.
+_Fix: Return a cleanup that conditionally calls `map.removeLayer` / `map.removeSource` for each added resource._
+
+**[MED] `components/layers/RadarLayer.tsx:95` — Private MapLibre internal accessed via `any` cast**
+`(map as any).style?.sourceCaches?.[sourceId]` accesses a private API that can silently break on any MapLibre minor version rename.
+_Fix: Use the public `map.getSource(sourceId)` API._
+
+**[MED] `layers/buildCustomLayers.ts:~30` — `hexToRgb` returns `[NaN, NaN, NaN]` for invalid hex**
+No validity guard before `parseInt`. An invalid hex string produces `[NaN, NaN, NaN]` which causes WebGL rendering artifacts.
+_Fix: Guard with `if (!/^#[0-9a-f]{6}$/i.test(hex)) return [100, 100, 100]`._
+
+**[MED] `snapshotExport.ts:24` — `toDataURL()` throws unhandled `SecurityError` on cross-origin tiles**
+`canvas.toDataURL()` throws when cross-origin tiles are drawn without CORS headers. The error propagates with no user-facing feedback.
+_Fix: Wrap in try/catch and show an explanatory alert if the canvas is tainted._
+
+**[MED] `admin/AdminMetrics.tsx:25` — Stale `authHeaders()` captured in `useCallback` closures**
+`const h = authHeaders()` evaluated once at render time and closed over by all five fetch callbacks. A token refresh while the component is mounted causes stale credentials to be used for all subsequent interval fetches.
+_Fix: Call `authHeaders()` inside each fetch function, not at the top of the component._
+
+---
+#### Code Quality
+
+**[LOW] `store.ts` — Variable shadowing: filter callback parameter `s` shadows outer state `s`**
+`.filter((s) => now - s.ts < WINDOW_MS)` — inner `s` shadows the Zustand state parameter. A future reader adding a reference to the outer `s` inside the callback would get a silent bug.
+_Fix: Rename inner parameter: `.filter((strike) => now - strike.ts < WINDOW_MS)`._
+
+**[LOW] `config.ts:~5` — Runtime-fetched external map style URL with no integrity pinning**
+`MAP_STYLE` fetches from `tiles.openfreemap.org` at runtime. A compromised CDN could redirect `glyphs`, `sprite`, and `sources` to attacker-controlled resources.
+_Fix: Self-host the style JSON in `public/` or pin a specific frozen version._
+
+**[LOW] `storeTypes.ts:154` — `SystemEvent.details` index signature typed `any`**
+`[key: string]: any` silently bypasses strict-mode checks on all callers that access unknown detail keys.
+_Fix: Change to `[key: string]: unknown` to force callers to narrow before use._
+
+**[LOW] `hooks/useEntities.ts:~10` — `Object.values(...).filter(...)` creates a new array on every store subscription tick**
+Zustand's shallow equality always detects a change because a new array reference is returned, re-rendering all consumers even when entity data is unchanged.
+_Fix: Use a memoized selector with Zustand's `shallow` comparator._
+
+**[LOW] `components/panels/CustomLayersTab.tsx:~60` — No file size limit on KML/GeoJSON upload**
+A 500 MB GeoJSON fed to `JSON.parse` blocks the main thread and can OOM the tab.
+_Fix: Check `file.size > 10 * 1024 * 1024` before reading and show an error._
+
+**[LOW] `components/panels/EntitySearchPanel.tsx:145` — Dead conditional `const showList = true`**
+Hardcoded `true` makes the conditional branch always render; the variable serves no purpose.
+_Fix: Remove the variable and render the list directly._
+
+**[LOW] `layers/iconAtlas.ts` vs `layers/atlasIcons.ts` — Two parallel icon atlas implementations**
+`iconAtlas.ts` (3×2 canvas shapes) is fully superseded by `atlasIcons.ts` but still exported. A wrong import silently serves a reduced icon set with no type error.
+_Fix: Delete `iconAtlas.ts` if fully superseded, or mark it deprecated._
+
+**[NIT] `layers/buildGeofenceLayers.ts:37` — `(g.geojson_polygon as any)` repeated unnecessarily**
+Two `as any` casts to access `.type` and `.coordinates`. Type `geojson_polygon` as `GeoJSON.Geometry` to eliminate both.
+
+**[NIT] `layers/buildTrailLayers.ts:94-98` — Double `as any` cast for `PathStyleExtension` typing gap**
+Known upstream Deck.gl typing issue. Add a comment explaining the workaround and track the upstream issue.
+
+**[NIT] `admin/metrics/Primitives.tsx:26` — SVG gradient ID uses `Math.random()` on every render**
+Risk of ID collisions in lists; React StrictMode doubles frequency. Use React 18's `useId()` hook instead.
+
+**[NIT] `components/panels/IncidentsPanel.tsx` / `Sidebar.tsx` / `InfrastructureGrid.tsx` — Duplicated incident formatting helpers**
+`formatIncidentLocation` and equivalent title-derivation logic appear in at least three files independently.
+_Fix: Extract to `src/utils/incidentFormatters.ts`._
+
+**[NIT] `nginx.conf:43` — `/op25/` proxy has no access restriction**
+Comment says "admin use only" but the config enforces nothing — any user reaching the Nginx port can access the OP25 terminal.
+_Fix: Add `allow <admin_subnet>; deny all;` or HTTP basic auth._
+
+**[NIT] `public/sw.js:3` — Service worker has no `activate` handler**
+Without `self.clients.claim()` in activate, old SW versions keep running until all tabs are closed.
+_Fix: Add `self.addEventListener('activate', e => e.waitUntil(self.clients.claim()))`._
 
 ---
 
@@ -488,6 +642,10 @@ _None logged yet._
 |---------|------|---------------|----------------|
 | 1 | 2026-05-08 | 1 CRIT, 5 HIGH, 10 MED, 12 LOW, 7 NIT | 43 (all of `poller/`) |
 | 2 | 2026-05-08 | 3 CRIT, 8 HIGH, 16 MED, 7 LOW, 2 NIT | 38 (all of `backend/`) |
+| 3 | 2026-05-08 | 2 CRIT, 8 HIGH, 14 MED, 7 LOW, 6 NIT | 80 (all of `frontend/`) |
+
+### Session 3 Highlights
+The most critical issue is XSS via `innerHTML` in `MapOverlay.tsx`: every map tooltip interpolates server-controlled entity fields directly into the DOM with no sanitization — a single compromised WebSocket message achieves full XSS. The second critical cluster is `auth.ts`, where missing and malformed tokens both silently resolve to `'admin'`, which combined with the client-only admin route guard in `main.tsx` means the admin UI is currently accessible to unauthenticated users. Three map layer components (`MeshLayer`, `TinyGSLayer`, `StreamGaugeLayer`) leak MapLibre event listeners on every re-render and `GeofenceLayer` doesn't clean up its source/layers on unmount. The WebSocket handler's unguarded `JSON.parse` creates a silent total failure mode on a single bad frame. The recurring theme across the frontend is unvalidated `href` URLs from RSS/feed data rendered in `Sidebar`, `IncidentsPanel`, and `FireStatusCard`. 27 of 80 files were completely clean.
 
 ### Session 2 Highlights
 The backend is well-structured with correct parameterised queries and async session handling throughout. The most serious cluster is the **auth system**: empty secret-key default allows trivially-forged JWTs, any token missing the `role` claim silently becomes admin, JWT decode logic is duplicated in three independent places, and the entire `/api/v1/auth/` prefix bypasses `AuthMiddleware` including user-management routes. The **webhook/alertrule subsystem** is a second critical cluster: SSRF via stored URLs with zero host validation, non-atomic Redis rate-limiting, and the dispatcher dying permanently on any Redis disconnect. The unauthenticated Prometheus `/metrics` and fully-public admin endpoints (when auth is off, the default) round out the high-priority items. 11 of 38 files were completely clean.
