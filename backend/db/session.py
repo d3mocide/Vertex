@@ -43,6 +43,8 @@ async def init_db():
         "ALTER TABLE geofences ADD COLUMN IF NOT EXISTS center_lon DOUBLE PRECISION",
         "ALTER TABLE geofences ADD COLUMN IF NOT EXISTS radius_m DOUBLE PRECISION",
         "ALTER TABLE geofences ADD COLUMN IF NOT EXISTS dwell_seconds INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE annotations ADD COLUMN IF NOT EXISTS tak_uid VARCHAR(128)",
+        "CREATE INDEX IF NOT EXISTS ix_annotations_tak_uid ON annotations (tak_uid) WHERE tak_uid IS NOT NULL",
     ]
     for migration in migrations:
         async with engine.begin() as conn:

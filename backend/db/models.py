@@ -212,3 +212,6 @@ class Annotation(Base):
     created_by: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
     expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    # TAK UID from originating CoT event — set for annotations ingest from openTAK;
+    # used to deduplicate rebroadcasts and correlate with incoming delete events.
+    tak_uid: Mapped[Optional[str]] = mapped_column(String(128), nullable=True, index=True)

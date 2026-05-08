@@ -1,9 +1,9 @@
 // Atlas icon system — 8 categories on a 32×32 design grid, rendered to 64px canvas cells.
 // Layout: 4 cols × 3 rows = 256×192 px atlas.
 //
-// Row 0: aircraft | vessel | mesh  | aprs
+// Row 0: aircraft | vessel | mesh    | aprs
 // Row 1: stream   | lightning | fire | camera
-// Row 2: ring     | dot    | halo  | —
+// Row 2: ring     | dot    | halo    | tak_client
 
 export interface IconAtlasResult {
   url: string
@@ -245,6 +245,25 @@ export function createAtlasIcons(): IconAtlasResult {
     ctx.fillRect(ox, oy, CELL, CELL)
   }
 
+  // ─── Row 2, Col 3 · TAK CLIENT — person silhouette (head + torso) ─────────
+  // Matches CoT military symbology for a friendly ground individual (a-f-G-U-C-I).
+  {
+    const [ox, oy] = cellOrigin(3, 2)
+    ctx.fillStyle = W
+    // Head — circle
+    ctx.beginPath()
+    ctx.arc(ox + 32, oy + 16, 8, 0, Math.PI * 2)
+    ctx.fill()
+    // Torso — rounded trapezoid (shoulders wider than waist)
+    ctx.beginPath()
+    ctx.moveTo(ox + 18, oy + 28)   // left shoulder
+    ctx.lineTo(ox + 46, oy + 28)   // right shoulder
+    ctx.lineTo(ox + 40, oy + 52)   // right hip
+    ctx.lineTo(ox + 24, oy + 52)   // left hip
+    ctx.closePath()
+    ctx.fill()
+  }
+
   return {
     url:    canvas.toDataURL(),
     width:  canvas.width,
@@ -258,9 +277,10 @@ export function createAtlasIcons(): IconAtlasResult {
       lightning: entry(1, 1),
       fire:      entry(2, 1),
       camera:    entry(3, 1),
-      ring:      entry(0, 2),
-      dot:       entry(1, 2),
-      halo:      entry(2, 2),
+      ring:       entry(0, 2),
+      dot:        entry(1, 2),
+      halo:       entry(2, 2),
+      tak_client: entry(3, 2),
     },
   }
 }

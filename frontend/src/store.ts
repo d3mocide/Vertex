@@ -138,6 +138,7 @@ interface CivicStore {
   annotations:             AnnotationItem[]
   setAnnotations:          (items: AnnotationItem[]) => void
   addAnnotation:           (item: AnnotationItem) => void
+  updateAnnotation:        (item: AnnotationItem) => void
   removeAnnotation:        (id: number) => void
   annotationDrawMode:      'marker' | 'line' | 'polygon' | null
   setAnnotationDrawMode:   (mode: 'marker' | 'line' | 'polygon' | null) => void
@@ -327,6 +328,7 @@ export const useCivicStore = create<CivicStore>((set) => ({
         satellite:    1_800_000,   // 30 min — matches poller TTL
         tinygs_station: 600_000,   // 10 min — station ping is every ~60 s
         stream_gauge:   600_000,   // 10 min — gauges are polled every 5 min
+        tak_client:     300_000,   // 5 min  — TAK SA ping is every 30 s–2 min
       }
       for (const [id, e] of Object.entries(next)) {
         const limit = STALE_MS[e.entity_type]
@@ -456,6 +458,7 @@ export const useCivicStore = create<CivicStore>((set) => ({
 
   setAnnotations:       (annotations) => set({ annotations }),
   addAnnotation:        (item) => set((s) => ({ annotations: [...s.annotations, item] })),
+  updateAnnotation:     (item) => set((s) => ({ annotations: s.annotations.map((a) => a.id === item.id ? item : a) })),
   removeAnnotation:     (id) => set((s) => ({ annotations: s.annotations.filter((a) => a.id !== id) })),
   setAnnotationDrawMode: (annotationDrawMode) => set({ annotationDrawMode }),
   setAnnotationDrawPreview: (annotationDrawPoints, annotationDrawCursor) => set({ annotationDrawPoints, annotationDrawCursor }),

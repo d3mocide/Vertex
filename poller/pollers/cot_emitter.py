@@ -1,19 +1,18 @@
 """
 TAK/CoT (Cursor-on-Target) UDP emitter.
 
-Subscribes to Redis entity_update events and broadcasts each entity's
-position as a CoT XML datagram — compatible with ATAK, WinTAK, and any
-CoT-aware tool.  Supports both UDP multicast (default 239.2.3.1:6969)
-and unicast to a dedicated TAK server.
+Subscribes to Redis entity_update and annotation_update events and broadcasts:
+- Entity positions as CoT datagrams to ATAK/WinTAK clients
+- Vertex annotations as CoT map markers (b-m-p-s-m) to openTAK
 
-Enable via COT_ENABLED=true in .env.
+Supports both UDP multicast (default 239.2.3.1:6969) and unicast to a
+dedicated TAK server.  Enable via COT_ENABLED=true in .env.
 """
 
 import asyncio
 import json
 import logging
 import socket
-import struct
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -25,13 +24,25 @@ logger = logging.getLogger(__name__)
 
 # Map Vertex entity_type → CoT type atom
 _COT_TYPES: dict[str, str] = {
-    "aircraft":     "a-f-A",
-    "vessel":       "a-f-S-X-M",
-    "mesh_node":    "a-f-G-U-C",
-    "aprs":         "a-f-G-E-S",
+    "aircraft":      "a-f-A",
+    "vessel":        "a-f-S-X-M",
+    "mesh_node":     "a-f-G-U-C",
+    "aprs":          "a-f-G-E-S",
     "fire_incident": "a-h-G",
+    "tak_client":    "a-f-G-U-C-I",  # friendly ground unit / individual
 }
 _COT_DEFAULT = "a-u-G"
+
+# Map annotation color hex → CoT color name (ATAK palette)
+_COLOR_MAP: dict[str, str] = {
+    "#ef4444": "Red",
+    "#f97316": "Orange",
+    "#f59e0b": "Yellow",
+    "#22c55e": "Green",
+    "#06b6d4": "Cyan",
+    "#a855f7": "Purple",
+    "#ec4899": "Magenta",
+}
 
 
 def _ts(dt: datetime) -> str:
@@ -76,6 +87,62 @@ def _build_cot(entity: dict[str, Any]) -> str | None:
     )
 
 
+def _build_annotation_cot(ann: dict[str, Any]) -> str | None:
+    """Convert a Vertex annotation to a CoT map marker for openTAK."""
+    geojson = ann.get("geojson", {})
+    ann_type = ann.get("annotation_type", "marker")
+    label = ann.get("label") or "Vertex Marker"
+    color_hex = ann.get("color", "#FFB800").lower()
+    color_name = _COLOR_MAP.get(color_hex, "Yellow")
+    ann_id = ann.get("id", "unknown")
+    uid = ann.get("tak_uid") or f"VERTEX-ANN-{ann_id}"
+
+    # Extract representative lat/lon
+    coords = geojson.get("coordinates")
+    lat: float | None = None
+    lon: float | None = None
+
+    if ann_type == "marker" and isinstance(coords, list) and len(coords) == 2:
+        lon, lat = coords[0], coords[1]
+    elif ann_type == "line" and isinstance(coords, list) and len(coords) >= 1:
+        lon, lat = coords[0][0], coords[0][1]
+    elif ann_type == "polygon" and isinstance(coords, list) and len(coords) >= 1:
+        ring = coords[0]
+        if ring:
+            lons = [p[0] for p in ring]
+            lats = [p[1] for p in ring]
+            lon = sum(lons) / len(lons)
+            lat = sum(lats) / len(lats)
+
+    if lat is None or lon is None:
+        return None
+
+    now = datetime.now(timezone.utc)
+    stale_dt = ann.get("expires_at")
+    if stale_dt:
+        try:
+            stale = datetime.fromisoformat(stale_dt.replace("Z", "+00:00"))
+        except (ValueError, AttributeError):
+            stale = now + timedelta(hours=24)
+    else:
+        stale = now + timedelta(days=365)
+
+    return (
+        '<?xml version="1.0" encoding="UTF-8"?>'
+        f'<event version="2.0" uid="{uid}" type="b-m-p-s-m"'
+        f' time="{_ts(now)}" start="{_ts(now)}" stale="{_ts(stale)}" how="h-g-i-g-o">'
+        f'<point lat="{lat:.6f}" lon="{lon:.6f}" hae="0.0" ce="9999999.0" le="9999999.0"/>'
+        "<detail>"
+        f'<contact callsign="{label}"/>'
+        f'<uid Droid="{label}"/>'
+        f'<color argb="-1"/>'
+        f'<usericon iconsetpath="COT_MAPPING_2525B/a-f-G/a-f-G.png"/>'
+        f'<remarks>Vertex {ann_type} — color:{color_name}</remarks>'
+        "</detail>"
+        "</event>"
+    )
+
+
 def _make_socket() -> tuple[socket.socket, tuple[str, int]]:
     if settings.cot_takserver_host:
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -89,10 +156,10 @@ def _make_socket() -> tuple[socket.socket, tuple[str, int]]:
 
 
 class CotEmitter(BasePoller):
-    """Listens on Redis pub/sub and emits CoT datagrams for every entity update."""
+    """Listens on Redis pub/sub and emits CoT datagrams for entity updates and annotations."""
 
     name = "cot_emitter"
-    interval = 0  # not used — event-driven
+    interval = 0  # event-driven
 
     async def run(self) -> None:
         if not settings.cot_enabled:
@@ -118,20 +185,29 @@ class CotEmitter(BasePoller):
 
         try:
             async with r.pubsub() as ps:
-                await ps.subscribe("entity_update")
+                await ps.subscribe("entity_update", "annotation_update")
                 async for msg in ps.listen():
                     if msg["type"] != "message":
                         continue
                     try:
-                        entity = json.loads(msg["data"])
+                        payload = json.loads(msg["data"])
                     except (json.JSONDecodeError, TypeError):
                         continue
-                    xml = _build_cot(entity)
+
+                    if msg["channel"] == "entity_update":
+                        xml = _build_cot(payload)
+                    else:
+                        # Skip annotations that originated from TAK to avoid feedback loops.
+                        if payload.get("source") == "tak":
+                            continue
+                        if payload.get("action") == "delete":
+                            continue
+                        xml = _build_annotation_cot(payload)
+
                     if xml:
                         await _send(xml.encode())
         finally:
             sock.close()
 
-    # BasePoller requires poll() — not used for this event-driven poller
     async def poll(self) -> None:
         pass
