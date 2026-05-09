@@ -1012,3 +1012,20 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
   
 - Fixed an issue where MapLibre GL JS setTiles updated the URL template but did not clear the currently loaded tiles from the active viewport.  
 - Added an explicit clearTiles() and 	riggerRepaint() call to the sourceCache to force the map to immediately fetch new imagery, preventing stale radar data. 
+
+## 2026-05-09 — Sprint 8: Mobile-Responsive Layout (G2) + Panel Layout Persistence (G3)
+
+### G3 — Panel Layout Persistence
+- **`frontend/src/store.ts`**: Added Zustand `persist` middleware wrapping the store; `partialize` serializes 14 UI preference fields to `localStorage` key `vertex.ui.prefs` automatically.
+- **`backend/db/models.py`**: Added `UserPreference` model (username, key, JSON value, updated_at) with unique index on `(username, key)` for per-user server-side preference storage.
+- **`backend/routers/auth.py`**: Added `GET /auth/preferences` and `PUT /auth/preferences` endpoints; bulk upsert via INSERT … ON CONFLICT DO UPDATE.
+- **`frontend/src/hooks/usePreferences.ts`**: New hook that loads preferences from backend on mount (applied to Zustand store) and debounced-saves on any store change (1.5 s delay). Wired into `App.tsx` `Dashboard` component.
+
+### G2 — Mobile-Responsive Layout
+- **`frontend/src/components/layout/MobileNav.tsx`**: Replaced full-screen slide-out drawer with a permanent `fixed bottom-0` bottom tab bar (6 tabs with icon + label, active amber stripe). No longer requires `mobileNavOpen` store state.
+- **`frontend/src/components/layout/Header.tsx`**: Removed hamburger button; shows VERTEX brand mark on mobile; mode toggle buttons use icon-only below `sm` breakpoint; imported `NavTab` type.
+- **`frontend/src/App.tsx`**: Root div gains `pb-14 lg:pb-0` to clear bottom nav; sidebar wrapped with `hidden lg:flex` to hide on mobile; PlaybackController row uses `left-2 lg:left-[280px]`.
+- **`frontend/src/components/panels/TacticalAudio.tsx`**: Bottom position changed to `bottom-16 lg:bottom-6` to clear 56 px mobile tab bar.
+- **`frontend/src/components/panels/EntitySearchPanel.tsx`**: Repositioned to `bottom-20` full-width on mobile, `top-28 left-4 w-64` on desktop (`lg:`).
+- **`frontend/src/components/panels/EntityDetail.tsx`**: Width made responsive (`w-[calc(100vw-1rem)] sm:w-72 lg:w-64`); max-height capped at `55vh` on mobile.
+- **Motivation**: Operators in the field using phones/tablets had no usable layout. All panels now render correctly on narrow viewports without overlap or unreachable controls.

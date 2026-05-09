@@ -155,7 +155,7 @@ export function EntitySearchPanel() {
   })
 
   return (
-    <div className="absolute top-28 left-4 z-30 w-64 hud-panel overflow-hidden">
+    <div className="absolute bottom-20 left-2 right-2 lg:bottom-auto lg:top-28 lg:left-4 lg:right-auto z-30 w-auto lg:w-64 hud-panel overflow-hidden max-h-[60vh] lg:max-h-none">
       {/* Search input */}
       <div className="flex items-center gap-2 px-3 py-2 border-b border-white/5">
         <span className="ms text-[14px] text-on-surface-variant leading-none shrink-0">search</span>

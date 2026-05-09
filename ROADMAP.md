@@ -251,8 +251,8 @@ LOW IMPACT
 | F1 | ATAK Bidirectional (CoT Ingest) | Radio/TAK | M | High | P1 | Done |
 | F2 | Talkgroup Scan Priority Enforcement | Radio/TAK | M | Medium | P2 | Done |
 | G1 | Scheduled SitRep Delivery | Deployment | S | Medium | P2 | Done |
-| G2 | Mobile-Responsive Layout | Deployment | L | Medium | P2 | Not Started |
-| G3 | Panel Layout Persistence | Deployment | S | Low | P3 | Not Started |
+| G2 | Mobile-Responsive Layout | Deployment | L | Medium | P2 | Done |
+| G3 | Panel Layout Persistence | Deployment | S | Low | P3 | Done |
 
 ---
 
@@ -267,7 +267,7 @@ LOW IMPACT
 ### Sprint 7 — Depth & Radio (P2) ✓ Complete
 `E2` P25 audio archiving · `F1` ATAK CoT ingest · `F2` Scan priority enforcement · `G1` Scheduled SitRep
 
-### Sprint 8 — Deployment Hardening (P2–P3)
+### Sprint 8 — Deployment Hardening (P2–P3) ✓ Complete
 `G2` Mobile-responsive layout · `G3` Panel layout persistence
 
 ---

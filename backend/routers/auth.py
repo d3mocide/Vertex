@@ -10,7 +10,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from config import settings
-from db.models import User
+from db.models import User, UserPreference
 from deps import get_db
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -223,4 +223,51 @@ async def delete_user(user_id: int, request: Request, db: AsyncSession = Depends
     if user.username == caller.get("sub", ""):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Cannot delete yourself")
     await db.delete(user)
+    await db.commit()
+
+
+# ---------------------------------------------------------------------------
+# User preferences — per-user key/value store for persisting UI layout
+# Works when auth is enabled; returns 404 otherwise.
+# ---------------------------------------------------------------------------
+
+def _get_username(request: Request) -> str:
+    """Extract the authenticated username from the request JWT."""
+    if not settings.auth_enabled:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    token = request.headers.get("Authorization", "").removeprefix("Bearer ").strip()
+    if not token:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)
+    try:
+        payload = jwt.decode(token, settings.auth_secret_key, algorithms=[_ALGORITHM])
+        return str(payload["sub"])
+    except Exception:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)
+
+
+@router.get("/preferences")
+async def get_preferences(request: Request, db: AsyncSession = Depends(get_db)):
+    """Return all stored UI preferences for the current user as a flat JSON object."""
+    username = _get_username(request)
+    rows = await db.scalars(select(UserPreference).where(UserPreference.username == username))
+    return {row.key: row.value for row in rows}
+
+
+@router.put("/preferences", status_code=204)
+async def put_preferences(request: Request, body: dict, db: AsyncSession = Depends(get_db)):
+    """Bulk-upsert UI preferences for the current user. Body is a flat JSON object."""
+    username = _get_username(request)
+    for key, value in body.items():
+        if len(key) > 128:
+            continue
+        existing = await db.scalar(
+            select(UserPreference).where(
+                UserPreference.username == username,
+                UserPreference.key == key,
+            )
+        )
+        if existing:
+            existing.value = value
+        else:
+            db.add(UserPreference(username=username, key=key, value=value))
     await db.commit()
