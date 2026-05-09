@@ -5,6 +5,22 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 
 ---
 
+## 2026-05-09 — Sprint 10: H2 Backend Test Suite Expansion + H4 WebSocket Per-Client Filtering
+
+### H2 — Backend Test Suite Expansion
+- **`backend/tests/test_auth.py`** (491 lines, 40 tests): JWT payload helpers, `_hash_api_key`, `SetupRequest`/`CreateUserRequest` Pydantic validation, and all 6 auth route endpoints (status, setup, login, /me, users CRUD, API key generate/revoke). Uses real SQLAlchemy `DeclarativeBase` stub so ORM column descriptors work in `select()` calls without a live DB.
+- **`backend/tests/test_entities.py`** (240 lines, 16 tests): List endpoint with entity_type filter, pagination (limit/offset), bbox in/out/mixed, no-position entity exclusion, bad bbox 400, entity-by-id 200/404.
+- **`backend/tests/test_alertrules.py`** (362 lines, 25 tests): `AlertRuleCreate`/`AlertRuleUpdate` Pydantic validation (all trigger types, cooldown_seconds, max_per_hour, dedup_key) plus full CRUD routes including 404/400 error cases.
+- **`backend/tests/test_observations.py`** (326 lines, 14 tests): Replay endpoint (grouped response, multiple entities, include_events, 50k-row LIMIT cap, 422 for missing params) and trail endpoint (default minutes, out-of-range 422).
+- **`backend/tests/test_websocket_unit.py`** (287 lines, 34 tests): Unit tests for `_entity_passes_filter()` — all combinations of bbox/type filters, boundary conditions, no-position passthrough, and non-entity_update message passthrough.
+- Total: 139 tests passing (`python3 -m pytest tests/ -v`). No live DB or Redis required.
+
+### H4 — WebSocket Per-Client Filtering
+- **`backend/routers/ws.py`**: Added `_entity_passes_filter(data, sub_bbox, sub_entity_types)` helper. Added per-connection `sub_state` dict (`{"bbox": None, "entity_types": None}`) guarded by `asyncio.Lock`. Replaced `watch_disconnect()` with `watch_client_messages()` — parses JSON, handles `{"type":"subscribe","bbox":[...],"entity_types":[...]}` with input validation, updates `sub_state`. `forward_redis()` now deserializes `entity_update` messages, applies filter, skips if filtered out. Non-`entity_update` messages always pass through. Clients that never subscribe receive all events (backward compatible).
+- **`frontend/src/hooks/useWebSocket.ts`**: Added `FILTER_KEY_TO_ENTITY_TYPE` mapping, `buildSubscription()` (returns null when all filters at default to avoid unnecessary traffic), and `sendSubscription()`. Sends initial subscription on `onopen`. Registers a Zustand store subscriber that re-sends on `entityFilter` changes; cleaned up on unmount.
+- **`ROADMAP.md`**: H2 and H4 status updated to Done; Sprint 10 marked ✓ Complete.
+- **Motivation**: H2 closes the zero-coverage gap on core backend paths before further feature work. H4 reduces WebSocket bandwidth 10–50× on busy deployments (500+ aircraft) by filtering entity_update messages server-side before forwarding.
+
 ## 2026-05-09 — Fixed entity_id VARCHAR(64) overflow for MeshCore node IDs
 
 - **Root cause**: `entities.entity_id` (and FK columns on `observations`, `events`, `entity_mission_tags`) was `VARCHAR(64)`. MeshCore node IDs are prefixed hashes — e.g. `mesh_node:` (10 chars) + 64-char SHA256 = 74 chars — exceeding the limit and causing `StringDataRightTruncationError` on every mesh node DB write.

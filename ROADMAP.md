@@ -475,9 +475,9 @@ LOW IMPACT
 | ID | Item | Category | Effort | Impact | Priority | Status |
 |----|------|----------|--------|--------|----------|--------|
 | H1 | API Pagination & Filtering | Quality | M | High | P1 | Done |
-| H2 | Backend Test Suite Expansion | Quality | L | High | P1 | Not Started |
+| H2 | Backend Test Suite Expansion | Quality | L | High | P1 | Done |
 | H3 | CORS & Security Hardening | Quality | S | High | P1 | Done |
-| H4 | WebSocket Per-Client Filtering | Quality | M | Medium | P2 | Not Started |
+| H4 | WebSocket Per-Client Filtering | Quality | M | Medium | P2 | Done |
 | I1 | TLS / HTTPS Termination | Infrastructure | S | High | P1 | Done |
 | I2 | Docker Resource Limits & Restart Policies | Infrastructure | S | Medium | P2 | Not Started |
 | I3 | Systemd Unit & Pi 5 Auto-Start | Infrastructure | S | Medium | P2 | Not Started |
@@ -492,7 +492,7 @@ LOW IMPACT
 ### Sprint 9 — Production Hardening (P1) ✓ Complete
 `H1` API pagination · `H3` CORS & security hardening · `I1` TLS termination
 
-### Sprint 10 — Test Coverage & WS Scale (P1–P2)
+### Sprint 10 — Test Coverage & WS Scale (P1–P2) ✓ Complete
 `H2` Backend test suite · `H4` WebSocket per-client filtering
 
 ### Sprint 11 — Deployment Tooling (P2)
