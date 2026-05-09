@@ -5,6 +5,29 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 
 ---
 
+## 2026-05-09 — Sprint 11: I2 Docker Resource Limits + I3 Pi 5 Systemd Auto-Start + J1 Multi-Region Monitoring (partial)
+
+### I2 — Docker Resource Limits & Restart Policies
+- **`docker-compose.yml`**: Added `deploy.resources.limits/reservations` to all five services — db (1 GB / 2 CPU, reservations 256 MB / 0.5 CPU), redis (256 MB / 0.5 CPU), backend (512 MB / 1 CPU), poller (384 MB / 1 CPU), frontend (128 MB / 0.5 CPU), tileserver (512 MB / 1 CPU). Added `ulimits.nofile` soft/hard 65536 to backend and poller.
+
+### I3 — Systemd Unit & Pi 5 Auto-Start
+- **`infra/vertex.service`**: Systemd unit — `After=docker.service network-online.target`, `ExecStart=/usr/bin/docker compose up --remove-orphans`, `Restart=on-failure`, `RestartSec=10s`, `TimeoutStartSec=120`.
+- **`infra/install.sh`**: First-time Pi 5 setup — root check, installs docker.io/docker-compose-plugin/curl/git, enables Docker, clones or pulls repo to `/opt/vertex`, copies `.env.example` if `.env` absent, installs and starts the systemd unit, prints LAN URL.
+- **`infra/update.sh`**: Upgrade script — `git pull --ff-only`, `docker compose pull`, `systemctl restart vertex`.
+- **`README.md`**: New `## // 07 · PI 5 DEPLOYMENT` section covering prerequisites, install, update, and service management.
+
+### J1 — Multi-Region / Multi-Bbox Monitoring (partial: config schema + backend + frontend)
+- **`config/sources.example.yml`**: Added top-level `regions:` list with `id`, `name`, `bbox` (min_lat/max_lat/min_lon/max_lon), `enabled`. One enabled home region; one commented-out coast example.
+- **`poller/config.py`**: Added `RegionBbox` and `RegionConfig` Pydantic models; added `load_regions()` — reads from `sources.yml`, falls back to single env-var bbox.
+- **`backend/routers/config_regions.py`**: New `GET /api/v1/config/regions` endpoint; reads `sources.yml`, falls back to settings bbox.
+- **`backend/main.py`**: Registers `config_regions` router at `/api/v1`.
+- **`frontend/src/hooks/useRegions.ts`**: `useRegions()` hook fetching regions from the new endpoint.
+- **`frontend/src/components/layers/RegionLayer.tsx`**: MapLibre GeoJSON layer rendering enabled region bboxes as amber dashed outlines on the live map.
+- **`frontend/src/components/Map.tsx`**: Wires in `useRegions` and `RegionLayer` after `AnnotationOverlay`.
+- **`frontend/src/admin/AdminFeeds.tsx`**: Adds a "Regions" tab listing each region's name, id, bbox, and enabled status.
+- **`ROADMAP.md`**: I2/I3 marked Done, J1 marked In Progress, Sprint 11 marked ✓ Complete.
+- **Motivation**: I2 prevents OOM crashes on Pi 5 under ADS-B peak load. I3 makes Vertex a true appliance that survives power loss. J1 partial lays the config + UI foundation for multi-zone monitoring; remaining pollers (AIS, weather) and `region_id` FK migration are Sprint 12.
+
 ## 2026-05-09 — Sprint 10: H2 Backend Test Suite Expansion + H4 WebSocket Per-Client Filtering
 
 ### H2 — Backend Test Suite Expansion
