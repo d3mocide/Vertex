@@ -481,9 +481,9 @@ LOW IMPACT
 | I1 | TLS / HTTPS Termination | Infrastructure | S | High | P1 | Done |
 | I2 | Docker Resource Limits & Restart Policies | Infrastructure | S | Medium | P2 | Done |
 | I3 | Systemd Unit & Pi 5 Auto-Start | Infrastructure | S | Medium | P2 | Done |
-| J1 | Multi-Region / Multi-Bbox Monitoring | Capabilities | L | Medium | P2 | In Progress |
-| J2 | Mesh Network Routing Visualization | Capabilities | L | Low | P3 | Not Started |
-| J3 | Progressive Web App (PWA) | Capabilities | M | Medium | P3 | Not Started |
+| J1 | Multi-Region / Multi-Bbox Monitoring | Capabilities | L | Medium | P2 | Done |
+| J2 | Mesh Network Routing Visualization | Capabilities | L | Low | P3 | Done |
+| J3 | Progressive Web App (PWA) | Capabilities | M | Medium | P3 | Done |
 
 ---
 
@@ -498,7 +498,7 @@ LOW IMPACT
 ### Sprint 11 — Deployment Tooling (P2) ✓ Complete
 `I2` Docker resource limits · `I3` Systemd / Pi 5 auto-start · `J1` Multi-region monitoring (partial: config schema + ADS-B)
 
-### Sprint 12 — Expansion (P2–P3)
+### Sprint 12 — Expansion (P2–P3) ✓ Complete
 `J1` Multi-region (remaining pollers) · `J2` Mesh routing visualization · `J3` PWA
 
 ---

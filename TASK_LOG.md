@@ -5,6 +5,36 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 
 ---
 
+## 2026-05-09 — Sprint 12: J1 Multi-Region (remaining) + J2 Mesh Link Visualization + J3 PWA
+
+### J1 — Multi-Region Monitoring (remaining: DB migration + AIS poller)
+- **`db/init/06_region_id.sql`**: `ALTER TABLE entities ADD COLUMN IF NOT EXISTS region_id VARCHAR(64)` with index; safe to apply on existing DB.
+- **`backend/db/models.py`**: Added `region_id: Mapped[Optional[str]]` column to `Entity` ORM model.
+- **`backend/routers/entities.py`**: Added `?region_id=` query param to `GET /entities`; filters Redis entity cache by `region_id` field.
+- **`poller/pollers/ais.py`**: `_run_aisstream()` now calls `load_regions()` and builds a multi-bbox `BoundingBoxes` list for AISstream.io subscription; falls back to single global bbox when no regions configured.
+
+### J2 — Mesh Network Routing Visualization
+- **`db/init/07_mesh_links.sql`**: New `mesh_links` table (`source_url`, `node_a`, `node_b`, `snr`, `link_quality`, `last_seen`) with unique constraint and indexes.
+- **`backend/db/models.py`**: Added `MeshLink` ORM model with `UniqueConstraint` on `(source_url, node_a, node_b)`.
+- **`poller/pollers/meshcore.py`**: Added `_fetch_neighbors()` (GETs `/api/neighbors`, returns `[]` on 404/error) and `_upsert_mesh_links()` (asyncpg ON CONFLICT upsert); called each `_contact_poll_loop` cycle.
+- **`backend/routers/mesh.py`**: New `GET /api/v1/mesh/links` (recent links with `?stale_minutes=`) and `GET /api/v1/mesh/topology` (adjacency graph) endpoints.
+- **`backend/main.py`**: Registered `mesh` router at `/api/v1`.
+- **`frontend/src/components/layers/MeshLinksLayer.tsx`**: MapLibre GeoJSON `LineLayer` connecting mesh nodes; color-coded by SNR (green ≥ −70 dBm, amber ≥ −90 dBm, red < −90 dBm); polls every 30 s; cleans up on unmount.
+- **`frontend/src/components/Map.tsx`**: Wires `MeshLinksLayer` after `RegionLayer`.
+
+### J3 — Progressive Web App (PWA)
+- **`frontend/public/manifest.json`**: Web App Manifest (`display: standalone`, `theme_color: #FFB800`, SVG icon reference).
+- **`frontend/public/icon.svg`**: Vertex brand mark (scope corners + diamond + amber center) as standalone SVG for PWA icon.
+- **`frontend/src/sw.ts`**: Full Workbox service worker — `precacheAndRoute` for build assets, `CacheFirst` for map tiles (7-day / 500 entries), `NetworkFirst` for `/api/` responses, `StaleWhileRevalidate` for static assets, notification click handler.
+- **`frontend/vite.config.ts`**: Added `VitePWA` plugin with `injectManifest` strategy pointing to `src/sw.ts`; outputs `dist/sw.js` at build time.
+- **`frontend/index.html`**: Added `<link rel="manifest">`, `theme-color` meta, Apple PWA meta tags, `apple-touch-icon`.
+- **`frontend/src/components/InstallPrompt.tsx`**: Captures `beforeinstallprompt` event; renders amber install banner at bottom-center with dismiss.
+- **`frontend/src/App.tsx`**: Renders `<InstallPrompt />` inside Dashboard.
+- **`frontend/tsconfig.json`** / **`tsconfig.sw.json`**: Separated SW type-checking (WebWorker lib) from app tsconfig to avoid `self` global conflicts.
+- **`frontend/public/sw.js`** (deleted): Replaced by compiled Workbox output from `sw.ts`.
+- **`ROADMAP.md`**: J1/J2/J3 marked Done; Sprint 12 marked ✓ Complete.
+- **Motivation**: J1 completes multi-region data ingestion so AIS vessels are tagged by region and filterable per-zone. J2 makes mesh RF topology visible on the map — operators can spot weak links and coverage gaps. J3 enables home-screen install and offline tile caching for field use from phones on the LAN.
+
 ## 2026-05-09 — Sprint 11: I2 Docker Resource Limits + I3 Pi 5 Systemd Auto-Start + J1 Multi-Region Monitoring (partial)
 
 ### I2 — Docker Resource Limits & Restart Policies
