@@ -12,6 +12,7 @@ from db.session import async_session_factory
 
 _ALGORITHM = "HS256"
 _PUBLIC_PATHS = frozenset({"/health", "/metrics"})
+_PUBLIC_PREFIXES = ("/api/v1/weather/smoke/wms",)
 _MUTATING_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
 _AUTH_PUBLIC_PATHS = frozenset({"/api/v1/auth/login", "/api/v1/auth/token", "/api/v1/auth/setup", "/api/v1/auth/status"})
 _AUTH_WRITE_EXEMPT = frozenset({"/api/v1/auth/token", "/api/v1/auth/setup"})
@@ -27,7 +28,11 @@ class AuthMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
 
         path = request.url.path
-        if path in _PUBLIC_PATHS or path in _AUTH_PUBLIC_PATHS:
+        if (
+            path in _PUBLIC_PATHS
+            or path in _AUTH_PUBLIC_PATHS
+            or any(path.startswith(prefix) for prefix in _PUBLIC_PREFIXES)
+        ):
             return await call_next(request)
 
         is_ws = request.scope.get("type") == "websocket"

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { useCivicStore, AppMode, SystemEvent, NavTab } from '../../store'
+import { useCivicStore, SystemEvent, NavTab } from '../../store'
 import { exportDashboardSnapshot } from '../../snapshotExport'
 
 const TABS: { id: NavTab; label: string; icon: string }[] = [
@@ -10,47 +10,6 @@ const TABS: { id: NavTab; label: string; icon: string }[] = [
   { id: 'community',      label: 'Community',       icon: 'groups'         },
   { id: 'events',         label: 'Event Log',       icon: 'history'        },
 ]
-
-
-
-function ModeToggle() {
-  const { mode, setMode } = useCivicStore()
-
-  const toggle = (next: AppMode) => setMode(next)
-
-  return (
-    <div
-      className="flex items-center gap-0 bg-onyx-deep/80 border border-amber-gold-muted p-1"
-      role="group"
-      aria-label="Dashboard mode"
-    >
-      <button
-        onClick={() => toggle('calm')}
-        className={`px-2 sm:px-3 py-0.5 font-bold text-[10px] uppercase tracking-widest transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-amber-gold ${
-          mode === 'calm'
-            ? 'bg-amber-gold text-onyx-black'
-            : 'text-on-surface-variant hover:text-on-surface'
-        }`}
-        aria-pressed={mode === 'calm'}
-      >
-        <span className="hidden sm:inline">CALM</span>
-        <span className="ms text-[14px] sm:hidden leading-none" aria-label="Calm mode">wb_sunny</span>
-      </button>
-      <button
-        onClick={() => toggle('critical')}
-        className={`px-2 sm:px-3 py-0.5 font-bold text-[10px] uppercase tracking-widest transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-amber-gold ${
-          mode === 'critical'
-            ? 'bg-red-emergency text-white'
-            : 'text-on-surface-variant hover:text-on-surface'
-        }`}
-        aria-pressed={mode === 'critical'}
-      >
-        <span className="hidden sm:inline">CRITICAL</span>
-        <span className="ms text-[14px] sm:hidden leading-none" aria-label="Critical mode">emergency</span>
-      </button>
-    </div>
-  )
-}
 
 function NotificationsDropdown({ events, onClose }: { events: SystemEvent[]; onClose: () => void }) {
   const severityColor = (s: string) => {
@@ -107,7 +66,7 @@ export function Header() {
   return (
     <header
       className={`
-        border-b flex justify-between items-center w-full px-6 h-14 shrink-0
+        border-b flex justify-between items-center w-full px-3 sm:px-4 lg:px-6 h-14 shrink-0
         transition-all duration-500 relative overflow-visible z-50
         ${mode === 'critical'
           ? 'bg-red-emergency/5 border-red-emergency/20 backdrop-blur-md'
@@ -149,19 +108,29 @@ export function Header() {
         ))}
       </nav>
 
-      {/* Mobile brand mark (bottom tab bar handles nav) */}
-      <span className="lg:hidden font-bold text-[11px] tracking-[0.2em] uppercase text-amber-gold select-none">
-        VERTEX
-      </span>
+      {/* Mobile brand lockup (Scope mark + wordmark) */}
+      <div className="lg:hidden flex items-center gap-2 min-w-0 select-none">
+        <svg width="20" height="20" viewBox="0 0 32 32" aria-hidden="true" className="shrink-0 text-white">
+          <g fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="square">
+            <path d="M2 8 V2 H8"/>
+            <path d="M24 2 H30 V8"/>
+            <path d="M30 24 V30 H24"/>
+            <path d="M8 30 H2 V24"/>
+          </g>
+          <polygon points="16,7 25,16 16,25 7,16" fill="none" stroke="currentColor" strokeWidth="2"/>
+          <rect x="14" y="14" width="4" height="4" fill="#FFB800"/>
+        </svg>
+        <span className="font-black text-[11px] tracking-[0.2em] uppercase text-amber-gold leading-none truncate">
+          VERTEX
+        </span>
+      </div>
 
       {/* Right controls */}
-      <div className="flex items-center gap-4 relative z-10">
-        <ModeToggle />
-        <div className="h-4 w-px bg-white/10" aria-hidden="true" />
+      <div className="flex items-center gap-1 sm:gap-2 text-on-surface-variant relative z-10">
 
 
         {/* Icon buttons */}
-        <div className="flex items-center gap-2 text-on-surface-variant">
+        <div className="flex items-center gap-1 sm:gap-2 text-on-surface-variant">
           <div className="relative" ref={notifRef}>
             <button
               onClick={() => setNotificationsOpen((o) => !o)}

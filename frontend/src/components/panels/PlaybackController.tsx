@@ -166,7 +166,7 @@ export function PlaybackController() {
 
       {/* Playback controls — shown when in replay mode */}
       {replayMode && replayData && (
-        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-30 w-[520px] max-w-[calc(100vw-2rem)] hud-panel p-4 space-y-3 pointer-events-auto cursor-default">
+        <div className="fixed bottom-14 left-0 right-0 lg:bottom-24 lg:left-1/2 lg:-translate-x-1/2 lg:w-[520px] lg:max-w-[calc(100vw-2rem)] z-30 hud-panel p-4 space-y-3 pointer-events-auto cursor-default">
           {/* Header row */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">

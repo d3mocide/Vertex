@@ -47,6 +47,9 @@ async def init_db():
         "CREATE INDEX IF NOT EXISTS ix_annotations_tak_uid ON annotations (tak_uid) WHERE tak_uid IS NOT NULL",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS api_key_hash VARCHAR(128)",
         "CREATE UNIQUE INDEX IF NOT EXISTS ix_users_api_key_hash ON users (api_key_hash) WHERE api_key_hash IS NOT NULL",
+        "ALTER TABLE alert_rules ADD COLUMN IF NOT EXISTS cooldown_seconds INTEGER",
+        "ALTER TABLE alert_rules ADD COLUMN IF NOT EXISTS max_per_hour INTEGER",
+        "ALTER TABLE alert_rules ADD COLUMN IF NOT EXISTS dedup_key VARCHAR(256)",
     ]
     for migration in migrations:
         try:
@@ -58,8 +61,8 @@ async def init_db():
             # relation case for the TAK UID index migration.
             msg = str(exc).lower()
             if (
-                "ix_annotations_tak_uid" in migration
-                and "pg_class_relname_nsp_index" in msg
+                "pg_class_relname_nsp_index" in msg
+                and any(idx in migration for idx in ("ix_annotations_tak_uid", "ix_users_api_key_hash"))
             ):
                 continue
             raise

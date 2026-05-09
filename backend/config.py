@@ -1,4 +1,4 @@
-from pydantic import model_validator
+from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings
 
 
@@ -20,7 +20,15 @@ class Settings(BaseSettings):
     auth_token_expire_hours: int = 24
 
     cors_origins: list[str] = ["http://localhost:3000", "http://localhost"]
+
     cors_allow_credentials: bool = False
+
+    @field_validator("cors_origins", mode="before")
+    @classmethod
+    def parse_cors_origins(cls, v):
+        if isinstance(v, str):
+            return [x.strip() for x in v.split(",") if x.strip()]
+        return v
 
     p25_audio_dir: str = "/data/audio"
 

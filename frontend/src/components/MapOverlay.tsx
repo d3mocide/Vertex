@@ -254,6 +254,7 @@ export function MapOverlay({ map }: Props) {
     container.appendChild(canvas)
 
     // Deck defaults to MapView with flat viewState — no views[] needed.
+    let deckReady = false
     const deck = new Deck({
       canvas,
       width:            container.clientWidth,
@@ -261,6 +262,7 @@ export function MapOverlay({ map }: Props) {
       controller:       false,    // MapLibre owns all user input
       initialViewState: getViewState(map),
       layers:           [],
+      onLoad:           () => { deckReady = true },
     })
     deckRef.current = deck
 
@@ -270,7 +272,15 @@ export function MapOverlay({ map }: Props) {
     container.appendChild(tooltip)
 
     const onMapMouseMove = (e: maplibregl.MapMouseEvent) => {
-      // 1. Pick from Deck.gl
+      const isMobileViewport = window.innerWidth < 1024
+      if (isMobileViewport) {
+        tooltip.style.opacity = '0'
+        map.getCanvas().style.cursor = ''
+        return
+      }
+
+      // 1. Pick from Deck.gl — guard until the GL context is ready
+      if (!deckReady) return
       const picked = deck.pickObject({ x: e.point.x, y: e.point.y, radius: 5 })
 
       let html = ''
@@ -279,6 +289,12 @@ export function MapOverlay({ map }: Props) {
         const { object, layer } = picked
         if (layer.id === 'entity-icons') {
           const t = object as Track
+          const isTak = t.type === 'tak' || t.source.toLowerCase().includes('tak')
+          if (isTak && isMobileViewport) {
+            tooltip.style.opacity = '0'
+            map.getCanvas().style.cursor = ''
+            return
+          }
           const isAir = t.type === 'air'
           const ALT_M_TO_FT = 3.28084
           const MS_TO_KT    = 1.94384
@@ -435,6 +451,7 @@ export function MapOverlay({ map }: Props) {
     // Allow selecting entities and cameras while preserving normal map interaction.
     const onMapClick = (e: maplibregl.MapMouseEvent) => {
       if (annotationDrawModeRef.current) return
+      if (!deckReady) return
       const picked = deck.pickObject({ x: e.point.x, y: e.point.y, radius: 10 })
       if (!picked) return
       if (picked.layer?.id === 'camera-points') {

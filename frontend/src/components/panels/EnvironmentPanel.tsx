@@ -81,10 +81,10 @@ export function EnvironmentPanel() {
 
       {/* Scrollable body */}
       <div className="flex-1 overflow-y-auto min-h-0 pb-24">
-        <div className="flex flex-col lg:flex-row gap-10 p-6 items-start">
+        <div className="flex flex-col lg:flex-row gap-6 lg:gap-10 p-2 sm:p-4 lg:p-6 items-stretch lg:items-start">
 
           {/* LEFT COLUMN: Data Stream */}
-          <div className="flex-1 min-w-0 flex flex-col gap-8 pr-1">
+          <div className="flex-1 min-w-0 flex flex-col gap-8 lg:pr-1">
             {/* NWS Alerts */}
             <section aria-labelledby="nws-heading">
               {weather.alerts.length === 0 ? (
@@ -158,7 +158,7 @@ export function EnvironmentPanel() {
           </div>
 
           {/* RIGHT COLUMN: Radar */}
-          <div className="flex-1 min-w-0 flex flex-col self-start gap-6">
+          <div className="flex-1 min-w-0 flex flex-col self-stretch lg:self-start gap-6">
             <RadarControls />
             <WeatherCard />
             <SeismicCard events={mergedSeismicEvents} />

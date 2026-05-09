@@ -1,14 +1,14 @@
 import { useEffect } from 'react'
 import maplibregl from 'maplibre-gl'
 import { useCivicStore } from '../../store'
+import { API_BASE } from '../../config'
 
 interface Props { map: maplibregl.Map }
 
 const SRC_SMOKE = 'smoke-overlay'
 const LYR_SMOKE = 'smoke-overlay-layer'
 
-const SMOKE_WMS =
-  'https://satepsanone.nesdis.noaa.gov/arcgis/services/FIRE/HMS_Smoke/MapServer/WMSServer'
+const SMOKE_WMS_PROXY = `${API_BASE}/weather/smoke/wms`
 
 export function SmokeLayer({ map }: Props) {
   const smokeVisible = useCivicStore((s) => s.smokeVisible)
@@ -20,7 +20,7 @@ export function SmokeLayer({ map }: Props) {
       map.addSource(SRC_SMOKE, {
         type: 'raster',
         tiles: [
-          `${SMOKE_WMS}?service=WMS&request=GetMap&version=1.1.1&layers=0&styles=&format=image/png&transparent=true&srs=EPSG:3857&width=256&height=256&bbox={bbox-epsg-3857}`,
+          `${SMOKE_WMS_PROXY}?service=WMS&request=GetMap&version=1.1.1&layers=0&styles=&format=image/png&transparent=true&srs=EPSG:3857&width=256&height=256&bbox={bbox-epsg-3857}`,
         ],
         tileSize: 256,
       })

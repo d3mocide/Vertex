@@ -155,7 +155,7 @@ export function EntitySearchPanel() {
   })
 
   return (
-    <div className="absolute bottom-20 left-2 right-2 lg:bottom-auto lg:top-28 lg:left-4 lg:right-auto z-30 w-auto lg:w-64 hud-panel overflow-hidden max-h-[60vh] lg:max-h-none">
+    <div className="absolute bottom-[5rem] left-2 right-2 lg:bottom-auto lg:top-28 lg:right-auto lg:left-4 z-30 lg:w-64 hud-panel overflow-hidden max-h-[50vh] lg:max-h-none">
       {/* Search input */}
       <div className="flex items-center gap-2 px-3 py-2 border-b border-white/5">
         <span className="ms text-[14px] text-on-surface-variant leading-none shrink-0">search</span>
@@ -357,8 +357,8 @@ export function EntitySearchPanel() {
         </div>
       )}
 
-      {/* Matched entity list */}
-      <div className="max-h-48 overflow-y-auto divide-y divide-white/5">
+      {/* Matched entity list — hidden on mobile until the user starts searching */}
+      <div className={`max-h-48 overflow-y-auto divide-y divide-white/5 ${entitySearchQuery === '' && !filtersOpen ? 'hidden lg:block' : ''}`}>
           {matchedTracks.length === 0 ? (
             <div className="px-3 py-4 flex flex-col items-center gap-1 text-on-surface-variant/50">
               <span className="ms text-[20px]">search_off</span>

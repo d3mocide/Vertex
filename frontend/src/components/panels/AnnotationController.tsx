@@ -22,7 +22,7 @@ export function AnnotationController() {
         <span className="ms text-[16px] leading-none">{annotationsVisible ? 'edit_note' : 'visibility_off'}</span>
         ANNOTATE
       </button>
-      <div id="annotation-toolbar-portal" className="absolute top-full mt-2 left-0 z-[40]" />
+      <div id="annotation-toolbar-portal" className="fixed top-40 left-2 z-[40] lg:absolute lg:top-full lg:mt-2 lg:left-0" />
     </div>
   )
 }

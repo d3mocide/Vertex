@@ -24,7 +24,7 @@ export function GeofenceController() {
 
       {/* Editor Panel — shown when trigger clicked */}
       {open && (
-        <div className="fixed top-28 right-4 z-[40] w-[420px] max-h-[calc(100vh-16rem)] overflow-y-auto hud-panel p-4 cursor-default">
+        <div className="fixed top-40 lg:top-28 left-2 right-2 lg:left-auto lg:right-4 z-[40] lg:w-[420px] max-h-[calc(100vh-16rem)] overflow-y-auto hud-panel p-4 cursor-default">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <span className="ms text-[16px] text-amber-gold leading-none">pentagon</span>

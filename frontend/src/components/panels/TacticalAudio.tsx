@@ -171,7 +171,7 @@ export function TacticalAudio() {
 
   return (
     <aside
-      className={`absolute bottom-16 lg:bottom-6 left-1/2 -translate-x-1/2 z-20 flex flex-col justify-end items-end w-[1040px] max-w-[98vw] pointer-events-none transition-all duration-300 ${isCritical ? 'scale-105 origin-bottom' : 'scale-100 origin-bottom'}`}
+      className={`absolute bottom-5 lg:bottom-6 left-1/2 -translate-x-1/2 z-20 flex flex-col justify-end items-end w-[1040px] max-w-[98vw] pointer-events-none transition-all duration-300 ${isCritical ? 'scale-105 origin-bottom' : 'scale-100 origin-bottom'}`}
       aria-label="Tactical audio console"
     >
       {/* Pop-up Channels Panel */}
@@ -188,14 +188,14 @@ export function TacticalAudio() {
       <div className="bg-white/[0.03] border border-white/10 backdrop-blur-md rounded-full h-12 w-full flex items-center px-4 md:px-5 pointer-events-auto relative shadow-[0_8px_32px_rgba(0,0,0,0.4)]">
 
         {/* Left Section */}
-        <div className="flex flex-1 items-center gap-2.5 min-w-0 mr-[110px] md:mr-[120px] lg:mr-[150px]">
+        <div className="flex flex-1 items-center gap-2 min-w-0 mr-[78px] sm:mr-[110px] md:mr-[120px] lg:mr-[150px]">
           <div className="w-8 h-8 rounded-full border border-amber-gold/30 flex items-center justify-center bg-black/40 shrink-0">
             <span className="ms text-[18px] text-amber-gold leading-none" aria-hidden="true" style={{ fontVariationSettings: "'FILL' 1" }}>cell_tower</span>
           </div>
-          <div className="min-w-0 flex items-center gap-2.5">
-            <h2 className="font-bold text-[11px] tracking-tight text-on-surface uppercase truncate">{activeTag}</h2>
-            <div className="w-px h-3 bg-white/10 shrink-0" />
-            <div className="flex items-center gap-2 font-mono text-[9px] text-on-surface-variant truncate">
+          <div className="min-w-0 flex items-center gap-2 sm:gap-2.5">
+            <h2 className="font-bold text-[10px] sm:text-[11px] tracking-tight text-on-surface uppercase truncate">{activeTag}</h2>
+            <div className="hidden sm:block w-px h-3 bg-white/10 shrink-0" />
+            <div className="hidden sm:flex items-center gap-2 font-mono text-[9px] text-on-surface-variant truncate">
               <span>
                 {selectedTg && selectedTg.tgid !== radio?.tgid
                   ? `TGID ${selectedTg.tgid}`
@@ -259,7 +259,7 @@ export function TacticalAudio() {
         </div>
 
         {/* Right Section */}
-        <div className="flex flex-1 items-center justify-end gap-5 min-w-0 ml-[120px] md:ml-[140px] lg:ml-[180px]">
+        <div className="flex flex-1 items-center justify-end gap-3 sm:gap-5 min-w-0 ml-[86px] sm:ml-[120px] md:ml-[140px] lg:ml-[180px]">
           <div className="hidden sm:flex items-center">
             <span className="font-mono text-[11px] text-amber-gold w-14 tracking-wider text-right font-semibold">
               {playing ? formatElapsed(elapsed) : '00:00:00'}

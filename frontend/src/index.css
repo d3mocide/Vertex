@@ -40,6 +40,16 @@
   .maplibregl-map    { position: absolute; inset: 0; }
 }
 
+/* MapLibre control override — must live outside @layer so it wins over
+   un-layered MapLibre stylesheet rules (cascade layers spec: un-layered
+   author styles beat layered styles of any kind). */
+@media (max-width: 1023px) {
+  .maplibregl-ctrl-bottom-right {
+    bottom: auto !important;
+    top: 7rem !important;    /* below header + envbar, top-right corner */
+  }
+}
+
 
 @layer components {
   /* Glassmorphism panels */
