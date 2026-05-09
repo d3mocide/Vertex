@@ -66,20 +66,23 @@ export function createAtlasIcons(): IconAtlasResult {
   }
 
   // ─── Row 0, Col 2 · MESH NODE — hex chip with inner square void ───────────
+  // Design guide: atlas-mesh polygon "16,4 26,10 26,22 16,28 6,22 6,10" (×2)
+  // Inner void: rect x=13 y=13 w=6 h=6 (×2 → x=26 y=26 w=12 h=12)
   {
     const [ox, oy] = cellOrigin(2, 0)
     ctx.fillStyle = W
     ctx.beginPath()
-    ctx.moveTo(ox + 32, oy + 8)
-    ctx.lineTo(ox + 52, oy + 20)
-    ctx.lineTo(ox + 52, oy + 44)
-    ctx.lineTo(ox + 32, oy + 56)
-    ctx.lineTo(ox + 12, oy + 44)
-    ctx.lineTo(ox + 12, oy + 20)
+    ctx.moveTo(ox + 32, oy + 8)   // 16,4 ×2
+    ctx.lineTo(ox + 52, oy + 20)  // 26,10 ×2
+    ctx.lineTo(ox + 52, oy + 44)  // 26,22 ×2
+    ctx.lineTo(ox + 32, oy + 56)  // 16,28 ×2
+    ctx.lineTo(ox + 12, oy + 44)  // 6,22 ×2
+    ctx.lineTo(ox + 12, oy + 20)  // 6,10 ×2
     ctx.closePath()
     ctx.fill()
+    // Inner square void — rect x=13 y=13 w=6 h=6 (×2)
     ctx.fillStyle = B
-    ctx.fillRect(ox + 26, oy + 26, 12, 12)  // inner void
+    ctx.fillRect(ox + 26, oy + 26, 12, 12)
   }
 
   // ─── Row 0, Col 3 · APRS — stroke diamond + crosshair lines + center dot ───
@@ -155,27 +158,33 @@ export function createAtlasIcons(): IconAtlasResult {
   }
 
   // ─── Row 1, Col 2 · FIRE — flame with inner core void ────────────────────
+  // Design guide: atlas-fire — flame path + inner core at 60% opacity.
+  // SVG coords scaled 2× to fit 64px cell.
+  // Flame: M16 3 C19 8,23 10,23 16 C23 22,19 27,16 28 C13 27,9 22,9 16
+  //        C9 12,11 11,13 9 C13 13,16 13,14 9 C15 7,16 5,16 3 Z
+  // Core:  M16 14 C18 17,19 19,19 22 C19 25,17 26,16 26
+  //        C15 26,13 25,13 22 C13 19,14 17,16 14 Z
   {
     const [ox, oy] = cellOrigin(2, 1)
     ctx.fillStyle = W
     ctx.beginPath()
-    ctx.moveTo(ox + 32, oy + 6)
-    ctx.bezierCurveTo(ox + 38, oy + 16, ox + 46, oy + 20, ox + 46, oy + 32)
-    ctx.bezierCurveTo(ox + 46, oy + 44, ox + 38, oy + 54, ox + 32, oy + 56)
-    ctx.bezierCurveTo(ox + 26, oy + 54, ox + 18, oy + 44, ox + 18, oy + 32)
-    ctx.bezierCurveTo(ox + 18, oy + 24, ox + 22, oy + 22, ox + 26, oy + 18)
-    ctx.bezierCurveTo(ox + 26, oy + 26, ox + 32, oy + 26, ox + 28, oy + 18)
-    ctx.bezierCurveTo(ox + 30, oy + 14, ox + 32, oy + 10, ox + 32, oy + 6)
+    ctx.moveTo(ox + 32, oy + 6)   // M16 3
+    ctx.bezierCurveTo(ox + 38, oy + 16, ox + 46, oy + 20, ox + 46, oy + 32) // C19 8,23 10,23 16
+    ctx.bezierCurveTo(ox + 46, oy + 44, ox + 38, oy + 54, ox + 32, oy + 56) // C23 22,19 27,16 28
+    ctx.bezierCurveTo(ox + 26, oy + 54, ox + 18, oy + 44, ox + 18, oy + 32) // C13 27,9 22,9 16
+    ctx.bezierCurveTo(ox + 18, oy + 24, ox + 22, oy + 22, ox + 26, oy + 18) // C9 12,11 11,13 9
+    ctx.bezierCurveTo(ox + 26, oy + 26, ox + 32, oy + 26, ox + 28, oy + 18) // C13 13,16 13,14 9
+    ctx.bezierCurveTo(ox + 30, oy + 14, ox + 32, oy + 10, ox + 32, oy + 6)  // C15 7,16 5,16 3
     ctx.closePath()
     ctx.fill()
-    // inner core void
-    ctx.fillStyle = B
+    // Inner core void — opacity 0.6 per design guide (render as semi-opaque black)
+    ctx.fillStyle = 'rgba(0,0,0,0.6)'
     ctx.beginPath()
-    ctx.moveTo(ox + 32, oy + 28)
-    ctx.bezierCurveTo(ox + 36, oy + 34, ox + 38, oy + 38, ox + 38, oy + 44)
-    ctx.bezierCurveTo(ox + 38, oy + 50, ox + 34, oy + 52, ox + 32, oy + 52)
-    ctx.bezierCurveTo(ox + 30, oy + 52, ox + 26, oy + 50, ox + 26, oy + 44)
-    ctx.bezierCurveTo(ox + 26, oy + 38, ox + 28, oy + 34, ox + 32, oy + 28)
+    ctx.moveTo(ox + 32, oy + 28)  // M16 14
+    ctx.bezierCurveTo(ox + 36, oy + 34, ox + 38, oy + 38, ox + 38, oy + 44) // C18 17,19 19,19 22
+    ctx.bezierCurveTo(ox + 38, oy + 50, ox + 34, oy + 52, ox + 32, oy + 52) // C19 25,17 26,16 26
+    ctx.bezierCurveTo(ox + 30, oy + 52, ox + 26, oy + 50, ox + 26, oy + 44) // C15 26,13 25,13 22
+    ctx.bezierCurveTo(ox + 26, oy + 38, ox + 28, oy + 34, ox + 32, oy + 28) // C13 19,14 17,16 14
     ctx.closePath()
     ctx.fill()
   }

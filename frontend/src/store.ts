@@ -178,6 +178,50 @@ export interface LightningStrike {
   ts:  number   // unix ms
 }
 
+const LIGHTNING_MAX_POINTS = 1000
+const LIGHTNING_WINDOW_MS = 60_000
+const LIGHTNING_FUTURE_SKEW_MS = 5_000
+
+function normalizeLightningTs(rawTs: unknown): number | null {
+  if (typeof rawTs === 'number' && Number.isFinite(rawTs)) {
+    // Accept seconds, milliseconds, or nanoseconds and normalize to ms.
+    if (rawTs > 1e15) return Math.floor(rawTs / 1_000_000)
+    if (rawTs > 1e11) return Math.floor(rawTs)
+    if (rawTs > 1e9) return Math.floor(rawTs * 1000)
+    return null
+  }
+
+  if (typeof rawTs === 'string') {
+    const parsed = Date.parse(rawTs)
+    if (!Number.isNaN(parsed)) return parsed
+  }
+
+  return null
+}
+
+function normalizeIncomingLightning(
+  incoming: LightningStrike[],
+  nowMs: number,
+): LightningStrike[] {
+  const minTs = nowMs - LIGHTNING_WINDOW_MS
+  const maxTs = nowMs + LIGHTNING_FUTURE_SKEW_MS
+  const out: LightningStrike[] = []
+
+  for (const strike of incoming) {
+    const lat = Number(strike?.lat)
+    const lon = Number(strike?.lon)
+    const ts = normalizeLightningTs(strike?.ts)
+
+    if (!Number.isFinite(lat) || !Number.isFinite(lon) || ts === null) continue
+    if (lat < -90 || lat > 90 || lon < -180 || lon > 180) continue
+    if (ts < minTs || ts > maxTs) continue
+
+    out.push({ lat, lon, ts })
+  }
+
+  return out
+}
+
 const emptyRadio: RadioState = {
   tgid: null, tag: null, freq_hz: null, state: null, updated: null,
 }
@@ -409,11 +453,18 @@ export const useCivicStore = create<CivicStore>()(
   setTrailsVisible:  (trailsVisible)  => set({ trailsVisible }),
   appendLightningStrikes: (incoming) =>
     set((s) => {
-      const MAX = 1000
-      const WINDOW_MS = 60_000
       const now = Date.now()
-      const fresh = s.lightningStrikes.filter((strike) => now - strike.ts < WINDOW_MS)
-      return { lightningStrikes: [...fresh, ...incoming].slice(-MAX) }
+      const minTs = now - LIGHTNING_WINDOW_MS
+      const fresh = s.lightningStrikes.filter((strike) => strike.ts >= minTs)
+      const normalizedIncoming = normalizeIncomingLightning(incoming, now)
+
+      if (normalizedIncoming.length === 0) {
+        return { lightningStrikes: fresh.slice(-LIGHTNING_MAX_POINTS) }
+      }
+
+      return {
+        lightningStrikes: [...fresh, ...normalizedIncoming].slice(-LIGHTNING_MAX_POINTS),
+      }
     }),
   setLightningVisible:    (lightningVisible)    => set({ lightningVisible }),
   setGaugesVisible:       (gaugesVisible)       => set({ gaugesVisible }),

@@ -507,6 +507,7 @@ export function MapOverlay({ map }: Props) {
 
       const pvb = pvbRef.current
       const sel = selectedRef.current
+      const nowMs = Date.now()
 
       let rawTracks: Record<string, Track>
 
@@ -600,9 +601,9 @@ export function MapOverlay({ map }: Props) {
           })(),
           ...buildTrailLayers(rawTracks, sel, trailsVisibleRef.current),
           ...buildEntityLayers(pvbTracks, sel, cycleRef.current, zoom, missionTagsRef.current),
-          ...buildEventLayers(systemEventsRef.current, now),
+          ...buildEventLayers(systemEventsRef.current, nowMs),
           ...(lightningVisibleRef.current
-            ? buildLightningLayer(lightningRef.current, now, zoom)
+            ? buildLightningLayer(lightningRef.current, nowMs, zoom)
             : []),
           ...(camerasVisibleRef.current
             ? [buildCameraLayer(camerasRef.current, selectedCamRef.current, zoom)]

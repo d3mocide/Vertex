@@ -8,6 +8,7 @@ export interface LightningStrike {
 }
 
 const FADE_MS = 30_000   // strike fully fades over 30 seconds
+const FUTURE_SKEW_MS = 5_000
 
 // Atlas hue: --cat-lightning #FFE94D
 const LIGHTNING_RGB: [number, number, number] = [255, 233, 77]
@@ -25,7 +26,12 @@ function baseSizeForZoom(zoom: number): number {
 }
 
 export function buildLightningLayer(strikes: LightningStrike[], nowMs: number, zoom: number) {
-  const visible = strikes.filter((s) => nowMs - s.ts < FADE_MS)
+  const visible = strikes.filter((s) => {
+    if (!Number.isFinite(s.lat) || !Number.isFinite(s.lon) || !Number.isFinite(s.ts)) return false
+    if (s.lat < -90 || s.lat > 90 || s.lon < -180 || s.lon > 180) return false
+    const ageMs = nowMs - s.ts
+    return ageMs >= -FUTURE_SKEW_MS && ageMs < FADE_MS
+  })
   if (visible.length === 0) return []
 
   const atlas    = getAtlasIcons()
@@ -42,16 +48,16 @@ export function buildLightningLayer(strikes: LightningStrike[], nowMs: number, z
       getIcon:     () => iconName,
       getPosition: (s) => [s.lon, s.lat],
       getSize:     (s) => {
-        const age = (nowMs - s.ts) / FADE_MS
+        const age = Math.max(0, Math.min(1, (nowMs - s.ts) / FADE_MS))
         return baseSize * (1 - age * 0.55)   // shrinks to ~45% of base as it ages
       },
       getColor: (s) => {
-        const age   = (nowMs - s.ts) / FADE_MS
-        const alpha = Math.round(255 * Math.max(0, 1 - age))
+        const age = Math.max(0, Math.min(1, (nowMs - s.ts) / FADE_MS))
+        const alpha = Math.round(255 * (1 - age))
         return [...LIGHTNING_RGB, alpha] as [number, number, number, number]
       },
       sizeUnits: 'pixels',
-      billboard: false,
+      billboard: true,
       updateTriggers: {
         getIcon:  zoom,
         getSize:  [nowMs, zoom],

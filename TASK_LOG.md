@@ -5,6 +5,32 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 
 ---
 
+## 2026-05-09 — Hardened lightning strike ingestion and Deck.gl rendering safety
+
+- Updated `frontend/src/store.ts` lightning ingestion path:
+    - Added timestamp normalization to accept seconds, milliseconds, nanoseconds, and ISO strings.
+    - Added strict lat/lon validation and freshness window filtering to reject stale/future malformed strikes.
+    - Kept rolling lightning buffer bounded while preserving fresh in-window points.
+- Updated `frontend/src/layers/buildLightningLayer.ts` rendering path:
+    - Added coordinate/time guards before layer build.
+    - Clamped age-to-size and age-to-alpha calculations to `[0, 1]` to prevent oversized or invalid color/size output from malformed future timestamps.
+    - Enabled billboard rendering for consistent icon visibility during map pitch changes.
+- Validation:
+    - `cd frontend && npm install && npx tsc --noEmit` ✓
+    - Published synthetic lightning feed with current timestamps via Redis (`PUBLISH civic:updates`) and confirmed subscribers received the update (`(integer) 4`).
+
+## 2026-05-09 — Fixed lightning full-screen yellow wash (render clock mismatch)
+
+- Root cause identified in `frontend/src/components/MapOverlay.tsx`:
+    - The animation frame clock (`performance.now()` RAF time) was being passed to time-based layers (`buildLightningLayer`, `buildEventLayers`) that expect Unix epoch milliseconds.
+    - This mismatch produced extreme negative ages for epoch timestamps, which in the lightning size formula could expand icons into massive screen-filling yellow quads.
+- Fix implemented:
+    - Added `const nowMs = Date.now()` inside the render loop and passed `nowMs` (epoch) to both time-based layer builders.
+- Validation:
+    - `npx tsc --noEmit` ✓
+    - Rebuilt frontend with Docker Compose (`docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build -d frontend`) ✓
+    - Retested with Lightning ON and Smoke OFF plus fresh Redis-injected strikes: map remains normal dark theme; no full-screen yellow wash.
+
 ## 2026-05-09 — Sprint 7: P25 audio archiving, scan priority enforcement, scheduled SitRep, F1 roadmap update
 
 - **F1 (ATAK CoT Ingest)**: Confirmed `poller/pollers/cot_receiver.py` and `CotReceiver` poller already fully implement TCP-based CoT ingest from openTAK — updated `ROADMAP.md` to mark F1 as Done.
