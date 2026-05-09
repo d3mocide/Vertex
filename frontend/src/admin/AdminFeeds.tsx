@@ -1,8 +1,9 @@
 import React, { useEffect, useState, useCallback } from 'react'
 import { API_BASE } from '../config'
 import { authHeaders } from '../auth'
+import { useRegions } from '../hooks/useRegions'
 
-type Tab = 'radio' | 'news' | 'pollers' | 'zones'
+type Tab = 'radio' | 'news' | 'pollers' | 'zones' | 'regions'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -328,6 +329,42 @@ function ZonesTab() {
   )
 }
 
+// ── Monitoring Regions ────────────────────────────────────────────────────────
+
+function RegionsTab() {
+  const regions = useRegions()
+
+  return (
+    <div className="space-y-3">
+      <p className="text-[10px] text-gray-500 uppercase tracking-widest">
+        Regions are defined in <span className="text-gray-400 font-mono">sources.yml</span>. Edit that file to add or modify regions.
+      </p>
+      <div className="border border-white/10">
+        {regions.map((r) => (
+          <div key={r.id} className="px-3 py-3 border-b border-white/5 last:border-0 hover:bg-white/5">
+            <div className="flex items-center gap-3 mb-1">
+              <span className={`inline-block w-1.5 h-1.5 rounded-full ${r.enabled ? 'bg-green-400' : 'bg-gray-600'}`} />
+              <span className="text-xs font-semibold text-gray-200">{r.name}</span>
+              <span className="font-mono text-[10px] text-gray-500">{r.id}</span>
+              {!r.enabled && (
+                <span className="text-[9px] uppercase tracking-wider text-gray-600">disabled</span>
+              )}
+            </div>
+            <div className="ml-4 font-mono text-[10px] text-gray-500 space-y-0.5">
+              <div>
+                Lat {r.bbox.min_lat} → {r.bbox.max_lat} &nbsp;|&nbsp; Lon {r.bbox.min_lon} → {r.bbox.max_lon}
+              </div>
+            </div>
+          </div>
+        ))}
+        {regions.length === 0 && (
+          <p className="px-3 py-4 text-xs text-gray-600">No regions configured.</p>
+        )}
+      </div>
+    </div>
+  )
+}
+
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 const TABS: { id: Tab; label: string }[] = [
@@ -335,6 +372,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'news', label: 'News Feeds' },
   { id: 'pollers', label: 'Pollers' },
   { id: 'zones', label: 'Alert Zones' },
+  { id: 'regions', label: 'Regions' },
 ]
 
 export default function AdminFeeds() {
@@ -362,6 +400,7 @@ export default function AdminFeeds() {
         {tab === 'news'    && <NewsTab />}
         {tab === 'pollers' && <PollersTab />}
         {tab === 'zones'   && <ZonesTab />}
+        {tab === 'regions' && <RegionsTab />}
       </div>
     </div>
   )

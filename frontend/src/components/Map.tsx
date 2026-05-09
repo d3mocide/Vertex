@@ -11,11 +11,14 @@ import { AnnotationOverlay }    from './layers/AnnotationOverlay'
 import { TerrainLayer }         from './layers/TerrainLayer'
 import { MapOverlay }           from './MapOverlay'
 import { useWebSocket }  from '../hooks/useWebSocket'
+import { useRegions }    from '../hooks/useRegions'
+import { RegionLayer }   from './layers/RegionLayer'
 
 export function Map() {
   const containerRef = useRef<HTMLDivElement>(null)
   const [map, setMap] = useState<maplibregl.Map | null>(null)
   useWebSocket()
+  const regions = useRegions()
 
   useEffect(() => {
     if (!containerRef.current) return
@@ -85,6 +88,7 @@ export function Map() {
           <CustomLayersLayer     map={map} />
           <ObservationRingLayer  map={map} />
           <AnnotationOverlay     map={map} />
+          <RegionLayer           map={map} regions={regions} />
           <MapOverlay            map={map} />
         </>
       )}
