@@ -12,7 +12,8 @@ import { TerrainLayer }         from './layers/TerrainLayer'
 import { MapOverlay }           from './MapOverlay'
 import { useWebSocket }  from '../hooks/useWebSocket'
 import { useRegions }    from '../hooks/useRegions'
-import { RegionLayer }   from './layers/RegionLayer'
+import { RegionLayer }      from './layers/RegionLayer'
+import { MeshLinksLayer }   from './layers/MeshLinksLayer'
 
 export function Map() {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -89,6 +90,7 @@ export function Map() {
           <ObservationRingLayer  map={map} />
           <AnnotationOverlay     map={map} />
           <RegionLayer           map={map} regions={regions} />
+          <MeshLinksLayer        map={map} />
           <MapOverlay            map={map} />
         </>
       )}

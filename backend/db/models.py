@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import Optional
-from sqlalchemy import String, Float, DateTime, Text, JSON, ForeignKey, Index, Boolean, func
+from sqlalchemy import String, Float, DateTime, Text, JSON, ForeignKey, Index, Boolean, func, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from geoalchemy2 import Geometry
 
@@ -243,3 +243,19 @@ class Annotation(Base):
     # TAK UID from originating CoT event — set for annotations ingest from openTAK;
     # used to deduplicate rebroadcasts and correlate with incoming delete events.
     tak_uid: Mapped[Optional[str]] = mapped_column(String(128), nullable=True, index=True)
+
+
+class MeshLink(Base):
+    __tablename__ = "mesh_links"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    source_url: Mapped[str] = mapped_column(Text)
+    node_a: Mapped[str] = mapped_column(String(64), index=True)
+    node_b: Mapped[str] = mapped_column(String(64), index=True)
+    snr: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    link_quality: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    last_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+
+    __table_args__ = (
+        UniqueConstraint("source_url", "node_a", "node_b", name="mesh_links_unique"),
+    )
