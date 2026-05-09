@@ -81,6 +81,9 @@ export function buildEntityLayers(
     lineWidthUnits: 'pixels',
   })
 
+  // Design-guide color for fire_incident: --cat-fire #FF5252
+  const FIRE_ICON_COLOR: [number, number, number, number] = [255, 82, 82, 230]
+
   const baseIcon = (t: Track) =>
     t.type === 'sea'    ? 'vessel'
     : t.type === 'ground' ? 'aprs'
@@ -106,8 +109,9 @@ export function buildEntityLayers(
     getPosition: (t) => [t.lon, t.lat],
     getAngle:    (t) => -t.courseTrue,
     getColor:    (t) => {
-      if (t.type === 'ground') return APRS_ICON_COLOR
-      if (t.type === 'tak')    return TAK_ICON_COLOR
+      if (t.type === 'ground')  return APRS_ICON_COLOR
+      if (t.type === 'tak')     return TAK_ICON_COLOR
+      if (t.type === 'hazard')  return FIRE_ICON_COLOR
       return tagColorMap?.[t.uid] ?? entityColor(t)
     },
     getSize:     (t) => entityIconSize(selectedUid, t, zoom),

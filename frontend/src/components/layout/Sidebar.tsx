@@ -216,9 +216,15 @@ export function Sidebar() {
       className={`h-full sidebar-panel flex flex-col shrink-0 z-30 transition-all duration-300 ${sidebarCollapsed ? 'w-16' : 'w-80'}`}
       aria-label="Vertex sidebar"
     >
-      {/* Brand header */}
-      <div className={`h-16 flex items-center border-b border-white/5 bg-onyx-deep/40 backdrop-blur-md shrink-0 ${sidebarCollapsed ? 'px-2 justify-center' : 'px-5 justify-between'}`}>
-        <div className="flex items-center gap-3 min-w-0">
+      {/* Brand header — logo is the sidebar collapse/expand toggle */}
+      <div className={`flex items-center border-b border-white/5 bg-onyx-deep/40 backdrop-blur-md shrink-0 ${sidebarCollapsed ? 'py-4 justify-center' : 'h-16 px-5 justify-between flex-row'}`}>
+        <button
+          type="button"
+          onClick={() => setSidebarCollapsed((v) => !v)}
+          className="flex items-center gap-3 min-w-0 opacity-90 hover:opacity-100 transition-opacity focus:outline-none focus-visible:ring-1 focus-visible:ring-amber-gold"
+          aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+        >
           {/* Scope mark — Direction 07 · adopted 2026-05-01 */}
           <svg width="28" height="28" viewBox="0 0 32 32" aria-hidden="true" className="shrink-0 text-white">
             <g fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="square">
@@ -232,7 +238,7 @@ export function Sidebar() {
           </svg>
 
           {!sidebarCollapsed && (
-            <div className="flex flex-col leading-none gap-1 min-w-0">
+            <div className="flex flex-col leading-none gap-1 min-w-0 items-start">
               <span className="text-[16px] font-black tracking-[0.05em] text-white uppercase select-none leading-none">
                 VERTEX
               </span>
@@ -241,18 +247,6 @@ export function Sidebar() {
               </span>
             </div>
           )}
-        </div>
-
-        <button
-          type="button"
-          onClick={() => setSidebarCollapsed((v) => !v)}
-          className={`text-on-surface-variant hover:text-amber-gold transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-amber-gold ${sidebarCollapsed ? 'absolute top-5 right-1.5' : ''}`}
-          aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-          title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-        >
-          <span className="ms text-[18px] leading-none" aria-hidden="true">
-            {sidebarCollapsed ? 'chevron_right' : 'chevron_left'}
-          </span>
         </button>
       </div>
 

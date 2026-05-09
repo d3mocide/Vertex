@@ -28,6 +28,13 @@ async def init_db():
         await conn.execute("ALTER TABLE geofences ADD COLUMN IF NOT EXISTS radius_m DOUBLE PRECISION")
         await conn.execute("ALTER TABLE geofences ADD COLUMN IF NOT EXISTS dwell_seconds INTEGER NOT NULL DEFAULT 0")
         await conn.execute("ALTER TABLE annotations ADD COLUMN IF NOT EXISTS tak_uid VARCHAR(128)")
+        # Widen entity_id from VARCHAR(64) → VARCHAR(255) to accommodate long IDs
+        # such as MeshCore node hashes ('mesh_node:' + 64-char SHA256 = 74 chars).
+        # ALTER TYPE on a VARCHAR PK cascades to FK columns in PostgreSQL >= 10.
+        await conn.execute("ALTER TABLE entities             ALTER COLUMN entity_id TYPE VARCHAR(255)")
+        await conn.execute("ALTER TABLE observations         ALTER COLUMN entity_id TYPE VARCHAR(255)")
+        await conn.execute("ALTER TABLE events               ALTER COLUMN entity_id TYPE VARCHAR(255)")
+        await conn.execute("ALTER TABLE entity_mission_tags  ALTER COLUMN entity_id TYPE VARCHAR(255)")
     logger.info("DB pool initialized")
 
 

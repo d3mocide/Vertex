@@ -7,7 +7,7 @@ CREATE EXTENSION IF NOT EXISTS postgis;
 -- entities: every trackable thing (aircraft, vessel, sensor, mesh node)
 -- -------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS entities (
-    entity_id    VARCHAR(64)  PRIMARY KEY,
+    entity_id    VARCHAR(255) PRIMARY KEY,
     entity_type  VARCHAR(32)  NOT NULL,
     source       VARCHAR(32)  NOT NULL,
     display_name VARCHAR(128),
@@ -26,7 +26,7 @@ CREATE INDEX IF NOT EXISTS ix_entities_last_seen ON entities (last_seen DESC);
 -- -------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS observations (
     id             BIGSERIAL    PRIMARY KEY,
-    entity_id      VARCHAR(64)  NOT NULL REFERENCES entities (entity_id) ON DELETE CASCADE,
+    entity_id      VARCHAR(255) NOT NULL REFERENCES entities (entity_id) ON DELETE CASCADE,
     ts             TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
     lat            DOUBLE PRECISION,
     lon            DOUBLE PRECISION,
@@ -55,7 +55,7 @@ CREATE INDEX IF NOT EXISTS ix_obs_geom      ON observations USING GIST (geom);
 CREATE TABLE IF NOT EXISTS events (
     event_id   VARCHAR(64)  PRIMARY KEY DEFAULT gen_random_uuid()::text,
     event_type VARCHAR(64)  NOT NULL,
-    entity_id  VARCHAR(64)  REFERENCES entities(entity_id) ON DELETE SET NULL,
+    entity_id  VARCHAR(255) REFERENCES entities(entity_id) ON DELETE SET NULL,
     ts         TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
     severity   VARCHAR(16)  NOT NULL DEFAULT 'info',
     summary    TEXT         NOT NULL,

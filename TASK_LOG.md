@@ -5,6 +5,28 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 
 ---
 
+## 2026-05-09 — Fixed entity_id VARCHAR(64) overflow for MeshCore node IDs
+
+- **Root cause**: `entities.entity_id` (and FK columns on `observations`, `events`, `entity_mission_tags`) was `VARCHAR(64)`. MeshCore node IDs are prefixed hashes — e.g. `mesh_node:` (10 chars) + 64-char SHA256 = 74 chars — exceeding the limit and causing `StringDataRightTruncationError` on every mesh node DB write.
+- **`db/init/01_schema.sql`**: Widened `entity_id` to `VARCHAR(255)` on `entities` (PK), `observations` (FK), and `events` (FK) for clean installs.
+- **`db/init/04_entity_mission_tags.sql`**: Widened `entity_id` FK to `VARCHAR(255)`.
+- **`poller/db.py`**: Added four `ALTER TABLE ... ALTER COLUMN entity_id TYPE VARCHAR(255)` migrations to `init_db()` so the running database is widened on next poller restart — no volume wipe required. PostgreSQL ALTER on a VARCHAR PK cascades to dependent FK columns automatically.
+- **Validation**: Poller restarted cleanly with no migration errors. Python syntax check passed.
+
+## 2026-05-09 — Fixed Mesh Node and Fire icon rendering to match design guide
+
+- **Root cause identified**: Fire (`hazard` type) and Mesh Node icons were collapsing to a plain `dot` glyph at mid-zoom (6–8) instead of showing their distinctive shaped icons. Fire entities (wildfire incidents) are regional and almost always viewed at mid-zoom, making them visually indistinguishable from dots. Mesh nodes similarly degraded to a generic `ring` at mid-zoom instead of the hex chip.
+- **`frontend/src/layers/buildEntityLayers.ts`**:
+  - Added `hazard` (`fire_incident`) to the mid-zoom full-icon whitelist alongside `air`, `sea`, and `tak` — fire icons now show the flame shape at zoom >= 6.
+  - Added explicit `FIRE_ICON_COLOR` constant matching design guide `--cat-fire #FF5252` (`[255, 82, 82, 230]`). Fire entities were previously getting an imprecise warm-orange from the generic `entityColor()` path.
+  - Wired `FIRE_ICON_COLOR` into `getColor` for `hazard` type tracks.
+- **`frontend/src/layers/buildMeshNodeLayer.ts`**:
+  - Changed `iconForZoom` threshold so the hex chip icon (`'mesh'`) renders at zoom >= 6 instead of the generic `ring`; adjusted mid-zoom size from 12 → 16px.
+- **`frontend/src/layers/atlasIcons.ts`**:
+  - Added design-guide SVG coordinate comments to Mesh Node and Fire canvas draw blocks referencing the exact `atlas-mesh` / `atlas-fire` symbol paths (×2 scale from 32px grid).
+  - Corrected fire inner core void from solid black to `rgba(0,0,0,0.6)` matching `opacity="0.6"` in the design guide.
+- **Validation**: `cd frontend && node node_modules/typescript/bin/tsc --noEmit` ✓ zero errors.
+
 ## 2026-05-09 — Hardened lightning strike ingestion and Deck.gl rendering safety
 
 - Updated `frontend/src/store.ts` lightning ingestion path:

@@ -68,6 +68,8 @@ export function createAtlasIcons(): IconAtlasResult {
   // ─── Row 0, Col 2 · MESH NODE — hex chip with inner square void ───────────
   // Design guide: atlas-mesh polygon "16,4 26,10 26,22 16,28 6,22 6,10" (×2)
   // Inner void: rect x=13 y=13 w=6 h=6 (×2 → x=26 y=26 w=12 h=12)
+  // NOTE: Deck.gl mask=true uses alpha only — clearRect punches a truly
+  //       transparent hole so the void shows through on the map.
   {
     const [ox, oy] = cellOrigin(2, 0)
     ctx.fillStyle = W
@@ -80,9 +82,8 @@ export function createAtlasIcons(): IconAtlasResult {
     ctx.lineTo(ox + 12, oy + 20)  // 6,10 ×2
     ctx.closePath()
     ctx.fill()
-    // Inner square void — rect x=13 y=13 w=6 h=6 (×2)
-    ctx.fillStyle = B
-    ctx.fillRect(ox + 26, oy + 26, 12, 12)
+    // Punch transparent hole — clearRect sets alpha=0 so mask mode shows a void
+    ctx.clearRect(ox + 26, oy + 26, 12, 12)
   }
 
   // ─── Row 0, Col 3 · APRS — stroke diamond + crosshair lines + center dot ───
@@ -164,6 +165,8 @@ export function createAtlasIcons(): IconAtlasResult {
   //        C9 12,11 11,13 9 C13 13,16 13,14 9 C15 7,16 5,16 3 Z
   // Core:  M16 14 C18 17,19 19,19 22 C19 25,17 26,16 26
   //        C15 26,13 25,13 22 C13 19,14 17,16 14 Z
+  // NOTE: Deck.gl mask=true reads alpha only. Use destination-out compositing
+  //       at 60% to create a semi-transparent core (matches opacity="0.6").
   {
     const [ox, oy] = cellOrigin(2, 1)
     ctx.fillStyle = W
@@ -177,7 +180,9 @@ export function createAtlasIcons(): IconAtlasResult {
     ctx.bezierCurveTo(ox + 30, oy + 14, ox + 32, oy + 10, ox + 32, oy + 6)  // C15 7,16 5,16 3
     ctx.closePath()
     ctx.fill()
-    // Inner core void — opacity 0.6 per design guide (render as semi-opaque black)
+    // Inner core — destination-out at 60% cuts alpha, matching opacity="0.6"
+    // This leaves the core 40% opaque so the map shows faintly through it.
+    ctx.globalCompositeOperation = 'destination-out'
     ctx.fillStyle = 'rgba(0,0,0,0.6)'
     ctx.beginPath()
     ctx.moveTo(ox + 32, oy + 28)  // M16 14
@@ -187,9 +192,13 @@ export function createAtlasIcons(): IconAtlasResult {
     ctx.bezierCurveTo(ox + 26, oy + 38, ox + 28, oy + 34, ox + 32, oy + 28) // C13 19,14 17,16 14
     ctx.closePath()
     ctx.fill()
+    ctx.globalCompositeOperation = 'source-over'  // restore default compositing
   }
 
   // ─── Row 1, Col 3 · CAMERA — CCTV housing + mount + lens ─────────────────
+  // Design guide: body trapezoid + mount + base (all fill) + lens hole (onyx-black)
+  //              + lens highlight (fill currentColor). Lens hole must be transparent
+  //              in mask mode — use destination-out to punch through the camera body.
   {
     const [ox, oy] = cellOrigin(3, 1)
     ctx.fillStyle = W
@@ -203,12 +212,14 @@ export function createAtlasIcons(): IconAtlasResult {
     ctx.fill()
     ctx.fillRect(ox + 20, oy + 34, 4, 18)  // mount post
     ctx.fillRect(ox + 12, oy + 50, 20, 4)  // base
-    // lens cutout
-    ctx.fillStyle = B
+    // Lens cutout — punch transparent hole through camera body
+    ctx.globalCompositeOperation = 'destination-out'
+    ctx.fillStyle = 'rgba(0,0,0,1)'
     ctx.beginPath()
     ctx.arc(ox + 28, oy + 28, 7, 0, Math.PI * 2)
     ctx.fill()
-    // lens center dot
+    ctx.globalCompositeOperation = 'source-over'
+    // Lens center highlight
     ctx.fillStyle = W
     ctx.beginPath()
     ctx.arc(ox + 28, oy + 28, 3, 0, Math.PI * 2)
@@ -216,19 +227,21 @@ export function createAtlasIcons(): IconAtlasResult {
   }
 
   // ─── Row 2, Col 0 · RING — annulus + center dot (zoom mid) ───────────────
+  // Design guide: atlas-ring = stroked circle (r=9, stroke-width=2) + filled dot (r=3)
+  // Scaled ×2: stroke r=18, lineWidth=4, dot r=6.
+  // Using stroke naturally leaves interior transparent — no alpha hack needed.
   {
     const [ox, oy] = cellOrigin(0, 2)
+    ctx.strokeStyle = W
+    ctx.lineWidth = 4        // stroke-width 2 ×2
+    ctx.lineJoin = 'miter'
+    ctx.lineCap = 'square'
+    ctx.beginPath()
+    ctx.arc(ox + 32, oy + 32, 18, 0, Math.PI * 2)  // r=9 ×2
+    ctx.stroke()
     ctx.fillStyle = W
     ctx.beginPath()
-    ctx.arc(ox + 32, oy + 32, 22, 0, Math.PI * 2)
-    ctx.fill()
-    ctx.fillStyle = B
-    ctx.beginPath()
-    ctx.arc(ox + 32, oy + 32, 14, 0, Math.PI * 2)
-    ctx.fill()
-    ctx.fillStyle = W
-    ctx.beginPath()
-    ctx.arc(ox + 32, oy + 32, 6, 0, Math.PI * 2)
+    ctx.arc(ox + 32, oy + 32, 6, 0, Math.PI * 2)   // r=3 ×2
     ctx.fill()
   }
 
