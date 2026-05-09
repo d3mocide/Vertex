@@ -122,3 +122,31 @@ alert_zones:
     - "ORZ005"             # Multnomah County, OR
     - "ORZ007"             # Clackamas County, OR
   source: config
+
+# ---------------------------------------------------------------------------
+# Regions — define one or more geographic bounding boxes for data ingestion.
+# Each region gets its own bbox filter applied to ADS-B and weather pollers.
+# Pollers that support multi-region iterate over all enabled regions.
+#
+# If no regions are defined here, the poller falls back to the single bbox
+# configured via environment variables (BBOX_MIN_LAT etc.).
+# ---------------------------------------------------------------------------
+regions:
+  - id: "home"
+    name: "Tualatin Valley"
+    bbox:
+      min_lat: 44.8
+      max_lat: 45.9
+      min_lon: -123.5
+      max_lon: -121.8
+    enabled: true
+
+  # Example second region (disabled by default)
+  # - id: "coast"
+  #   name: "Oregon Coast"
+  #   bbox:
+  #     min_lat: 44.0
+  #     max_lat: 46.5
+  #     min_lon: -124.5
+  #     max_lon: -123.8
+  #   enabled: false

@@ -1,4 +1,20 @@
+from pydantic import BaseModel
 from pydantic_settings import BaseSettings
+from typing import Optional
+
+
+class RegionBbox(BaseModel):
+    min_lat: float
+    max_lat: float
+    min_lon: float
+    max_lon: float
+
+
+class RegionConfig(BaseModel):
+    id: str
+    name: str
+    bbox: RegionBbox
+    enabled: bool = True
 
 
 class Settings(BaseSettings):
@@ -147,3 +163,29 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+
+def load_regions() -> list[RegionConfig]:
+    """Load regions from sources.yml, falling back to the single bbox from settings."""
+    import yaml, os
+    sources_path = os.environ.get("SOURCES_YML", "/config/sources.yml")
+    try:
+        with open(sources_path) as f:
+            data = yaml.safe_load(f) or {}
+        raw = data.get("regions") or []
+        regions = [RegionConfig(**r) for r in raw if r.get("enabled", True)]
+        if regions:
+            return regions
+    except (FileNotFoundError, Exception):
+        pass
+    # Fallback: build a single region from env-var bbox
+    return [RegionConfig(
+        id="default",
+        name=settings.region_name if hasattr(settings, "region_name") else "Default",
+        bbox=RegionBbox(
+            min_lat=settings.bbox_min_lat,
+            max_lat=settings.bbox_max_lat,
+            min_lon=settings.bbox_min_lon,
+            max_lon=settings.bbox_max_lon,
+        ),
+    )]
