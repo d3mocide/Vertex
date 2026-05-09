@@ -151,7 +151,7 @@ export function PlaybackController() {
 
       {/* Load panel — shown when trigger clicked and not yet in replay mode */}
       {open && !replayMode && (
-        <div className="absolute top-full mt-2 left-0 z-[40] w-80 hud-panel p-4 space-y-4 shadow-2xl cursor-default">
+        <div className="absolute top-full mt-2 left-0 z-[40] w-[calc(100vw-1rem)] sm:w-80 hud-panel p-4 space-y-4 shadow-2xl cursor-default">
           <div className="flex items-center justify-between">
             <span className="font-bold text-[10px] tracking-[0.2em] uppercase text-amber-gold">Load History</span>
             <button onClick={() => setOpen(false)} className="ms text-[16px] text-on-surface-variant hover:text-on-surface leading-none focus:outline-none">close</button>
