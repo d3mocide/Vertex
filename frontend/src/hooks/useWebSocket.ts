@@ -1,11 +1,74 @@
 import { useEffect, useRef } from 'react'
 import { WS_URL } from '../config'
 import { useCivicStore } from '../store'
+import type { EntityTypeFilter } from '../storeTypes'
 import { wsTokenParam } from '../auth'
 import { initNotifications, maybeNotify } from '../notifications'
 
 const RECONNECT_DELAY_INITIAL_MS = 1000
 const RECONNECT_DELAY_MAX_MS = 60_000
+
+// All known entity types tracked by EntityTypeFilter keys.
+// adsbLocal / adsbSupplement are frontend sub-filters of 'aircraft'; the
+// backend only knows 'aircraft' as the entity_type.
+const FILTER_KEY_TO_ENTITY_TYPE: Partial<Record<keyof EntityTypeFilter, string>> = {
+  aircraft:        'aircraft',
+  vessel:          'vessel',
+  mesh_node:       'mesh_node',
+  aprs:            'aprs',
+  fire_incident:   'fire_incident',
+  satellite:       'satellite',
+  tinygs_station:  'tinygs_station',
+}
+
+/**
+ * Build a subscribe message from the current store filter state.
+ * Returns null if all filters are at their defaults (no active filtering),
+ * so we avoid sending an unnecessary subscribe with no effect.
+ */
+function buildSubscription(
+  entityFilter: EntityTypeFilter,
+  bbox: [number, number, number, number] | null,
+): { type: 'subscribe'; bbox?: [number, number, number, number]; entity_types?: string[] } | null {
+  // Collect entity types that are currently disabled
+  const enabledTypes: string[] = []
+  let anyDisabled = false
+
+  for (const [key, entityType] of Object.entries(FILTER_KEY_TO_ENTITY_TYPE) as [keyof EntityTypeFilter, string][]) {
+    if (entityFilter[key]) {
+      // Only add each entity type once (aircraft appears for both adsbLocal/adsbSupplement keys,
+      // but FILTER_KEY_TO_ENTITY_TYPE omits those sub-keys so aircraft appears once)
+      if (!enabledTypes.includes(entityType)) {
+        enabledTypes.push(entityType)
+      }
+    } else {
+      anyDisabled = true
+    }
+  }
+
+  // adsbLocal / adsbSupplement are sub-filters of aircraft — if either is disabled
+  // we still need 'aircraft' in the server list (server doesn't distinguish by source).
+  // So we only remove aircraft from server filter if the top-level 'aircraft' flag is false.
+  // (adsbLocal/adsbSupplement filtering remains a client-side concern only.)
+
+  const hasEntityTypeFilter = anyDisabled && enabledTypes.length > 0
+  const hasBboxFilter = bbox !== null
+
+  if (!hasEntityTypeFilter && !hasBboxFilter) {
+    return null
+  }
+
+  const sub: { type: 'subscribe'; bbox?: [number, number, number, number]; entity_types?: string[] } = {
+    type: 'subscribe',
+  }
+  if (hasBboxFilter && bbox !== null) {
+    sub.bbox = bbox
+  }
+  if (hasEntityTypeFilter) {
+    sub.entity_types = enabledTypes
+  }
+  return sub
+}
 
 export function useWebSocket() {
   const wsRef = useRef<WebSocket | null>(null)
@@ -42,6 +105,15 @@ export function useWebSocket() {
       purgeStaleEntities()
     }, 10000)
 
+    const sendSubscription = (ws: WebSocket) => {
+      if (ws.readyState !== WebSocket.OPEN) return
+      const state = useCivicStore.getState()
+      const sub = buildSubscription(state.entityFilter, null)
+      if (sub) {
+        ws.send(JSON.stringify(sub))
+      }
+    }
+
     const connect = () => {
       if (cancelled) return
       const ws = new WebSocket(WS_URL + wsTokenParam())
@@ -50,6 +122,8 @@ export function useWebSocket() {
       ws.onopen  = () => {
         setConnected(true)
         reconnectDelayRef.current = RECONNECT_DELAY_INITIAL_MS
+        // Send current subscription filter immediately after connecting
+        sendSubscription(ws)
       }
       ws.onerror = () => ws.close()
       ws.onclose = () => {
@@ -195,10 +269,23 @@ export function useWebSocket() {
       }
     }
 
+    // Subscribe to entityFilter changes and re-send subscription when filter changes
+    const unsubscribeStore = useCivicStore.subscribe(
+      (state, prevState) => {
+        if (state.entityFilter !== prevState.entityFilter) {
+          const ws = wsRef.current
+          if (ws && ws.readyState === WebSocket.OPEN) {
+            sendSubscription(ws)
+          }
+        }
+      },
+    )
+
     connect()
     return () => {
       cancelled = true
       clearInterval(cleanupInterval)
+      unsubscribeStore()
       if (wsRef.current) {
         wsRef.current.onopen = null
         wsRef.current.onerror = null
