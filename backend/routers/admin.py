@@ -243,6 +243,82 @@ async def get_ingestion_rate(
     return {"window_minutes": window_minutes, "buckets": buckets}
 
 
+@router.get("/signal-quality")
+async def get_signal_quality(
+    window_minutes: int = Query(default=60, ge=5, le=1440),
+    db: AsyncSession = Depends(get_db),
+):
+    """Average signal quality per entity type over the last N minutes.
+    Only entity types that report signal_quality are included."""
+    rows = await db.execute(
+        text("""
+            SELECT
+                e.entity_type,
+                AVG(o.signal_quality)::float            AS avg_quality,
+                PERCENTILE_CONT(0.5) WITHIN GROUP
+                    (ORDER BY o.signal_quality)::float  AS median_quality,
+                MIN(o.signal_quality)::float            AS min_quality,
+                MAX(o.signal_quality)::float            AS max_quality,
+                COUNT(*)                                AS sample_count
+            FROM observations o
+            JOIN entities e USING (entity_id)
+            WHERE o.ts > now() - make_interval(mins => :window)
+              AND o.signal_quality IS NOT NULL
+            GROUP BY e.entity_type
+            ORDER BY avg_quality DESC NULLS LAST
+        """),
+        {"window": window_minutes},
+    )
+    return {
+        "window_minutes": window_minutes,
+        "types": [
+            {
+                "entity_type": row.entity_type,
+                "avg_quality": round(row.avg_quality, 2) if row.avg_quality is not None else None,
+                "median_quality": round(row.median_quality, 2) if row.median_quality is not None else None,
+                "min_quality": round(row.min_quality, 2) if row.min_quality is not None else None,
+                "max_quality": round(row.max_quality, 2) if row.max_quality is not None else None,
+                "sample_count": row.sample_count,
+            }
+            for row in rows
+        ],
+    }
+
+
+@router.get("/entity-freshness")
+async def get_entity_freshness(db: AsyncSession = Depends(get_db)):
+    """Entity freshness by type — bucketed by time since last observation."""
+    rows = await db.execute(
+        text("""
+            SELECT
+                entity_type,
+                COUNT(*)                                                             AS total,
+                COUNT(*) FILTER (WHERE last_seen > now() - interval '5 minutes')    AS fresh_5m,
+                COUNT(*) FILTER (WHERE last_seen <= now() - interval '5 minutes'
+                                   AND last_seen > now() - interval '15 minutes')   AS recent_15m,
+                COUNT(*) FILTER (WHERE last_seen <= now() - interval '15 minutes'
+                                   AND last_seen > now() - interval '60 minutes')   AS stale_60m,
+                COUNT(*) FILTER (WHERE last_seen <= now() - interval '60 minutes')  AS very_stale
+            FROM entities
+            GROUP BY entity_type
+            ORDER BY total DESC
+        """)
+    )
+    return {
+        "types": [
+            {
+                "entity_type": row.entity_type,
+                "total": row.total,
+                "fresh_5m": row.fresh_5m,
+                "recent_15m": row.recent_15m,
+                "stale_60m": row.stale_60m,
+                "very_stale": row.very_stale,
+            }
+            for row in rows
+        ],
+    }
+
+
 @router.get("/db-pool")
 async def get_db_pool():
     """SQLAlchemy async engine connection pool statistics."""

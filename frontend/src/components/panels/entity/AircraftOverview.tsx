@@ -33,13 +33,22 @@ export function Sparkline({ values, color }: { values: number[]; color: string }
   )
 }
 
+const EMERGENCY_SQUAWKS: Record<string, { label: string; urgent: boolean }> = {
+  '7500': { label: 'HIJACK', urgent: true },
+  '7600': { label: 'NORDO',  urgent: false },
+  '7700': { label: 'EMERGENCY', urgent: true },
+}
+
 export function AircraftOverview({ entity, getIdentity, trail = [] }: OverviewProps) {
+  const squawk = getIdentity('squawk')
+  const squawkAlert = squawk ? EMERGENCY_SQUAWKS[squawk] : undefined
+
   const identityRows: [string, string | undefined][] = [
     ['Type',    entity.entity_type],
     ['Source',  entity.source],
     ['ICAO24',  getIdentity('icao24')],
     ['Callsign', getIdentity('callsign')],
-    ['Registration', getIdentity('registration')],
+    ['Reg', getIdentity('registration')],
     ['Operator', getIdentity('operator')],
     ['Aircraft', getIdentity('type')],
   ]
@@ -54,8 +63,26 @@ export function AircraftOverview({ entity, getIdentity, trail = [] }: OverviewPr
   const altitudes = trail.map(p => p.altitude).filter((v): v is number => typeof v === 'number')
   const speeds = trail.map(p => p.speed).filter((v): v is number => typeof v === 'number')
 
+  const vr = entity.vertical_rate
+  const vrColor = vr == null ? 'text-on-surface' : vr > 100 ? 'text-green-500' : vr < -100 ? 'text-red-400' : 'text-on-surface'
+  const vrArrow = vr == null ? '' : vr > 100 ? '↑' : vr < -100 ? '↓' : '→'
+
   return (
     <>
+      {/* Emergency squawk banner */}
+      {squawkAlert && (
+        <div className={`flex items-center gap-2 px-2 py-1.5 rounded-sm border animate-pulse ${
+          squawkAlert.urgent
+            ? 'bg-red-emergency/20 border-red-emergency text-red-emergency'
+            : 'bg-amber-gold/20 border-amber-gold text-amber-gold'
+        }`}>
+          <span className="ms text-[14px] leading-none">warning</span>
+          <span className="font-mono text-[10px] font-bold tracking-wider">
+            SQUAWK {squawk} — {squawkAlert.label}
+          </span>
+        </div>
+      )}
+
       <div className="grid grid-cols-2 gap-2">
         <div className="bg-white/5 border border-white/10 p-2 rounded-sm relative overflow-hidden">
           <div className="flex items-center gap-1.5 mb-1 text-on-surface-variant relative z-10">
@@ -71,7 +98,7 @@ export function AircraftOverview({ entity, getIdentity, trail = [] }: OverviewPr
             </div>
           )}
         </div>
-        
+
         <div className="bg-white/5 border border-white/10 p-2 rounded-sm relative overflow-hidden">
           <div className="flex items-center gap-1.5 mb-1 text-on-surface-variant relative z-10">
             <span className="ms text-[12px]">speed</span>
@@ -102,8 +129,8 @@ export function AircraftOverview({ entity, getIdentity, trail = [] }: OverviewPr
             <span className="ms text-[12px]">swap_vert</span>
             <span className="label-caps text-[8px]">Vert Rate</span>
           </div>
-          <div className="font-mono text-on-surface text-[12px]">
-            {entity.vertical_rate != null ? `${Math.round(entity.vertical_rate)} ft/m` : '--'}
+          <div className={`font-mono text-[12px] ${vrColor}`}>
+            {vr != null ? `${vrArrow} ${Math.abs(Math.round(vr))} ft/m` : '--'}
           </div>
         </div>
       </div>
@@ -112,6 +139,12 @@ export function AircraftOverview({ entity, getIdentity, trail = [] }: OverviewPr
         <div>
           <span className="label-caps text-[9px] text-amber-gold-dim mb-1 block">Identity</span>
           <div className="space-y-1">
+            {squawk && !squawkAlert && (
+              <div className="flex justify-between items-baseline gap-2">
+                <span className="text-[9px] text-on-surface-variant">Squawk</span>
+                <span className="font-mono text-[10px] text-on-surface">{squawk}</span>
+              </div>
+            )}
             {identityRows.filter(([, v]) => v != null).map(([label, val]) => (
               <div key={label} className="flex justify-between items-baseline gap-2">
                 <span className="text-[9px] text-on-surface-variant">{label}</span>

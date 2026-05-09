@@ -54,3 +54,30 @@ export type DbPoolData = {
   invalid: number
   error?: string
 }
+
+export type SignalQualityEntry = {
+  entity_type: string
+  avg_quality: number | null
+  median_quality: number | null
+  min_quality: number | null
+  max_quality: number | null
+  sample_count: number
+}
+
+export type SignalQualityData = {
+  window_minutes: number
+  types: SignalQualityEntry[]
+}
+
+export type FreshnessEntry = {
+  entity_type: string
+  total: number
+  fresh_5m: number
+  recent_15m: number
+  stale_60m: number
+  very_stale: number
+}
+
+export type EntityFreshnessData = {
+  types: FreshnessEntry[]
+}
