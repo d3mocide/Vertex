@@ -74,6 +74,13 @@ class MeshCorePoller(BasePoller):
             except Exception as exc:
                 logger.error("[meshcore] contact fetch error: %s", exc)
                 await self._heartbeat("error", str(exc)[:256])
+            try:
+                neighbors = await _fetch_neighbors(src)
+                if neighbors:
+                    await _upsert_mesh_links(src["base_url"], neighbors)
+                    logger.debug("[meshcore] upserted %d links from %s", len(neighbors), src["base_url"])
+            except Exception as exc:
+                logger.debug("[meshcore] neighbor fetch skipped: %s", exc)
             await asyncio.sleep(_CONTACT_POLL_INTERVAL)
 
     async def _ws_loop(self, src: dict):
@@ -101,6 +108,51 @@ class MeshCorePoller(BasePoller):
 
             await set_feed("mesh:status", {"connected": False, "url": src["base_url"]})
             await asyncio.sleep(_RETRY_DELAY)
+
+
+async def _fetch_neighbors(src: dict) -> list[dict]:
+    """Fetch neighbor/link-state data from RemoteTerm if the endpoint exists."""
+    url = src["base_url"] + "/api/neighbors"
+    auth = src.get("auth")
+    httpx_auth = httpx.BasicAuth(*auth) if auth else None
+    try:
+        async with httpx.AsyncClient(auth=httpx_auth, timeout=10) as client:
+            resp = await client.get(url)
+            if resp.status_code == 404:
+                return []
+            resp.raise_for_status()
+            payload = resp.json()
+            if isinstance(payload, list):
+                return payload
+            return payload.get("items", payload.get("neighbors", []))
+    except Exception as exc:
+        logger.debug("[meshcore] neighbor fetch error: %s", exc)
+        return []
+
+
+async def _upsert_mesh_links(source_url: str, neighbors: list[dict]) -> None:
+    from db import get_pool
+    import datetime
+    now = datetime.datetime.now(datetime.timezone.utc)
+    rows = []
+    for n in neighbors:
+        node_a = str(n.get("node_id") or n.get("id") or "")
+        node_b = str(n.get("neighbor_id") or n.get("peer_id") or "")
+        if not node_a or not node_b:
+            continue
+        rows.append((source_url, node_a, node_b, n.get("snr"), n.get("link_quality"), now))
+    if not rows:
+        return
+    pool = get_pool()
+    await pool.executemany(
+        """
+        INSERT INTO mesh_links (source_url, node_a, node_b, snr, link_quality, last_seen)
+        VALUES ($1, $2, $3, $4, $5, $6)
+        ON CONFLICT (source_url, node_a, node_b)
+        DO UPDATE SET snr=EXCLUDED.snr, link_quality=EXCLUDED.link_quality, last_seen=EXCLUDED.last_seen
+        """,
+        rows,
+    )
 
 
 async def _fetch_contacts(src: dict):

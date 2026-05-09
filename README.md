@@ -99,3 +99,51 @@ Open `http://localhost`. For detailed setup, see [docs/getting-started.md](docs/
 ## // 06 · LICENSE
 
 GPL-3.0 — see [LICENSE](LICENSE).
+
+## // 07 · PI 5 DEPLOYMENT
+
+### Prerequisites
+
+- Raspberry Pi 5 (8 GB recommended)
+- Raspberry Pi OS Bookworm (64-bit)
+- Docker CE (`docker.io` + `docker-compose-plugin`)
+- A `.env` file configured from `.env.example`
+
+### First-time install
+
+Set the repo URL, then run the install script:
+
+```bash
+export VERTEX_REPO_URL=https://github.com/d3mocide/Vertex.git
+curl -fsSL https://raw.githubusercontent.com/d3mocide/Vertex/main/infra/install.sh | sudo -E bash
+```
+
+If you have already cloned the repo locally:
+
+```bash
+export VERTEX_REPO_URL=https://github.com/d3mocide/Vertex.git
+sudo -E bash infra/install.sh
+```
+
+After the script completes, edit `/opt/vertex/.env` with your region, API keys, and data sources.
+
+### Update
+
+```bash
+sudo bash /opt/vertex/infra/update.sh
+```
+
+This pulls the latest code and images, then restarts the service via systemd.
+
+### Service management
+
+```bash
+sudo systemctl status vertex        # Show service status
+sudo systemctl stop vertex          # Stop the stack
+sudo systemctl start vertex         # Start the stack
+sudo journalctl -u vertex -f        # Follow live logs
+```
+
+### Resource notes
+
+The full stack uses approximately 2 GB RAM under load. A Pi 5 with 8 GB is recommended for comfortable headroom. Resource limits are pre-configured in `docker-compose.yml` and can be tuned for your hardware.

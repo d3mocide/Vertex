@@ -475,15 +475,15 @@ LOW IMPACT
 | ID | Item | Category | Effort | Impact | Priority | Status |
 |----|------|----------|--------|--------|----------|--------|
 | H1 | API Pagination & Filtering | Quality | M | High | P1 | Done |
-| H2 | Backend Test Suite Expansion | Quality | L | High | P1 | Not Started |
+| H2 | Backend Test Suite Expansion | Quality | L | High | P1 | Done |
 | H3 | CORS & Security Hardening | Quality | S | High | P1 | Done |
-| H4 | WebSocket Per-Client Filtering | Quality | M | Medium | P2 | Not Started |
+| H4 | WebSocket Per-Client Filtering | Quality | M | Medium | P2 | Done |
 | I1 | TLS / HTTPS Termination | Infrastructure | S | High | P1 | Done |
-| I2 | Docker Resource Limits & Restart Policies | Infrastructure | S | Medium | P2 | Not Started |
-| I3 | Systemd Unit & Pi 5 Auto-Start | Infrastructure | S | Medium | P2 | Not Started |
-| J1 | Multi-Region / Multi-Bbox Monitoring | Capabilities | L | Medium | P2 | Not Started |
-| J2 | Mesh Network Routing Visualization | Capabilities | L | Low | P3 | Not Started |
-| J3 | Progressive Web App (PWA) | Capabilities | M | Medium | P3 | Not Started |
+| I2 | Docker Resource Limits & Restart Policies | Infrastructure | S | Medium | P2 | Done |
+| I3 | Systemd Unit & Pi 5 Auto-Start | Infrastructure | S | Medium | P2 | Done |
+| J1 | Multi-Region / Multi-Bbox Monitoring | Capabilities | L | Medium | P2 | Done |
+| J2 | Mesh Network Routing Visualization | Capabilities | L | Low | P3 | Done |
+| J3 | Progressive Web App (PWA) | Capabilities | M | Medium | P3 | Done |
 
 ---
 
@@ -492,13 +492,13 @@ LOW IMPACT
 ### Sprint 9 — Production Hardening (P1) ✓ Complete
 `H1` API pagination · `H3` CORS & security hardening · `I1` TLS termination
 
-### Sprint 10 — Test Coverage & WS Scale (P1–P2)
+### Sprint 10 — Test Coverage & WS Scale (P1–P2) ✓ Complete
 `H2` Backend test suite · `H4` WebSocket per-client filtering
 
-### Sprint 11 — Deployment Tooling (P2)
+### Sprint 11 — Deployment Tooling (P2) ✓ Complete
 `I2` Docker resource limits · `I3` Systemd / Pi 5 auto-start · `J1` Multi-region monitoring (partial: config schema + ADS-B)
 
-### Sprint 12 — Expansion (P2–P3)
+### Sprint 12 — Expansion (P2–P3) ✓ Complete
 `J1` Multi-region (remaining pollers) · `J2` Mesh routing visualization · `J3` PWA
 
 ---

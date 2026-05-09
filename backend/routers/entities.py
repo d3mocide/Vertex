@@ -15,6 +15,7 @@ async def list_entities(
         None,
         description="Bounding box filter: min_lon,min_lat,max_lon,max_lat",
     ),
+    region_id: Optional[str] = Query(None),
 ):
     entities = await get_all_entities(entity_type)
 
@@ -32,6 +33,9 @@ async def list_entities(
             ]
         except (ValueError, TypeError):
             raise HTTPException(status_code=400, detail="bbox must be min_lon,min_lat,max_lon,max_lat")
+
+    if region_id:
+        entities = [e for e in entities if e.get("region_id") == region_id]
 
     return entities[offset : offset + limit]
 

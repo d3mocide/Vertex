@@ -8,6 +8,13 @@ import { VesselOverview } from './entity/VesselOverview'
 import { AprsOverview } from './entity/AprsOverview'
 import { GenericOverview } from './entity/GenericOverview'
 
+interface MeshNeighbor {
+  node_a: string
+  node_b: string
+  snr: number | null
+  link_quality: number | null
+}
+
 const TYPE_COLORS: Record<string, string> = {
   aircraft:       'text-cyan-adsb',
   vessel:         'text-green-ais',
@@ -47,6 +54,29 @@ export function EntityDetail() {
       .then((r) => r.ok ? r.json() : [])
       .then((pts: { altitude?: number | null; speed?: number | null }[]) => {
         if (!cancelled) setTrail(pts)
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [selectedEntityId, entity?.entity_type])
+
+  // Fetch mesh neighbors for mesh_node entities
+  const [meshNeighbors, setMeshNeighbors] = useState<MeshNeighbor[]>([])
+  useEffect(() => {
+    if (!selectedEntityId || !entity || entity.entity_type !== 'mesh_node') {
+      setMeshNeighbors([])
+      return
+    }
+    let cancelled = false
+    fetch(`${API_BASE}/mesh/links?stale_minutes=60`, { headers: authHeaders() })
+      .then((r) => r.ok ? r.json() : [])
+      .then((links: MeshNeighbor[]) => {
+        if (!cancelled) {
+          setMeshNeighbors(
+            links.filter(
+              (l) => l.node_a === selectedEntityId || l.node_b === selectedEntityId
+            )
+          )
+        }
       })
       .catch(() => {})
     return () => { cancelled = true }
@@ -199,6 +229,37 @@ export function EntityDetail() {
               <AprsOverview entity={entity} getIdentity={getIdentity} />
             ) : (
               <GenericOverview entity={entity} getIdentity={getIdentity} />
+            )}
+
+            {entity.entity_type === 'mesh_node' && (
+              <div>
+                <span className="label-caps text-[9px] text-amber-gold-dim mb-2 block">Neighbors</span>
+                {meshNeighbors.length === 0 ? (
+                  <p className="text-[9px] text-on-surface-variant/50 italic">No active links</p>
+                ) : (
+                  <ul className="space-y-1">
+                    {meshNeighbors.map((lnk, i) => {
+                      const peerId = lnk.node_a === selectedEntityId ? lnk.node_b : lnk.node_a
+                      return (
+                        <li key={i} className="flex items-center justify-between gap-2">
+                          <span className="font-mono text-[9px] text-on-surface truncate">{peerId}</span>
+                          <span
+                            className="font-mono text-[9px] shrink-0"
+                            style={{
+                              color: lnk.snr === null ? '#999'
+                                : lnk.snr >= -70 ? '#44dd88'
+                                : lnk.snr >= -90 ? '#ffb800'
+                                : '#ff5050',
+                            }}
+                          >
+                            {lnk.snr !== null ? `${lnk.snr} dBm` : '—'}
+                          </span>
+                        </li>
+                      )
+                    })}
+                  </ul>
+                )}
+              </div>
             )}
           </>
         )}

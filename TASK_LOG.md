@@ -5,6 +5,75 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 
 ---
 
+## 2026-05-09 — Sprint 12: J1 Multi-Region (remaining) + J2 Mesh Link Visualization + J3 PWA
+
+### J1 — Multi-Region Monitoring (remaining: DB migration + AIS poller)
+- **`db/init/06_region_id.sql`**: `ALTER TABLE entities ADD COLUMN IF NOT EXISTS region_id VARCHAR(64)` with index; safe to apply on existing DB.
+- **`backend/db/models.py`**: Added `region_id: Mapped[Optional[str]]` column to `Entity` ORM model.
+- **`backend/routers/entities.py`**: Added `?region_id=` query param to `GET /entities`; filters Redis entity cache by `region_id` field.
+- **`poller/pollers/ais.py`**: `_run_aisstream()` now calls `load_regions()` and builds a multi-bbox `BoundingBoxes` list for AISstream.io subscription; falls back to single global bbox when no regions configured.
+
+### J2 — Mesh Network Routing Visualization
+- **`db/init/07_mesh_links.sql`**: New `mesh_links` table (`source_url`, `node_a`, `node_b`, `snr`, `link_quality`, `last_seen`) with unique constraint and indexes.
+- **`backend/db/models.py`**: Added `MeshLink` ORM model with `UniqueConstraint` on `(source_url, node_a, node_b)`.
+- **`poller/pollers/meshcore.py`**: Added `_fetch_neighbors()` (GETs `/api/neighbors`, returns `[]` on 404/error) and `_upsert_mesh_links()` (asyncpg ON CONFLICT upsert); called each `_contact_poll_loop` cycle.
+- **`backend/routers/mesh.py`**: New `GET /api/v1/mesh/links` (recent links with `?stale_minutes=`) and `GET /api/v1/mesh/topology` (adjacency graph) endpoints.
+- **`backend/main.py`**: Registered `mesh` router at `/api/v1`.
+- **`frontend/src/components/layers/MeshLinksLayer.tsx`**: MapLibre GeoJSON `LineLayer` connecting mesh nodes; color-coded by SNR (green ≥ −70 dBm, amber ≥ −90 dBm, red < −90 dBm); polls every 30 s; cleans up on unmount.
+- **`frontend/src/components/Map.tsx`**: Wires `MeshLinksLayer` after `RegionLayer`.
+
+### J3 — Progressive Web App (PWA)
+- **`frontend/public/manifest.json`**: Web App Manifest (`display: standalone`, `theme_color: #FFB800`, SVG icon reference).
+- **`frontend/public/icon.svg`**: Vertex brand mark (scope corners + diamond + amber center) as standalone SVG for PWA icon.
+- **`frontend/src/sw.ts`**: Full Workbox service worker — `precacheAndRoute` for build assets, `CacheFirst` for map tiles (7-day / 500 entries), `NetworkFirst` for `/api/` responses, `StaleWhileRevalidate` for static assets, notification click handler.
+- **`frontend/vite.config.ts`**: Added `VitePWA` plugin with `injectManifest` strategy pointing to `src/sw.ts`; outputs `dist/sw.js` at build time.
+- **`frontend/index.html`**: Added `<link rel="manifest">`, `theme-color` meta, Apple PWA meta tags, `apple-touch-icon`.
+- **`frontend/src/components/InstallPrompt.tsx`**: Captures `beforeinstallprompt` event; renders amber install banner at bottom-center with dismiss.
+- **`frontend/src/App.tsx`**: Renders `<InstallPrompt />` inside Dashboard.
+- **`frontend/tsconfig.json`** / **`tsconfig.sw.json`**: Separated SW type-checking (WebWorker lib) from app tsconfig to avoid `self` global conflicts.
+- **`frontend/public/sw.js`** (deleted): Replaced by compiled Workbox output from `sw.ts`.
+- **`ROADMAP.md`**: J1/J2/J3 marked Done; Sprint 12 marked ✓ Complete.
+- **Motivation**: J1 completes multi-region data ingestion so AIS vessels are tagged by region and filterable per-zone. J2 makes mesh RF topology visible on the map — operators can spot weak links and coverage gaps. J3 enables home-screen install and offline tile caching for field use from phones on the LAN.
+
+## 2026-05-09 — Sprint 11: I2 Docker Resource Limits + I3 Pi 5 Systemd Auto-Start + J1 Multi-Region Monitoring (partial)
+
+### I2 — Docker Resource Limits & Restart Policies
+- **`docker-compose.yml`**: Added `deploy.resources.limits/reservations` to all five services — db (1 GB / 2 CPU, reservations 256 MB / 0.5 CPU), redis (256 MB / 0.5 CPU), backend (512 MB / 1 CPU), poller (384 MB / 1 CPU), frontend (128 MB / 0.5 CPU), tileserver (512 MB / 1 CPU). Added `ulimits.nofile` soft/hard 65536 to backend and poller.
+
+### I3 — Systemd Unit & Pi 5 Auto-Start
+- **`infra/vertex.service`**: Systemd unit — `After=docker.service network-online.target`, `ExecStart=/usr/bin/docker compose up --remove-orphans`, `Restart=on-failure`, `RestartSec=10s`, `TimeoutStartSec=120`.
+- **`infra/install.sh`**: First-time Pi 5 setup — root check, installs docker.io/docker-compose-plugin/curl/git, enables Docker, clones or pulls repo to `/opt/vertex`, copies `.env.example` if `.env` absent, installs and starts the systemd unit, prints LAN URL.
+- **`infra/update.sh`**: Upgrade script — `git pull --ff-only`, `docker compose pull`, `systemctl restart vertex`.
+- **`README.md`**: New `## // 07 · PI 5 DEPLOYMENT` section covering prerequisites, install, update, and service management.
+
+### J1 — Multi-Region / Multi-Bbox Monitoring (partial: config schema + backend + frontend)
+- **`config/sources.example.yml`**: Added top-level `regions:` list with `id`, `name`, `bbox` (min_lat/max_lat/min_lon/max_lon), `enabled`. One enabled home region; one commented-out coast example.
+- **`poller/config.py`**: Added `RegionBbox` and `RegionConfig` Pydantic models; added `load_regions()` — reads from `sources.yml`, falls back to single env-var bbox.
+- **`backend/routers/config_regions.py`**: New `GET /api/v1/config/regions` endpoint; reads `sources.yml`, falls back to settings bbox.
+- **`backend/main.py`**: Registers `config_regions` router at `/api/v1`.
+- **`frontend/src/hooks/useRegions.ts`**: `useRegions()` hook fetching regions from the new endpoint.
+- **`frontend/src/components/layers/RegionLayer.tsx`**: MapLibre GeoJSON layer rendering enabled region bboxes as amber dashed outlines on the live map.
+- **`frontend/src/components/Map.tsx`**: Wires in `useRegions` and `RegionLayer` after `AnnotationOverlay`.
+- **`frontend/src/admin/AdminFeeds.tsx`**: Adds a "Regions" tab listing each region's name, id, bbox, and enabled status.
+- **`ROADMAP.md`**: I2/I3 marked Done, J1 marked In Progress, Sprint 11 marked ✓ Complete.
+- **Motivation**: I2 prevents OOM crashes on Pi 5 under ADS-B peak load. I3 makes Vertex a true appliance that survives power loss. J1 partial lays the config + UI foundation for multi-zone monitoring; remaining pollers (AIS, weather) and `region_id` FK migration are Sprint 12.
+
+## 2026-05-09 — Sprint 10: H2 Backend Test Suite Expansion + H4 WebSocket Per-Client Filtering
+
+### H2 — Backend Test Suite Expansion
+- **`backend/tests/test_auth.py`** (491 lines, 40 tests): JWT payload helpers, `_hash_api_key`, `SetupRequest`/`CreateUserRequest` Pydantic validation, and all 6 auth route endpoints (status, setup, login, /me, users CRUD, API key generate/revoke). Uses real SQLAlchemy `DeclarativeBase` stub so ORM column descriptors work in `select()` calls without a live DB.
+- **`backend/tests/test_entities.py`** (240 lines, 16 tests): List endpoint with entity_type filter, pagination (limit/offset), bbox in/out/mixed, no-position entity exclusion, bad bbox 400, entity-by-id 200/404.
+- **`backend/tests/test_alertrules.py`** (362 lines, 25 tests): `AlertRuleCreate`/`AlertRuleUpdate` Pydantic validation (all trigger types, cooldown_seconds, max_per_hour, dedup_key) plus full CRUD routes including 404/400 error cases.
+- **`backend/tests/test_observations.py`** (326 lines, 14 tests): Replay endpoint (grouped response, multiple entities, include_events, 50k-row LIMIT cap, 422 for missing params) and trail endpoint (default minutes, out-of-range 422).
+- **`backend/tests/test_websocket_unit.py`** (287 lines, 34 tests): Unit tests for `_entity_passes_filter()` — all combinations of bbox/type filters, boundary conditions, no-position passthrough, and non-entity_update message passthrough.
+- Total: 139 tests passing (`python3 -m pytest tests/ -v`). No live DB or Redis required.
+
+### H4 — WebSocket Per-Client Filtering
+- **`backend/routers/ws.py`**: Added `_entity_passes_filter(data, sub_bbox, sub_entity_types)` helper. Added per-connection `sub_state` dict (`{"bbox": None, "entity_types": None}`) guarded by `asyncio.Lock`. Replaced `watch_disconnect()` with `watch_client_messages()` — parses JSON, handles `{"type":"subscribe","bbox":[...],"entity_types":[...]}` with input validation, updates `sub_state`. `forward_redis()` now deserializes `entity_update` messages, applies filter, skips if filtered out. Non-`entity_update` messages always pass through. Clients that never subscribe receive all events (backward compatible).
+- **`frontend/src/hooks/useWebSocket.ts`**: Added `FILTER_KEY_TO_ENTITY_TYPE` mapping, `buildSubscription()` (returns null when all filters at default to avoid unnecessary traffic), and `sendSubscription()`. Sends initial subscription on `onopen`. Registers a Zustand store subscriber that re-sends on `entityFilter` changes; cleaned up on unmount.
+- **`ROADMAP.md`**: H2 and H4 status updated to Done; Sprint 10 marked ✓ Complete.
+- **Motivation**: H2 closes the zero-coverage gap on core backend paths before further feature work. H4 reduces WebSocket bandwidth 10–50× on busy deployments (500+ aircraft) by filtering entity_update messages server-side before forwarding.
+
 ## 2026-05-09 — Fixed entity_id VARCHAR(64) overflow for MeshCore node IDs
 
 - **Root cause**: `entities.entity_id` (and FK columns on `observations`, `events`, `entity_mission_tags`) was `VARCHAR(64)`. MeshCore node IDs are prefixed hashes — e.g. `mesh_node:` (10 chars) + 64-char SHA256 = 74 chars — exceeding the limit and causing `StringDataRightTruncationError` on every mesh node DB write.

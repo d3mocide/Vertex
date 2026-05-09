@@ -27,6 +27,7 @@ import { GeofenceController }  from './components/panels/GeofenceController'
 import { CameraModal }         from './components/panels/CameraModal'
 import { IncidentsPanel }      from './components/panels/IncidentsPanel'
 import { AnnotationController } from './components/panels/AnnotationController'
+import { InstallPrompt } from './components/InstallPrompt'
 
 // ── Authenticated dashboard ────────────────────────────────────────────────────
 function Dashboard() {
@@ -115,6 +116,7 @@ function Dashboard() {
 
       <MobileNav />
       <SettingsPanel />
+      <InstallPrompt />
     </div>
   )
 }
