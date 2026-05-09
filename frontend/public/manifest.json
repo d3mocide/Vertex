@@ -1,0 +1,17 @@
+{
+  "name": "Vertex Situational Awareness",
+  "short_name": "VERTEX",
+  "description": "Real-time situational awareness dashboard",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f0f0f",
+  "theme_color": "#FFB800",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

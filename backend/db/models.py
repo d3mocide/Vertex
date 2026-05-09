@@ -42,6 +42,7 @@ class Entity(Base):
     tags: Mapped[Optional[list]] = mapped_column(JSON)
     first_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     last_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    region_id: Mapped[Optional[str]] = mapped_column(String(64), nullable=True, index=True)
 
     observations: Mapped[list["Observation"]] = relationship(back_populates="entity")
 

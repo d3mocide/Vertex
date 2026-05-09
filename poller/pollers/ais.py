@@ -2,7 +2,7 @@ import asyncio
 import json
 import logging
 import websockets
-from config import settings
+from config import settings, load_regions
 from bus import publish_entity
 from normalizers.vessel import normalize_aisstream, normalize_ais_catcher
 from .base import BasePoller
@@ -61,13 +61,25 @@ class AisPoller(BasePoller):
                 await asyncio.sleep(_RETRY_DELAY)
 
     async def _run_aisstream(self):
-        bbox = [
-            [settings.bbox_min_lat, settings.bbox_min_lon],
-            [settings.bbox_max_lat, settings.bbox_max_lon],
-        ]
+        regions = load_regions()
+        if regions:
+            bboxes = [
+                [
+                    [r.bbox.min_lat, r.bbox.min_lon],
+                    [r.bbox.max_lat, r.bbox.max_lon],
+                ]
+                for r in regions
+            ]
+        else:
+            bboxes = [
+                [
+                    [settings.bbox_min_lat, settings.bbox_min_lon],
+                    [settings.bbox_max_lat, settings.bbox_max_lon],
+                ]
+            ]
         sub = json.dumps({
             "APIKey": settings.aisstream_api_key,
-            "BoundingBoxes": [bbox],
+            "BoundingBoxes": bboxes,
             "FilterMessageTypes": ["PositionReport", "ShipStaticData"],
         })
         logger.info("[ais] connecting to AISstream.io")
