@@ -241,8 +241,15 @@ def _parse_odot_flow(data: dict, station_map: dict) -> list[dict]:
         hwy = meta.get("road", "")
         loc = meta.get("loc", "")
 
-        if not any(c in hwy for c in corridors):
+        found = False
+        for c in corridors:
+            if c in hwy:
+                found = True
+                break
+
+        if not found:
             continue
+
         items.append({
             "id":    str(sid),
             "road":  hwy,
