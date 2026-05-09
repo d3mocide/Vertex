@@ -4,11 +4,17 @@ P25 poller — polls the OP25 HTTP terminal for active talkgroup metadata.
 OP25's multi_rx.py serves a web terminal on port 8080. This poller hits
 the state endpoint, writes the active talkgroup to Redis, and persists
 call-start/call-end events to Postgres via the event stream.
+
+Priority enforcement: talkgroup priorities loaded from DB are used to cap
+how long a low-priority channel monopolizes the scanner. When a TGID has
+been active beyond its priority-weighted budget, a OP25 skip command is
+sent to force the scanner to the next slot.
 """
 
 import asyncio
 import json
 import logging
+import time
 import uuid
 from datetime import datetime, timezone
 
@@ -25,6 +31,17 @@ logger = logging.getLogger(__name__)
 _STATE_CALL = 1
 _STATE_IDLE = 0
 
+# Maximum seconds a TGID may hold the scanner per priority level (1=highest).
+# Priority 1 (critical ops) is never forcibly skipped.
+_MAX_SCAN_SECONDS: dict[int, int] = {
+    1: 9999,   # never skip
+    2: 120,
+    3: 60,
+    4: 30,
+    5: 15,
+}
+_PRIORITY_REFRESH_INTERVAL = 60  # re-read talkgroup priorities every 60 polls
+
 
 class P25Poller(BasePoller):
     name = "p25"
@@ -34,7 +51,10 @@ class P25Poller(BasePoller):
         self._last_tgid: int | None = None
         self._last_tag: str = ""
         self._call_start: str | None = None
+        self._call_start_ts: float = 0.0
         self._op25_url: str | None = None
+        self._priorities: dict[int, int] = {}  # {tgid: priority}
+        self._priority_poll_counter: int = 0
 
     async def setup(self):
         from db import get_pool
@@ -46,10 +66,28 @@ class P25Poller(BasePoller):
             logger.info("[p25] using OP25 at %s", self._op25_url)
         else:
             logger.warning("[p25] no P25 source configured — poller inactive")
+        await self._refresh_priorities()
+
+    async def _refresh_priorities(self):
+        try:
+            from db import get_pool
+            rows = await get_pool().fetch(
+                "SELECT tgid, priority FROM talkgroups WHERE scan_enabled = TRUE"
+            )
+            self._priorities = {int(r["tgid"]): int(r["priority"]) for r in rows}
+            logger.debug("[p25] loaded %d talkgroup priorities", len(self._priorities))
+        except Exception as exc:
+            logger.debug("[p25] priority refresh failed: %s", exc)
 
     async def poll(self):
         if not self._op25_url:
             return
+
+        self._priority_poll_counter += 1
+        if self._priority_poll_counter >= _PRIORITY_REFRESH_INTERVAL:
+            self._priority_poll_counter = 0
+            await self._refresh_priorities()
+
         try:
             # OP25 terminal API expects command queue JSON, same as main.js send_process().
             async with httpx.AsyncClient(timeout=3) as client:
@@ -72,6 +110,10 @@ class P25Poller(BasePoller):
         tag      = state.get("tag", "")
         is_call  = state.get("state") == "call"
 
+        # Annotate state with talkgroup priority for the frontend
+        if tgid and tgid in self._priorities:
+            state["priority"] = self._priorities[tgid]
+
         await set_feed("radio:active", state)
 
         # Detect call-start / call-end transitions and write Event records
@@ -82,17 +124,40 @@ class P25Poller(BasePoller):
                     "tag":        self._last_tag,
                     "started_at": self._call_start,
                     "ended_at":   _now(),
+                    "priority":   self._priorities.get(self._last_tgid, 3),
                 })
             if tgid and is_call:
                 self._last_tag = tag
                 self._call_start = _now()
+                self._call_start_ts = time.monotonic()
                 await _write_event("p25_call_start", {
                     "tgid":       tgid,
                     "tag":        tag,
                     "freq_hz":    state.get("freq_hz"),
                     "started_at": self._call_start,
+                    "priority":   self._priorities.get(tgid, 3),
                 })
             self._last_tgid = tgid
+
+        # Priority-weighted scan enforcement: if the active TGID has exceeded
+        # its time budget, send OP25 a skip command to advance the scanner.
+        if tgid and is_call and self._call_start_ts > 0:
+            priority = self._priorities.get(tgid, 3)
+            max_secs = _MAX_SCAN_SECONDS.get(priority, 60)
+            elapsed = time.monotonic() - self._call_start_ts
+            if elapsed > max_secs:
+                await self._send_skip()
+                self._call_start_ts = time.monotonic()  # reset timer after skip attempt
+
+    async def _send_skip(self):
+        if not self._op25_url:
+            return
+        try:
+            async with httpx.AsyncClient(timeout=3) as client:
+                await client.post(self._op25_url, json=[{"command": "skip", "arg1": 0, "arg2": 0}])
+            logger.debug("[p25] sent skip command (priority enforcement)")
+        except Exception as exc:
+            logger.debug("[p25] skip command failed: %s", exc)
 
 
 def _normalize_state(data: dict) -> dict:

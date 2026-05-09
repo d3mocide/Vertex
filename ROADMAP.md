@@ -244,15 +244,15 @@ LOW IMPACT
 | ID | Item | Category | Effort | Impact | Priority | Status |
 |----|------|----------|--------|--------|----------|--------|
 | E1 | Map Annotation Tools | Tactical UX | M | High | P1 | Done |
-| E2 | P25 Audio Archiving | Tactical UX | L | High | P1 | Not Started |
+| E2 | P25 Audio Archiving | Tactical UX | L | High | P1 | Done |
 | E3 | Entity Tagging / Mission Grouping | Tactical UX | S | High | P1 | Done |
 | E4 | Alert Suppression / Cooldown Rules | Tactical UX | S | High | P1 | Done |
 | E5 | Dashboard Snapshot Export | Tactical UX | S | Medium | P2 | Done |
-| F1 | ATAK Bidirectional (CoT Ingest) | Radio/TAK | M | High | P1 | Not Started |
-| F2 | Talkgroup Scan Priority Enforcement | Radio/TAK | M | Medium | P2 | Not Started |
-| G1 | Scheduled SitRep Delivery | Deployment | S | Medium | P2 | Not Started |
-| G2 | Mobile-Responsive Layout | Deployment | L | Medium | P2 | Not Started |
-| G3 | Panel Layout Persistence | Deployment | S | Low | P3 | Not Started |
+| F1 | ATAK Bidirectional (CoT Ingest) | Radio/TAK | M | High | P1 | Done |
+| F2 | Talkgroup Scan Priority Enforcement | Radio/TAK | M | Medium | P2 | Done |
+| G1 | Scheduled SitRep Delivery | Deployment | S | Medium | P2 | Done |
+| G2 | Mobile-Responsive Layout | Deployment | L | Medium | P2 | Done |
+| G3 | Panel Layout Persistence | Deployment | S | Low | P3 | Done |
 
 ---
 
@@ -264,11 +264,242 @@ LOW IMPACT
 ### Sprint 6 — Core Tactical Capabilities (P1 Medium-Effort) ✓ Complete
 `E1` Map annotations · UX refinement pass
 
-### Sprint 7 — Depth & Radio (P2)
+### Sprint 7 — Depth & Radio (P2) ✓ Complete
 `E2` P25 audio archiving · `F1` ATAK CoT ingest · `F2` Scan priority enforcement · `G1` Scheduled SitRep
 
-### Sprint 8 — Deployment Hardening (P2–P3)
+### Sprint 8 — Deployment Hardening (P2–P3) ✓ Complete
 `G2` Mobile-responsive layout · `G3` Panel layout persistence
+
+---
+
+## Phase 3 — Production Readiness & Expansion
+
+Vertex is feature-complete for tactical operations. Phase 3 hardens it for real-world production deployments, closes engineering quality gaps exposed by the audit, and adds the two deferred high-effort capabilities that operators have started requesting.
+
+Phase 3 is organized across three categories:
+
+- **H — Quality & Reliability:** test coverage, API consistency, security hardening
+- **I — Infrastructure & Operations:** TLS, Docker resource limits, deployment tooling
+- **J — New Capabilities:** deferred features now worth building (multi-region, mesh visualization)
+
+---
+
+## Roadmap Items — Phase 3
+
+### Category H — Quality & Reliability
+
+---
+
+#### H1 — API Pagination & Filtering
+
+- **Value:** List endpoints (`/entities`, `/alerts`, `/news`, `/events`, `/observations`) return unbounded result sets. Under real load this causes OOM crashes and slow responses. Every list endpoint needs `limit/offset` (or cursor) pagination and consistent filtering parameters.
+- **Implementation:**
+  - Add `limit` (default 100, max 1000) and `offset` query params to all list routers: `entities.py`, `alerts.py`, `news.py`, `events.py`, `observations.py`
+  - Add bbox spatial filter (`bbox=min_lon,min_lat,max_lon,max_lat`) to `/entities` using PostGIS `ST_Within`
+  - Add `hours` / `start` / `end` time filters to `/events` and `/alerts`
+  - Add `LIMIT` clause to observations replay query (cap at 50,000 rows)
+  - Frontend: update `EntitySearchPanel` fetch to use pagination; add "load more" affordance
+- **Effort:** M
+- **Priority:** P1
+- **Status:** Not Started
+
+---
+
+#### H2 — Backend Test Suite Expansion
+
+- **Value:** Only one test file exists (`test_geofences_crud.py`). The auth flow, entity CRUD, alert rule dispatch, WebSocket broadcast, observations replay, and geofence engine all have zero test coverage. A regression in any of these can go unnoticed until a field deployment breaks.
+- **Implementation:**
+  - `tests/test_auth.py` — register, login, JWT decode, viewer role enforcement, rate limit behavior
+  - `tests/test_entities.py` — entity list filtering, pagination, trail fetch, tag CRUD
+  - `tests/test_alertrules.py` — rule creation, webhook dispatch mock, cooldown logic, sitrep action
+  - `tests/test_observations.py` — replay endpoint with time range, bbox filter, LIMIT cap
+  - `tests/test_websocket.py` — connect with token, receive entity_update, geofence_event
+  - `tests/test_geofence_engine.py` — entry/exit detection using mock PostGIS geometries
+  - Use `pytest-asyncio`, `httpx.AsyncClient`, and fixture-based DB rollback (no data leakage between tests)
+  - Add `make test` target and integrate into Docker build as a stage gate
+- **Effort:** L
+- **Priority:** P1
+- **Status:** Not Started
+
+---
+
+#### H3 — CORS & Security Hardening
+
+- **Value:** CORS origins are hardcoded to `localhost`; production deployments on a LAN or with a custom domain are silently misconfigured. No CSRF protection exists. API key auth (for non-browser clients) is absent. Password policy is unenforced.
+- **Implementation:**
+  - Make CORS origins configurable via `CORS_ORIGINS` env var (comma-separated, parsed by `config.py`)
+  - Add `CORS_ALLOW_CREDENTIALS`, `CORS_ALLOW_METHODS` env knobs
+  - Add optional static API key auth: `X-API-Key` header as an alternative to JWT (useful for poller-to-backend calls and third-party integrations); stored hashed in DB
+  - Add minimum password length validation (≥12 chars) on register/change endpoints
+  - Add `Strict-Transport-Security`, `X-Content-Type-Options`, `X-Frame-Options` security headers in Nginx config
+  - Frontend `SettingsPanel`: show current CORS config for admin debugging
+- **Effort:** S
+- **Priority:** P1
+- **Status:** Not Started
+
+---
+
+#### H4 — WebSocket Per-Client Filtering
+
+- **Value:** Every connected client receives every entity update regardless of their active map viewport or entity type filters. On a busy deployment (500+ aircraft) this saturates slow connections (mobile, Pi 5 Wi-Fi). Server-side filtering reduces bandwidth 10–50×.
+- **Implementation:**
+  - Add subscription message protocol: client sends `{"type":"subscribe","bbox":[...],"entity_types":[...]}` after connect
+  - Backend `ws.py`: maintain per-client filter state; apply bbox and type filter before forwarding Redis pub/sub messages
+  - Client re-sends subscription on filter change (viewport pan/zoom, entity type toggle in `EntitySearchPanel`)
+  - Graceful fallback: clients that send no subscription receive all events (backward compatible)
+  - Frontend `useWebSocket.ts`: send subscription on mount and on filter store change
+- **Effort:** M
+- **Priority:** P2
+- **Status:** Not Started
+
+---
+
+### Category I — Infrastructure & Operations
+
+---
+
+#### I1 — TLS / HTTPS Termination
+
+- **Value:** JWT tokens and credentials are transmitted in plaintext over HTTP. Any LAN observer can capture session tokens. Production deployments require TLS.
+- **Implementation:**
+  - Add Nginx TLS config block: listen 443 ssl; `ssl_certificate` / `ssl_certificate_key` paths configurable via env (`TLS_CERT_PATH`, `TLS_KEY_PATH`)
+  - Add HTTP→HTTPS redirect (301) on port 80 when TLS is enabled
+  - Add `--profile tls` Docker Compose profile that mounts cert directory and enables the TLS Nginx config
+  - Document self-signed cert generation for LAN use and Let's Encrypt for public deployments
+  - Update `CORS_ORIGINS` default to `https://` when TLS profile active
+  - Frontend: detect mixed-content and warn in `SettingsPanel` if accessing via HTTPS with `WS_URL` still `ws://`
+- **Effort:** S
+- **Priority:** P1
+- **Status:** Not Started
+
+---
+
+#### I2 — Docker Resource Limits & Restart Policies
+
+- **Value:** No memory or CPU limits are set. On a Raspberry Pi 5 (8 GB), a runaway poller or a large observations query can OOM-kill the entire stack. Containers also lack `restart: unless-stopped`, so a crash requires manual intervention.
+- **Implementation:**
+  - Add `restart: unless-stopped` to all service definitions
+  - Add `deploy.resources.limits`: backend (512 MB / 1 CPU), poller (384 MB / 1 CPU), frontend (128 MB / 0.5 CPU), db (1 GB / 2 CPU), redis (256 MB / 0.5 CPU)
+  - Add `deploy.resources.reservations` for db and redis (guaranteed floor)
+  - Add `ulimits.nofile` for backend and poller (connection handle headroom)
+  - Test on Pi 5 target: verify limits don't starve normal operation under ADS-B peak load (~300 aircraft)
+- **Effort:** S
+- **Priority:** P2
+- **Status:** Not Started
+
+---
+
+#### I3 — Systemd Unit & Pi 5 Auto-Start
+
+- **Value:** After a power loss the Pi 5 boots but Vertex does not restart. Operators must SSH in and run `docker compose up -d`. A systemd unit makes Vertex a true appliance.
+- **Implementation:**
+  - Write `infra/vertex.service` systemd unit: `After=docker.service network-online.target`; `ExecStart=docker compose -f /opt/vertex/docker-compose.yml up`; `ExecStop=docker compose down`; `Restart=on-failure`
+  - Write `infra/install.sh` setup script: copies unit, enables it, sets up data directories, optionally pulls images
+  - Write `infra/update.sh` upgrade script: pulls new images, restarts services with zero-downtime rolling strategy
+  - Document installation in `README.md` under "Pi 5 Deployment"
+- **Effort:** S
+- **Priority:** P2
+- **Status:** Not Started
+
+---
+
+### Category J — New Capabilities
+
+---
+
+#### J1 — Multi-Region / Multi-Bbox Monitoring
+
+- **Value:** Operators monitoring a large corridor (e.g., I-5 from Eugene to Portland) or multiple non-contiguous areas (airport + seaport) are limited to a single bounding box. Multi-region support lets a single Vertex instance ingest and display from multiple geographic zones simultaneously.
+- **Implementation:**
+  - `config/sources.yml`: replace single `bbox` block with a `regions` list, each with `id`, `name`, `bbox`, and optional per-region source overrides (e.g., different ADSB feed URLs)
+  - `poller/config.py`: parse `regions` list; pollers that support it iterate over regions
+  - `backend/config.py`: expose `regions` via `GET /api/v1/config/regions`
+  - Frontend: `Map.tsx` draws region boundary overlays as dashed rectangles; `SettingsPanel` lists active regions with entity counts
+  - Entity records gain optional `region_id` foreign key; `/entities` filter accepts `region_id`
+  - Start with ADS-B and weather pollers; other pollers added incrementally
+- **Effort:** L
+- **Priority:** P2
+- **Status:** Not Started
+
+---
+
+#### J2 — Mesh Network Routing Visualization
+
+- **Value:** MeshCore nodes are tracked as entities but their radio topology is invisible. Operators can see nodes on the map but cannot tell which nodes can relay messages to which, or identify weak links and coverage gaps.
+- **Implementation:**
+  - Extend `meshcore.py` poller to request neighbor/link-state data from MeshCore API; store in new `MeshLink` model (`node_a`, `node_b`, `snr`, `link_quality`, `updated_at`)
+  - `backend/routers/mesh.py`: `GET /api/v1/mesh/links` returns current link graph; `GET /api/v1/mesh/topology` returns adjacency-list with signal quality
+  - Frontend `MeshLayer.tsx`: add `LineLayer` (Deck.gl) connecting linked mesh nodes; color-coded by SNR (green=strong, amber=marginal, red=weak); toggled by existing `mesh_node` filter
+  - `EntityDetail` for mesh nodes: add "Neighbors" section listing linked nodes with SNR and last-heard time
+  - Optional: shortest-path overlay (highlight relay chain from selected node to any other)
+- **Effort:** L
+- **Priority:** P3
+- **Status:** Not Started
+
+---
+
+#### J3 — Progressive Web App (PWA) / Installable Mobile Client
+
+- **Value:** Mobile operators currently use the browser. A PWA adds home-screen install, offline map tile caching, and background push notifications (replacing the current browser notification model). Pairs naturally with the G2 mobile layout work.
+- **Implementation:**
+  - Upgrade `frontend/public/sw.js` from notification-only to full Workbox service worker with cache strategies: CacheFirst for map tiles, NetworkFirst for API calls, StaleWhileRevalidate for static assets
+  - Add `frontend/public/manifest.json`: name, icons (192/512 px), theme color (`#FFB800`), `display: standalone`, `start_url`
+  - `vite.config.ts`: add `vite-plugin-pwa` for asset manifest injection and SW registration
+  - Backend: add Web Push VAPID key pair (stored in config); `POST /auth/push-subscription` to save subscription per user; trigger push on high-severity events
+  - Frontend `SettingsPanel`: "Install app" prompt and push subscription management
+- **Effort:** M
+- **Priority:** P3
+- **Status:** Not Started
+
+---
+
+## Phase 3 — Priority Matrix
+
+```
+HIGH IMPACT
+    │
+    │  [API Pagination]   [Test Suite]    [TLS]
+    │  [CORS Hardening]
+    │
+    │  [WS Filtering]     [Multi-Region]  [PWA]
+    │  [Docker Limits]    [Systemd]
+    │
+LOW IMPACT
+    └────────────────────────────────────────────
+       LOW EFFORT                        HIGH EFFORT
+       (S)              (M)              (L–XL)
+```
+
+## Phase 3 — Item Summary
+
+| ID | Item | Category | Effort | Impact | Priority | Status |
+|----|------|----------|--------|--------|----------|--------|
+| H1 | API Pagination & Filtering | Quality | M | High | P1 | Done |
+| H2 | Backend Test Suite Expansion | Quality | L | High | P1 | Not Started |
+| H3 | CORS & Security Hardening | Quality | S | High | P1 | Done |
+| H4 | WebSocket Per-Client Filtering | Quality | M | Medium | P2 | Not Started |
+| I1 | TLS / HTTPS Termination | Infrastructure | S | High | P1 | Done |
+| I2 | Docker Resource Limits & Restart Policies | Infrastructure | S | Medium | P2 | Not Started |
+| I3 | Systemd Unit & Pi 5 Auto-Start | Infrastructure | S | Medium | P2 | Not Started |
+| J1 | Multi-Region / Multi-Bbox Monitoring | Capabilities | L | Medium | P2 | Not Started |
+| J2 | Mesh Network Routing Visualization | Capabilities | L | Low | P3 | Not Started |
+| J3 | Progressive Web App (PWA) | Capabilities | M | Medium | P3 | Not Started |
+
+---
+
+## Suggested Sprint Order — Phase 3
+
+### Sprint 9 — Production Hardening (P1) ✓ Complete
+`H1` API pagination · `H3` CORS & security hardening · `I1` TLS termination
+
+### Sprint 10 — Test Coverage & WS Scale (P1–P2)
+`H2` Backend test suite · `H4` WebSocket per-client filtering
+
+### Sprint 11 — Deployment Tooling (P2)
+`I2` Docker resource limits · `I3` Systemd / Pi 5 auto-start · `J1` Multi-region monitoring (partial: config schema + ADS-B)
+
+### Sprint 12 — Expansion (P2–P3)
+`J1` Multi-region (remaining pollers) · `J2` Mesh routing visualization · `J3` PWA
 
 ---
 

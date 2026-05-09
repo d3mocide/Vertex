@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { persist } from 'zustand/middleware'
 import { entityToTrack, mergeEntityState, loadFavoriteCamIds } from './entityUtils'
 
 // Re-export all types so existing imports from '../../store' keep working.
@@ -198,7 +199,9 @@ const defaultSummary: SummaryState = {
   model: null,
 }
 
-export const useCivicStore = create<CivicStore>((set) => ({
+export const useCivicStore = create<CivicStore>()(
+  persist(
+    (set) => ({
   // Data
   entities:         {},
   tracks:           {},
@@ -479,4 +482,25 @@ export const useCivicStore = create<CivicStore>((set) => ({
       localStorage.setItem('favoriteCamIds', JSON.stringify(next))
       return { favoriteCamIds: next }
     }),
-}))
+  }),
+  {
+    name: 'vertex.ui.prefs',
+    partialize: (state) => ({
+      activeTab:          state.activeTab,
+      mode:               state.mode,
+      trailsVisible:      state.trailsVisible,
+      radarVisible:       state.radarVisible,
+      radarOpacity:       state.radarOpacity,
+      smokeVisible:       state.smokeVisible,
+      camerasVisible:     state.camerasVisible,
+      geofencesVisible:   state.geofencesVisible,
+      annotationsVisible: state.annotationsVisible,
+      lightningVisible:   state.lightningVisible,
+      gaugesVisible:      state.gaugesVisible,
+      terrainEnabled:     state.terrainEnabled,
+      terrainExaggeration: state.terrainExaggeration,
+      ldiMode:            state.ldiMode,
+    }),
+  }
+)
+)

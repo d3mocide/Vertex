@@ -16,6 +16,19 @@ class User(Base):
     role: Mapped[str] = mapped_column(String(32), default="admin")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     last_login: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    api_key_hash: Mapped[Optional[str]] = mapped_column(String(128), nullable=True, unique=True, index=True)
+
+
+class UserPreference(Base):
+    __tablename__ = "user_preferences"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    username: Mapped[str] = mapped_column(String(64), index=True)
+    key: Mapped[str] = mapped_column(String(128))
+    value: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    __table_args__ = (Index("ix_user_preferences_username_key", "username", "key", unique=True),)
 
 
 class Entity(Base):
@@ -199,6 +212,20 @@ class EntityMissionTag(Base):
     color: Mapped[str] = mapped_column(String(16), default="#FFB800")
     created_by: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class P25Recording(Base):
+    __tablename__ = "p25_recordings"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    call_id: Mapped[str] = mapped_column(String(64), index=True)
+    tgid: Mapped[int] = mapped_column(index=True)
+    tag: Mapped[str] = mapped_column(String(128), default="")
+    file_path: Mapped[str] = mapped_column(String(512))
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    ended_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    duration_s: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    file_size_bytes: Mapped[Optional[int]] = mapped_column(nullable=True)
 
 
 class Annotation(Base):

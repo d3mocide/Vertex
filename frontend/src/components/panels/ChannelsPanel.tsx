@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useCivicStore } from '../../store'
 import { API_BASE } from '../../config'
 import { authHeaders } from '../../auth'
@@ -39,7 +39,18 @@ const PRIORITY_COLORS: Record<number, string> = {
   5: 'text-on-surface-variant/60 border-white/10',
 }
 
-type ChannelTab = 'streams' | 'talkgroups'
+type P25Recording = {
+  id: number
+  call_id: string
+  tgid: number
+  tag: string
+  started_at: string
+  ended_at: string | null
+  duration_s: number | null
+  file_size_bytes: number | null
+}
+
+type ChannelTab = 'streams' | 'talkgroups' | 'recordings'
 
 interface ChannelsPanelProps {
   visibleTalkgroups: TalkgroupLogRow[]
@@ -52,9 +63,53 @@ export function ChannelsPanel({ visibleTalkgroups, managedTalkgroups, playing, o
   const [channelTab, setChannelTab] = useState<ChannelTab>('streams')
   const [editingTgid, setEditingTgid] = useState<number | null>(null)
   const [editName, setEditName] = useState('')
+  const [recordings, setRecordings] = useState<P25Recording[]>([])
+  const [playingId, setPlayingId] = useState<number | null>(null)
+  const audioRef = useRef<HTMLAudioElement>(null)
 
   const { streams, selectedId, setSelectedId } = useRadioStreams()
   const radio = useCivicStore((s) => s.radio)
+
+  useEffect(() => {
+    if (channelTab !== 'recordings') return
+    let cancelled = false
+    const load = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/radio/recordings?hours=168&limit=50`, { headers: authHeaders() })
+        if (!res.ok || cancelled) return
+        setRecordings(await res.json())
+      } catch { /* ignore */ }
+    }
+    load()
+    const id = setInterval(load, 30000)
+    return () => { cancelled = true; clearInterval(id) }
+  }, [channelTab])
+
+  const playRecording = (rec: P25Recording) => {
+    const el = audioRef.current
+    if (!el) return
+    if (playingId === rec.id) {
+      el.pause()
+      setPlayingId(null)
+    } else {
+      el.src = `${API_BASE}/radio/recordings/${rec.id}/file`
+      el.load()
+      el.play().catch(() => {})
+      setPlayingId(rec.id)
+    }
+  }
+
+  const formatDuration = (s: number | null) => {
+    if (s == null) return '--'
+    const m = Math.floor(s / 60)
+    const sec = Math.round(s % 60)
+    return `${m}:${String(sec).padStart(2, '0')}`
+  }
+
+  const formatTs = (iso: string) => {
+    const d = new Date(iso)
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+  }
 
   const startEdit = (tg: ManagedTalkgroup) => {
     setEditingTgid(tg.tgid)
@@ -124,16 +179,17 @@ export function ChannelsPanel({ visibleTalkgroups, managedTalkgroups, playing, o
     <div className="hud-panel w-80 mb-4 overflow-hidden pointer-events-auto origin-bottom-right animate-in fade-in slide-in-from-bottom-2 duration-200">
       {/* Tab bar */}
       <div className="flex border-b border-amber-gold-muted/30">
-        {(['streams', 'talkgroups'] as ChannelTab[]).map((tab) => (
+        {(['streams', 'talkgroups', 'recordings'] as ChannelTab[]).map((tab) => (
           <button
             key={tab}
             onClick={() => setChannelTab(tab)}
-            className={`flex-1 px-3 py-2 text-[10px] font-bold tracking-widest uppercase transition-colors focus:outline-none ${channelTab === tab ? 'text-amber-gold border-b-2 border-amber-gold' : 'text-on-surface-variant hover:text-on-surface border-b-2 border-transparent'}`}
+            className={`flex-1 px-2 py-2 text-[9px] font-bold tracking-widest uppercase transition-colors focus:outline-none ${channelTab === tab ? 'text-amber-gold border-b-2 border-amber-gold' : 'text-on-surface-variant hover:text-on-surface border-b-2 border-transparent'}`}
           >
-            {tab === 'streams' ? 'STREAMS' : `TALKGROUPS (${managedTalkgroups.length})`}
+            {tab === 'streams' ? 'STREAMS' : tab === 'talkgroups' ? `TGs (${managedTalkgroups.length})` : `REC (${recordings.length})`}
           </button>
         ))}
       </div>
+      <audio ref={audioRef} preload="none" className="hidden" onEnded={() => setPlayingId(null)} />
 
       {/* Streams tab */}
       {channelTab === 'streams' && (
@@ -283,6 +339,45 @@ export function ChannelsPanel({ visibleTalkgroups, managedTalkgroups, playing, o
             <div className="px-4 py-3 text-[10px] tracking-wide text-on-surface-variant/80 uppercase">
               Awaiting radio activity…
             </div>
+          )}
+        </div>
+      )}
+
+      {/* Recordings tab */}
+      {channelTab === 'recordings' && (
+        <div className="max-h-80 overflow-y-auto">
+          {recordings.length === 0 ? (
+            <div className="px-4 py-3 text-[10px] tracking-wide text-on-surface-variant/80 uppercase">
+              No recordings — enable P25_AUDIO_ENABLED in .env
+            </div>
+          ) : (
+            recordings.map((rec) => {
+              const isPlaying = playingId === rec.id
+              return (
+                <div
+                  key={rec.id}
+                  className={`px-3 py-2 flex items-center gap-2 border-b border-white/5 ${isPlaying ? 'bg-amber-gold-muted/10' : ''}`}
+                >
+                  <button
+                    onClick={() => playRecording(rec)}
+                    className={`shrink-0 ms text-[20px] leading-none transition-colors focus:outline-none ${isPlaying ? 'text-amber-gold' : 'text-on-surface-variant hover:text-amber-gold'}`}
+                    style={{ fontVariationSettings: "'FILL' 1" }}
+                    aria-label={isPlaying ? 'Pause recording' : 'Play recording'}
+                  >
+                    {isPlaying ? 'pause_circle' : 'play_circle'}
+                  </button>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[10px] font-bold uppercase truncate">
+                      {rec.tag || `TGID ${rec.tgid}`}
+                    </div>
+                    <div className="font-mono text-[8px] text-on-surface-variant/60">
+                      {formatTs(rec.started_at)} · {formatDuration(rec.duration_s)}
+                    </div>
+                  </div>
+                  <div className="font-mono text-[8px] text-on-surface-variant/40 shrink-0">{rec.tgid}</div>
+                </div>
+              )
+            })
           )}
         </div>
       )}

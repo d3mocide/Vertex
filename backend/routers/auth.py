@@ -1,3 +1,5 @@
+import hashlib
+import secrets
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -10,7 +12,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from config import settings
-from db.models import User
+from db.models import User, UserPreference
 from deps import get_db
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -33,12 +35,12 @@ class AuthStatus(BaseModel):
 
 class SetupRequest(BaseModel):
     username: str = Field(min_length=3, max_length=64, pattern=r"^[a-zA-Z0-9_-]+$")
-    password: str = Field(min_length=8, max_length=128)
+    password: str = Field(min_length=12, max_length=128)
 
 
 class CreateUserRequest(BaseModel):
     username: str = Field(min_length=3, max_length=64, pattern=r"^[a-zA-Z0-9_-]+$")
-    password: str = Field(min_length=8, max_length=128)
+    password: str = Field(min_length=12, max_length=128)
     role: str = Field(default="viewer", pattern=r"^(admin|viewer)$")
 
 
@@ -53,10 +55,15 @@ class UserDetail(BaseModel):
     role: str
     created_at: str
     last_login: str | None
+    has_api_key: bool = False
 
 
 class UpdateRoleRequest(BaseModel):
     role: str = Field(pattern=r"^(admin|viewer)$")
+
+
+class ApiKeyResponse(BaseModel):
+    api_key: str
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -64,6 +71,10 @@ class UpdateRoleRequest(BaseModel):
 def _make_token(username: str, role: str) -> str:
     exp = datetime.now(timezone.utc) + timedelta(hours=settings.auth_token_expire_hours)
     return jwt.encode({"sub": username, "role": role, "exp": exp}, settings.auth_secret_key, algorithm=_ALGORITHM)
+
+
+def _hash_api_key(key: str) -> str:
+    return hashlib.sha256(key.encode()).hexdigest()
 
 
 async def _user_count(db: AsyncSession) -> int:
@@ -184,6 +195,7 @@ async def list_users(request: Request, db: AsyncSession = Depends(get_db)):
             role=u.role,
             created_at=u.created_at.isoformat() if u.created_at else "",
             last_login=u.last_login.isoformat() if u.last_login else None,
+            has_api_key=bool(u.api_key_hash),
         )
         for u in rows
     ]
@@ -208,6 +220,7 @@ async def update_user_role(user_id: int, body: UpdateRoleRequest, request: Reque
         role=user.role,
         created_at=user.created_at.isoformat() if user.created_at else "",
         last_login=user.last_login.isoformat() if user.last_login else None,
+        has_api_key=bool(user.api_key_hash),
     )
 
 
@@ -223,4 +236,81 @@ async def delete_user(user_id: int, request: Request, db: AsyncSession = Depends
     if user.username == caller.get("sub", ""):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Cannot delete yourself")
     await db.delete(user)
+    await db.commit()
+
+
+# ── API Key management ────────────────────────────────────────────────────────
+
+@router.post("/apikey", response_model=ApiKeyResponse)
+async def generate_api_key(request: Request, db: AsyncSession = Depends(get_db)):
+    """Admin-only: generate a new API key for the authenticated user.
+    The raw key is returned once — store it securely. Replaces any existing key."""
+    if not settings.auth_enabled:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    caller = _decode_admin(request)
+    user = await db.scalar(select(User).where(User.username == caller["sub"]))
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    raw_key = secrets.token_hex(32)
+    user.api_key_hash = _hash_api_key(raw_key)
+    await db.commit()
+    return ApiKeyResponse(api_key=raw_key)
+
+
+@router.delete("/apikey", status_code=status.HTTP_204_NO_CONTENT)
+async def revoke_api_key(request: Request, db: AsyncSession = Depends(get_db)):
+    """Admin-only: revoke the API key for the authenticated user."""
+    if not settings.auth_enabled:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    caller = _decode_admin(request)
+    user = await db.scalar(select(User).where(User.username == caller["sub"]))
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    user.api_key_hash = None
+    await db.commit()
+
+
+# ---------------------------------------------------------------------------
+# User preferences — per-user key/value store for persisting UI layout
+# ---------------------------------------------------------------------------
+
+def _get_username(request: Request) -> str:
+    """Extract the authenticated username from the request JWT."""
+    if not settings.auth_enabled:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    token = request.headers.get("Authorization", "").removeprefix("Bearer ").strip()
+    if not token:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)
+    try:
+        payload = jwt.decode(token, settings.auth_secret_key, algorithms=[_ALGORITHM])
+        return str(payload["sub"])
+    except Exception:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)
+
+
+@router.get("/preferences")
+async def get_preferences(request: Request, db: AsyncSession = Depends(get_db)):
+    """Return all stored UI preferences for the current user as a flat JSON object."""
+    username = _get_username(request)
+    rows = await db.scalars(select(UserPreference).where(UserPreference.username == username))
+    return {row.key: row.value for row in rows}
+
+
+@router.put("/preferences", status_code=204)
+async def put_preferences(request: Request, body: dict, db: AsyncSession = Depends(get_db)):
+    """Bulk-upsert UI preferences for the current user. Body is a flat JSON object."""
+    username = _get_username(request)
+    for key, value in body.items():
+        if len(key) > 128:
+            continue
+        existing = await db.scalar(
+            select(UserPreference).where(
+                UserPreference.username == username,
+                UserPreference.key == key,
+            )
+        )
+        if existing:
+            existing.value = value
+        else:
+            db.add(UserPreference(username=username, key=key, value=value))
     await db.commit()

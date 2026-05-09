@@ -1,17 +1,24 @@
+import hashlib
+
 from jose import JWTError, jwt
+from sqlalchemy import select
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
 from config import settings
+from db.models import User
+from db.session import async_session_factory
 
 _ALGORITHM = "HS256"
 _PUBLIC_PATHS = frozenset({"/health", "/metrics"})
 _MUTATING_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
-# Auth routes accessible without an existing token
 _AUTH_PUBLIC_PATHS = frozenset({"/api/v1/auth/login", "/api/v1/auth/token", "/api/v1/auth/setup", "/api/v1/auth/status"})
-# Auth routes that are mutating but don't require an existing token (login, setup)
 _AUTH_WRITE_EXEMPT = frozenset({"/api/v1/auth/token", "/api/v1/auth/setup"})
+
+
+def _hash_api_key(key: str) -> str:
+    return hashlib.sha256(key.encode()).hexdigest()
 
 
 class AuthMiddleware(BaseHTTPMiddleware):
@@ -24,6 +31,21 @@ class AuthMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
 
         is_ws = request.scope.get("type") == "websocket"
+
+        # ── X-API-Key authentication ──────────────────────────────────────────
+        api_key = request.headers.get("X-API-Key", "")
+        if api_key and not is_ws:
+            key_hash = _hash_api_key(api_key)
+            async with async_session_factory() as db:
+                user = await db.scalar(select(User).where(User.api_key_hash == key_hash))
+            if not user:
+                return JSONResponse({"detail": "Invalid API key"}, status_code=401)
+            if request.method in _MUTATING_METHODS and path not in _AUTH_WRITE_EXEMPT:
+                if user.role != "admin":
+                    return JSONResponse({"detail": "Admin role required"}, status_code=403)
+            return await call_next(request)
+
+        # ── JWT authentication ────────────────────────────────────────────────
         if is_ws:
             token = request.query_params.get("token", "")
         else:
@@ -42,7 +64,6 @@ class AuthMiddleware(BaseHTTPMiddleware):
                 {"detail": "Invalid or expired token"}, status_code=401
             )
 
-        # Enforce admin role for all mutating requests outside auth routes
         if (
             not is_ws
             and request.method in _MUTATING_METHODS

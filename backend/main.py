@@ -13,6 +13,7 @@ from rate_limit import RateLimitMiddleware
 from redis_bus import init_redis, close_redis
 from routers import entities, observations, events, weather, alerts, news, traffic, health, ws, radio, utilities, summary, auth, geofences, sources, aircraft, admin, alertrules, sitrep, layers, entity_tags, annotations
 from metrics_collector import run_metrics_collector
+from sitrep_scheduler import run_sitrep_scheduler
 from webhook_dispatcher import run_webhook_dispatcher
 
 logging.basicConfig(
@@ -27,8 +28,9 @@ async def lifespan(app: FastAPI):
     await init_redis()
     dispatcher_task = asyncio.create_task(run_webhook_dispatcher())
     metrics_task = asyncio.create_task(run_metrics_collector())
+    sitrep_task = asyncio.create_task(run_sitrep_scheduler())
     yield
-    for task in (dispatcher_task, metrics_task):
+    for task in (dispatcher_task, metrics_task, sitrep_task):
         task.cancel()
         try:
             await task
@@ -44,6 +46,7 @@ app = FastAPI(title="Vertex API", version="0.1.0", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
+    allow_credentials=settings.cors_allow_credentials,
     allow_methods=["*"],
     allow_headers=["*"],
 )

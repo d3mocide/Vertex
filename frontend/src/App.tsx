@@ -3,6 +3,7 @@ import { useCivicStore } from './store'
 import { useAlerts } from './hooks/useAlerts'
 import { useSystemHealth } from './hooks/useSystemHealth'
 import { useTrailHydration } from './hooks/useTrailHydration'
+import { usePreferences } from './hooks/usePreferences'
 import { LoginPage } from './components/LoginPage'
 import { isLoggedIn } from './auth'
 import { API_BASE } from './config'
@@ -32,13 +33,14 @@ function Dashboard() {
   useAlerts()
   useSystemHealth()
   useTrailHydration()
+  usePreferences()
 
   const { activeTab, mode } = useCivicStore()
   const isCritical = mode === 'critical'
 
   return (
     <div
-      className="dark h-screen w-screen overflow-hidden flex flex-col font-body text-sm antialiased bg-onyx-black text-on-surface"
+      className="dark h-screen w-screen overflow-hidden flex flex-col font-body text-sm antialiased bg-onyx-black text-on-surface pb-14 lg:pb-0"
       data-mode={mode}
     >
       {/* Map Background Layer */}
@@ -55,7 +57,7 @@ function Dashboard() {
       <AlertStatusBar />
 
       <div className="flex flex-1 min-h-0 relative z-10 pointer-events-none">
-        <div className="pointer-events-auto h-full flex shrink-0">
+        <div className="hidden lg:flex pointer-events-auto h-full shrink-0">
           <Sidebar />
         </div>
 
@@ -85,7 +87,7 @@ function Dashboard() {
               <>
                 <EntitySearchPanel />
                 <EntityDetail />
-                <div className="absolute top-28 left-[280px] flex gap-2 z-30 pointer-events-none *:pointer-events-auto">
+                <div className="absolute top-28 left-2 lg:left-[280px] flex gap-2 z-30 pointer-events-none *:pointer-events-auto">
                   <PlaybackController />
                   <GeofenceController />
                   <AnnotationController />

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { useCivicStore, NavTab, AppMode, SystemEvent } from '../../store'
+import { useCivicStore, AppMode, SystemEvent, NavTab } from '../../store'
 import { exportDashboardSnapshot } from '../../snapshotExport'
 
 const TABS: { id: NavTab; label: string; icon: string }[] = [
@@ -26,25 +26,27 @@ function ModeToggle() {
     >
       <button
         onClick={() => toggle('calm')}
-        className={`px-3 py-0.5 font-bold text-[10px] uppercase tracking-widest transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-amber-gold ${
+        className={`px-2 sm:px-3 py-0.5 font-bold text-[10px] uppercase tracking-widest transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-amber-gold ${
           mode === 'calm'
             ? 'bg-amber-gold text-onyx-black'
             : 'text-on-surface-variant hover:text-on-surface'
         }`}
         aria-pressed={mode === 'calm'}
       >
-        CALM
+        <span className="hidden sm:inline">CALM</span>
+        <span className="ms text-[14px] sm:hidden leading-none" aria-label="Calm mode">wb_sunny</span>
       </button>
       <button
         onClick={() => toggle('critical')}
-        className={`px-3 py-0.5 font-bold text-[10px] uppercase tracking-widest transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-amber-gold ${
+        className={`px-2 sm:px-3 py-0.5 font-bold text-[10px] uppercase tracking-widest transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-amber-gold ${
           mode === 'critical'
             ? 'bg-red-emergency text-white'
             : 'text-on-surface-variant hover:text-on-surface'
         }`}
         aria-pressed={mode === 'critical'}
       >
-        CRITICAL
+        <span className="hidden sm:inline">CRITICAL</span>
+        <span className="ms text-[14px] sm:hidden leading-none" aria-label="Critical mode">emergency</span>
       </button>
     </div>
   )
@@ -87,7 +89,7 @@ function NotificationsDropdown({ events, onClose }: { events: SystemEvent[]; onC
 }
 
 export function Header() {
-  const { activeTab, setActiveTab, mode, mobileNavOpen, setMobileNavOpen, setSettingsOpen, systemEvents } = useCivicStore()
+  const { activeTab, setActiveTab, mode, setSettingsOpen, systemEvents } = useCivicStore()
   const [notificationsOpen, setNotificationsOpen] = useState(false)
   const notifRef = useRef<HTMLDivElement>(null)
 
@@ -124,7 +126,7 @@ export function Header() {
         />
       )}
 
-      {/* Navigation tabs */}
+      {/* Desktop navigation tabs */}
       <nav
         className="hidden lg:flex items-center gap-6 h-full"
         aria-label="Main navigation"
@@ -147,15 +149,10 @@ export function Header() {
         ))}
       </nav>
 
-      {/* Mobile hamburger */}
-      <button
-        onClick={() => setMobileNavOpen(true)}
-        className="lg:hidden text-on-surface-variant hover:text-amber-gold transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-amber-gold"
-        aria-label="Open navigation menu"
-        aria-expanded={mobileNavOpen}
-      >
-        <span className="ms text-[22px]">menu</span>
-      </button>
+      {/* Mobile brand mark (bottom tab bar handles nav) */}
+      <span className="lg:hidden font-bold text-[11px] tracking-[0.2em] uppercase text-amber-gold select-none">
+        VERTEX
+      </span>
 
       {/* Right controls */}
       <div className="flex items-center gap-4 relative z-10">

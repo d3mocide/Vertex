@@ -29,6 +29,9 @@ def _matches_rule(rule: AlertRule, event: dict) -> bool:
     details = event.get("details") if isinstance(event.get("details"), dict) else {}
     rule_filter = rule.rule_filter or {}
 
+    if rule.trigger_type == "scheduled":
+        return False  # driven by sitrep_scheduler, not event stream
+
     if rule.trigger_type == "geofence_entry":
         if event_type != "geofence_entry":
             return False

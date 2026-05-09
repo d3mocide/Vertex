@@ -5,6 +5,21 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 
 ---
 
+## 2026-05-09 — Sprint 7: P25 audio archiving, scan priority enforcement, scheduled SitRep, F1 roadmap update
+
+- **F1 (ATAK CoT Ingest)**: Confirmed `poller/pollers/cot_receiver.py` and `CotReceiver` poller already fully implement TCP-based CoT ingest from openTAK — updated `ROADMAP.md` to mark F1 as Done.
+- **G1 (Scheduled SitRep Delivery)**: Created `backend/sitrep_scheduler.py` — background task that polls DB every minute for `AlertRule` records with `action_type="sitrep_delivery"`, generates SitRep markdown, and POSTs to a configured webhook URL on the configured `interval_hours` schedule using Redis to track last-run timestamps.
+- **G1**: Extended `backend/routers/alertrules.py` — added `sitrep_delivery` to `action_type` Literal and `scheduled` to `trigger_type` Literal; added `interval_hours` validation; updated `webhook_dispatcher.py` to skip `scheduled` rules from the event stream.
+- **G1**: Updated `backend/main.py` lifespan to start `run_sitrep_scheduler()` as a background task alongside the webhook dispatcher.
+- **G1**: Updated `frontend/src/components/layout/AlertRulesSection.tsx` — added "Scheduled SitRep" action type option; shows interval/window hour fields when selected; trigger selector hidden for sitrep rules; existing rule display shows interval.
+- **F2 (Talkgroup Scan Priority)**: Updated `poller/pollers/p25.py` — P25Poller now loads talkgroup priorities from DB at startup and refreshes every 60 polls; annotates `radio:active` feed with the active TGID's priority; enforces scan time budgets (P1=never skip, P2=120s, P3=60s, P4=30s, P5=15s) by sending OP25 `skip` commands when exceeded; priority included in `p25_call_start/end` event details.
+- **F2**: Extended `frontend/src/storeTypes.ts` `RadioState` with optional `priority` field; updated `frontend/src/components/panels/TacticalAudio.tsx` to show P1/P2 priority badge next to the LIVE indicator when an active call has a high-priority talkgroup.
+- **E2 (P25 Audio Archiving)**: Added `P25Recording` SQLAlchemy model to `backend/db/models.py` (auto-created via `create_all`); added `p25_audio_enabled`, `p25_audio_dir`, `p25_audio_retention_days` to `poller/config.py`; added `p25_audio_dir` to `backend/config.py`.
+- **E2**: Created `poller/pollers/p25_recorder.py` — `P25AudioRecorder` subscribes to `civic:updates` Redis channel; on `p25_call_start` streams the first enabled Icecast RadioStream URL to `/data/audio/{date}/{tgid}/{call_id}.mp3`; on `p25_call_end` closes and persists a DB record; includes daily cleanup of recordings older than `p25_audio_retention_days`; disabled by default (`P25_AUDIO_ENABLED=false`).
+- **E2**: Extended `backend/routers/radio.py` with `GET /radio/recordings` (paginated, tgid/hours filters) and `GET /radio/recordings/{id}/file` (path-validated `FileResponse`).
+- **E2**: Updated `frontend/src/components/panels/ChannelsPanel.tsx` — added third "REC" tab; loads recordings from API when tab active; click-to-play/pause via `<audio>` ref; shows talkgroup name, timestamp, and duration per recording.
+- **Validation**: `cd frontend && npx tsc --noEmit` ✓; Python syntax check on all modified `.py` files ✓; `docker compose config` ✓.
+
 ## 2026-05-08 — Standardized dashboard glassmorphism and map background
 - Refactored global layout in `App.tsx` to move the map to a fixed background layer (`z-0`) with `pointer-events-none` on UI containers to allow click-through map interactions.
 - Added a centralized `hud-panel` CSS utility in `index.css` to provide a consistent frosted glass aesthetic (backdrop blur, translucent dark background, rounded corners).
@@ -997,3 +1012,43 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
   
 - Fixed an issue where MapLibre GL JS setTiles updated the URL template but did not clear the currently loaded tiles from the active viewport.  
 - Added an explicit clearTiles() and 	riggerRepaint() call to the sourceCache to force the map to immediately fetch new imagery, preventing stale radar data. 
+
+## 2026-05-09 — Sprint 8: Mobile-Responsive Layout (G2) + Panel Layout Persistence (G3)
+
+### G3 — Panel Layout Persistence
+- **`frontend/src/store.ts`**: Added Zustand `persist` middleware wrapping the store; `partialize` serializes 14 UI preference fields to `localStorage` key `vertex.ui.prefs` automatically.
+- **`backend/db/models.py`**: Added `UserPreference` model (username, key, JSON value, updated_at) with unique index on `(username, key)` for per-user server-side preference storage.
+- **`backend/routers/auth.py`**: Added `GET /auth/preferences` and `PUT /auth/preferences` endpoints; bulk upsert via INSERT … ON CONFLICT DO UPDATE.
+- **`frontend/src/hooks/usePreferences.ts`**: New hook that loads preferences from backend on mount (applied to Zustand store) and debounced-saves on any store change (1.5 s delay). Wired into `App.tsx` `Dashboard` component.
+
+### G2 — Mobile-Responsive Layout
+- **`frontend/src/components/layout/MobileNav.tsx`**: Replaced full-screen slide-out drawer with a permanent `fixed bottom-0` bottom tab bar (6 tabs with icon + label, active amber stripe). No longer requires `mobileNavOpen` store state.
+- **`frontend/src/components/layout/Header.tsx`**: Removed hamburger button; shows VERTEX brand mark on mobile; mode toggle buttons use icon-only below `sm` breakpoint; imported `NavTab` type.
+- **`frontend/src/App.tsx`**: Root div gains `pb-14 lg:pb-0` to clear bottom nav; sidebar wrapped with `hidden lg:flex` to hide on mobile; PlaybackController row uses `left-2 lg:left-[280px]`.
+- **`frontend/src/components/panels/TacticalAudio.tsx`**: Bottom position changed to `bottom-16 lg:bottom-6` to clear 56 px mobile tab bar.
+- **`frontend/src/components/panels/EntitySearchPanel.tsx`**: Repositioned to `bottom-20` full-width on mobile, `top-28 left-4 w-64` on desktop (`lg:`).
+- **`frontend/src/components/panels/EntityDetail.tsx`**: Width made responsive (`w-[calc(100vw-1rem)] sm:w-72 lg:w-64`); max-height capped at `55vh` on mobile.
+- **Motivation**: Operators in the field using phones/tablets had no usable layout. All panels now render correctly on narrow viewports without overlap or unreachable controls.
+
+## 2026-05-09 — Sprint 9: Production Hardening (H1, H3, I1)
+
+### H1 — API Pagination & Filtering
+- **`backend/routers/entities.py`**: Added `limit` (default 200, max 2000), `offset`, and `bbox` (min_lon,min_lat,max_lon,max_lat) query params. Bbox filtering applied in Python against Redis entity store.
+- **`backend/routers/alerts.py`**: Added `limit` (default 100, max 500) and `offset` pagination on Redis-fetched alert list.
+- **`backend/routers/news.py`**: Added `limit` (default 50, max 200) and `offset` pagination on Redis-fetched news list.
+- **`backend/routers/events.py`**: Added `limit` (default 200, max 1000), `offset`, `event_type`, and `entity_id` filters. DB query uses `.offset().limit()`.
+- **`backend/routers/observations.py`**: Added `.limit(50_000)` to replay query to prevent OOM on large time windows.
+
+### H3 — CORS & Security Hardening
+- **`backend/config.py`**: Added `cors_allow_credentials: bool = False` setting.
+- **`backend/main.py`**: Passed `allow_credentials=settings.cors_allow_credentials` to `CORSMiddleware`.
+- **`frontend/nginx.conf`**: Added `X-Content-Type-Options`, `X-Frame-Options`, `X-XSS-Protection`, and `Referrer-Policy` security headers.
+- **`backend/db/models.py`**: Added `api_key_hash` (SHA-256 hex, nullable, unique index) to `User` model.
+- **`backend/db/session.py`**: Added migrations for `api_key_hash` column and its partial unique index.
+- **`backend/routers/auth.py`**: Increased password `min_length` from 8 → 12 chars on setup and user creation. Added `POST /auth/apikey` (generate) and `DELETE /auth/apikey` (revoke) endpoints. `UserDetail` response now includes `has_api_key` flag.
+- **`backend/auth_middleware.py`**: Added `X-API-Key` header path — SHA-256 hashes the key, looks up matching `User` row via DB, enforces admin-role check on mutating requests. JWT path unchanged as fallback.
+- **`.env.example`**: Documented `CORS_ORIGINS`, `CORS_ALLOW_CREDENTIALS`, `TLS_CERT_PATH`, `TLS_KEY_PATH`.
+
+### I1 — TLS / HTTPS Termination
+- **`frontend/nginx-tls.conf`**: New Nginx config with HTTP→HTTPS redirect (port 80 → 301) and HTTPS (port 443) with TLSv1.2/1.3, HSTS, and all security headers. Mirrors `nginx.conf` proxy rules.
+- **`docker-compose.tls.yml`**: Compose override that adds port 443, mounts `nginx-tls.conf` over default, and mounts cert files from `TLS_CERT_PATH` / `TLS_KEY_PATH`. Usage: `docker compose -f docker-compose.yml -f docker-compose.tls.yml up -d`.
