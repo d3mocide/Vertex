@@ -6,8 +6,8 @@ type AlertRule = {
   id: number
   name: string
   enabled: boolean
-  trigger_type: 'geofence_entry' | 'severity_threshold' | 'entity_type'
-  action_type: 'webhook_post' | 'log'
+  trigger_type: 'geofence_entry' | 'severity_threshold' | 'entity_type' | 'scheduled'
+  action_type: 'webhook_post' | 'log' | 'sitrep_delivery'
   action_config: Record<string, unknown>
   cooldown_seconds: number | null
   max_per_hour: number | null
@@ -24,6 +24,8 @@ export function AlertRulesSection({ open }: AlertRulesSectionProps) {
   const [newRuleTrigger, setNewRuleTrigger] = useState<AlertRule['trigger_type']>('severity_threshold')
   const [newRuleAction, setNewRuleAction] = useState<AlertRule['action_type']>('webhook_post')
   const [newRuleUrl, setNewRuleUrl] = useState('')
+  const [newRuleIntervalHours, setNewRuleIntervalHours] = useState('6')
+  const [newRuleSitrepWindow, setNewRuleSitrepWindow] = useState('24')
   const [newRuleCooldown, setNewRuleCooldown] = useState('')
   const [newRuleMaxPerHour, setNewRuleMaxPerHour] = useState('')
   const [showAdvanced, setShowAdvanced] = useState(false)
@@ -45,14 +47,24 @@ export function AlertRulesSection({ open }: AlertRulesSectionProps) {
     if (!newRuleName.trim()) return
     if (newRuleAction === 'webhook_post' && !newRuleUrl.trim()) return
     if (newRuleAction === 'webhook_post' && !/^https?:\/\//i.test(newRuleUrl.trim())) return
+    if (newRuleAction === 'sitrep_delivery' && (!newRuleIntervalHours || parseInt(newRuleIntervalHours, 10) < 1)) return
+    const effectiveTrigger = newRuleAction === 'sitrep_delivery' ? 'scheduled' : newRuleTrigger
     try {
       const payload: Record<string, unknown> = {
         name: newRuleName.trim(),
         enabled: true,
-        trigger_type: newRuleTrigger,
-        rule_filter: newRuleTrigger === 'severity_threshold' ? { min_severity: 'high' } : {},
+        trigger_type: effectiveTrigger,
+        rule_filter: effectiveTrigger === 'severity_threshold' ? { min_severity: 'high' } : {},
         action_type: newRuleAction,
-        action_config: newRuleAction === 'webhook_post' ? { url: newRuleUrl.trim() } : {},
+        action_config: newRuleAction === 'webhook_post'
+          ? { url: newRuleUrl.trim() }
+          : newRuleAction === 'sitrep_delivery'
+          ? {
+              interval_hours: parseInt(newRuleIntervalHours, 10),
+              hours_window: parseInt(newRuleSitrepWindow, 10) || 24,
+              ...(newRuleUrl.trim() ? { url: newRuleUrl.trim() } : {}),
+            }
+          : {},
       }
       const cooldownVal = parseInt(newRuleCooldown, 10)
       if (!isNaN(cooldownVal) && cooldownVal > 0) payload.cooldown_seconds = cooldownVal
@@ -67,6 +79,8 @@ export function AlertRulesSection({ open }: AlertRulesSectionProps) {
       if (!res.ok) return
       setNewRuleName('')
       setNewRuleUrl('')
+      setNewRuleIntervalHours('6')
+      setNewRuleSitrepWindow('24')
       setNewRuleCooldown('')
       setNewRuleMaxPerHour('')
       setShowAdvanced(false)
@@ -107,32 +121,61 @@ export function AlertRulesSection({ open }: AlertRulesSectionProps) {
           className="w-full bg-onyx-deep border border-white/10 text-on-surface placeholder-on-surface-variant text-[11px] px-3 py-1.5 focus:outline-none focus:border-amber-gold/60 transition-colors"
         />
         <div className="grid grid-cols-2 gap-2">
-          <select
-            value={newRuleTrigger}
-            onChange={(e) => setNewRuleTrigger(e.target.value as AlertRule['trigger_type'])}
-            className="bg-onyx-deep border border-white/10 text-on-surface text-[10px] px-2 py-1.5 focus:outline-none"
-          >
-            <option value="severity_threshold">Severity</option>
-            <option value="geofence_entry">Geofence Entry</option>
-            <option value="entity_type">Entity Type</option>
-          </select>
+          {newRuleAction !== 'sitrep_delivery' && (
+            <select
+              value={newRuleTrigger}
+              onChange={(e) => setNewRuleTrigger(e.target.value as AlertRule['trigger_type'])}
+              className="bg-onyx-deep border border-white/10 text-on-surface text-[10px] px-2 py-1.5 focus:outline-none"
+            >
+              <option value="severity_threshold">Severity</option>
+              <option value="geofence_entry">Geofence Entry</option>
+              <option value="entity_type">Entity Type</option>
+            </select>
+          )}
           <select
             value={newRuleAction}
             onChange={(e) => setNewRuleAction(e.target.value as AlertRule['action_type'])}
-            className="bg-onyx-deep border border-white/10 text-on-surface text-[10px] px-2 py-1.5 focus:outline-none"
+            className={`bg-onyx-deep border border-white/10 text-on-surface text-[10px] px-2 py-1.5 focus:outline-none ${newRuleAction === 'sitrep_delivery' ? 'col-span-2' : ''}`}
           >
             <option value="webhook_post">Webhook</option>
             <option value="log">Log Only</option>
+            <option value="sitrep_delivery">Scheduled SitRep</option>
           </select>
         </div>
-        {newRuleAction === 'webhook_post' && (
+        {(newRuleAction === 'webhook_post' || newRuleAction === 'sitrep_delivery') && (
           <input
             type="url"
-            placeholder="Webhook URL"
+            placeholder={newRuleAction === 'sitrep_delivery' ? 'Delivery webhook URL (optional)' : 'Webhook URL'}
             value={newRuleUrl}
             onChange={(e) => setNewRuleUrl(e.target.value)}
             className="w-full bg-onyx-deep border border-white/10 text-on-surface placeholder-on-surface-variant text-[11px] px-3 py-1.5 focus:outline-none focus:border-amber-gold/60 transition-colors"
           />
+        )}
+        {newRuleAction === 'sitrep_delivery' && (
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="label-caps text-[8px] block mb-1">Interval (hours)</label>
+              <input
+                type="number"
+                min="1"
+                max="168"
+                value={newRuleIntervalHours}
+                onChange={(e) => setNewRuleIntervalHours(e.target.value)}
+                className="w-full bg-onyx-deep border border-white/10 text-on-surface text-[10px] px-2 py-1.5 focus:outline-none focus:border-amber-gold/60 transition-colors"
+              />
+            </div>
+            <div>
+              <label className="label-caps text-[8px] block mb-1">Window (hours)</label>
+              <input
+                type="number"
+                min="1"
+                max="168"
+                value={newRuleSitrepWindow}
+                onChange={(e) => setNewRuleSitrepWindow(e.target.value)}
+                className="w-full bg-onyx-deep border border-white/10 text-on-surface text-[10px] px-2 py-1.5 focus:outline-none focus:border-amber-gold/60 transition-colors"
+              />
+            </div>
+          </div>
         )}
 
         {/* Advanced suppression controls */}
@@ -194,7 +237,11 @@ export function AlertRulesSection({ open }: AlertRulesSectionProps) {
                 </button>
               </div>
               <div className="text-[8px] text-on-surface-variant uppercase tracking-widest mt-1">
-                {rule.trigger_type.replace(/_/g, ' ')} · {rule.action_type.replace(/_/g, ' ')}
+                {rule.action_type !== 'sitrep_delivery' && <span>{rule.trigger_type.replace(/_/g, ' ')} · </span>}
+                {rule.action_type.replace(/_/g, ' ')}
+                {rule.action_type === 'sitrep_delivery' && rule.action_config.interval_hours != null && (
+                  <span className="ml-1 text-amber-gold-dim">· every {String(rule.action_config.interval_hours as number)}h</span>
+                )}
                 {rule.cooldown_seconds != null && rule.cooldown_seconds > 0 && (
                   <span className="ml-1 text-amber-gold-dim">· cd {rule.cooldown_seconds}s</span>
                 )}

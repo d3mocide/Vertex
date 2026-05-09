@@ -211,9 +211,16 @@ export function TacticalAudio() {
               )}
             </div>
             {isActive && (
-              <div className="flex items-center gap-1.5 shrink-0 bg-red-emergency/20 border border-red-emergency/30 px-1.5 py-0.5 rounded-full">
-                <span className="w-1 h-1 rounded-full bg-red-emergency animate-pulse" aria-hidden="true" />
-                <span className="font-mono text-[8px] text-red-emergency uppercase font-bold">LIVE</span>
+              <div className="flex items-center gap-1.5 shrink-0">
+                {radio?.priority != null && radio.priority <= 2 && (
+                  <span className={`font-mono text-[8px] border px-1 py-0.5 ${radio.priority === 1 ? 'text-red-emergency border-red-emergency/60 bg-red-emergency/10' : 'text-amber-gold border-amber-gold/60 bg-amber-gold/10'}`}>
+                    P{radio.priority}
+                  </span>
+                )}
+                <div className="flex items-center gap-1.5 bg-red-emergency/20 border border-red-emergency/30 px-1.5 py-0.5 rounded-full">
+                  <span className="w-1 h-1 rounded-full bg-red-emergency animate-pulse" aria-hidden="true" />
+                  <span className="font-mono text-[8px] text-red-emergency uppercase font-bold">LIVE</span>
+                </div>
               </div>
             )}
           </div>

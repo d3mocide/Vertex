@@ -5,6 +5,21 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 
 ---
 
+## 2026-05-09 — Sprint 7: P25 audio archiving, scan priority enforcement, scheduled SitRep, F1 roadmap update
+
+- **F1 (ATAK CoT Ingest)**: Confirmed `poller/pollers/cot_receiver.py` and `CotReceiver` poller already fully implement TCP-based CoT ingest from openTAK — updated `ROADMAP.md` to mark F1 as Done.
+- **G1 (Scheduled SitRep Delivery)**: Created `backend/sitrep_scheduler.py` — background task that polls DB every minute for `AlertRule` records with `action_type="sitrep_delivery"`, generates SitRep markdown, and POSTs to a configured webhook URL on the configured `interval_hours` schedule using Redis to track last-run timestamps.
+- **G1**: Extended `backend/routers/alertrules.py` — added `sitrep_delivery` to `action_type` Literal and `scheduled` to `trigger_type` Literal; added `interval_hours` validation; updated `webhook_dispatcher.py` to skip `scheduled` rules from the event stream.
+- **G1**: Updated `backend/main.py` lifespan to start `run_sitrep_scheduler()` as a background task alongside the webhook dispatcher.
+- **G1**: Updated `frontend/src/components/layout/AlertRulesSection.tsx` — added "Scheduled SitRep" action type option; shows interval/window hour fields when selected; trigger selector hidden for sitrep rules; existing rule display shows interval.
+- **F2 (Talkgroup Scan Priority)**: Updated `poller/pollers/p25.py` — P25Poller now loads talkgroup priorities from DB at startup and refreshes every 60 polls; annotates `radio:active` feed with the active TGID's priority; enforces scan time budgets (P1=never skip, P2=120s, P3=60s, P4=30s, P5=15s) by sending OP25 `skip` commands when exceeded; priority included in `p25_call_start/end` event details.
+- **F2**: Extended `frontend/src/storeTypes.ts` `RadioState` with optional `priority` field; updated `frontend/src/components/panels/TacticalAudio.tsx` to show P1/P2 priority badge next to the LIVE indicator when an active call has a high-priority talkgroup.
+- **E2 (P25 Audio Archiving)**: Added `P25Recording` SQLAlchemy model to `backend/db/models.py` (auto-created via `create_all`); added `p25_audio_enabled`, `p25_audio_dir`, `p25_audio_retention_days` to `poller/config.py`; added `p25_audio_dir` to `backend/config.py`.
+- **E2**: Created `poller/pollers/p25_recorder.py` — `P25AudioRecorder` subscribes to `civic:updates` Redis channel; on `p25_call_start` streams the first enabled Icecast RadioStream URL to `/data/audio/{date}/{tgid}/{call_id}.mp3`; on `p25_call_end` closes and persists a DB record; includes daily cleanup of recordings older than `p25_audio_retention_days`; disabled by default (`P25_AUDIO_ENABLED=false`).
+- **E2**: Extended `backend/routers/radio.py` with `GET /radio/recordings` (paginated, tgid/hours filters) and `GET /radio/recordings/{id}/file` (path-validated `FileResponse`).
+- **E2**: Updated `frontend/src/components/panels/ChannelsPanel.tsx` — added third "REC" tab; loads recordings from API when tab active; click-to-play/pause via `<audio>` ref; shows talkgroup name, timestamp, and duration per recording.
+- **Validation**: `cd frontend && npx tsc --noEmit` ✓; Python syntax check on all modified `.py` files ✓; `docker compose config` ✓.
+
 ## 2026-05-08 — Standardized dashboard glassmorphism and map background
 - Refactored global layout in `App.tsx` to move the map to a fixed background layer (`z-0`) with `pointer-events-none` on UI containers to allow click-through map interactions.
 - Added a centralized `hud-panel` CSS utility in `index.css` to provide a consistent frosted glass aesthetic (backdrop blur, translucent dark background, rounded corners).

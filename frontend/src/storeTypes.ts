@@ -117,11 +117,12 @@ export interface WeatherState {
 
 // ─── Radio ────────────────────────────────────────────────────────────────────
 export interface RadioState {
-  tgid:    number | null
-  tag:     string | null
-  freq_hz: number | null
-  state:   'idle' | 'call' | 'encrypted' | null
-  updated: string | null
+  tgid:     number | null
+  tag:      string | null
+  freq_hz:  number | null
+  state:    'idle' | 'call' | 'encrypted' | null
+  updated:  string | null
+  priority?: number | null
 }
 
 // ─── Traffic Camera ───────────────────────────────────────────────────────────

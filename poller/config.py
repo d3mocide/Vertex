@@ -136,6 +136,12 @@ class Settings(BaseSettings):
     # Set true to opt in and re-enable the poller.
     tinygs_enabled: bool = False
 
+    # P25 audio archiving — records per-call audio segments from the Icecast stream.
+    # Requires an enabled RadioStream in the DB. Disabled by default.
+    p25_audio_enabled: bool = False
+    p25_audio_dir: str = "/data/audio"
+    p25_audio_retention_days: int = 7
+
     class Config:
         env_file = ".env"
 

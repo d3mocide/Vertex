@@ -21,6 +21,8 @@ class Settings(BaseSettings):
 
     cors_origins: list[str] = ["http://localhost:3000", "http://localhost"]
 
+    p25_audio_dir: str = "/data/audio"
+
     @model_validator(mode="after")
     def _check_secret(self):
         if self.auth_enabled and len(self.auth_secret_key) < 32:

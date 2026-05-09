@@ -25,9 +25,9 @@ def _validate_action_config_url(v: dict[str, Any] | None) -> dict[str, Any] | No
 class AlertRuleCreate(BaseModel):
     name: str = Field(min_length=1, max_length=128)
     enabled: bool = True
-    trigger_type: Literal["geofence_entry", "severity_threshold", "entity_type"]
+    trigger_type: Literal["geofence_entry", "severity_threshold", "entity_type", "scheduled"]
     rule_filter: dict[str, Any] | None = None
-    action_type: Literal["webhook_post", "log"] = "webhook_post"
+    action_type: Literal["webhook_post", "log", "sitrep_delivery"] = "webhook_post"
     action_config: dict[str, Any] = Field(default_factory=dict)
     cooldown_seconds: int | None = None
     max_per_hour: int | None = None
@@ -42,9 +42,9 @@ class AlertRuleCreate(BaseModel):
 class AlertRuleUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=128)
     enabled: bool | None = None
-    trigger_type: Literal["geofence_entry", "severity_threshold", "entity_type"] | None = None
+    trigger_type: Literal["geofence_entry", "severity_threshold", "entity_type", "scheduled"] | None = None
     rule_filter: dict[str, Any] | None = None
-    action_type: Literal["webhook_post", "log"] | None = None
+    action_type: Literal["webhook_post", "log", "sitrep_delivery"] | None = None
     action_config: dict[str, Any] | None = None
     cooldown_seconds: int | None = None
     max_per_hour: int | None = None
@@ -82,6 +82,8 @@ async def list_alert_rules(db: AsyncSession = Depends(get_db)):
 async def create_alert_rule(body: AlertRuleCreate, db: AsyncSession = Depends(get_db)):
     if body.action_type == "webhook_post" and not body.action_config.get("url"):
         raise HTTPException(400, "action_config.url is required for webhook_post")
+    if body.action_type == "sitrep_delivery" and not body.action_config.get("interval_hours"):
+        raise HTTPException(400, "action_config.interval_hours is required for sitrep_delivery")
 
     now = datetime.now(timezone.utc)
     rule = AlertRule(
@@ -116,6 +118,8 @@ async def update_alert_rule(rule_id: int, body: AlertRuleUpdate, db: AsyncSessio
 
     if rule.action_type == "webhook_post" and not (rule.action_config or {}).get("url"):
         raise HTTPException(400, "action_config.url is required for webhook_post")
+    if rule.action_type == "sitrep_delivery" and not (rule.action_config or {}).get("interval_hours"):
+        raise HTTPException(400, "action_config.interval_hours is required for sitrep_delivery")
 
     rule.updated_at = datetime.now(timezone.utc)
     await db.commit()

@@ -20,6 +20,7 @@ from pollers.fire import FirePoller
 from pollers.aprs import AprsPoller
 from pollers.cot_emitter import CotEmitter
 from pollers.cot_receiver import CotReceiver
+from pollers.p25_recorder import P25AudioRecorder
 from pollers.anomaly import AnomalyDetectionPoller
 from pollers.tinygs import TinyGSPoller
 from pollers.lightning import LightningPoller
@@ -74,6 +75,7 @@ async def main():
         AprsPoller(),
         CotEmitter(),
         CotReceiver(),
+        P25AudioRecorder(),
         AnomalyDetectionPoller(),
         LightningPoller(),
         StreamGaugePoller(),

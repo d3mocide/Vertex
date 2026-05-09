@@ -1,15 +1,19 @@
 import json
+import os
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import select, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from config import settings
 from config_writer import add_entry, remove_entry, update_entry
 from deps import get_db
-from db.models import Event, RadioStream, Talkgroup
+from db.models import Event, RadioStream, Talkgroup, P25Recording
 from redis_bus import get_redis
 
 router = APIRouter(prefix="/radio", tags=["radio"])
@@ -242,3 +246,68 @@ async def get_calls(
         }
         for e in events
     ]
+
+
+# ---------------------------------------------------------------------------
+# P25 recordings
+# ---------------------------------------------------------------------------
+
+@router.get("/recordings")
+async def list_recordings(
+    tgid: Optional[int] = Query(None),
+    hours: int = Query(168, ge=1, le=8760),
+    limit: int = Query(50, ge=1, le=200),
+    db: AsyncSession = Depends(get_db),
+):
+    """Paginated list of P25 call recordings."""
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
+    query = (
+        select(P25Recording)
+        .where(P25Recording.started_at >= cutoff)
+        .order_by(desc(P25Recording.started_at))
+        .limit(limit)
+    )
+    if tgid is not None:
+        query = query.where(P25Recording.tgid == tgid)
+    result = await db.execute(query)
+    recordings = result.scalars().all()
+    return [
+        {
+            "id":               r.id,
+            "call_id":         r.call_id,
+            "tgid":            r.tgid,
+            "tag":             r.tag,
+            "started_at":      r.started_at.isoformat(),
+            "ended_at":        r.ended_at.isoformat() if r.ended_at else None,
+            "duration_s":      r.duration_s,
+            "file_size_bytes": r.file_size_bytes,
+        }
+        for r in recordings
+    ]
+
+
+@router.get("/recordings/{recording_id}/file")
+async def get_recording_file(
+    recording_id: int,
+    db: AsyncSession = Depends(get_db),
+):
+    """Stream the audio file for a saved P25 recording."""
+    rec = await db.scalar(select(P25Recording).where(P25Recording.id == recording_id))
+    if not rec:
+        raise HTTPException(404, "Recording not found")
+
+    file_path = Path(rec.file_path)
+    if not file_path.is_file():
+        raise HTTPException(404, "Audio file not found on disk")
+
+    # Validate path stays within configured audio dir
+    try:
+        file_path.resolve().relative_to(Path(settings.p25_audio_dir).resolve())
+    except ValueError:
+        raise HTTPException(403, "Access denied")
+
+    return FileResponse(
+        path=str(file_path),
+        media_type="audio/mpeg",
+        filename=file_path.name,
+    )

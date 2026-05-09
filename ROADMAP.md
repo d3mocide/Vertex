@@ -244,13 +244,13 @@ LOW IMPACT
 | ID | Item | Category | Effort | Impact | Priority | Status |
 |----|------|----------|--------|--------|----------|--------|
 | E1 | Map Annotation Tools | Tactical UX | M | High | P1 | Done |
-| E2 | P25 Audio Archiving | Tactical UX | L | High | P1 | Not Started |
+| E2 | P25 Audio Archiving | Tactical UX | L | High | P1 | Done |
 | E3 | Entity Tagging / Mission Grouping | Tactical UX | S | High | P1 | Done |
 | E4 | Alert Suppression / Cooldown Rules | Tactical UX | S | High | P1 | Done |
 | E5 | Dashboard Snapshot Export | Tactical UX | S | Medium | P2 | Done |
-| F1 | ATAK Bidirectional (CoT Ingest) | Radio/TAK | M | High | P1 | Not Started |
-| F2 | Talkgroup Scan Priority Enforcement | Radio/TAK | M | Medium | P2 | Not Started |
-| G1 | Scheduled SitRep Delivery | Deployment | S | Medium | P2 | Not Started |
+| F1 | ATAK Bidirectional (CoT Ingest) | Radio/TAK | M | High | P1 | Done |
+| F2 | Talkgroup Scan Priority Enforcement | Radio/TAK | M | Medium | P2 | Done |
+| G1 | Scheduled SitRep Delivery | Deployment | S | Medium | P2 | Done |
 | G2 | Mobile-Responsive Layout | Deployment | L | Medium | P2 | Not Started |
 | G3 | Panel Layout Persistence | Deployment | S | Low | P3 | Not Started |
 
@@ -264,7 +264,7 @@ LOW IMPACT
 ### Sprint 6 — Core Tactical Capabilities (P1 Medium-Effort) ✓ Complete
 `E1` Map annotations · UX refinement pass
 
-### Sprint 7 — Depth & Radio (P2)
+### Sprint 7 — Depth & Radio (P2) ✓ Complete
 `E2` P25 audio archiving · `F1` ATAK CoT ingest · `F2` Scan priority enforcement · `G1` Scheduled SitRep
 
 ### Sprint 8 — Deployment Hardening (P2–P3)
