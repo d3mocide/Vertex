@@ -3,6 +3,10 @@ import { useCivicStore } from '../../store'
 import type { EntityMissionTag } from '../../store'
 import { API_BASE } from '../../config'
 import { authHeaders } from '../../auth'
+import { AircraftOverview } from './entity/AircraftOverview'
+import { VesselOverview } from './entity/VesselOverview'
+import { AprsOverview } from './entity/AprsOverview'
+import { GenericOverview } from './entity/GenericOverview'
 
 const TYPE_COLORS: Record<string, string> = {
   aircraft:       'text-cyan-adsb',
@@ -22,32 +26,7 @@ const TYPE_ICONS: Record<string, string> = {
 
 const TAG_PRESETS = ['#FF4444', '#FF8800', '#FFB800', '#44DD88', '#00BBFF', '#AA44FF', '#FF44AA']
 
-/** Render a compact SVG sparkline from a numeric series. */
-function Sparkline({ values, color }: { values: number[]; color: string }) {
-  if (values.length < 2) return null
-  const min = Math.min(...values)
-  const max = Math.max(...values)
-  const range = max - min || 1
-  const w = 176
-  const h = 28
-  const pts = values.map((v, i) => {
-    const x = (i / (values.length - 1)) * w
-    const y = h - ((v - min) / range) * (h - 4) - 2
-    return `${x.toFixed(1)},${y.toFixed(1)}`
-  })
-  return (
-    <svg width={w} height={h} aria-hidden="true" className="block">
-      <polyline
-        points={pts.join(' ')}
-        fill="none"
-        stroke={color}
-        strokeWidth="1.5"
-        strokeLinejoin="round"
-        strokeLinecap="round"
-      />
-    </svg>
-  )
-}
+
 
 export function EntityDetail() {
   const {
@@ -91,6 +70,17 @@ export function EntityDetail() {
   const [tagInput, setTagInput] = useState('')
   const [tagColor, setTagColor] = useState('#FFB800')
   const [tagSaving, setTagSaving] = useState(false)
+  const [showColorPicker, setShowColorPicker] = useState(false)
+
+  // Tab state
+  const [activeTab, setActiveTab] = useState<'overview' | 'weather' | 'tags'>('overview')
+
+  // Reset tab to overview if switching from aircraft (which has weather) to non-aircraft
+  useEffect(() => {
+    if (activeTab === 'weather' && entity?.entity_type !== 'aircraft') {
+      setActiveTab('overview')
+    }
+  }, [entity?.entity_type, activeTab])
 
   const handleAddTag = async () => {
     if (!selectedEntityId || !tagInput.trim()) return
@@ -105,6 +95,7 @@ export function EntityDetail() {
         const created: EntityMissionTag = await res.json()
         addEntityMissionTag(created)
         setTagInput('')
+        setShowColorPicker(false)
       }
     } catch { /* non-fatal */ }
     setTagSaving(false)
@@ -134,52 +125,34 @@ export function EntityDetail() {
   const colorClass = TYPE_COLORS[entity.entity_type] ?? 'text-amber-gold'
   const icon       = TYPE_ICONS[entity.entity_type]  ?? 'location_on'
 
-  const rows: [string, string | undefined][] = [
-    ['Type',    entity.entity_type],
-    ['Source',  entity.source],
-    ['ICAO24',  getIdentity('icao24')],
-    ['Callsign', getIdentity('callsign')],
-    ['Registration', getIdentity('registration')],
-    ['Operator', getIdentity('operator')],
-    ['Aircraft Type', getIdentity('type')],
-    ['ICAO Type', getIdentity('icao_type')],
-    ['Origin', getIdentity('origin')],
-    ['Destination', getIdentity('destination')],
-    ['Phase', getIdentity('phase')],
-    ['Status',  entity.status],
-    ['Alt',     entity.altitude != null ? `${Math.round(entity.altitude).toLocaleString()} ft` : undefined],
-    ['Speed',   entity.speed    != null ? `${Math.round(entity.speed)} kts`    : undefined],
-    ['Vertical Rate', entity.vertical_rate != null ? `${Math.round(entity.vertical_rate)} ft/min` : undefined],
-    ['Heading', entity.heading  != null ? `${Math.round(entity.heading)}°`     : undefined],
-    ['Distance', entity.distance_km != null ? `${entity.distance_km.toFixed(1)} km` : undefined],
-    ['Lat',     entity.lat?.toFixed(5)],
-    ['Lon',     entity.lon?.toFixed(5)],
-    ['Last Seen', entity.last_seen
-        ? new Date(entity.last_seen).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
-        : undefined
-    ],
-  ]
-
   const missionTags = selectedEntityId ? (entityMissionTags[selectedEntityId] ?? []) : []
+
+  // Weather data (only for aircraft)
+  const origin = getIdentity('origin')
+  const destination = getIdentity('destination')
+  const originMetar = origin ? (airports[origin]?.metar as Record<string, unknown> | null | undefined) : undefined
+  const destinationMetar = destination ? (airports[destination]?.metar as Record<string, unknown> | null | undefined) : undefined
+  const originWx = originMetar && typeof originMetar.raw === 'string' ? originMetar.raw : undefined
+  const destinationWx = destinationMetar && typeof destinationMetar.raw === 'string' ? destinationMetar.raw : undefined
 
   return (
     <aside
-      className="absolute top-28 right-4 hud-panel w-56 z-30 overflow-hidden"
+      className="absolute top-28 right-4 hud-panel w-64 z-30 flex flex-col max-h-[calc(100vh-8rem)]"
       aria-label={`Entity detail: ${entity.display_name ?? entity.entity_id}`}
       role="complementary"
     >
       {/* Header */}
-      <div className="p-3 border-b border-amber-gold-muted bg-onyx-deep/60">
-        <div className="flex items-center justify-between gap-2">
+      <div className="p-3 border-b border-amber-gold-muted bg-onyx-deep/80 shrink-0">
+        <div className="flex items-center justify-between gap-2 mb-2">
           <div className="flex items-center gap-2 min-w-0">
             <span
-              className={`ms text-[18px] leading-none shrink-0 ${colorClass}`}
+              className={`ms text-[20px] leading-none shrink-0 ${colorClass}`}
               aria-hidden="true"
               style={{ fontVariationSettings: "'FILL' 1" }}
             >
               {icon}
             </span>
-            <span className="font-bold text-[12px] text-on-surface uppercase truncate">
+            <span className="font-bold text-[14px] tracking-wide text-on-surface uppercase truncate">
               {entity.display_name ?? entity.entity_id}
             </span>
           </div>
@@ -188,149 +161,183 @@ export function EntityDetail() {
             className="text-on-surface-variant hover:text-amber-gold transition-colors shrink-0 p-0.5 focus:outline-none focus-visible:ring-1 focus-visible:ring-amber-gold"
             aria-label="Close entity detail"
           >
-            <span className="ms text-[16px] leading-none">close</span>
+            <span className="ms text-[18px] leading-none">close</span>
           </button>
         </div>
-      </div>
-
-      {/* Data rows */}
-      <div className="p-3 space-y-1.5">
-        {rows.filter(([, v]) => v != null).map(([label, val]) => (
-          <div key={label} className="flex justify-between items-baseline gap-2">
-            <span className="label-caps text-[9px]">{label}</span>
-            <span className="font-mono text-[10px] text-on-surface truncate">
-              {val}
-            </span>
-          </div>
-        ))}
-
-        {entity.entity_type === 'aircraft' && (() => {
-          const altitudes = trail.map(p => p.altitude).filter((v): v is number => typeof v === 'number')
-          const speeds = trail.map(p => p.speed).filter((v): v is number => typeof v === 'number')
-          if (altitudes.length < 3 && speeds.length < 3) return null
-          return (
-            <div className="mt-2 border-t border-white/10 pt-2 space-y-2">
-              {altitudes.length >= 3 && (
-                <div>
-                  <span className="label-caps text-[8px] block mb-0.5">Altitude (30 min)</span>
-                  <Sparkline values={altitudes} color="rgb(var(--color-cyan-adsb, 0 200 255) / 0.9)" />
-                </div>
-              )}
-              {speeds.length >= 3 && (
-                <div>
-                  <span className="label-caps text-[8px] block mb-0.5">Speed (30 min)</span>
-                  <Sparkline values={speeds} color="rgb(var(--color-amber-gold, 255 184 0) / 0.7)" />
-                </div>
-              )}
-            </div>
-          )
-        })()}
-
-        {entity.entity_type === 'aircraft' && (() => {
-          const origin = getIdentity('origin')
-          const destination = getIdentity('destination')
-          const originMetar = origin ? (airports[origin]?.metar as Record<string, unknown> | null | undefined) : undefined
-          const destinationMetar = destination ? (airports[destination]?.metar as Record<string, unknown> | null | undefined) : undefined
-          const originWx = originMetar && typeof originMetar.raw === 'string' ? originMetar.raw : undefined
-          const destinationWx = destinationMetar && typeof destinationMetar.raw === 'string' ? destinationMetar.raw : undefined
-
-          if (!originWx && !destinationWx) return null
-
-          return (
-            <div className="mt-2 border-t border-white/10 pt-2 space-y-1.5">
-              {originWx && (
-                <div className="flex flex-col gap-0.5">
-                  <span className="label-caps text-[8px]">Origin METAR ({origin})</span>
-                  <span className="font-mono text-[9px] text-on-surface-variant whitespace-pre-wrap break-words">{originWx}</span>
-                </div>
-              )}
-              {destinationWx && (
-                <div className="flex flex-col gap-0.5">
-                  <span className="label-caps text-[8px]">Destination METAR ({destination})</span>
-                  <span className="font-mono text-[9px] text-on-surface-variant whitespace-pre-wrap break-words">{destinationWx}</span>
-                </div>
-              )}
-            </div>
-          )
-        })()}
-      </div>
-
-      {/* Source tags (read-only from poller) */}
-      {entity.tags && entity.tags.length > 0 && (
-        <div className="px-3 pb-2 flex flex-wrap gap-1">
-          {entity.tags.map((tag) => (
-            <span
-              key={tag}
-              className="font-mono text-[8px] uppercase tracking-widest px-1.5 py-0.5 bg-amber-gold-muted/40 text-amber-gold-dim"
-            >
-              {tag}
-            </span>
-          ))}
+        
+        {/* Tabs */}
+        <div className="flex gap-4 border-b border-white/10">
+          {(['overview', 'weather', 'tags'] as const).map(tab => {
+            if (tab === 'weather' && entity.entity_type !== 'aircraft') return null
+            return (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`uppercase tracking-widest text-[9px] font-bold pb-1.5 border-b-2 transition-colors ${
+                  activeTab === tab 
+                    ? 'border-amber-gold text-amber-gold' 
+                    : 'border-transparent text-on-surface-variant hover:text-on-surface'
+                }`}
+              >
+                {tab}
+              </button>
+            )
+          })}
         </div>
-      )}
+      </div>
 
-      {/* Mission tags */}
-      <div className="px-3 pb-3 border-t border-white/10 pt-2">
-        <span className="label-caps text-[9px] block mb-2">Mission Tags</span>
-
-        {missionTags.length === 0 && (
-          <p className="text-[9px] text-on-surface-variant/50 italic mb-2">No tags assigned</p>
+      {/* Scrollable Content */}
+      <div className="overflow-y-auto overflow-x-hidden p-3 space-y-4 flex-1 custom-scrollbar">
+        
+        {activeTab === 'overview' && (
+          <>
+            {entity.entity_type === 'aircraft' ? (
+              <AircraftOverview entity={entity} getIdentity={getIdentity} trail={trail} />
+            ) : entity.entity_type === 'vessel' ? (
+              <VesselOverview entity={entity} getIdentity={getIdentity} />
+            ) : entity.entity_type === 'aprs' ? (
+              <AprsOverview entity={entity} getIdentity={getIdentity} />
+            ) : (
+              <GenericOverview entity={entity} getIdentity={getIdentity} />
+            )}
+          </>
         )}
-        {missionTags.length > 0 && (
-          <div className="flex flex-wrap gap-1 mb-2">
-            {missionTags.map((t) => (
-              <div key={t.id} className="flex items-center gap-0.5">
-                <span
-                  className="font-mono text-[8px] uppercase tracking-widest px-1.5 py-0.5"
-                  style={{ backgroundColor: `${t.color}22`, color: t.color, border: `1px solid ${t.color}66` }}
-                >
-                  {t.tag}
-                </span>
-                <button
-                  onClick={() => handleDeleteTag(t.id)}
-                  className="text-on-surface-variant hover:text-red-emergency transition-colors leading-none p-0.5 focus:outline-none"
-                  aria-label={`Remove tag ${t.tag}`}
-                >
-                  <span className="ms text-[10px]">close</span>
-                </button>
+
+        {activeTab === 'weather' && (
+          <div className="space-y-4">
+            {!originWx && !destinationWx ? (
+              <div className="text-center p-4">
+                <span className="ms text-[24px] text-on-surface-variant/50 mb-2 block">cloud_off</span>
+                <p className="text-[10px] text-on-surface-variant uppercase tracking-widest">No weather data available</p>
               </div>
-            ))}
+            ) : (
+              <>
+                {originWx && (
+                  <div>
+                    <div className="flex items-center gap-1.5 mb-2 text-cyan-adsb">
+                      <span className="ms text-[14px]">flight_takeoff</span>
+                      <span className="label-caps text-[10px]">Origin METAR ({origin})</span>
+                    </div>
+                    <div className="bg-[#0a0a0a] border border-white/10 p-2 font-mono text-[10px] text-[#00ffcc] leading-relaxed whitespace-pre-wrap break-words rounded-sm shadow-inner">
+                      &gt; {originWx}
+                    </div>
+                  </div>
+                )}
+                
+                {destinationWx && (
+                  <div>
+                    <div className="flex items-center gap-1.5 mb-2 text-amber-gold">
+                      <span className="ms text-[14px]">flight_land</span>
+                      <span className="label-caps text-[10px]">Destination METAR ({destination})</span>
+                    </div>
+                    <div className="bg-[#0a0a0a] border border-white/10 p-2 font-mono text-[10px] text-[#00ffcc] leading-relaxed whitespace-pre-wrap break-words rounded-sm shadow-inner">
+                      &gt; {destinationWx}
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
           </div>
         )}
 
-        <div className="flex gap-1">
-          <input
-            type="text"
-            placeholder="Tag name…"
-            value={tagInput}
-            onChange={(e) => setTagInput(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') handleAddTag() }}
-            className="flex-1 min-w-0 bg-onyx-deep border border-white/10 text-on-surface placeholder-on-surface-variant text-[10px] px-2 py-1 focus:outline-none focus:border-amber-gold/60 transition-colors"
-          />
-          <button
-            onClick={handleAddTag}
-            disabled={tagSaving || !tagInput.trim()}
-            className="text-amber-gold border border-amber-gold/40 hover:bg-amber-gold/10 px-2 py-1 text-[9px] font-bold uppercase tracking-widest transition-colors focus:outline-none disabled:opacity-40"
-            aria-label="Add tag"
-          >
-            <span className="ms text-[14px] leading-none">add</span>
-          </button>
-        </div>
-        <div className="flex gap-1 mt-1.5 flex-wrap">
-          {TAG_PRESETS.map((c) => (
-            <button
-              key={c}
-              onClick={() => setTagColor(c)}
-              className="w-4 h-4 transition-transform focus:outline-none"
-              style={{
-                backgroundColor: c,
-                outline: tagColor === c ? `2px solid ${c}` : 'none',
-                outlineOffset: '1px',
-              }}
-              aria-label={`Select color ${c}`}
-            />
-          ))}
-        </div>
+        {activeTab === 'tags' && (
+          <div className="space-y-4">
+            {/* Source Tags */}
+            {entity.tags && entity.tags.length > 0 && (
+              <div>
+                <span className="label-caps text-[9px] text-amber-gold-dim mb-2 block">Source Tags</span>
+                <div className="flex flex-wrap gap-1">
+                  {entity.tags.map((tag) => (
+                    <span
+                      key={tag}
+                      className="font-mono text-[9px] uppercase tracking-widest px-1.5 py-0.5 bg-amber-gold-muted/40 text-amber-gold-dim rounded-sm"
+                    >
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Mission Tags */}
+            <div>
+              <span className="label-caps text-[9px] text-amber-gold-dim mb-2 block">Mission Tags</span>
+              
+              {missionTags.length === 0 ? (
+                <p className="text-[9px] text-on-surface-variant/50 italic mb-3">No custom tags assigned</p>
+              ) : (
+                <div className="flex flex-wrap gap-1.5 mb-3">
+                  {missionTags.map((t) => (
+                    <div 
+                      key={t.id} 
+                      className="flex items-center gap-1 px-1.5 py-0.5 rounded-sm"
+                      style={{ backgroundColor: `${t.color}15`, border: `1px solid ${t.color}40` }}
+                    >
+                      <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: t.color }}></span>
+                      <span className="font-mono text-[9px] uppercase tracking-widest" style={{ color: t.color }}>
+                        {t.tag}
+                      </span>
+                      <button
+                        onClick={() => handleDeleteTag(t.id)}
+                        className="text-on-surface-variant hover:text-red-emergency transition-colors leading-none p-0.5 ml-1 focus:outline-none"
+                        aria-label={`Remove tag ${t.tag}`}
+                      >
+                        <span className="ms text-[12px]">close</span>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Tag Editor */}
+              <div className="space-y-2 bg-white/5 p-2 border border-white/10 rounded-sm">
+                <div className="flex gap-1 relative">
+                  <button 
+                    onClick={() => setShowColorPicker(!showColorPicker)}
+                    className="w-6 h-6 shrink-0 flex items-center justify-center border border-white/20 rounded-sm hover:bg-white/10 transition-colors"
+                    aria-label="Pick color"
+                  >
+                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: tagColor }}></div>
+                  </button>
+                  <input
+                    type="text"
+                    placeholder="New mission tag…"
+                    value={tagInput}
+                    onChange={(e) => setTagInput(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') handleAddTag() }}
+                    className="flex-1 min-w-0 bg-transparent border-b text-on-surface placeholder-on-surface-variant text-[10px] px-1 focus:outline-none transition-colors"
+                    style={{ borderBottomColor: tagInput.trim() ? tagColor : 'rgba(255,255,255,0.2)' }}
+                  />
+                  <button
+                    onClick={handleAddTag}
+                    disabled={tagSaving || !tagInput.trim()}
+                    className="text-amber-gold hover:text-white px-1 transition-colors focus:outline-none disabled:opacity-30 disabled:hover:text-amber-gold"
+                    aria-label="Add tag"
+                  >
+                    <span className="ms text-[16px] leading-none">add_circle</span>
+                  </button>
+                </div>
+                
+                {showColorPicker && (
+                  <div className="flex gap-1.5 pt-2 border-t border-white/10">
+                    {TAG_PRESETS.map((c) => (
+                      <button
+                        key={c}
+                        onClick={() => { setTagColor(c); setShowColorPicker(false); }}
+                        className="w-4 h-4 rounded-full transition-transform hover:scale-110 focus:outline-none"
+                        style={{
+                          backgroundColor: c,
+                          boxShadow: tagColor === c ? `0 0 0 2px #050505, 0 0 0 3px ${c}` : 'none',
+                        }}
+                        aria-label={`Select color ${c}`}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </aside>
   )

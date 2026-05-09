@@ -169,17 +169,19 @@ export function GeofencePanel() {
   return (
     <div className="space-y-4">
       {/* Panel tabs */}
-      <div className="flex border-b border-white/10">
-        {(['geofences', 'layers'] as PanelTab[]).map((tab) => (
-          <button
-            key={tab}
-            onClick={() => setPanelTab(tab)}
-            className={`px-3 py-2 text-[10px] font-bold tracking-widest uppercase transition-colors focus:outline-none ${panelTab === tab ? 'text-amber-gold border-b-2 border-amber-gold' : 'text-on-surface-variant hover:text-on-surface border-b-2 border-transparent'}`}
-          >
-            {tab === 'geofences' ? `Geofences (${fences.length})` : `Custom Layers (${customLayers.length})`}
-          </button>
-        ))}
-      </div>
+      {!geofenceDrawing && !showSaveForm && (
+        <div className="flex border-b border-white/10">
+          {(['geofences', 'layers'] as PanelTab[]).map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setPanelTab(tab)}
+              className={`px-3 py-2 text-[10px] font-bold tracking-widest uppercase transition-colors focus:outline-none ${panelTab === tab ? 'text-amber-gold border-b-2 border-amber-gold' : 'text-on-surface-variant hover:text-on-surface border-b-2 border-transparent'}`}
+            >
+              {tab === 'geofences' ? `Geofences (${fences.length})` : `Custom Layers (${customLayers.length})`}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* ── Geofences Tab ─────────────────────────────────────────────────── */}
       {panelTab === 'geofences' && (
@@ -295,43 +297,45 @@ export function GeofencePanel() {
           {error && <p className="text-[10px] text-red-emergency">{error}</p>}
 
           {/* Geofence list */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <span className="label-caps text-[9px]">Active Zones ({fences.length})</span>
-              <button onClick={loadFences} disabled={loading} className="ms text-[14px] text-on-surface-variant hover:text-on-surface transition-colors leading-none focus:outline-none" title="Refresh">
-                sync
-              </button>
-            </div>
-            {fences.length === 0 ? (
-              <p className="text-[11px] text-on-surface-variant italic">No geofences defined.</p>
-            ) : (
-              <div className="space-y-2">
-                {fences.map((f) => (
-                  <div key={f.id} className="flex items-start gap-3 p-2 border border-white/5 bg-onyx-deep/40 hover:bg-surface-container transition-colors">
-                    <span className={`mt-0.5 font-mono text-[8px] border px-1 py-0.5 uppercase tracking-widest shrink-0 ${ZONE_COLORS[f.zone_type as ZoneType] ?? ZONE_COLORS.alert}`}>
-                      {ZONE_LABELS[f.zone_type as ZoneType] ?? f.zone_type}
-                    </span>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-[11px] text-on-surface font-bold truncate">{f.name}</div>
-                      {f.description && (
-                        <div className="text-[10px] text-on-surface-variant truncate">{f.description}</div>
-                      )}
-                      <div className="text-[9px] text-on-surface-variant uppercase tracking-widest mt-0.5">
-                        {(f.geofence_shape ?? 'polygon')} · dwell {Math.max(0, f.dwell_seconds ?? 0)}s
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => deleteGeofence(f.id)}
-                      className="ms text-[16px] text-on-surface-variant hover:text-red-emergency transition-colors leading-none shrink-0 focus:outline-none"
-                      title={`Delete ${f.name}`}
-                    >
-                      delete
-                    </button>
-                  </div>
-                ))}
+          {!geofenceDrawing && !showSaveForm && (
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <span className="label-caps text-[9px]">Active Zones ({fences.length})</span>
+                <button onClick={loadFences} disabled={loading} className="ms text-[14px] text-on-surface-variant hover:text-on-surface transition-colors leading-none focus:outline-none" title="Refresh">
+                  sync
+                </button>
               </div>
-            )}
-          </div>
+              {fences.length === 0 ? (
+                <p className="text-[11px] text-on-surface-variant italic">No geofences defined.</p>
+              ) : (
+                <div className="space-y-2">
+                  {fences.map((f) => (
+                    <div key={f.id} className="flex items-start gap-3 p-2 border border-white/5 bg-onyx-deep/40 hover:bg-surface-container transition-colors">
+                      <span className={`mt-0.5 font-mono text-[8px] border px-1 py-0.5 uppercase tracking-widest shrink-0 ${ZONE_COLORS[f.zone_type as ZoneType] ?? ZONE_COLORS.alert}`}>
+                        {ZONE_LABELS[f.zone_type as ZoneType] ?? f.zone_type}
+                      </span>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-[11px] text-on-surface font-bold truncate">{f.name}</div>
+                        {f.description && (
+                          <div className="text-[10px] text-on-surface-variant truncate">{f.description}</div>
+                        )}
+                        <div className="text-[9px] text-on-surface-variant uppercase tracking-widest mt-0.5">
+                          {(f.geofence_shape ?? 'polygon')} · dwell {Math.max(0, f.dwell_seconds ?? 0)}s
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => deleteGeofence(f.id)}
+                        className="ms text-[16px] text-on-surface-variant hover:text-red-emergency transition-colors leading-none shrink-0 focus:outline-none"
+                        title={`Delete ${f.name}`}
+                      >
+                        delete
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </>
       )}
 

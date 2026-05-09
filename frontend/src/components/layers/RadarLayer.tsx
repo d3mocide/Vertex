@@ -8,7 +8,10 @@ import {
   RADAR_REFRESH_MS,
 } from '../../config'
 
-interface Props { map: maplibregl.Map }
+interface Props {
+  map: maplibregl.Map
+  forceVisible?: boolean
+}
 
 const SRC_LOCAL = 'nexrad-radar-local-src'
 const SRC_WIDE = 'nexrad-radar-wide-src'
@@ -96,7 +99,7 @@ function refreshSourceTiles(
   addRasterLayer(map, sourceId, layerId, layerSlug, bust, 0)
 }
 
-export function RadarLayer({ map }: Props) {
+export function RadarLayer({ map, forceVisible }: Props) {
   // ── All hooks must be called unconditionally (Rules of Hooks) ──────────────
   const radarVisible = useCivicStore((s) => s.radarVisible)
   const radarOpacity = useCivicStore((s) => s.radarOpacity)
@@ -110,7 +113,7 @@ export function RadarLayer({ map }: Props) {
   // Mount/unmount the layer + refresh every RADAR_REFRESH_MS
   useEffect(() => {
     if (!map || typeof map.getLayer !== 'function') return
-    if (!radarVisible) return
+    if (!forceVisible && !radarVisible) return
 
     const cancelCrossfade = () => {
       if (crossfadeRafRef.current != null) {
@@ -170,7 +173,7 @@ export function RadarLayer({ map }: Props) {
         removeRasterLayer(map, SRC_WIDE, LAYER_WIDE)
       }
     }
-  }, [map, radarVisible])
+  }, [map, radarVisible, forceVisible])
 
   // Opacity-only updates — preserve current blend position while updating alpha.
   useEffect(() => {

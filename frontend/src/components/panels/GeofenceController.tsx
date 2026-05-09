@@ -5,12 +5,12 @@ export function GeofenceController() {
   const [open, setOpen] = useState(false)
 
   return (
-    <>
+    <div className="relative">
       {/* Trigger button */}
       <button
         onClick={() => setOpen((v) => !v)}
         className={`
-          absolute top-28 left-[390px] z-30 flex items-center gap-2 px-3 py-2
+          relative flex items-center gap-2 px-3 py-2
           hud-panel border border-amber-gold-muted text-[10px] font-mono uppercase tracking-widest shadow-2xl
           hover:border-amber-gold/60 transition-colors focus:outline-none
           ${open ? 'text-amber-gold border-amber-gold' : 'text-on-surface-variant'}
@@ -24,7 +24,7 @@ export function GeofenceController() {
 
       {/* Editor Panel — shown when trigger clicked */}
       {open && (
-        <div className="absolute top-40 left-4 z-[40] w-[420px] max-h-[calc(100vh-12rem)] overflow-y-auto hud-panel p-4 shadow-2xl border-amber-gold-muted">
+        <div className="fixed top-28 right-4 z-[40] w-[420px] max-h-[calc(100vh-16rem)] overflow-y-auto hud-panel p-4 cursor-default">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <span className="ms text-[16px] text-amber-gold leading-none">pentagon</span>
@@ -41,6 +41,6 @@ export function GeofenceController() {
           <GeofencePanel />
         </div>
       )}
-    </>
+    </div>
   )
 }

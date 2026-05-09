@@ -41,12 +41,25 @@ function Dashboard() {
       className="dark h-screen w-screen overflow-hidden flex flex-col font-body text-sm antialiased bg-onyx-black text-on-surface"
       data-mode={mode}
     >
+      {/* Map Background Layer */}
+      <div
+        className={`
+          fixed inset-0 transition-opacity duration-300
+          ${activeTab === 'safety' ? 'opacity-100 z-0' : 'opacity-30 z-0'}
+        `}
+        aria-hidden={activeTab !== 'safety'}
+      >
+        <Map />
+      </div>
+
       <AlertStatusBar />
 
-      <div className="flex flex-1 min-h-0">
-        <Sidebar />
+      <div className="flex flex-1 min-h-0 relative z-10 pointer-events-none">
+        <div className="pointer-events-auto h-full flex shrink-0">
+          <Sidebar />
+        </div>
 
-        <div className="relative flex-1 min-w-0 overflow-hidden transition-all duration-300">
+        <div className="relative flex-1 min-w-0 overflow-hidden transition-all duration-300 pointer-events-none">
           <div className="absolute top-0 inset-x-0 z-40 pointer-events-none">
             <div className="pointer-events-auto">
               <Header />
@@ -54,16 +67,7 @@ function Dashboard() {
             </div>
           </div>
 
-          <div className="absolute inset-0 overflow-hidden">
-            <div
-              className={`
-                absolute inset-0 transition-opacity duration-300
-                ${activeTab === 'safety' ? 'opacity-100 z-0' : 'opacity-30 z-0'}
-              `}
-              aria-hidden={activeTab !== 'safety'}
-            >
-              <Map />
-            </div>
+          <div className="absolute inset-0 overflow-hidden pointer-events-none *:pointer-events-auto">
 
             {activeTab !== 'safety' && (
               <div className="absolute top-24 inset-x-0 bottom-0 z-10 bg-onyx-black/40 backdrop-blur-sm overflow-y-auto">
@@ -81,9 +85,11 @@ function Dashboard() {
               <>
                 <EntitySearchPanel />
                 <EntityDetail />
-                <PlaybackController />
-                <GeofenceController />
-                <AnnotationController />
+                <div className="absolute top-28 left-[280px] flex gap-2 z-30 pointer-events-none *:pointer-events-auto">
+                  <PlaybackController />
+                  <GeofenceController />
+                  <AnnotationController />
+                </div>
               </>
             )}
 

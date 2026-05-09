@@ -34,10 +34,6 @@ export function EnvironmentPanel() {
     ).values(),
   ).sort((a, b) => Date.parse(b.ts) - Date.parse(a.ts))
 
-  useEffect(() => {
-    setRadarVisible(true)
-    return () => setRadarVisible(false)
-  }, [setRadarVisible])
 
   useEffect(() => {
     let cancelled = false
@@ -61,9 +57,9 @@ export function EnvironmentPanel() {
   }, [])
 
   return (
-    <div className="flex flex-col h-full bg-onyx-black/95 backdrop-blur-sm z-10">
+    <div className="flex flex-col h-full z-10">
       {/* Header Info Bar */}
-      <div className="flex items-center justify-between px-6 py-3 border-b border-white/5 bg-onyx-black/40">
+      <div className="flex items-center justify-between px-6 py-3 border-b border-white/5">
         <div className="flex items-center gap-6">
           <div className="flex flex-col">
             <span className="text-[8px] font-mono text-on-surface-variant uppercase tracking-[0.2em]">Region Center</span>

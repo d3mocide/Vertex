@@ -232,13 +232,13 @@ export function EventLogPanel() {
             placeholder="Filter by summary, type, or entity…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full bg-onyx-deep border border-white/10 text-on-surface placeholder-on-surface-variant text-[11px] pl-8 pr-3 py-1.5 focus:outline-none focus:border-amber-gold/60 transition-colors"
+            className="w-full bg-onyx-deep/40 border border-white/10 text-on-surface placeholder-on-surface-variant text-[11px] pl-8 pr-3 py-1.5 focus:outline-none focus:border-amber-gold/60 transition-colors"
           />
         </div>
 
         {/* Severity filter */}
         <div
-          className="flex items-center border border-white/10 bg-onyx-deep divide-x divide-white/10 shrink-0"
+          className="flex items-center border border-white/10 bg-onyx-deep/40 divide-x divide-white/10 shrink-0"
           role="group"
           aria-label="Filter by severity"
         >
@@ -260,7 +260,7 @@ export function EventLogPanel() {
       </div>
 
       {/* Event list */}
-      <div className="border border-white/10 bg-onyx-deep">
+      <div className="border border-white/10 bg-onyx-deep/40">
         {filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-on-surface-variant">
             <span className="ms text-[36px] leading-none mb-2">timeline</span>

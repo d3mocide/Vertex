@@ -5,6 +5,16 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 
 ---
 
+## 2026-05-08 — Standardized dashboard glassmorphism and map background
+- Refactored global layout in `App.tsx` to move the map to a fixed background layer (`z-0`) with `pointer-events-none` on UI containers to allow click-through map interactions.
+- Added a centralized `hud-panel` CSS utility in `index.css` to provide a consistent frosted glass aesthetic (backdrop blur, translucent dark background, rounded corners).
+- Upgraded floating panels (`PlaybackController`, `AnnotationOverlay` toolbar and modals, Geofence sidebar) to use the new `hud-panel` style, removing high-contrast solid colors and gold outlines.
+- Removed opaque `bg-onyx-black` and `bg-onyx-deep` backgrounds from major dashboard tabs (`InfrastructureGrid`, `CommunityPanel`, `EnvironmentPanel`, `EventLogPanel`) so the map gracefully shines through the entire UI.
+- Improved `EnvironmentPanel` UX by removing the automatic trigger that turned on the weather radar layer globally when the panel was opened.
+- Restored NEXRAD weather radar colors by removing the blanket `grayscale(100%)` CSS filter from the global MapLibre canvas.
+- Validation:
+    - UI checked and verified translucent panel backgrounds render correctly.
+
 ## 2026-05-08 — Replaced compact rail abbreviations with icon counters
 - Updated [frontend/src/components/layout/Sidebar.tsx](frontend/src/components/layout/Sidebar.tsx) compact collapsed counters from 3-letter labels to icon + count buttons for visual consistency with expanded state.
 - Preserved existing click actions for quick filter/overlay focus from each counter.

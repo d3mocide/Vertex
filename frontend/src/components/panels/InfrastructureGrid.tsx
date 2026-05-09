@@ -72,7 +72,7 @@ function CctvThumbnail({
         </span>
       </button>
       {/* Camera label overlay */}
-      <div className="absolute bottom-0 left-0 right-0 bg-onyx-black/80 px-2 py-1 flex items-center justify-between">
+      <div className="absolute bottom-0 left-0 right-0 px-2 py-1 flex items-center justify-between">
         <span className="font-mono text-[9px] text-amber-gold uppercase truncate mr-1">
           {cam.name}
         </span>
@@ -194,7 +194,7 @@ export function InfrastructureGrid() {
 
   return (
     <div
-      className="relative w-full h-full bg-onyx-black/95 backdrop-blur-sm z-10 flex flex-col overflow-hidden"
+      className="relative w-full h-full z-10 flex flex-col overflow-hidden"
       role="region"
       aria-label="Infrastructure panel"
     >

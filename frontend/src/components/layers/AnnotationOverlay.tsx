@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import maplibregl from 'maplibre-gl'
 import { useCivicStore } from '../../store'
 import type { AnnotationItem } from '../../storeTypes'
@@ -352,10 +353,12 @@ export function AnnotationOverlay({ map }: Props) {
   return (
     <>
       {/* Draw / manage toolbar */}
-      {(toolbarOpen || annotationDrawMode) && !showForm && (
-        <div className="absolute top-40 left-[500px] flex flex-col z-[30] pointer-events-auto select-none">
+      {(toolbarOpen || annotationDrawMode) && !showForm && (() => {
+        const portalTarget = document.getElementById('annotation-toolbar-portal')
+        const content = (
+          <div className="flex flex-col pointer-events-auto select-none">
           {/* Button row */}
-          <div className="flex items-center gap-1 bg-onyx-black/95 border border-amber-gold-muted px-2 py-1.5 shadow-2xl">
+          <div className="flex items-center gap-1 hud-panel px-2 py-1.5">
             {/* Visibility toggle */}
             <button
               onClick={() => setAnnotationsVisible(!annotationsVisible)}
@@ -423,7 +426,7 @@ export function AnnotationOverlay({ map }: Props) {
 
           {/* Annotation list panel */}
           {showList && annotationDrawMode === null && (
-            <div className="bg-onyx-black/95 border border-amber-gold-muted border-t-0 w-[280px] shadow-2xl">
+            <div className="hud-panel mt-2 w-[280px]">
               <div className="px-2 py-1.5 border-b border-white/5 flex items-center justify-between">
                 <span className="label-caps text-[9px] text-amber-gold">Annotations</span>
                 <span className="text-[9px] text-on-surface-variant">{annotations.length} active</span>
@@ -491,12 +494,14 @@ export function AnnotationOverlay({ map }: Props) {
             </div>
           )}
         </div>
-      )}
+        )
+        return portalTarget ? createPortal(content, portalTarget) : <div className="absolute top-40 left-[500px] z-[30]">{content}</div>
+      })()}
 
       {/* Save / Edit form modal */}
       {showForm && (
         <div className="absolute inset-0 flex items-center justify-center z-20 bg-black/30 pointer-events-auto">
-          <div className="bg-onyx-black border border-white/10 p-4 w-72 shadow-2xl">
+          <div className="hud-panel p-4 w-72">
             <h3 className="label-caps text-amber-gold mb-3">
               {editingAnnot ? 'Edit Annotation' : 'Save Annotation'}
             </h3>

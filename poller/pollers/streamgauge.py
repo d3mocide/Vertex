@@ -16,11 +16,25 @@ from datetime import datetime, timezone
 
 import httpx
 
+import math
+
 from bus import publish_entity
 from config import settings
 from .base import BasePoller
 
 logger = logging.getLogger(__name__)
+
+def _distance_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    radius_km = 6371.0
+    phi1 = math.radians(lat1)
+    phi2 = math.radians(lat2)
+    d_phi = math.radians(lat2 - lat1)
+    d_lambda = math.radians(lon2 - lon1)
+    a = (
+        math.sin(d_phi / 2) ** 2
+        + math.cos(phi1) * math.cos(phi2) * math.sin(d_lambda / 2) ** 2
+    )
+    return 2 * radius_km * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
 _USGS_IV_URL = "https://waterservices.usgs.gov/nwis/iv/"
 _PARAMS = {
@@ -128,6 +142,7 @@ class StreamGaugePoller(BasePoller):
                 "lat":          site["lat"],
                 "lon":          site["lon"],
                 "status":       stage,
+                "distance_km":  round(_distance_km(settings.region_lat, settings.region_lon, site["lat"], site["lon"]), 2),
                 "identity": {
                     "site_id":   site["site_id"],
                     "flow_cfs":  flow,

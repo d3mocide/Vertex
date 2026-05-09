@@ -163,7 +163,7 @@ export function CommunityPanel() {
 
   return (
     <div
-      className="relative w-full h-full bg-onyx-black/95 backdrop-blur-sm z-10 flex flex-col overflow-hidden"
+      className="relative w-full h-full z-10 flex flex-col overflow-hidden"
       role="region"
       aria-label="Community feed panel"
     >

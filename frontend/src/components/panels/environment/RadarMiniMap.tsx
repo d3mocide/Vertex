@@ -38,7 +38,7 @@ function RadarMiniMapCanvas({ isFullHeight }: { isFullHeight?: boolean }) {
       }}
     >
       <div ref={mapContainerRef} className="absolute inset-0" />
-      {map && <RadarLayer map={map} />}
+      {map && <RadarLayer map={map} forceVisible={true} />}
 
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute inset-0 bg-gradient-to-t from-onyx-black/40 to-transparent" />

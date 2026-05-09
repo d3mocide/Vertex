@@ -44,7 +44,6 @@ export function Map() {
       .addTo(m)
 
     m.addControl(new maplibregl.NavigationControl({ showCompass: true }), 'bottom-right')
-    m.addControl(new maplibregl.ScaleControl({ maxWidth: 100, unit: 'imperial' }), 'bottom-left')
     m.on('styleimagemissing', (e) => {
       const id = e.id
       console.warn(`Map style image missing: ${id}. Providing fallback.`)
