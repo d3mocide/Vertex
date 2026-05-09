@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     auth_token_expire_hours: int = 24
 
     cors_origins: list[str] = ["http://localhost:3000", "http://localhost"]
+    cors_allow_credentials: bool = False
 
     p25_audio_dir: str = "/data/audio"
 

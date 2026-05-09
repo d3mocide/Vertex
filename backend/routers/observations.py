@@ -55,6 +55,7 @@ async def get_replay(
             Observation.lon.isnot(None),
         )
         .order_by(Observation.entity_id, Observation.ts)
+        .limit(50_000)
     )
     if entity_type:
         query = query.where(Entity.entity_type == entity_type)

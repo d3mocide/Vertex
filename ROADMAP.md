@@ -474,11 +474,11 @@ LOW IMPACT
 
 | ID | Item | Category | Effort | Impact | Priority | Status |
 |----|------|----------|--------|--------|----------|--------|
-| H1 | API Pagination & Filtering | Quality | M | High | P1 | Not Started |
+| H1 | API Pagination & Filtering | Quality | M | High | P1 | Done |
 | H2 | Backend Test Suite Expansion | Quality | L | High | P1 | Not Started |
-| H3 | CORS & Security Hardening | Quality | S | High | P1 | Not Started |
+| H3 | CORS & Security Hardening | Quality | S | High | P1 | Done |
 | H4 | WebSocket Per-Client Filtering | Quality | M | Medium | P2 | Not Started |
-| I1 | TLS / HTTPS Termination | Infrastructure | S | High | P1 | Not Started |
+| I1 | TLS / HTTPS Termination | Infrastructure | S | High | P1 | Done |
 | I2 | Docker Resource Limits & Restart Policies | Infrastructure | S | Medium | P2 | Not Started |
 | I3 | Systemd Unit & Pi 5 Auto-Start | Infrastructure | S | Medium | P2 | Not Started |
 | J1 | Multi-Region / Multi-Bbox Monitoring | Capabilities | L | Medium | P2 | Not Started |
@@ -489,7 +489,7 @@ LOW IMPACT
 
 ## Suggested Sprint Order — Phase 3
 
-### Sprint 9 — Production Hardening (P1)
+### Sprint 9 — Production Hardening (P1) ✓ Complete
 `H1` API pagination · `H3` CORS & security hardening · `I1` TLS termination
 
 ### Sprint 10 — Test Coverage & WS Scale (P1–P2)

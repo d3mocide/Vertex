@@ -1029,3 +1029,26 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 - **`frontend/src/components/panels/EntitySearchPanel.tsx`**: Repositioned to `bottom-20` full-width on mobile, `top-28 left-4 w-64` on desktop (`lg:`).
 - **`frontend/src/components/panels/EntityDetail.tsx`**: Width made responsive (`w-[calc(100vw-1rem)] sm:w-72 lg:w-64`); max-height capped at `55vh` on mobile.
 - **Motivation**: Operators in the field using phones/tablets had no usable layout. All panels now render correctly on narrow viewports without overlap or unreachable controls.
+
+## 2026-05-09 — Sprint 9: Production Hardening (H1, H3, I1)
+
+### H1 — API Pagination & Filtering
+- **`backend/routers/entities.py`**: Added `limit` (default 200, max 2000), `offset`, and `bbox` (min_lon,min_lat,max_lon,max_lat) query params. Bbox filtering applied in Python against Redis entity store.
+- **`backend/routers/alerts.py`**: Added `limit` (default 100, max 500) and `offset` pagination on Redis-fetched alert list.
+- **`backend/routers/news.py`**: Added `limit` (default 50, max 200) and `offset` pagination on Redis-fetched news list.
+- **`backend/routers/events.py`**: Added `limit` (default 200, max 1000), `offset`, `event_type`, and `entity_id` filters. DB query uses `.offset().limit()`.
+- **`backend/routers/observations.py`**: Added `.limit(50_000)` to replay query to prevent OOM on large time windows.
+
+### H3 — CORS & Security Hardening
+- **`backend/config.py`**: Added `cors_allow_credentials: bool = False` setting.
+- **`backend/main.py`**: Passed `allow_credentials=settings.cors_allow_credentials` to `CORSMiddleware`.
+- **`frontend/nginx.conf`**: Added `X-Content-Type-Options`, `X-Frame-Options`, `X-XSS-Protection`, and `Referrer-Policy` security headers.
+- **`backend/db/models.py`**: Added `api_key_hash` (SHA-256 hex, nullable, unique index) to `User` model.
+- **`backend/db/session.py`**: Added migrations for `api_key_hash` column and its partial unique index.
+- **`backend/routers/auth.py`**: Increased password `min_length` from 8 → 12 chars on setup and user creation. Added `POST /auth/apikey` (generate) and `DELETE /auth/apikey` (revoke) endpoints. `UserDetail` response now includes `has_api_key` flag.
+- **`backend/auth_middleware.py`**: Added `X-API-Key` header path — SHA-256 hashes the key, looks up matching `User` row via DB, enforces admin-role check on mutating requests. JWT path unchanged as fallback.
+- **`.env.example`**: Documented `CORS_ORIGINS`, `CORS_ALLOW_CREDENTIALS`, `TLS_CERT_PATH`, `TLS_KEY_PATH`.
+
+### I1 — TLS / HTTPS Termination
+- **`frontend/nginx-tls.conf`**: New Nginx config with HTTP→HTTPS redirect (port 80 → 301) and HTTPS (port 443) with TLSv1.2/1.3, HSTS, and all security headers. Mirrors `nginx.conf` proxy rules.
+- **`docker-compose.tls.yml`**: Compose override that adds port 443, mounts `nginx-tls.conf` over default, and mounts cert files from `TLS_CERT_PATH` / `TLS_KEY_PATH`. Usage: `docker compose -f docker-compose.yml -f docker-compose.tls.yml up -d`.
