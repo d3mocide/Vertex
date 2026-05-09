@@ -40,3 +40,6 @@ npm-debug.log*
 # Misc
 *.local
 config/sources.yml
+
+# Claude Code agent worktrees (temporary, auto-created by parallel agents)
+.claude/worktrees/
