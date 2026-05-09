@@ -9,7 +9,7 @@ from redis_bus import get_redis
 router = APIRouter(prefix="/weather", tags=["weather"])
 
 SMOKE_WMS_URL = (
-    "https://satepsanone.nesdis.noaa.gov/arcgis/services/FIRE/HMS_Smoke/MapServer/WMSServer"
+    "https://maps.ncei.noaa.gov/arcgis/rest/services/nowCoast_Visible_Imagery/MapServer/WmsServer"
 )
 
 def _png_chunk(chunk_type: bytes, data: bytes) -> bytes:
