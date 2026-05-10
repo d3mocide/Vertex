@@ -100,14 +100,14 @@ function RadioTab() {
         {items.length === 0 && <p className="px-3 py-4 text-xs text-gray-600">No streams configured.</p>}
       </div>
       <form onSubmit={create} className="grid grid-cols-3 gap-2">
-        <input value={name} onChange={(e) => setName(e.target.value)} required placeholder="Name" className="col-span-1 bg-black/60 border border-white/10 text-gray-200 text-xs px-2 py-1.5 focus:outline-none focus:border-amber-400/60" />
-        <input value={url} onChange={(e) => setUrl(e.target.value)} required placeholder="Stream URL" className="col-span-1 bg-black/60 border border-white/10 text-gray-200 text-xs px-2 py-1.5 focus:outline-none focus:border-amber-400/60" />
+        <input value={name} onChange={(e) => setName(e.target.value)} required placeholder="Name" className="col-span-1 bg-black/60 border border-white/10 text-gray-200 text-xs px-2 py-1.5 focus:outline-none focus:border-amber-gold/60" />
+        <input value={url} onChange={(e) => setUrl(e.target.value)} required placeholder="Stream URL" className="col-span-1 bg-black/60 border border-white/10 text-gray-200 text-xs px-2 py-1.5 focus:outline-none focus:border-amber-gold/60" />
         <select value={format} onChange={(e) => setFormat(e.target.value)} className="bg-black/60 border border-white/10 text-gray-200 text-xs px-2 py-1.5 focus:outline-none">
           <option value="mp3">mp3</option>
           <option value="aac">aac</option>
           <option value="ogg">ogg</option>
         </select>
-        <button type="submit" disabled={saving} className="col-span-3 py-1.5 text-[10px] font-bold uppercase tracking-widest border border-amber-400/40 text-amber-400 hover:bg-amber-400/10 transition-colors disabled:opacity-50">
+        <button type="submit" disabled={saving} className="col-span-3 py-1.5 text-[10px] font-bold uppercase tracking-widest border border-amber-gold/40 text-amber-gold hover:bg-amber-gold/10 transition-colors disabled:opacity-50">
           {saving ? 'Adding…' : 'Add Stream'}
         </button>
       </form>
@@ -172,9 +172,9 @@ function NewsTab() {
         {items.length === 0 && <p className="px-3 py-4 text-xs text-gray-600">No feeds configured.</p>}
       </div>
       <form onSubmit={create} className="grid grid-cols-2 gap-2">
-        <input value={name} onChange={(e) => setName(e.target.value)} required placeholder="Feed name" className="bg-black/60 border border-white/10 text-gray-200 text-xs px-2 py-1.5 focus:outline-none focus:border-amber-400/60" />
-        <input value={url} onChange={(e) => setUrl(e.target.value)} required placeholder="RSS URL" className="bg-black/60 border border-white/10 text-gray-200 text-xs px-2 py-1.5 focus:outline-none focus:border-amber-400/60" />
-        <button type="submit" disabled={saving} className="col-span-2 py-1.5 text-[10px] font-bold uppercase tracking-widest border border-amber-400/40 text-amber-400 hover:bg-amber-400/10 transition-colors disabled:opacity-50">
+        <input value={name} onChange={(e) => setName(e.target.value)} required placeholder="Feed name" className="bg-black/60 border border-white/10 text-gray-200 text-xs px-2 py-1.5 focus:outline-none focus:border-amber-gold/60" />
+        <input value={url} onChange={(e) => setUrl(e.target.value)} required placeholder="RSS URL" className="bg-black/60 border border-white/10 text-gray-200 text-xs px-2 py-1.5 focus:outline-none focus:border-amber-gold/60" />
+        <button type="submit" disabled={saving} className="col-span-2 py-1.5 text-[10px] font-bold uppercase tracking-widest border border-amber-gold/40 text-amber-gold hover:bg-amber-gold/10 transition-colors disabled:opacity-50">
           {saving ? 'Adding…' : 'Add Feed'}
         </button>
       </form>
@@ -247,9 +247,9 @@ function PollersTab() {
         <select value={type} onChange={(e) => setType(e.target.value as PollerType)} className="bg-black/60 border border-white/10 text-gray-200 text-xs px-2 py-1.5 focus:outline-none">
           {POLLER_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
         </select>
-        <input value={name} onChange={(e) => setName(e.target.value)} required placeholder="Name" className="bg-black/60 border border-white/10 text-gray-200 text-xs px-2 py-1.5 focus:outline-none focus:border-amber-400/60" />
-        <input value={url} onChange={(e) => setUrl(e.target.value)} required placeholder="URL / host" className="bg-black/60 border border-white/10 text-gray-200 text-xs px-2 py-1.5 focus:outline-none focus:border-amber-400/60" />
-        <button type="submit" disabled={saving} className="col-span-3 py-1.5 text-[10px] font-bold uppercase tracking-widest border border-amber-400/40 text-amber-400 hover:bg-amber-400/10 transition-colors disabled:opacity-50">
+        <input value={name} onChange={(e) => setName(e.target.value)} required placeholder="Name" className="bg-black/60 border border-white/10 text-gray-200 text-xs px-2 py-1.5 focus:outline-none focus:border-amber-gold/60" />
+        <input value={url} onChange={(e) => setUrl(e.target.value)} required placeholder="URL / host" className="bg-black/60 border border-white/10 text-gray-200 text-xs px-2 py-1.5 focus:outline-none focus:border-amber-gold/60" />
+        <button type="submit" disabled={saving} className="col-span-3 py-1.5 text-[10px] font-bold uppercase tracking-widest border border-amber-gold/40 text-amber-gold hover:bg-amber-gold/10 transition-colors disabled:opacity-50">
           {saving ? 'Adding…' : 'Add Source'}
         </button>
       </form>
@@ -318,9 +318,9 @@ function ZonesTab() {
           onChange={(e) => setCode(e.target.value)}
           required
           placeholder="NWS zone code, e.g. ORZ006"
-          className="flex-1 bg-black/60 border border-white/10 text-gray-200 text-xs px-2 py-1.5 focus:outline-none focus:border-amber-400/60 font-mono uppercase"
+          className="flex-1 bg-black/60 border border-white/10 text-gray-200 text-xs px-2 py-1.5 focus:outline-none focus:border-amber-gold/60 font-mono uppercase"
         />
-        <button type="submit" disabled={saving} className="px-4 py-1.5 text-[10px] font-bold uppercase tracking-widest border border-amber-400/40 text-amber-400 hover:bg-amber-400/10 transition-colors disabled:opacity-50">
+        <button type="submit" disabled={saving} className="px-4 py-1.5 text-[10px] font-bold uppercase tracking-widest border border-amber-gold/40 text-amber-gold hover:bg-amber-gold/10 transition-colors disabled:opacity-50">
           {saving ? '…' : 'Add'}
         </button>
       </form>
@@ -385,10 +385,10 @@ export default function AdminFeeds() {
           <button
             key={id}
             onClick={() => setTab(id)}
-            className={`px-4 py-2 text-[10px] uppercase tracking-widest transition-colors ${
+            className={`px-4 py-3 text-[11px] font-bold uppercase tracking-widest transition-colors whitespace-nowrap ${
               tab === id
-                ? 'text-amber-400 border-b-2 border-amber-400 -mb-px'
-                : 'text-gray-500 hover:text-gray-300'
+                ? 'text-amber-gold border-b-2 border-amber-gold -mb-px'
+                : 'text-on-surface-variant hover:text-on-surface border-b-2 border-transparent'
             }`}
           >
             {label}

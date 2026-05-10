@@ -97,7 +97,7 @@ export default function AdminUsers() {
           <div className="border border-white/10">
             <table className="w-full text-xs">
               <thead>
-                <tr className="border-b border-white/10 bg-black/40">
+                <tr className="border-b border-white/10 bg-surface-container">
                   <th className="text-left px-3 py-2 text-[10px] uppercase tracking-wider text-gray-500 font-normal">Username</th>
                   <th className="text-left px-3 py-2 text-[10px] uppercase tracking-wider text-gray-500 font-normal">Role</th>
                   <th className="text-left px-3 py-2 text-[10px] uppercase tracking-wider text-gray-500 font-normal">Created</th>
@@ -115,8 +115,8 @@ export default function AdminUsers() {
                         onChange={(e) => changeRole(u, e.target.value as 'admin' | 'viewer')}
                         className={`bg-transparent border text-[10px] px-1.5 py-0.5 focus:outline-none ${
                           u.role === 'admin'
-                            ? 'border-amber-400/40 text-amber-400'
-                            : 'border-white/20 text-gray-400'
+                            ? 'border-amber-gold/40 text-amber-gold'
+                            : 'border-white/20 text-on-surface-variant'
                         }`}
                       >
                         <option value="admin">admin</option>
@@ -163,7 +163,7 @@ export default function AdminUsers() {
               maxLength={64}
               pattern="^[a-zA-Z0-9_-]+$"
               placeholder="username"
-              className="w-full bg-black/60 border border-white/10 text-gray-200 text-xs px-3 py-1.5 focus:outline-none focus:border-amber-400/60"
+              className="w-full bg-black/60 border border-white/10 text-gray-200 text-xs px-3 py-1.5 focus:outline-none focus:border-amber-gold/60"
             />
           </div>
           <div>
@@ -175,7 +175,7 @@ export default function AdminUsers() {
               required
               minLength={8}
               placeholder="min. 8 characters"
-              className="w-full bg-black/60 border border-white/10 text-gray-200 text-xs px-3 py-1.5 focus:outline-none focus:border-amber-400/60"
+              className="w-full bg-black/60 border border-white/10 text-gray-200 text-xs px-3 py-1.5 focus:outline-none focus:border-amber-gold/60"
             />
           </div>
           <div>
@@ -193,7 +193,7 @@ export default function AdminUsers() {
           <button
             type="submit"
             disabled={creating}
-            className="w-full py-1.5 text-[10px] font-bold uppercase tracking-widest border border-amber-400/40 text-amber-400 hover:bg-amber-400/10 transition-colors disabled:opacity-50"
+            className="w-full py-1.5 text-[10px] font-bold uppercase tracking-widest border border-amber-gold/40 text-amber-gold hover:bg-amber-gold/10 transition-colors disabled:opacity-50"
           >
             {creating ? 'Creating…' : 'Create User'}
           </button>

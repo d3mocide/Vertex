@@ -19,8 +19,8 @@ export default function AdminApp() {
       {/* Sidebar */}
       <aside className="flex flex-col w-52 shrink-0 border-r border-white/10 bg-black/40">
         <div className="flex items-center gap-2 px-4 py-4 border-b border-white/10">
-          <span className="text-amber-400 text-lg font-bold tracking-widest">VERTEX</span>
-          <span className="text-[10px] text-gray-500 uppercase tracking-widest mt-1">Admin</span>
+          <span className="text-amber-gold text-lg font-bold tracking-widest">VERTEX</span>
+          <span className="text-[10px] text-on-surface-variant uppercase tracking-widest mt-1">Admin</span>
         </div>
 
         <nav className="flex flex-col gap-1 p-2 flex-1">
@@ -30,8 +30,8 @@ export default function AdminApp() {
               onClick={() => setActive(id)}
               className={`flex items-center gap-3 px-3 py-2 text-sm transition-colors ${
                 active === id
-                  ? 'bg-amber-400/10 text-amber-400 border-l-2 border-amber-400'
-                  : 'text-gray-400 hover:text-gray-200 hover:bg-white/5 border-l-2 border-transparent'
+                  ? 'bg-amber-gold/10 text-amber-gold border-l-2 border-amber-gold'
+                  : 'text-on-surface-variant hover:text-on-surface hover:bg-white/5 border-l-2 border-transparent'
               }`}
             >
               <span className="material-symbols-outlined text-[18px]">{icon}</span>
