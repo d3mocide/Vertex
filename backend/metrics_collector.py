@@ -66,6 +66,11 @@ def collect_snapshot() -> dict:
             if samples:
                 snap["cpu_seconds"] = samples[0].value
 
+        elif name == "process_start_time_seconds":
+            if samples:
+                start_time = samples[0].value
+                snap["uptime_seconds"] = time.time() - start_time
+
     return snap
 
 

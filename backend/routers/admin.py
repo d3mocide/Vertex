@@ -423,48 +423,81 @@ async def get_data_quality(db: AsyncSession = Depends(get_db)):
                 'Aircraft speed'    AS label,
                 'aircraft'          AS entity_type,
                 'speed'             AS field,
-                COUNT(*) FILTER (WHERE (identity->>'speed') IS NOT NULL
-                                    OR (observations_meta->>'speed') IS NOT NULL) AS present,
-                COUNT(*)            AS total
-            FROM entities
-            WHERE entity_type = 'aircraft'
+                COUNT(DISTINCT e.entity_id) FILTER (
+                    WHERE EXISTS (
+                        SELECT 1 FROM observations o 
+                        WHERE o.entity_id = e.entity_id AND o.speed IS NOT NULL
+                    )
+                ) AS present,
+                COUNT(DISTINCT e.entity_id) AS total
+            FROM entities e
+            WHERE e.entity_type = 'aircraft'
             UNION ALL
             SELECT
                 'Aircraft heading'  AS label,
                 'aircraft'          AS entity_type,
                 'heading'           AS field,
-                COUNT(*) FILTER (WHERE (identity->>'heading') IS NOT NULL) AS present,
-                COUNT(*)            AS total
-            FROM entities
-            WHERE entity_type = 'aircraft'
+                COUNT(DISTINCT e.entity_id) FILTER (
+                    WHERE EXISTS (
+                        SELECT 1 FROM observations o 
+                        WHERE o.entity_id = e.entity_id AND o.heading IS NOT NULL
+                    )
+                ) AS present,
+                COUNT(DISTINCT e.entity_id) AS total
+            FROM entities e
+            WHERE e.entity_type = 'aircraft'
             UNION ALL
             SELECT
                 'Vessel name'       AS label,
                 'vessel'            AS entity_type,
-                'name'              AS field,
-                COUNT(*) FILTER (WHERE (identity->>'name') IS NOT NULL
-                                    AND identity->>'name' != '') AS present,
-                COUNT(*)            AS total
-            FROM entities
-            WHERE entity_type = 'vessel'
+                'ship_name'         AS field,
+                COUNT(DISTINCT e.entity_id) FILTER (
+                    WHERE (e.identity->>'ship_name') IS NOT NULL 
+                      AND (e.identity->>'ship_name') != ''
+                ) AS present,
+                COUNT(DISTINCT e.entity_id) AS total
+            FROM entities e
+            WHERE e.entity_type = 'vessel'
             UNION ALL
             SELECT
                 'Vessel MMSI'       AS label,
                 'vessel'            AS entity_type,
                 'mmsi'              AS field,
-                COUNT(*) FILTER (WHERE (identity->>'mmsi') IS NOT NULL) AS present,
-                COUNT(*)            AS total
-            FROM entities
-            WHERE entity_type = 'vessel'
+                COUNT(DISTINCT e.entity_id) FILTER (
+                    WHERE (e.identity->>'mmsi') IS NOT NULL
+                ) AS present,
+                COUNT(DISTINCT e.entity_id) AS total
+            FROM entities e
+            WHERE e.entity_type = 'vessel'
             UNION ALL
             SELECT
                 'Mesh battery'      AS label,
                 'mesh_node'         AS entity_type,
                 'battery_level'     AS field,
-                COUNT(*) FILTER (WHERE (identity->>'battery_level') IS NOT NULL) AS present,
+                COUNT(DISTINCT e.entity_id) FILTER (
+                    WHERE (e.identity->>'battery_level') IS NOT NULL
+                ) AS present,
+                COUNT(DISTINCT e.entity_id) AS total
+            FROM entities e
+            WHERE e.entity_type = 'mesh_node'
+            UNION ALL
+            SELECT
+                'Aircraft signal quality' AS label,
+                'aircraft'          AS entity_type,
+                'signal_quality'    AS field,
+                COUNT(*) FILTER (WHERE signal_quality IS NOT NULL) AS present,
                 COUNT(*)            AS total
-            FROM entities
-            WHERE entity_type = 'mesh_node'
+            FROM observations
+            WHERE entity_id IN (SELECT entity_id FROM entities WHERE entity_type = 'aircraft')
+            UNION ALL
+            SELECT
+                'Vessel signal quality' AS label,
+                'vessel'            AS entity_type,
+                'signal_quality'    AS field,
+                COUNT(*) FILTER (WHERE signal_quality IS NOT NULL) AS present,
+                COUNT(*)            AS total
+            FROM observations
+            WHERE entity_id IN (SELECT entity_id FROM entities WHERE entity_type = 'vessel')
         """)
     )
     result = []

@@ -1,17 +1,35 @@
 {
   "name": "Vertex Situational Awareness",
   "short_name": "VERTEX",
-  "description": "Real-time situational awareness dashboard",
+  "description": "Real-time situational awareness dashboard for local public safety, environment, and infrastructure.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#0f0f0f",
+  "scope": "/",
+  "background_color": "#0a0a0f",
   "theme_color": "#FFB800",
+  "orientation": "portrait-primary",
   "icons": [
     {
       "src": "/icon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/icon.svg",
+      "sizes": "540x720",
+      "type": "image/svg+xml",
+      "form_factor": "narrow",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon.svg",
+      "sizes": "1280x720",
+      "type": "image/svg+xml",
+      "form_factor": "wide",
+      "purpose": "any"
     }
   ]
 }

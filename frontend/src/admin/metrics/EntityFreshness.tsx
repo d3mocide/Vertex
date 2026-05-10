@@ -1,10 +1,10 @@
 import type { EntityFreshnessData } from './types'
 
 const BUCKETS = [
-  { key: 'fresh_5m',   label: '< 5 min',   color: '#4ADE80' },
-  { key: 'recent_15m', label: '5–15 min',  color: '#FCD34D' },
-  { key: 'stale_60m',  label: '15–60 min', color: '#FB923C' },
-  { key: 'very_stale', label: '> 60 min',  color: '#6B7280' },
+  { key: 'fresh_5m',   label: '< 5 min',   color: '#4ADE80' },      // green-fresh
+  { key: 'recent_15m', label: '5–15 min',  color: '#FCD34D' },      // amber-warning
+  { key: 'stale_60m',  label: '15–60 min', color: '#FB923C' },      // orange-stale
+  { key: 'very_stale', label: '> 60 min',  color: '#FF5252' },      // red-very-stale (updated)
 ] as const
 
 export function EntityFreshness({ data }: { data: EntityFreshnessData | null }) {
@@ -12,7 +12,7 @@ export function EntityFreshness({ data }: { data: EntityFreshnessData | null }) 
     return (
       <section>
         <h2 className="text-[10px] uppercase tracking-widest text-gray-500 mb-3">Entity Freshness</h2>
-        <div className="hud-panel p-4 text-center text-[10px] text-on-surface-variant">No entities tracked.</div>
+        <div className="border border-white/10 bg-black/30 p-4 text-center text-[10px] text-on-surface-variant">No entities tracked.</div>
       </section>
     )
   }
@@ -25,7 +25,7 @@ export function EntityFreshness({ data }: { data: EntityFreshnessData | null }) 
           (time since last observation)
         </span>
       </h2>
-      <div className="hud-panel p-4 space-y-4">
+      <div className="border border-white/10 bg-black/30 p-4 space-y-4">
         {/* Legend */}
         <div className="flex items-center gap-4 flex-wrap">
           {BUCKETS.map(b => (
@@ -54,7 +54,7 @@ export function EntityFreshness({ data }: { data: EntityFreshnessData | null }) 
                   </div>
                 </div>
                 {/* Stacked bar */}
-                <div className="flex h-2 rounded-full overflow-hidden bg-surface-container">
+                <div className="flex h-1.5 bg-gray-800 overflow-hidden">
                   {BUCKETS.map(b => {
                     const count = entry[b.key]
                     const pct = (count / total) * 100

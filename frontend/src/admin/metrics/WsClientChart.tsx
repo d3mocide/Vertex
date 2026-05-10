@@ -12,7 +12,7 @@ export function WsClientChart({ history }: { history: HistoryPoint[] }) {
   }
 
   const max = Math.max(...history.map((h) => h.ws_clients), 1)
-  const H = 48
+  const H = 120
   const W = 100
   const pts = history.map((h, i) => {
     const x = (i / (history.length - 1)) * W
@@ -32,7 +32,7 @@ export function WsClientChart({ history }: { history: HistoryPoint[] }) {
         <svg
           viewBox={`0 0 ${W} ${H}`}
           preserveAspectRatio="none"
-          className="w-full h-12"
+          className="w-full h-32"
         >
           <polyline
             points={polyline}

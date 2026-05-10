@@ -2,13 +2,26 @@ import React from 'react'
 import type { StorageData } from './types'
 
 const TYPE_COLORS: Record<string, string> = {
-  aircraft: '#00E5FF',
-  vessel: '#00FF88',
-  aprs: '#FFB800',
-  p25: '#FFB800',
-  meshcore: '#C084FC',
+  // From VERTEX Atlas Icons design guide
+  aircraft: '#00BFFF',       // cat-air (ADS-B)
+  vessel: '#00C853',         // cat-sea (AIS)
+  aprs: '#B388FF',           // cat-aprs (APRS packet)
+  p25: '#FF8F00',            // cat-mesh (P25 radio)
+  mesh_node: '#FF8F00',      // cat-mesh
+  meshcore: '#FF8F00',       // cat-mesh
+  stream_gauge: '#4FC3F7',   // cat-stream (hydro)
+  lightning: '#FFE94D',      // cat-lightning (high-vis yellow)
+  fire_incident: '#FF5252',  // cat-fire
+  fire: '#FF5252',           // cat-fire
+  ground: '#B388FF',         // cat-aprs (ground stations)
+  seismic: '#4FC3F7',        // cat-stream (hydro-adjacent)
+  weather: '#4FC3F7',        // cat-stream (water/weather)
+  traffic: '#00C853',        // cat-sea (nominal)
+  news_article: '#FFB800',   // amber-gold (info)
+  alert: '#C62828',          // cat-emerg (alerts)
+  satellite: '#B388FF',      // cat-aprs (misc)
 }
-const FALLBACK = '#4A5568'
+const FALLBACK = '#8C8C8C'  // on-surface-variant
 
 function getColor(type: string) {
   return TYPE_COLORS[type.toLowerCase()] ?? FALLBACK

@@ -18,6 +18,7 @@ export type MetricsData = {
   ws_clients: number
   db_ping_ms: number
   redis_ping_ms: number
+  uptime_seconds?: number
   history: HistoryPoint[]
 }
 

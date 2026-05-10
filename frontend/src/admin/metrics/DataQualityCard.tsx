@@ -2,14 +2,18 @@ import React from 'react'
 import type { DataQualityData } from './types'
 
 function pctColor(pct: number): string {
-  if (pct >= 80) return 'bg-emerald-500/50'
-  if (pct >= 50) return 'bg-amber-500/50'
-  return 'bg-red-500/50'
+  if (pct >= 90) return 'bg-emerald-500'
+  if (pct >= 70) return 'bg-emerald-600'
+  if (pct >= 50) return 'bg-amber-500'
+  if (pct >= 25) return 'bg-orange-500'
+  return 'bg-red-500'
 }
 
 function pctText(pct: number): string {
-  if (pct >= 80) return 'text-emerald-400'
+  if (pct >= 90) return 'text-emerald-300'
+  if (pct >= 70) return 'text-emerald-400'
   if (pct >= 50) return 'text-amber-400'
+  if (pct >= 25) return 'text-orange-400'
   return 'text-red-400'
 }
 
@@ -25,25 +29,38 @@ export function DataQualityCard({ data }: { data: DataQualityData | null }) {
 
   return (
     <section>
-      <h2 className="text-[10px] uppercase tracking-widest text-gray-500 mb-3">Data Completeness</h2>
-      <div className="space-y-1.5">
-        {data.rows.map((row) => (
-          <div key={`${row.entity_type}-${row.field}`} className="flex items-center gap-2">
-            <span className="text-[10px] text-gray-400 w-32 shrink-0 truncate">{row.label}</span>
-            <div className="flex-1 h-4 bg-black/40 border border-white/5 relative overflow-hidden">
-              <div
-                className={`absolute inset-y-0 left-0 ${pctColor(row.pct)}`}
-                style={{ width: `${row.pct}%` }}
-              />
+      <h2 className="text-[10px] uppercase tracking-widest text-gray-500 mb-4">Data Completeness</h2>
+      <div className="border border-white/10 bg-black/30 p-4">
+        <div className="space-y-3">
+          {data.rows.map((row) => (
+            <div key={`${row.entity_type}-${row.field}`} className="space-y-1.5">
+              <div className="flex items-baseline justify-between">
+                <div>
+                  <div className="text-[10px] text-on-surface font-mono capitalize">
+                    {row.entity_type.replace(/_/g, ' ')} — {row.label}
+                  </div>
+                  <div className="text-[9px] text-on-surface-variant mt-0.5">
+                    {row.field}
+                  </div>
+                </div>
+                <div className="flex items-baseline gap-2">
+                  <span className={`text-[12px] font-mono font-bold ${pctText(row.pct)}`}>
+                    {row.pct}%
+                  </span>
+                  <span className="text-[9px] text-gray-500 font-mono">
+                    ({row.present}/{row.total})
+                  </span>
+                </div>
+              </div>
+              <div className="h-1.5 bg-gray-800">
+                <div
+                  className={`h-full transition-all duration-500 ${pctColor(row.pct)}`}
+                  style={{ width: `${row.pct}%` }}
+                />
+              </div>
             </div>
-            <span className={`text-[10px] font-mono w-10 text-right shrink-0 ${pctText(row.pct)}`}>
-              {row.pct}%
-            </span>
-            <span className="text-[9px] text-gray-600 font-mono w-16 text-right shrink-0">
-              {row.present}/{row.total}
-            </span>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
     </section>
   )

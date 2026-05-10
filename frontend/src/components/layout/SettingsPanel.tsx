@@ -86,6 +86,36 @@ export function SettingsPanel() {
         {/* Content */}
         <div className="flex-1 overflow-y-auto py-4 px-5 space-y-6">
 
+          {/* Account — top */}
+          <section>
+            <h2 className="label-caps mb-3">Account</h2>
+            <div className="space-y-3">
+              <button
+                onClick={() => { clearToken(); window.location.reload() }}
+                className="flex items-center gap-2 w-full py-2 px-3 border border-red-emergency/30 text-red-emergency/80 hover:bg-red-emergency/10 transition-colors text-[10px] font-bold uppercase tracking-widest"
+              >
+                <span className="ms text-[16px] leading-none">logout</span>
+                Sign Out
+              </button>
+            </div>
+          </section>
+
+          {/* Admin Dashboard link — admin only */}
+          {userRole === 'admin' && (
+            <section>
+              <a
+                href="/admin"
+                className="flex items-center justify-between w-full py-2 px-3 border border-amber-gold/30 text-amber-gold/80 hover:bg-amber-gold/10 transition-colors text-[10px] uppercase tracking-widest"
+              >
+                <span>Admin Dashboard</span>
+                <span className="ms text-[14px]">open_in_new</span>
+              </a>
+            </section>
+          )}
+
+          {/* Divider */}
+          {userRole === 'admin' && <div className="border-t border-white/10" />}
+
           {/* Map Layers */}
           <section>
             <h2 className="label-caps mb-3">Map Layers</h2>
@@ -203,22 +233,9 @@ export function SettingsPanel() {
           {/* Alert Rules — admin only */}
           {userRole === 'admin' && <AlertRulesSection open={settingsOpen} />}
 
-          {/* Admin Dashboard link */}
+          {/* System Metrics — admin only, bottom */}
           {userRole === 'admin' && (
-            <section>
-              <a
-                href="/admin"
-                className="flex items-center justify-between w-full py-2 px-3 border border-amber-gold/30 text-amber-gold/80 hover:bg-amber-gold/10 transition-colors text-[10px] uppercase tracking-widest"
-              >
-                <span>Admin Dashboard</span>
-                <span className="ms text-[14px]">open_in_new</span>
-              </a>
-            </section>
-          )}
-
-          {/* System Metrics — admin only */}
-          {userRole === 'admin' && (
-            <section>
+            <section className="border-t border-white/10 pt-4">
               <div className="flex items-center justify-between mb-3">
                 <h2 className="label-caps">System Metrics</h2>
                 <button
@@ -253,18 +270,6 @@ export function SettingsPanel() {
               )}
             </section>
           )}
-
-          {/* Account */}
-          <section className="border-t border-white/10 pt-4">
-            <h2 className="label-caps mb-3">Account</h2>
-            <button
-              onClick={() => { clearToken(); window.location.reload() }}
-              className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant hover:text-red-emergency transition-colors focus:outline-none"
-            >
-              <span className="ms text-[16px] leading-none">logout</span>
-              Sign Out
-            </button>
-          </section>
         </div>
       </div>
     </div>

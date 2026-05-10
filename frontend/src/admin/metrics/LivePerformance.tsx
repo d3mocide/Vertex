@@ -21,25 +21,30 @@ export function LivePerformance({ metrics }: { metrics: MetricsData | null }) {
         <MetricCard
           label="Error %" unit="%"
           value={metrics?.available ? metrics.error_pct : null}
-          warn={(metrics?.error_pct ?? 0) > 5}
+          warn={(metrics?.error_pct ?? 0) > 2}
           values={get('error_pct')}
+          color="#ef4444"
         />
         <MetricCard
           label="P95 Latency" unit=" ms"
           value={metrics?.available ? metrics.p95_ms : null}
-          warn={(metrics?.p95_ms ?? 0) > 500}
+          warn={(metrics?.p95_ms ?? 0) > 300}
           values={get('p95_ms')}
+          color="#f59e0b"
         />
         <MetricCard
           label="Memory" unit=" MB"
           value={metrics?.available ? metrics.memory_mb : null}
+          warn={(metrics?.memory_mb ?? 0) > 350}
           values={get('memory_mb')}
+          color="#f59e0b"
         />
         <MetricCard
           label="CPU" unit="%"
           value={metrics?.available ? metrics.cpu_pct : null}
-          warn={(metrics?.cpu_pct ?? 0) > 80}
+          warn={(metrics?.cpu_pct ?? 0) > 70}
           values={get('cpu_pct')}
+          color="#f59e0b"
         />
         <MetricCard
           label="WS Clients" unit=""

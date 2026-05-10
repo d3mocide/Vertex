@@ -1,11 +1,12 @@
 import type { SignalQualityData } from './types'
 
 const ENTITY_COLORS: Record<string, string> = {
-  aircraft:      '#00C8FF',
-  vessel:        '#4ADE80',
-  mesh_node:     '#A78BFA',
-  aprs_position: '#FB923C',
-  tinygs_packet: '#F472B6',
+  aircraft:      '#00BFFF',      // cat-air (ADS-B)
+  vessel:        '#00C853',      // cat-sea (AIS)
+  mesh_node:     '#FF8F00',      // cat-mesh
+  aprs_position: '#B388FF',      // cat-aprs
+  p25:           '#FF8F00',      // cat-mesh (P25 radio)
+  tinygs_packet: '#4FC3F7',      // cat-stream
 }
 
 function barColor(type: string) {
@@ -17,8 +18,16 @@ export function SignalQualityChart({ data }: { data: SignalQualityData | null })
     return (
       <section>
         <h2 className="text-[10px] uppercase tracking-widest text-gray-500 mb-3">Signal Quality</h2>
-        <div className="hud-panel p-4 text-center text-[10px] text-on-surface-variant">
-          No signal quality data in the last {data?.window_minutes ?? 60} min — not all sources report this field.
+        <div className="border border-white/10 bg-black/30 p-4">
+          <div className="text-center space-y-2">
+            <div className="text-[10px] text-on-surface-variant">
+              No signal quality data in the last {data?.window_minutes ?? 60} min
+            </div>
+            <div className="text-[9px] text-gray-600">
+              Not all sources report signal quality (RSSI, SNR, heading accuracy). 
+              <br />Currently available for: ADS-B, AIS, P25.
+            </div>
+          </div>
         </div>
       </section>
     )
@@ -34,7 +43,7 @@ export function SignalQualityChart({ data }: { data: SignalQualityData | null })
           (last {data.window_minutes} min · avg / range per type)
         </span>
       </h2>
-      <div className="hud-panel p-4 space-y-3">
+      <div className="border border-white/10 bg-black/30 p-4 space-y-3">
         {data.types.map((entry) => {
           const avg = entry.avg_quality ?? 0
           const barPct = maxAvg > 0 ? (avg / maxAvg) * 100 : 0
@@ -57,9 +66,9 @@ export function SignalQualityChart({ data }: { data: SignalQualityData | null })
                   </span>
                 </div>
               </div>
-              <div className="h-1.5 bg-surface-container rounded-full overflow-hidden">
+              <div className="h-1.5 bg-gray-800 overflow-hidden">
                 <div
-                  className="h-full rounded-full transition-all duration-500"
+                  className="h-full transition-all duration-500"
                   style={{ width: `${barPct}%`, backgroundColor: color, opacity: 0.8 }}
                 />
               </div>

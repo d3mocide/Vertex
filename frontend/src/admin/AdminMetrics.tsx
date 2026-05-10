@@ -29,9 +29,22 @@ import { SquawkCounter } from './metrics/SquawkCounter'
 import { TalkgroupActivity } from './metrics/TalkgroupActivity'
 import { MeshBatteryChart } from './metrics/MeshBatteryChart'
 import { DataQualityCard } from './metrics/DataQualityCard'
+import { DataQualitySummary } from './metrics/DataQualitySummary'
+import { StorageSummary } from './metrics/StorageSummary'
 import { WsClientChart } from './metrics/WsClientChart'
 
+type TabName = 'system' | 'ingestion' | 'quality' | 'storage' | 'events'
+
+const TABS: { label: string; value: TabName; icon: string }[] = [
+  { label: 'System Health', value: 'system', icon: 'favorite' },
+  { label: 'Data Ingestion', value: 'ingestion', icon: 'cloud_download' },
+  { label: 'Data Quality', value: 'quality', icon: 'analytics' },
+  { label: 'Storage', value: 'storage', icon: 'storage' },
+  { label: 'Events', value: 'events', icon: 'event' },
+]
+
 export default function AdminMetrics() {
+  const [currentTab, setCurrentTab] = useState<TabName>('system')
   const [metrics, setMetrics] = useState<MetricsData | null>(null)
   const [storage, setStorage] = useState<StorageData | null>(null)
   const [pollers, setPollers] = useState<PollerEntry[]>([])
@@ -171,67 +184,150 @@ export default function AdminMetrics() {
   const pollerOkCount = pollers.filter((p) => p.status === 'ok').length
 
   return (
-    <div className="space-y-8 max-w-5xl">
-      {/* 1. System Health Bar */}
-      <section>
-        <h2 className="text-[10px] uppercase tracking-widest text-gray-500 mb-3">System Health</h2>
-        <HealthBar
-          metrics={metrics}
-          dbPingMs={metrics?.db_ping_ms ?? -1}
-          redisPingMs={metrics?.redis_ping_ms ?? -1}
-          pollerOkCount={pollerOkCount}
-          pollerTotal={pollers.length}
-        />
-      </section>
+    <div className="space-y-6">
+      {/* Tab Navigation */}
+      <div className="border-b border-white/10 -mx-6 px-6">
+        <div className="flex gap-1 overflow-x-auto">
+          {TABS.map((tab) => (
+            <button
+              key={tab.value}
+              onClick={() => setCurrentTab(tab.value)}
+              className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-colors text-[11px] font-bold uppercase tracking-widest whitespace-nowrap ${
+                currentTab === tab.value
+                  ? 'border-amber-gold text-amber-gold'
+                  : 'border-transparent text-on-surface-variant hover:text-on-surface'
+              }`}
+            >
+              <span className="ms text-[16px]">{tab.icon}</span>
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      </div>
 
-      {/* 2. Live Performance */}
-      <LivePerformance metrics={metrics} />
+      {/* Tab Content */}
+      <div className="max-w-5xl space-y-8">
+        {/* System Health Tab */}
+        {currentTab === 'system' && (
+          <>
+            <section>
+              <h2 className="text-[10px] uppercase tracking-widest text-gray-500 mb-3">System Health Bar</h2>
+              <HealthBar
+                metrics={metrics}
+                dbPingMs={metrics?.db_ping_ms ?? -1}
+                redisPingMs={metrics?.redis_ping_ms ?? -1}
+                pollerOkCount={pollerOkCount}
+                pollerTotal={pollers.length}
+              />
+            </section>
 
-      {/* 3. WebSocket Client Timeline */}
-      <WsClientChart history={metrics?.history ?? []} />
+            {/* Overall Health Status */}
+            {metrics && metrics.available && (
+              <section className="p-4 border border-white/10 bg-surface-container-low">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <div>
+                    <div className="text-[10px] uppercase tracking-widest text-gray-500 mb-1">Status</div>
+                    <div className="flex items-center gap-2">
+                      <span className={`w-2 h-2 rounded-full ${
+                        metrics.error_pct <= 2 && metrics.p95_ms <= 500 ? 'bg-emerald-400' 
+                        : metrics.error_pct <= 5 && metrics.p95_ms <= 1000 ? 'bg-amber-400'
+                        : 'bg-red-400'
+                      }`} />
+                      <span className="font-mono text-[11px]">
+                        {metrics.error_pct <= 2 && metrics.p95_ms <= 500 ? 'HEALTHY'
+                        : metrics.error_pct <= 5 && metrics.p95_ms <= 1000 ? 'DEGRADED'
+                        : 'UNHEALTHY'}
+                      </span>
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-[10px] uppercase tracking-widest text-gray-500 mb-1">Uptime</div>
+                    <div className="font-mono text-[11px] text-on-surface">
+                      {metrics && 'uptime_seconds' in metrics && metrics.uptime_seconds
+                        ? (() => {
+                            const h = Math.floor(metrics.uptime_seconds / 3600)
+                            const m = Math.floor((metrics.uptime_seconds % 3600) / 60)
+                            return h > 0 ? `${h}h ${m}m` : `${m}m`
+                          })()
+                        : '—'
+                      }
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-[10px] uppercase tracking-widest text-gray-500 mb-1">Pollers Stale</div>
+                    <div className="font-mono text-[11px]">{pollers.filter((p) => p.status === 'stale').length} of {pollers.length}</div>
+                  </div>
+                  <div>
+                    <div className="text-[10px] uppercase tracking-widest text-gray-500 mb-1">Errors</div>
+                    <div className={`font-mono text-[11px] ${metrics.error_pct > 5 ? 'text-red-400' : 'text-on-surface'}`}>
+                      {metrics.error_pct.toFixed(1)}%
+                    </div>
+                  </div>
+                </div>
+              </section>
+            )}
 
-      {/* 4. Poller Grid */}
-      <PollerGrid pollers={pollers} />
+            <LivePerformance metrics={metrics} />
 
-      {/* 5. Ingestion Chart */}
-      <IngestionChart buckets={ingestion} />
+            <WsClientChart history={metrics?.history ?? []} />
+          </>
+        )}
 
-      {/* 6. Entity Donut */}
-      <EntityDonut storage={storage} />
+        {/* Data Ingestion Tab */}
+        {currentTab === 'ingestion' && (
+          <>
+            <PollerGrid pollers={pollers} />
 
-      {/* 7. Event Activity */}
-      <EventActivity storage={storage} />
+            <EntityDonut storage={storage} />
 
-      {/* 8. Entity Freshness */}
-      <EntityFreshness data={entityFreshness} />
+            <IngestionChart buckets={ingestion} />
+          </>
+        )}
 
-      {/* 9. Signal Quality */}
-      <SignalQualityChart data={signalQuality} />
+        {/* Data Quality Tab */}
+        {currentTab === 'quality' && (
+          <>
+            <DataQualitySummary dataQuality={dataQuality} entityFreshness={entityFreshness} />
 
-      {/* 10. Emergency Squawk Counter */}
-      <SquawkCounter data={squawkAlerts} />
+            <EntityFreshness data={entityFreshness} />
 
-      {/* 11. P25 Talkgroup Activity */}
-      <TalkgroupActivity data={talkgroupActivity} />
+            <SignalQualityChart data={signalQuality} />
 
-      {/* 12. Mesh Node Battery */}
-      <MeshBatteryChart data={meshBattery} />
+            <DataQualityCard data={dataQuality} />
+          </>
+        )}
 
-      {/* 13. Data Completeness Scorecard */}
-      <DataQualityCard data={dataQuality} />
+        {/* Storage Tab */}
+        {currentTab === 'storage' && (
+          <>
+            <StorageSummary storage={storage} retentionDays={retentionDays} />
 
-      {/* 14. Storage + Retention */}
-      <StoragePanel
-        storage={storage}
-        retentionDays={retentionDays}
-        setRetentionDays={setRetentionDays}
-        onSave={saveRetention}
-        saving={retentionSaving}
-        saved={retentionSaved}
-      />
+            <StoragePanel
+              storage={storage}
+              retentionDays={retentionDays}
+              setRetentionDays={setRetentionDays}
+              onSave={saveRetention}
+              saving={retentionSaving}
+              saved={retentionSaved}
+            />
 
-      {/* 15. DB Connection Pool */}
-      <DbPoolPanel pool={dbPool} />
+            <DbPoolPanel pool={dbPool} />
+          </>
+        )}
+
+        {/* Events Tab */}
+        {currentTab === 'events' && (
+          <>
+            <EventActivity storage={storage} />
+
+            <SquawkCounter data={squawkAlerts} />
+
+            <TalkgroupActivity data={talkgroupActivity} />
+
+            <MeshBatteryChart data={meshBattery} />
+          </>
+        )}
+      </div>
     </div>
   )
 }

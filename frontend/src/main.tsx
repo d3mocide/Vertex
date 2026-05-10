@@ -11,8 +11,17 @@ if (isAdmin && getUserRole() !== 'admin') {
   window.location.replace('/')
 }
 
-ReactDOM.createRoot(document.getElementById('root')!).render(
+const root = ReactDOM.createRoot(document.getElementById('root')!)
+root.render(
   <React.StrictMode>
     {isAdmin ? <AdminApp /> : <App />}
   </React.StrictMode>
 )
+
+// Hide loader when React has mounted
+setTimeout(() => {
+  const loader = document.getElementById('loader')
+  if (loader) {
+    loader.classList.add('hidden')
+  }
+}, 100)
