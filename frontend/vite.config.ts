@@ -14,6 +14,7 @@ export default defineConfig({
       injectManifest: {
         swSrc: 'src/sw.ts',
         swDest: 'dist/sw.js',
+        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
       },
     }),
   ],
