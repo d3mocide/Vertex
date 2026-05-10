@@ -28,10 +28,11 @@ class AuthMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
 
         path = request.url.path
+        # Use tuple directly with startswith for C-level performance instead of generator overhead
         if (
             path in _PUBLIC_PATHS
             or path in _AUTH_PUBLIC_PATHS
-            or any(path.startswith(prefix) for prefix in _PUBLIC_PREFIXES)
+            or path.startswith(_PUBLIC_PREFIXES)
         ):
             return await call_next(request)
 
