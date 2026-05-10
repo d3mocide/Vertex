@@ -9,7 +9,7 @@ import type {
   TrafficCamera, SystemEvent, CustomLayerItem, SystemHealth, TrafficIncident,
   SummaryState, TrailPoint, AirportSnapshot, AppMode, NavTab, EntityTypeFilter,
   RangeFilter, ReplayData, EntityMissionTag, AnnotationItem,
-  TrafficFlowSensor, UtilityStatus, OregonStatus,
+  TrafficFlowSensor, UtilityStatus, OregonStatus, MeshMessage, MeshLink,
 } from './storeTypes'
 import { ALT_RANGE_DEFAULT, SPD_RANGE_DEFAULT } from './storeTypes'
 
@@ -30,6 +30,10 @@ interface CivicStore {
   trail:            TrailPoint[]
   airports:         Record<string, AirportSnapshot>
   summary:          SummaryState
+  meshMessages:     MeshMessage[]
+  meshLinks:        MeshLink[]
+  meshStatus:       any | null
+  linkHistory:      Record<string, { snr: number[], quality: number[] }>
 
   // Event log (ring buffer, capped at 100)
   systemEvents:     SystemEvent[]
@@ -69,6 +73,11 @@ interface CivicStore {
   refreshEntityTrack: (entityId: string) => void
   setAirports:      (airports: Record<string, AirportSnapshot>) => void
   setSummary:       (summary: Partial<SummaryState>) => void
+  appendMeshMessage: (msg: MeshMessage) => void
+  setMeshMessages:   (msgs: MeshMessage[]) => void
+  setMeshLinks:     (links: MeshLink[]) => void
+  setMeshStatus:    (status: any) => void
+  updateLinkHistory: (links: MeshLink[]) => void
 
   // Actions — connection
   setConnected:     (v: boolean) => void
@@ -262,6 +271,10 @@ export const useCivicStore = create<CivicStore>()(
   trail:            [],
   airports:         {},
   summary:          defaultSummary,
+  meshMessages:     [],
+  meshLinks:        [],
+  meshStatus:       null,
+  linkHistory:      {},
 
   // Connection
   connected:        false,
@@ -373,7 +386,7 @@ export const useCivicStore = create<CivicStore>()(
       const next = { ...s.entities }
       let changed = false
       const STALE_MS: Record<string, number> = {
-        aircraft:       60_000,    // 1 min  — ADS-B updates every 5 s
+        aircraft:       120_000,   // 2 min  — Matches backend stale cutoff
         vessel:         600_000,   // 10 min — AIS updates are infrequent
         mesh_node:    3_600_000,   // 1 hour — nodes are semi-static
         satellite:    1_800_000,   // 30 min — matches poller TTL
@@ -434,6 +447,23 @@ export const useCivicStore = create<CivicStore>()(
     }),
   setAirports:  (airports) => set({ airports }),
   setSummary:   (patch)   => set((s) => ({ summary: { ...s.summary, ...patch } })),
+  appendMeshMessage: (msg) => set(s => {
+    if (msg.id && s.meshMessages.some((m) => m.id === msg.id)) return {}
+    return { meshMessages: [...s.meshMessages, msg].slice(-100) }
+  }),
+  setMeshMessages: (msgs) => set({ meshMessages: msgs }),
+  setMeshLinks: (links) => set({ meshLinks: links }),
+  setMeshStatus: (status) => set({ meshStatus: status }),
+  updateLinkHistory: (links) => set(state => {
+    const next = { ...state.linkHistory }
+    links.forEach(l => {
+      const key = `${l.node_a}-${l.node_b}`
+      if (!next[key]) next[key] = { snr: [], quality: [] }
+      next[key].snr = [...next[key].snr, l.snr || 0].slice(-20)
+      next[key].quality = [...next[key].quality, l.link_quality || 0].slice(-20)
+    })
+    return { linkHistory: next, meshLinks: links }
+  }),
 
   // Connection actions
   setConnected: (connected) => set({ connected }),

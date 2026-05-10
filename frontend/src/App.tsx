@@ -4,6 +4,7 @@ import { useAlerts } from './hooks/useAlerts'
 import { useSystemHealth } from './hooks/useSystemHealth'
 import { useTrailHydration } from './hooks/useTrailHydration'
 import { usePreferences } from './hooks/usePreferences'
+import { useMeshHistory } from './hooks/useMeshHistory'
 import { LoginPage } from './components/LoginPage'
 import { isLoggedIn } from './auth'
 import { API_BASE } from './config'
@@ -26,6 +27,7 @@ import { PlaybackController }  from './components/panels/PlaybackController'
 import { GeofenceController }  from './components/panels/GeofenceController'
 import { CameraModal }         from './components/panels/CameraModal'
 import { IncidentsPanel }      from './components/panels/IncidentsPanel'
+import { CommsPanel }          from './components/panels/CommsPanel'
 import { AnnotationController } from './components/panels/AnnotationController'
 import { InstallPrompt } from './components/InstallPrompt'
 
@@ -35,6 +37,7 @@ function Dashboard() {
   useSystemHealth()
   useTrailHydration()
   usePreferences()
+  useMeshHistory()
 
   const { activeTab, mode } = useCivicStore()
   const isCritical = mode === 'critical'
@@ -79,6 +82,7 @@ function Dashboard() {
                 {activeTab === 'community'      && <CommunityPanel     />}
                 {activeTab === 'events'         && <EventLogPanel      />}
                 {activeTab === 'incidents'      && <IncidentsPanel     />}
+                {activeTab === 'comms'          && <CommsPanel         />}
               </div>
             )}
 

@@ -135,11 +135,11 @@ export default function AdminMetrics() {
       {/* 2. Live Performance */}
       <LivePerformance metrics={metrics} />
 
-      {/* 3. Poller Grid + 4. Ingestion Chart — side by side on wide screens */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-        <PollerGrid pollers={pollers} />
-        <IngestionChart buckets={ingestion} />
-      </div>
+      {/* 3. Poller Grid */}
+      <PollerGrid pollers={pollers} />
+
+      {/* 4. Ingestion Chart */}
+      <IngestionChart buckets={ingestion} />
 
       {/* 5. Entity Donut */}
       <EntityDonut storage={storage} />

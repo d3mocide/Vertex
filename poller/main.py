@@ -93,8 +93,13 @@ async def main():
     try:
         await asyncio.gather(*tasks)
     except asyncio.CancelledError:
+        logger.info("Gather cancelled")
         pass
+    except Exception as exc:
+        logger.exception("Gather raised exception")
+        raise
     finally:
+        logger.info("Main exiting")
         await close()
         await close_db()
 

@@ -45,3 +45,21 @@ async def mesh_topology(
         node_ids.add(lnk["node_a"])
         node_ids.add(lnk["node_b"])
     return {"nodes": list(node_ids), "links": links}
+ 
+ 
+@router.get("/mesh/messages")
+async def list_mesh_messages(
+    limit: int = Query(100, ge=1, le=1000),
+    db: AsyncSession = Depends(get_db),
+):
+    """Return recent mesh network messages from the database."""
+    result = await db.execute(
+        text(
+            "SELECT id, msg_type, conversation_key, text, sender_name, sender_key, outgoing, acked, ts as timestamp, source_url "
+            "FROM mesh_messages ORDER BY ts DESC LIMIT :limit"
+        ).bindparams(limit=limit)
+    )
+    rows = result.mappings().all()
+    # Convert timestamp to ISO string for JSON serialization if needed, 
+    # though mappings() usually handles datetime objects which FastAPI serializes.
+    return [dict(r) for r in rows]

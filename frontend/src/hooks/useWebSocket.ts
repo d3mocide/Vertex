@@ -3,7 +3,7 @@ import { WS_URL } from '../config'
 import { useCivicStore } from '../store'
 import type { EntityTypeFilter } from '../storeTypes'
 import { wsTokenParam } from '../auth'
-import { initNotifications, maybeNotify } from '../notifications'
+import { initNotifications, maybeNotify, notifyMeshMessage } from '../notifications'
 
 const RECONNECT_DELAY_INITIAL_MS = 1000
 const RECONNECT_DELAY_MAX_MS = 60_000
@@ -94,6 +94,9 @@ export function useWebSocket() {
     setTrafficIncidents,
     setSummary,
     appendLightningStrikes,
+    appendMeshMessage,
+    updateLinkHistory,
+    setMeshStatus,
   } = useCivicStore()
 
   useEffect(() => {
@@ -260,6 +263,16 @@ export function useWebSocket() {
                 model: typeof msgData.model === 'string' ? msgData.model : null,
               })
             }
+            break
+          case 'mesh_message':
+            appendMeshMessage(msg.data as any)
+            notifyMeshMessage(msg.data as any)
+            break
+          case 'mesh_links':
+            updateLinkHistory(msg.data as any)
+            break
+          case 'mesh_status':
+            setMeshStatus(msg.data)
             break
           case 'event':
             appendSystemEvent(msg.data as Parameters<typeof appendSystemEvent>[0])

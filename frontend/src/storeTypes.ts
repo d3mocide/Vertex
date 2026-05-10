@@ -156,6 +156,29 @@ export interface SystemEvent {
   }
 }
 
+// ─── Mesh Networking ─────────────────────────────────────────────────────────
+export interface MeshMessage {
+  id:               string
+  msg_type?:        string
+  conversation_key: string
+  text:             string
+  sender_name:      string
+  sender_key:       string
+  outgoing:         boolean
+  acked:            boolean
+  timestamp:        string
+  source_url:       string
+}
+
+export interface MeshLink {
+  source_url:       string
+  node_a:           string
+  node_b:           string
+  snr:              number | null
+  link_quality:     number | null
+  last_seen:        string
+}
+
 // ─── Traffic / Utility ────────────────────────────────────────────────────────
 export interface TrafficFlowSensor {
   road?: string
@@ -224,7 +247,7 @@ export interface SystemHealth {
 
 // ─── UI State ─────────────────────────────────────────────────────────────────
 export type AppMode  = 'calm' | 'critical'
-export type NavTab   = 'safety' | 'infrastructure' | 'environment' | 'community' | 'events' | 'incidents'
+export type NavTab   = 'safety' | 'infrastructure' | 'environment' | 'community' | 'events' | 'incidents' | 'comms'
 export type EntityTypeFilter = {
   aircraft: boolean
   adsbLocal: boolean

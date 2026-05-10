@@ -41,33 +41,33 @@ export function EntityDonut({ storage }: { storage: StorageData | null }) {
   return (
     <section>
       <h2 className="text-[10px] uppercase tracking-widest text-gray-500 mb-3">Entity Breakdown</h2>
-      <div className="flex flex-wrap gap-6 items-start">
+      <div className="flex flex-wrap gap-8 items-center">
         {/* Donut */}
-        <svg width="120" height="120" viewBox="0 0 120 120">
+        <svg width="160" height="160" viewBox="0 0 160 160">
           {slices.map((s) => {
             const color = getColor(s.type)
             if (s.sweep < 1) return null
             return (
               <path
                 key={s.type}
-                d={describeArc(60, 60, 44, s.start, s.start + s.sweep - 0.5)}
+                d={describeArc(80, 80, 60, s.start, s.start + s.sweep - 0.5)}
                 fill="none"
                 stroke={color}
-                strokeWidth="16"
+                strokeWidth="20"
                 strokeLinecap="butt"
               />
             )
           })}
-          <circle cx="60" cy="60" r="28" fill="#0a0a0f" />
-          <text x="60" y="57" textAnchor="middle" className="fill-amber-400 font-mono text-[11px]" fontSize="11" fill="#f59e0b" fontFamily="Roboto Mono, monospace">
+          <circle cx="80" cy="80" r="40" fill="#0a0a0f" />
+          <text x="80" y="77" textAnchor="middle" className="fill-amber-400 font-mono text-sm" fill="#f59e0b" fontFamily="Roboto Mono, monospace">
             {total.toLocaleString()}
           </text>
-          <text x="60" y="69" textAnchor="middle" fontSize="7" fill="#6B7280" fontFamily="Roboto Mono, monospace">
+          <text x="80" y="93" textAnchor="middle" fontSize="9" fill="#6B7280" fontFamily="Roboto Mono, monospace">
             ENTITIES
           </text>
         </svg>
         {/* Count cards */}
-        <div className="flex flex-wrap gap-2 flex-1">
+        <div className="grid grid-cols-3 gap-2 flex-1 min-w-[300px]">
           {entries.map(([type, count]) => (
             <div key={type} className="border border-white/10 bg-black/30 p-2 min-w-[80px]">
               <div className="text-base font-mono font-bold" style={{ color: getColor(type) }}>

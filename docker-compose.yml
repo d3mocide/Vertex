@@ -106,7 +106,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 384m
+          memory: 1024m
           cpus: '1.0'
         reservations:
           memory: 128m
@@ -150,10 +150,10 @@ services:
     deploy:
       resources:
         limits:
-          memory: 128m
+          memory: 512m
           cpus: '0.5'
         reservations:
-          memory: 32m
+          memory: 128m
           cpus: '0.1'
     ports:
       - "${FRONTEND_PORT:-80}:80"

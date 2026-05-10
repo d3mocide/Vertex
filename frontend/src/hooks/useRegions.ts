@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { API_BASE } from '../config'
+import { authHeaders } from '../auth'
 
 export interface RegionBbox {
   min_lat: number
@@ -18,9 +19,14 @@ export interface Region {
 export function useRegions(): Region[] {
   const [regions, setRegions] = useState<Region[]>([])
   useEffect(() => {
-    fetch(`${API_BASE}/config/regions`)
-      .then(r => r.json())
-      .then((data: Region[]) => setRegions(data))
+    fetch(`${API_BASE}/config/regions`, { headers: authHeaders() })
+      .then(r => {
+        if (!r.ok) throw new Error('Not authorized')
+        return r.json()
+      })
+      .then((data: Region[]) => {
+        if (Array.isArray(data)) setRegions(data)
+      })
       .catch(() => {})
   }, [])
   return regions

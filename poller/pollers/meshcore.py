@@ -140,6 +140,13 @@ async def _upsert_mesh_links(source_url: str, neighbors: list[dict]) -> None:
         node_b = str(n.get("neighbor_id") or n.get("peer_id") or "")
         if not node_a or not node_b:
             continue
+        
+        # Ensure IDs match the 'mesh_node:{id}' format used in the entity store
+        if not node_a.startswith("mesh_node:"):
+            node_a = f"mesh_node:{node_a}"
+        if not node_b.startswith("mesh_node:"):
+            node_b = f"mesh_node:{node_b}"
+            
         rows.append((source_url, node_a, node_b, n.get("snr"), n.get("link_quality"), now))
     if not rows:
         return
@@ -153,6 +160,16 @@ async def _upsert_mesh_links(source_url: str, neighbors: list[dict]) -> None:
         """,
         rows,
     )
+    
+    # Also publish to the bus for real-time frontend updates
+    r = await get_bus()
+    await r.publish("civic:updates", json.dumps(sanitize_payload({
+        "type": "mesh_links",
+        "data": [
+            {"source_url": row[0], "node_a": row[1], "node_b": row[2], "snr": row[3], "link_quality": row[4]}
+            for row in rows
+        ]
+    })))
 
 
 async def _fetch_contacts(src: dict):
@@ -189,6 +206,9 @@ async def _handle_ws_event(event: dict, base_url: str):
             await publish_entity(entity)
 
     elif event_type == "message":
+        # Save to DB for persistence
+        await _save_mesh_message(data, base_url)
+        
         r = await get_bus()
         await r.publish("civic:updates", json.dumps(sanitize_payload({
             "type": "mesh_message",
@@ -206,10 +226,95 @@ async def _handle_ws_event(event: dict, base_url: str):
             },
         })))
 
+    elif event_type == "packet":
+        # Overheard raw packet — extract signal metrics for the sender
+        sender_id = data.get("from")
+        snr = data.get("rx_snr")
+        rssi = data.get("rx_rssi")
+        logger.debug("[meshcore] raw packet from %s: snr=%s rssi=%s", sender_id, snr, rssi)
+        
+        if sender_id and snr is not None:
+            # Ensure sender ID matches the store format
+            node_b = f"mesh_node:{sender_id}" if not str(sender_id).startswith("mesh_node:") else str(sender_id)
+            
+            r = await get_bus()
+            await r.publish("civic:updates", json.dumps(sanitize_payload({
+                "type": "mesh_links",
+                "data": [{
+                    "source_url": base_url,
+                    "node_a": "local", 
+                    "node_b": node_b,
+                    "snr": snr,
+                    "link_quality": None
+                }]
+            })))
+
     elif event_type == "health":
-        connected = data.get("connected", False)
-        logger.info("[meshcore] radio %s", "connected" if connected else "disconnected")
-        await set_feed("mesh:status", {"connected": connected, "url": base_url, **data})
+        logger.info("[meshcore] raw health update: %s", data)
+        # RemoteTerm uses 'radio_connected' in the health packet
+        connected = data.get("radio_connected", data.get("connected", data.get("radio_ok", False)))
+        
+        # Extract additional stats if available
+        stats = data.get("radio_stats", {})
+        battery_mv = stats.get("battery_mv")
+        uptime = stats.get("uptime_secs")
+        
+        # Map to UI expected fields
+        voltage = battery_mv / 1000.0 if battery_mv else None
+        # Simple Li-ion estimation: 4.2V = 100%, 3.5V = 0%
+        battery_level = None
+        if battery_mv:
+            battery_level = min(100, max(0, int((battery_mv - 3500) / (4200 - 3500) * 100)))
+
+        logger.info("[meshcore] radio %s (parsed from %s)", "connected" if connected else "disconnected", data)
+        
+        payload = {
+            **data,
+            "connected": connected,
+            "url": base_url,
+            "voltage": voltage,
+            "battery_level": battery_level,
+            "uptime_secs": uptime
+        }
+        await set_feed("mesh:status", payload)
+        
+        # Also publish to bus for real-time frontend updates
+        r = await get_bus()
+        await r.publish("civic:updates", json.dumps(sanitize_payload({
+            "type": "mesh_status",
+            "data": {"connected": connected, "url": base_url, **data}
+        })))
+
+
+async def _save_mesh_message(data: dict, source_url: str):
+    from db import get_pool
+    import datetime
+    
+    # Try to parse timestamp, fallback to now
+    ts_raw = data.get("sender_timestamp")
+    try:
+        ts = datetime.datetime.fromisoformat(ts_raw.replace("Z", "+00:00")) if ts_raw else datetime.datetime.now(datetime.timezone.utc)
+    except:
+        ts = datetime.datetime.now(datetime.timezone.utc)
+
+    pool = get_pool()
+    await pool.execute(
+        """
+        INSERT INTO mesh_messages (id, msg_type, conversation_key, text, sender_name, sender_key, outgoing, acked, ts, source_url)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        ON CONFLICT (id) DO UPDATE SET acked = EXCLUDED.acked
+        """,
+        data.get("id"),
+        data.get("type"),
+        data.get("conversation_key"),
+        data.get("text"),
+        data.get("sender_name"),
+        data.get("sender_key"),
+        data.get("outgoing", False),
+        data.get("acked", False),
+        ts,
+        source_url
+    )
 
 
 def _parse_source(url: str) -> dict:

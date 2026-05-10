@@ -36,7 +36,7 @@ export function IngestionChart({ buckets }: { buckets: IngestionBucket[] }) {
   for (const b of buckets) grid[b.minute][b.type] = b.count
 
   const W = 600
-  const H = 100
+  const H = 200
   const maxCount = Math.max(...buckets.map((b) => b.count), 1)
 
   const xOf = (i: number) => (i / Math.max(minutes.length - 1, 1)) * W
@@ -46,7 +46,7 @@ export function IngestionChart({ buckets }: { buckets: IngestionBucket[] }) {
     <section>
       <h2 className="text-[10px] uppercase tracking-widest text-gray-500 mb-3">Ingestion Rate (60 min)</h2>
       <div className="border border-white/10 bg-black/30 p-3">
-        <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: 100 }} preserveAspectRatio="none">
+        <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: 200 }} preserveAspectRatio="none">
           {types.map((t) => {
             const pts = minutes.map((m, i) => `${xOf(i)},${yOf(grid[m][t] ?? 0)}`).join(' ')
             const color = getColor(t)

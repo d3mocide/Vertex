@@ -288,6 +288,15 @@ export function Sidebar() {
           >
             <span className="ms text-[20px]" aria-hidden="true">groups</span>
           </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('comms')}
+            className="text-on-surface-variant hover:text-amber-gold transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-amber-gold"
+            aria-label="Communications"
+            title="Communications"
+          >
+            <span className="ms text-[20px]" aria-hidden="true">forum</span>
+          </button>
 
           <div className="mt-2 w-8 border-t border-white/10" aria-hidden="true" />
 

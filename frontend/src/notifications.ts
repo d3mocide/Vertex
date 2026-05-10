@@ -1,4 +1,4 @@
-import { SystemEvent } from './store'
+import { SystemEvent, MeshMessage } from './store'
 
 let swReg: ServiceWorkerRegistration | null = null
 
@@ -35,6 +35,24 @@ export async function maybeNotify(event: SystemEvent): Promise<void> {
     body: event.summary,
     tag: event.event_type,
     requireInteraction: event.severity === 'critical',
+    silent: false,
+  }
+
+  if (swReg) {
+    await swReg.showNotification(title, options)
+  } else {
+    new Notification(title, options)
+  }
+}
+
+export async function notifyMeshMessage(msg: MeshMessage): Promise<void> {
+  if (!('Notification' in window) || Notification.permission !== 'granted') return
+  if (msg.outgoing) return
+
+  const title = `MESH: ${msg.sender_name.toUpperCase()}`
+  const options: NotificationOptions = {
+    body: msg.text,
+    tag: 'mesh_message',
     silent: false,
   }
 

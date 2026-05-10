@@ -95,8 +95,11 @@ export function MeshLinksLayer({ map }: Props) {
     return () => {
       cancelled = true
       clearInterval(interval)
-      if (map.getLayer(LAYER_ID)) map.removeLayer(LAYER_ID)
-      if (map.getSource(SOURCE_ID)) map.removeSource(SOURCE_ID)
+      if (!map || typeof map.getLayer !== 'function') return
+      try {
+        if (map.getLayer(LAYER_ID)) map.removeLayer(LAYER_ID)
+        if (map.getSource(SOURCE_ID)) map.removeSource(SOURCE_ID)
+      } catch { /* ignore */ }
     }
   }, [map, entities])
 
