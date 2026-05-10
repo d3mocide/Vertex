@@ -1,9 +1,11 @@
 import asyncio
 import logging
+import re
 from urllib.parse import urlparse
 
 from bus import publish_entity
 from config import settings
+from enrichment.aprs_symbols import classify_symbol
 from .base import BasePoller
 
 logger = logging.getLogger(__name__)
@@ -11,6 +13,9 @@ logger = logging.getLogger(__name__)
 _RETRY_DELAY = 10
 _DEFAULT_APRS_HOST = "rotate.aprs2.net"
 _DEFAULT_APRS_PORT = 14580
+
+# /A=XXXXXX altitude extension in feet (appears anywhere in the comment field)
+_ALT_RE = re.compile(r"/A=(\d{6})")
 
 
 def _parse_source(url: str) -> tuple[str, int]:
@@ -46,11 +51,16 @@ def _dm_to_deg(dm: str, hemi: str, is_lon: bool) -> float | None:
         return None
 
 
-def _extract_position(payload: str) -> tuple[float, float, float | None, float | None] | None:
+def _parse_packet(payload: str) -> dict | None:
+    """Parse an APRS position payload.
+
+    Returns a dict with lat, lon, heading, speed, altitude,
+    symbol_table, symbol_code, comment — or None if position cannot be decoded.
+    """
     if not payload:
         return None
 
-    start = None
+    start: int | None = None
     if payload[0] in ("!", "="):
         start = 1
     elif payload[0] in ("/", "@") and len(payload) > 8:
@@ -61,8 +71,10 @@ def _extract_position(payload: str) -> tuple[float, float, float | None, float |
 
     lat_dm = payload[start:start + 7]
     lat_hemi = payload[start + 7]
+    symbol_table = payload[start + 8]
     lon_dm = payload[start + 9:start + 17]
     lon_hemi = payload[start + 17]
+    symbol_code = payload[start + 18]
 
     if lat_hemi not in ("N", "S") or lon_hemi not in ("E", "W"):
         return None
@@ -72,18 +84,40 @@ def _extract_position(payload: str) -> tuple[float, float, float | None, float |
     if lat is None or lon is None:
         return None
 
-    course = None
-    speed = None
+    heading: float | None = None
+    speed: float | None = None
+    comment_start = start + 19
     idx = start + 19
-    if len(payload) >= idx + 7 and payload[idx + 3] == '/':
+    if len(payload) >= idx + 7 and payload[idx + 3] == "/":
         c = payload[idx:idx + 3]
         s = payload[idx + 4:idx + 7]
         if c.isdigit():
-            course = float(int(c))
+            heading = float(int(c))
         if s.isdigit():
             speed = float(int(s))
+        comment_start = idx + 7
 
-    return lat, lon, course, speed
+    raw_comment = payload[comment_start:]
+
+    # Extract altitude from /A=XXXXXX (feet) and strip it from the comment
+    altitude: float | None = None
+    alt_match = _ALT_RE.search(raw_comment)
+    if alt_match:
+        altitude = float(int(alt_match.group(1)))
+        raw_comment = raw_comment[:alt_match.start()] + raw_comment[alt_match.end():]
+
+    comment = raw_comment.strip() or None
+
+    return {
+        "lat": lat,
+        "lon": lon,
+        "heading": heading,
+        "speed": speed,
+        "altitude": altitude,
+        "symbol_table": symbol_table,
+        "symbol_code": symbol_code,
+        "comment": comment,
+    }
 
 
 class AprsPoller(BasePoller):
@@ -141,27 +175,44 @@ class AprsPoller(BasePoller):
 
                     header, payload = line.split(":", 1)
                     callsign = header.split(">", 1)[0].strip()
-                    pos = _extract_position(payload)
-                    if not pos:
+                    # Path is everything after the callsign's '>' in the header
+                    path = header.split(">", 1)[1].strip() if ">" in header else None
+
+                    parsed = _parse_packet(payload)
+                    if not parsed:
                         continue
 
-                    lat, lon, heading, speed = pos
-                    entity = {
+                    sym_desc, station_type = classify_symbol(
+                        parsed["symbol_table"], parsed["symbol_code"]
+                    )
+
+                    identity: dict = {"callsign": callsign}
+                    if path:
+                        identity["path"] = path
+                    identity["symbol"] = f"{parsed['symbol_table']}{parsed['symbol_code']}"
+                    if sym_desc:
+                        identity["symbol_desc"] = sym_desc
+                    if station_type and station_type != "unknown":
+                        identity["station_type"] = station_type
+                    if parsed["comment"]:
+                        identity["comment"] = parsed["comment"]
+
+                    entity: dict = {
                         "entity_id": f"aprs:{callsign}",
                         "entity_type": "aprs",
                         "source": "aprs",
                         "display_name": callsign,
-                        "lat": lat,
-                        "lon": lon,
-                        "heading": heading,
-                        "speed": speed,
+                        "lat": parsed["lat"],
+                        "lon": parsed["lon"],
+                        "heading": parsed["heading"],
+                        "speed": parsed["speed"],
                         "status": "active",
-                        "identity": {
-                            "callsign": callsign,
-                            "raw": payload[:120],
-                        },
+                        "identity": identity,
                         "tags": ["aprs"],
                     }
+                    if parsed["altitude"] is not None:
+                        entity["altitude"] = parsed["altitude"]
+
                     await publish_entity(entity, ttl=600)
 
                 writer.close()

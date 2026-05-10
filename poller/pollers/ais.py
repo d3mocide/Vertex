@@ -80,7 +80,7 @@ class AisPoller(BasePoller):
         sub = json.dumps({
             "APIKey": settings.aisstream_api_key,
             "BoundingBoxes": bboxes,
-            "FilterMessageTypes": ["PositionReport", "ShipStaticData"],
+            "FilterMessageTypes": ["PositionReport", "ShipStaticData", "StandardClassBPositionReport"],
         })
         logger.info("[ais] connecting to AISstream.io")
         while True:

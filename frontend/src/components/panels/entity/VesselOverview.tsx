@@ -1,19 +1,28 @@
 import type { OverviewProps } from './AircraftOverview'
 
 export function VesselOverview({ entity, getIdentity }: OverviewProps) {
+  const draughtVal = getIdentity('draught')
+  const lengthVal = getIdentity('length_m')
+  const widthVal = getIdentity('width_m')
+
   const identityRows: [string, string | undefined][] = [
-    ['Type',    entity.entity_type],
-    ['Source',  entity.source],
-    ['MMSI',    getIdentity('mmsi')],
-    ['Name',    getIdentity('shipname') ?? getIdentity('name') ?? getIdentity('display_name') ?? entity.display_name],
-    ['Callsign', getIdentity('callsign')],
-    ['Vessel Type', getIdentity('type') ?? getIdentity('ship_type')],
-    ['Cargo',   getIdentity('cargo_type') ?? getIdentity('cargo')],
-    ['Draught', getIdentity('draught') != null ? `${getIdentity('draught')} m` : undefined],
+    ['Type',        entity.entity_type],
+    ['Source',      entity.source],
+    ['MMSI',        getIdentity('mmsi')],
+    ['IMO',         getIdentity('imo')],
+    ['Name',        getIdentity('shipname') ?? getIdentity('name') ?? getIdentity('display_name') ?? entity.display_name],
+    ['Callsign',    getIdentity('callsign')],
+    ['Vessel Type', getIdentity('ship_type') ?? getIdentity('type')],
+    ['Cargo',       getIdentity('cargo_type') ?? getIdentity('cargo')],
+    ['Draught',     draughtVal != null ? `${draughtVal} m` : undefined],
+    ['Dimensions',  lengthVal != null || widthVal != null
+                      ? `${lengthVal ?? '?'} × ${widthVal ?? '?'} m`
+                      : undefined],
   ]
 
   const routeRows: [string, string | undefined][] = [
     ['Destination', getIdentity('destination')],
+    ['ETA',         getIdentity('eta')],
     ['Nav Status',  getIdentity('nav_status') ?? entity.status],
   ]
 
