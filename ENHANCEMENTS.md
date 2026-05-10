@@ -9,14 +9,14 @@ Status: `[ ]` pending · `[~]` in progress · `[x]` done · `[-]` deferred/needs
 
 | # | Feature | Status | Notes |
 |---|---------|--------|-------|
-| M1 | Per-poller ingestion rate + error rate | `[ ]` | Poller grid shows heartbeat but not throughput. Add obs/min + error % column per source to PollerGrid |
+| M1 | Per-poller ingestion rate + error rate | `[x]` | Backend queries DB for obs/min per entity_type mapped to poller; `error_count` added to BasePoller heartbeat; PollerGrid shows obs/min + consecutive errors |
 | M2 | Signal quality histogram | `[x]` | `Observation.signal_quality` collected but never visualized. New `/admin/signal-quality` endpoint + `SignalQualityChart` component |
 | M3 | Entity freshness heatmap | `[x]` | % of entities with recent update by type. New `/admin/entity-freshness` endpoint + `EntityFreshness` component |
-| M4 | Squawk alert counter widget | `[ ]` | Count 7500/7600/7700 emergency squawks seen. Separate from entity panel display. New metric card on metrics page |
-| M5 | P25 talkgroup activity chart | `[ ]` | Calls-per-talkgroup over rolling window. Data in events but not charted |
-| M6 | Mesh node battery distribution | `[ ]` | Bar chart of battery % across tracked mesh nodes. Data in `identity` JSON |
-| M7 | Data completeness scorecard | `[ ]` | % aircraft with valid speed/heading, % vessels with MMSI name. Surfaces per-source data quality |
-| M8 | WebSocket reconnect timeline | `[ ]` | Track client connect/disconnect events over time. Useful for connectivity diagnostics |
+| M4 | Squawk alert counter widget | `[x]` | `/admin/squawk-alerts` endpoint + `SquawkCounter` widget with color-coded 7500/7600/7700 cards |
+| M5 | P25 talkgroup activity chart | `[x]` | `/admin/talkgroup-activity` endpoint + `TalkgroupActivity` horizontal bar chart from p25_call_start events |
+| M6 | Mesh node battery distribution | `[x]` | `/admin/mesh-battery` endpoint + `MeshBatteryChart` bar chart per node |
+| M7 | Data completeness scorecard | `[x]` | `/admin/data-quality` endpoint + `DataQualityCard` showing % filled per field across entity types |
+| M8 | WebSocket reconnect timeline | `[x]` | `WsClientChart` sparkline renders ws_clients from existing metrics history — no new backend needed |
 
 ---
 
@@ -25,8 +25,8 @@ Status: `[ ]` pending · `[~]` in progress · `[x]` done · `[-]` deferred/needs
 | # | Source | Status | Notes |
 |---|--------|--------|-------|
 | F1 | FAA NOTAMs | `[~]` | Legacy FNS/USNS retired April 2026. Replacement: FAA NMS (nms.aim.faa.gov). New developer API at api.faa.gov requires account. Free alt: NASA Digital Information Platform or FAA SWIM/SCDS (free register). Needs evaluation of NMS API shape before implementing |
-| F2 | PIREPs + SIGMETs/AIRMETs | `[ ]` | Pilot turbulence/icing reports + aviation weather advisories. Source: aviationweather.gov. Free, no key. Add to weather poller |
-| F3 | METAR/TAF for nearby airports | `[ ]` | Aviation weather at airfield level. Same aviationweather.gov source. More useful than raw NWS obs for airfield ops |
+| F2 | PIREPs + SIGMETs/AIRMETs | `[x]` | Added `_fetch_aviation_hazards()` to WeatherPoller (polls every 15 min); `/weather/aviation/hazards` endpoint; `PirepCard` in EnvironmentPanel |
+| F3 | METAR/TAF for nearby airports | `[x]` | Added `_fetch_aviation_obs()` to WeatherPoller; `/weather/aviation/obs` endpoint; `MetarCard` with flight category color coding + TAF expand |
 | F4 | NOAA GOES satellite imagery tiles | `[ ]` | IR/visible satellite tiles updated every 10 min. WMS endpoint, no key. Map overlay layer |
 | F5 | Personal Weather Stations (Wunderground) | `[ ]` | Hyper-local sensor readings at neighborhood level. Useful if NWS station coverage is sparse |
 | F6 | NWWS (National Weather Wire Service) | `[ ]` | Raw NWS text products (warnings, statements, discussions) via TCP. Free, no key. Supplement to RSS-based alerts |
@@ -45,17 +45,32 @@ Status: `[ ]` pending · `[~]` in progress · `[x]` done · `[-]` deferred/needs
 | D2 | `vertical_rate` climb/descent indicator | Observation | Aircraft telemetry tile has value but no color coding | `[x]` Was already displayed; added signed arrow + color |
 | D3 | `origin` / `destination` / `phase` | ADS-B identity | Aircraft routing section | `[x]` Already in AircraftOverview; confirmed present |
 | D4 | `signal_quality` gauge/trend | Observation | Entity detail panel + metrics page | `[x]` Added to metrics page (M2 above) |
-| D5 | `identity.battery_pct` + `identity.snr` | MeshCore identity | No gauge in mesh node detail | `[ ]` |
-| D6 | `identity.navigational_status` | AIS identity | Vessel detail panel — nav status not shown | `[ ]` |
-| D7 | Stream gauge **flow rate** (cfs) | USGS | Only water level shown; flow data in payload | `[ ]` |
-| D8 | Seismic **depth** | USGS events | Not shown in event detail | `[ ]` |
-| D9 | APRS symbol codes | APRS identity | All APRS use same icon; symbol should drive icon | `[ ]` |
+| D5 | `identity.battery_pct` + `identity.snr` | MeshCore identity | No gauge in mesh node detail | `[x]` | Battery gauge + voltage + SNR added to mesh_node section in EntityDetail |
+| D6 | `identity.navigational_status` | AIS identity | Vessel detail panel — nav status not shown | `[x]` | Color-coded badge in VesselOverview routing section (emerald=underway, amber=anchor, red=NUC, etc.) |
+| D7 | Stream gauge **flow rate** (cfs) | USGS | Only water level shown; flow data in payload | `[x]` | Dedicated `StreamGaugeOverview` component with stage height + discharge (cfs) cards |
+| D8 | Seismic **depth** | USGS events | Not shown in event detail | `[x]` | Depth (km) now shown alongside timestamp in SeismicCard event rows |
+| D9 | APRS symbol codes | APRS identity | All APRS use same icon; symbol should drive icon | `[x]` | symbol_desc + station_type displayed as badges in AprsOverview panel |
 | D10 | Historical replay UI | `/observations/replay` API | Existed but lacked custom date-range picker | `[x]` Added absolute date/time range mode to PlaybackController |
 | D11 | TinyGS satellite name + SNR | TinyGS MQTT | Detail panel is minimal | `[ ]` |
 
 ---
 
 ## Implementation Session Log
+
+### 2026-05-10
+- Implemented M1 (per-poller obs/min + error count) — DB query in `/admin/pollers`, `error_count` in BasePoller heartbeat, PollerGrid UI updated
+- Implemented M4 (squawk alert counter) — `/admin/squawk-alerts` + `SquawkCounter` widget
+- Implemented M5 (P25 talkgroup activity) — `/admin/talkgroup-activity` + `TalkgroupActivity` chart
+- Implemented M6 (mesh battery distribution) — `/admin/mesh-battery` + `MeshBatteryChart`
+- Implemented M7 (data completeness scorecard) — `/admin/data-quality` + `DataQualityCard`
+- Implemented M8 (WS client timeline) — `WsClientChart` using existing metrics history
+- Implemented D5 (mesh battery + SNR gauge in EntityDetail)
+- Implemented D6 (nav status color badge in VesselOverview)
+- Implemented D7 (stream gauge flow rate via dedicated `StreamGaugeOverview` component)
+- Implemented D8 (seismic depth in SeismicCard event rows)
+- Marked D9 done (APRS symbol_desc + station_type already displayed as badges in AprsOverview)
+- Implemented F2 (PIREPs + SIGMETs/AIRMETs via WeatherPoller + `PirepCard`)
+- Implemented F3 (METAR/TAF via WeatherPoller + `MetarCard` with flight category color coding)
 
 ### 2026-05-09
 - Created this document

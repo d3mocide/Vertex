@@ -38,6 +38,8 @@ export type PollerEntry = {
   staleness_s: number
   status: 'ok' | 'stale' | 'error' | 'unknown'
   last_error: string | null
+  obs_per_min: number
+  error_count: number
 }
 
 export type IngestionBucket = {
@@ -80,4 +82,46 @@ export type FreshnessEntry = {
 
 export type EntityFreshnessData = {
   types: FreshnessEntry[]
+}
+
+export type SquawkAlertData = {
+  window_hours: number
+  squawk_7500: number
+  squawk_7600: number
+  squawk_7700: number
+  total: number
+}
+
+export type TalkgroupBucket = {
+  talkgroup_id: string
+  label: string | null
+  call_count: number
+}
+
+export type TalkgroupActivityData = {
+  window_hours: number
+  talkgroups: TalkgroupBucket[]
+}
+
+export type MeshBatteryNode = {
+  entity_id: string
+  label: string | null
+  battery_level: number
+}
+
+export type MeshBatteryData = {
+  nodes: MeshBatteryNode[]
+}
+
+export type DataQualityRow = {
+  label: string
+  entity_type: string
+  field: string
+  present: number
+  total: number
+  pct: number
+}
+
+export type DataQualityData = {
+  rows: DataQualityRow[]
 }

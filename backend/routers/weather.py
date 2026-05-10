@@ -57,6 +57,30 @@ async def get_weather_alerts():
         return []
 
 
+@router.get("/aviation/hazards")
+async def get_aviation_hazards():
+    """PIREPs, SIGMETs, and AIRMETs cached from aviationweather.gov."""
+    raw = await get_redis().get("feed:weather:aviation_hazards")
+    if not raw:
+        return {"pireps": [], "sigmets": [], "airmets": []}
+    try:
+        return json.loads(raw)
+    except (json.JSONDecodeError, TypeError):
+        return {"pireps": [], "sigmets": [], "airmets": []}
+
+
+@router.get("/aviation/obs")
+async def get_aviation_obs():
+    """Nearby METARs and TAFs cached from aviationweather.gov."""
+    raw = await get_redis().get("feed:weather:aviation_obs")
+    if not raw:
+        return {"metars": [], "tafs": []}
+    try:
+        return json.loads(raw)
+    except (json.JSONDecodeError, TypeError):
+        return {"metars": [], "tafs": []}
+
+
 @router.get("/smoke/wms")
 async def proxy_smoke_wms(request: Request):
     # Proxy NOAA smoke WMS tiles through backend to avoid browser CORS failures.

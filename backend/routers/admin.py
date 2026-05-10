@@ -173,12 +173,44 @@ async def get_metrics(db: AsyncSession = Depends(get_db)):
     }
 
 
+_TYPE_TO_POLLER: dict[str, str] = {
+    "aircraft": "adsb",
+    "vessel": "ais",
+    "mesh_node": "meshcore",
+    "weather": "weather",
+    "lightning": "lightning",
+    "seismic": "seismic",
+    "alert": "alerts",
+    "news_article": "news",
+    "ground": "aprs",
+    "traffic": "traffic",
+    "satellite": "tinygs",
+    "fire": "fire",
+}
+
+
 @router.get("/pollers")
-async def get_pollers():
-    """Poller heartbeat health grid."""
+async def get_pollers(db: AsyncSession = Depends(get_db)):
+    """Poller heartbeat health grid with obs/min from DB and error counts from Redis."""
     r = get_redis_client()
     raw_map: dict[str, str] = await r.hgetall(_HEARTBEAT_KEY)
     now = time.time()
+
+    # Obs counts per entity type over last 5 min → obs/min per poller
+    obs_rows = await db.execute(
+        text("""
+            SELECT e.entity_type, COUNT(*) AS cnt
+            FROM observations o
+            JOIN entities e USING (entity_id)
+            WHERE o.ts > now() - interval '5 minutes'
+            GROUP BY e.entity_type
+        """)
+    )
+    obs_by_poller: dict[str, float] = {}
+    for row in obs_rows:
+        poller_name = _TYPE_TO_POLLER.get(row.entity_type)
+        if poller_name:
+            obs_by_poller[poller_name] = obs_by_poller.get(poller_name, 0.0) + row.cnt / 5.0
 
     results = []
     for name, raw in raw_map.items():
@@ -190,10 +222,9 @@ async def get_pollers():
         staleness_s = now - ts if ts else 9999.0
         status = data.get("status", "unknown")
         interval = data.get("interval", 60)
-        
-        # Stale if missed interval by more than 60 seconds (with minimum 120s total)
+
         dynamic_threshold = max(_STALE_THRESHOLD_S, interval + 60)
-        
+
         if staleness_s > dynamic_threshold:
             display_status = "stale"
         elif status == "error":
@@ -206,6 +237,8 @@ async def get_pollers():
             "staleness_s": round(staleness_s, 1),
             "status": display_status,
             "last_error": data.get("last_error"),
+            "obs_per_min": round(obs_by_poller.get(name, 0.0), 1),
+            "error_count": data.get("error_count", 0),
         })
 
     results.sort(key=lambda x: x["name"])
@@ -316,6 +349,164 @@ async def get_entity_freshness(db: AsyncSession = Depends(get_db)):
             }
             for row in rows
         ],
+    }
+
+
+@router.get("/talkgroup-activity")
+async def get_talkgroup_activity(
+    window_hours: int = Query(default=24, ge=1, le=168),
+    db: AsyncSession = Depends(get_db),
+):
+    """Calls per talkgroup over the last N hours, derived from p25_call_start events."""
+    rows = await db.execute(
+        text("""
+            SELECT
+                details->>'tgid'  AS tgid,
+                details->>'tag'   AS tag,
+                COUNT(*)          AS call_count
+            FROM events
+            WHERE event_type = 'p25_call_start'
+              AND ts > now() - make_interval(hours => :hours)
+              AND details->>'tgid' IS NOT NULL
+            GROUP BY details->>'tgid', details->>'tag'
+            ORDER BY call_count DESC
+            LIMIT 20
+        """),
+        {"hours": window_hours},
+    )
+    return {
+        "window_hours": window_hours,
+        "talkgroups": [
+            {
+                "talkgroup_id": row.tgid,
+                "label": row.tag or None,
+                "call_count": row.call_count,
+            }
+            for row in rows
+        ],
+    }
+
+
+@router.get("/mesh-battery")
+async def get_mesh_battery(db: AsyncSession = Depends(get_db)):
+    """Battery level for all tracked mesh nodes that report it."""
+    rows = await db.execute(
+        text("""
+            SELECT
+                entity_id,
+                COALESCE(identity->>'name', identity->>'node_id', entity_id) AS label,
+                (identity->>'battery_level')::int                            AS battery_level
+            FROM entities
+            WHERE entity_type = 'mesh_node'
+              AND identity->>'battery_level' IS NOT NULL
+            ORDER BY (identity->>'battery_level')::int DESC
+        """)
+    )
+    return {
+        "nodes": [
+            {
+                "entity_id": row.entity_id,
+                "label": row.label,
+                "battery_level": row.battery_level,
+            }
+            for row in rows
+        ]
+    }
+
+
+@router.get("/data-quality")
+async def get_data_quality(db: AsyncSession = Depends(get_db)):
+    """Data completeness: % of entities with key fields populated."""
+    rows = await db.execute(
+        text("""
+            SELECT
+                'Aircraft speed'    AS label,
+                'aircraft'          AS entity_type,
+                'speed'             AS field,
+                COUNT(*) FILTER (WHERE (identity->>'speed') IS NOT NULL
+                                    OR (observations_meta->>'speed') IS NOT NULL) AS present,
+                COUNT(*)            AS total
+            FROM entities
+            WHERE entity_type = 'aircraft'
+            UNION ALL
+            SELECT
+                'Aircraft heading'  AS label,
+                'aircraft'          AS entity_type,
+                'heading'           AS field,
+                COUNT(*) FILTER (WHERE (identity->>'heading') IS NOT NULL) AS present,
+                COUNT(*)            AS total
+            FROM entities
+            WHERE entity_type = 'aircraft'
+            UNION ALL
+            SELECT
+                'Vessel name'       AS label,
+                'vessel'            AS entity_type,
+                'name'              AS field,
+                COUNT(*) FILTER (WHERE (identity->>'name') IS NOT NULL
+                                    AND identity->>'name' != '') AS present,
+                COUNT(*)            AS total
+            FROM entities
+            WHERE entity_type = 'vessel'
+            UNION ALL
+            SELECT
+                'Vessel MMSI'       AS label,
+                'vessel'            AS entity_type,
+                'mmsi'              AS field,
+                COUNT(*) FILTER (WHERE (identity->>'mmsi') IS NOT NULL) AS present,
+                COUNT(*)            AS total
+            FROM entities
+            WHERE entity_type = 'vessel'
+            UNION ALL
+            SELECT
+                'Mesh battery'      AS label,
+                'mesh_node'         AS entity_type,
+                'battery_level'     AS field,
+                COUNT(*) FILTER (WHERE (identity->>'battery_level') IS NOT NULL) AS present,
+                COUNT(*)            AS total
+            FROM entities
+            WHERE entity_type = 'mesh_node'
+        """)
+    )
+    result = []
+    for row in rows:
+        pct = round(row.present / row.total * 100, 1) if row.total > 0 else 0.0
+        result.append({
+            "label": row.label,
+            "entity_type": row.entity_type,
+            "field": row.field,
+            "present": row.present,
+            "total": row.total,
+            "pct": pct,
+        })
+    return {"rows": result}
+
+
+@router.get("/squawk-alerts")
+async def get_squawk_alerts(
+    window_hours: int = Query(default=24, ge=1, le=168),
+    db: AsyncSession = Depends(get_db),
+):
+    """Count of emergency squawk codes (7500/7600/7700) seen in the last N hours."""
+    rows = await db.execute(
+        text("""
+            SELECT
+                identity->>'squawk' AS squawk,
+                COUNT(*) AS entity_count
+            FROM entities
+            WHERE entity_type = 'aircraft'
+              AND identity->>'squawk' IN ('7500', '7600', '7700')
+              AND last_seen > now() - make_interval(hours => :hours)
+            GROUP BY identity->>'squawk'
+        """),
+        {"hours": window_hours},
+    )
+    counts = {row.squawk: row.entity_count for row in rows}
+    return {
+        "window_hours": window_hours,
+        "squawk_7500": counts.get("7500", 0),
+        "squawk_7600": counts.get("7600", 0),
+        "squawk_7700": counts.get("7700", 0),
+        "total": sum(counts.values()),
     }
 
 

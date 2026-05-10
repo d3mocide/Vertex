@@ -44,14 +44,22 @@ export function SeismicCard({ events }: { events: SystemEvent[] }) {
           {events.slice(0, 4).map((ev) => {
             const mag = magnitudeFromEvent(ev)
             const place = typeof ev.details?.place === 'string' ? ev.details.place : ev.summary
+            const depthKm = typeof ev.details?.depth_km === 'number' ? ev.details.depth_km as number : null
             return (
               <div key={ev.event_id} className="border border-white/10 bg-white/[0.02] px-3 py-2">
                 <div className="flex items-center justify-between gap-3">
                   <span className="text-[10px] font-bold text-on-surface truncate">{place}</span>
                   <span className="font-mono text-[9px] text-amber-gold shrink-0">{mag != null ? `M${mag.toFixed(1)}` : ev.severity.toUpperCase()}</span>
                 </div>
-                <div className="font-mono text-[8px] text-on-surface-variant uppercase tracking-widest mt-1">
-                  {new Date(ev.ts).toLocaleString()}
+                <div className="flex items-center justify-between mt-1">
+                  <div className="font-mono text-[8px] text-on-surface-variant uppercase tracking-widest">
+                    {new Date(ev.ts).toLocaleString()}
+                  </div>
+                  {depthKm != null && (
+                    <div className="font-mono text-[8px] text-sky-400/70 shrink-0">
+                      ↓ {depthKm.toFixed(0)} km
+                    </div>
+                  )}
                 </div>
               </div>
             )

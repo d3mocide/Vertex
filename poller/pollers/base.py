@@ -13,6 +13,7 @@ _HEARTBEAT_KEY = "metrics:poller_heartbeats"
 class BasePoller(ABC):
     name: str = "base"
     interval: int = 60
+    _error_count: int = 0  # class-level default; run() creates instance var on first error
 
     @abstractmethod
     async def poll(self):
@@ -26,7 +27,13 @@ class BasePoller(ABC):
         try:
             from bus import get_bus
             r = await get_bus()
-            payload = json.dumps(sanitize_payload({"ts": time.time(), "status": status, "last_error": last_error, "interval": self.interval}))
+            payload = json.dumps(sanitize_payload({
+                "ts": time.time(),
+                "status": status,
+                "last_error": last_error,
+                "interval": self.interval,
+                "error_count": self._error_count,
+            }))
             await r.hset(_HEARTBEAT_KEY, self.name, payload)
         except Exception:
             pass  # heartbeat is best-effort; never block the poll loop
@@ -38,8 +45,10 @@ class BasePoller(ABC):
             while True:
                 try:
                     await self.poll()
+                    self._error_count = 0
                     await self._heartbeat("ok")
                 except Exception as exc:
+                    self._error_count += 1
                     logger.error("[%s] poll error: %s", self.name, exc)
                     await self._heartbeat("error", str(exc)[:256])
                 await asyncio.sleep(self.interval)

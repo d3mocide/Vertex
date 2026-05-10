@@ -6,6 +6,7 @@ import { authHeaders } from '../../auth'
 import { AircraftOverview } from './entity/AircraftOverview'
 import { VesselOverview } from './entity/VesselOverview'
 import { AprsOverview } from './entity/AprsOverview'
+import { StreamGaugeOverview } from './entity/StreamGaugeOverview'
 import { GenericOverview } from './entity/GenericOverview'
 
 interface MeshNeighbor {
@@ -227,40 +228,83 @@ export function EntityDetail() {
               <VesselOverview entity={entity} getIdentity={getIdentity} />
             ) : entity.entity_type === 'aprs' ? (
               <AprsOverview entity={entity} getIdentity={getIdentity} />
+            ) : entity.entity_type === 'stream_gauge' ? (
+              <StreamGaugeOverview entity={entity} getIdentity={getIdentity} />
             ) : (
               <GenericOverview entity={entity} getIdentity={getIdentity} />
             )}
 
-            {entity.entity_type === 'mesh_node' && (
-              <div>
-                <span className="label-caps text-[9px] text-amber-gold-dim mb-2 block">Neighbors</span>
-                {meshNeighbors.length === 0 ? (
-                  <p className="text-[9px] text-on-surface-variant/50 italic">No active links</p>
-                ) : (
-                  <ul className="space-y-1">
-                    {meshNeighbors.map((lnk, i) => {
-                      const peerId = lnk.node_a === selectedEntityId ? lnk.node_b : lnk.node_a
-                      return (
-                        <li key={i} className="flex items-center justify-between gap-2">
-                          <span className="font-mono text-[9px] text-on-surface truncate">{peerId}</span>
-                          <span
-                            className="font-mono text-[9px] shrink-0"
-                            style={{
-                              color: lnk.snr === null ? '#999'
-                                : lnk.snr >= -70 ? '#44dd88'
-                                : lnk.snr >= -90 ? '#ffb800'
-                                : '#ff5050',
-                            }}
-                          >
-                            {lnk.snr !== null ? `${lnk.snr} dBm` : '—'}
-                          </span>
-                        </li>
-                      )
-                    })}
-                  </ul>
-                )}
-              </div>
-            )}
+            {entity.entity_type === 'mesh_node' && (() => {
+              const batteryLevel = typeof identity.battery_level === 'number' ? identity.battery_level as number : null
+              const voltage = typeof identity.voltage === 'number' ? identity.voltage as number : null
+              const nodeSnr = typeof identity.snr === 'number' ? identity.snr as number : null
+              const batColor = batteryLevel == null ? '#999'
+                : batteryLevel >= 60 ? '#44dd88'
+                : batteryLevel >= 30 ? '#ffb800'
+                : '#ff5050'
+              return (
+                <>
+                  {(batteryLevel != null || nodeSnr != null) && (
+                    <div>
+                      <span className="label-caps text-[9px] text-amber-gold-dim mb-2 block">Radio / Power</span>
+                      <div className="space-y-2">
+                        {batteryLevel != null && (
+                          <div>
+                            <div className="flex justify-between mb-0.5">
+                              <span className="text-[9px] text-on-surface-variant">Battery</span>
+                              <span className="font-mono text-[9px]" style={{ color: batColor }}>
+                                {batteryLevel}%{voltage != null ? ` · ${voltage.toFixed(2)}V` : ''}
+                              </span>
+                            </div>
+                            <div className="h-1.5 bg-white/10 w-full overflow-hidden">
+                              <div className="h-full" style={{ width: `${batteryLevel}%`, backgroundColor: batColor }} />
+                            </div>
+                          </div>
+                        )}
+                        {nodeSnr != null && (
+                          <div className="flex justify-between">
+                            <span className="text-[9px] text-on-surface-variant">Node SNR</span>
+                            <span className="font-mono text-[9px]" style={{
+                              color: nodeSnr >= -70 ? '#44dd88' : nodeSnr >= -90 ? '#ffb800' : '#ff5050',
+                            }}>
+                              {nodeSnr} dBm
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  <div>
+                    <span className="label-caps text-[9px] text-amber-gold-dim mb-2 block">Neighbors</span>
+                    {meshNeighbors.length === 0 ? (
+                      <p className="text-[9px] text-on-surface-variant/50 italic">No active links</p>
+                    ) : (
+                      <ul className="space-y-1">
+                        {meshNeighbors.map((lnk, i) => {
+                          const peerId = lnk.node_a === selectedEntityId ? lnk.node_b : lnk.node_a
+                          return (
+                            <li key={i} className="flex items-center justify-between gap-2">
+                              <span className="font-mono text-[9px] text-on-surface truncate">{peerId}</span>
+                              <span
+                                className="font-mono text-[9px] shrink-0"
+                                style={{
+                                  color: lnk.snr === null ? '#999'
+                                    : lnk.snr >= -70 ? '#44dd88'
+                                    : lnk.snr >= -90 ? '#ffb800'
+                                    : '#ff5050',
+                                }}
+                              >
+                                {lnk.snr !== null ? `${lnk.snr} dBm` : '—'}
+                              </span>
+                            </li>
+                          )
+                        })}
+                      </ul>
+                    )}
+                  </div>
+                </>
+              )
+            })()}
           </>
         )}
 

@@ -2,7 +2,19 @@ import React, { useEffect, useState, useCallback } from 'react'
 import { API_BASE } from '../config'
 import { authHeaders } from '../auth'
 
-import type { MetricsData, StorageData, PollerEntry, IngestionBucket, DbPoolData, SignalQualityData, EntityFreshnessData } from './metrics/types'
+import type {
+  MetricsData,
+  StorageData,
+  PollerEntry,
+  IngestionBucket,
+  DbPoolData,
+  SignalQualityData,
+  EntityFreshnessData,
+  SquawkAlertData,
+  TalkgroupActivityData,
+  MeshBatteryData,
+  DataQualityData,
+} from './metrics/types'
 import { HealthBar } from './metrics/HealthBar'
 import { LivePerformance } from './metrics/LivePerformance'
 import { PollerGrid } from './metrics/PollerGrid'
@@ -13,6 +25,11 @@ import { StoragePanel } from './metrics/StoragePanel'
 import { DbPoolPanel } from './metrics/DbPoolPanel'
 import { SignalQualityChart } from './metrics/SignalQualityChart'
 import { EntityFreshness } from './metrics/EntityFreshness'
+import { SquawkCounter } from './metrics/SquawkCounter'
+import { TalkgroupActivity } from './metrics/TalkgroupActivity'
+import { MeshBatteryChart } from './metrics/MeshBatteryChart'
+import { DataQualityCard } from './metrics/DataQualityCard'
+import { WsClientChart } from './metrics/WsClientChart'
 
 export default function AdminMetrics() {
   const [metrics, setMetrics] = useState<MetricsData | null>(null)
@@ -22,6 +39,10 @@ export default function AdminMetrics() {
   const [dbPool, setDbPool] = useState<DbPoolData | null>(null)
   const [signalQuality, setSignalQuality] = useState<SignalQualityData | null>(null)
   const [entityFreshness, setEntityFreshness] = useState<EntityFreshnessData | null>(null)
+  const [squawkAlerts, setSquawkAlerts] = useState<SquawkAlertData | null>(null)
+  const [talkgroupActivity, setTalkgroupActivity] = useState<TalkgroupActivityData | null>(null)
+  const [meshBattery, setMeshBattery] = useState<MeshBatteryData | null>(null)
+  const [dataQuality, setDataQuality] = useState<DataQualityData | null>(null)
   const [retentionDays, setRetentionDays] = useState(30)
   const [retentionSaving, setRetentionSaving] = useState(false)
   const [retentionSaved, setRetentionSaved] = useState(false)
@@ -85,20 +106,51 @@ export default function AdminMetrics() {
     } catch { /* non-fatal */ }
   }, [])
 
+  const loadSquawkAlerts = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_BASE}/admin/squawk-alerts`, { headers: authHeaders() })
+      if (res.ok) setSquawkAlerts(await res.json())
+    } catch { /* non-fatal */ }
+  }, [])
+
+  const loadTalkgroupActivity = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_BASE}/admin/talkgroup-activity`, { headers: authHeaders() })
+      if (res.ok) setTalkgroupActivity(await res.json())
+    } catch { /* non-fatal */ }
+  }, [])
+
+  const loadMeshBattery = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_BASE}/admin/mesh-battery`, { headers: authHeaders() })
+      if (res.ok) setMeshBattery(await res.json())
+    } catch { /* non-fatal */ }
+  }, [])
+
+  const loadDataQuality = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_BASE}/admin/data-quality`, { headers: authHeaders() })
+      if (res.ok) setDataQuality(await res.json())
+    } catch { /* non-fatal */ }
+  }, [])
+
   useEffect(() => {
-    // Initial loads
     loadMetrics(); loadStorage(); loadPollers(); loadIngestion(); loadDbPool()
     loadSignalQuality(); loadEntityFreshness()
+    loadSquawkAlerts(); loadTalkgroupActivity(); loadMeshBattery(); loadDataQuality()
 
-    // Fast refresh — metrics + pollers every 15s
     const fast = setInterval(() => { loadMetrics(); loadPollers() }, 15_000)
-    // Slow refresh — storage, ingestion, db pool, signal quality, freshness every 60s
     const slow = setInterval(() => {
       loadStorage(); loadIngestion(); loadDbPool()
       loadSignalQuality(); loadEntityFreshness()
+      loadSquawkAlerts(); loadTalkgroupActivity(); loadMeshBattery(); loadDataQuality()
     }, 60_000)
     return () => { clearInterval(fast); clearInterval(slow) }
-  }, [loadMetrics, loadStorage, loadPollers, loadIngestion, loadDbPool, loadSignalQuality, loadEntityFreshness])
+  }, [
+    loadMetrics, loadStorage, loadPollers, loadIngestion, loadDbPool,
+    loadSignalQuality, loadEntityFreshness,
+    loadSquawkAlerts, loadTalkgroupActivity, loadMeshBattery, loadDataQuality,
+  ])
 
   const saveRetention = async () => {
     setRetentionSaving(true)
@@ -135,25 +187,40 @@ export default function AdminMetrics() {
       {/* 2. Live Performance */}
       <LivePerformance metrics={metrics} />
 
-      {/* 3. Poller Grid */}
+      {/* 3. WebSocket Client Timeline */}
+      <WsClientChart history={metrics?.history ?? []} />
+
+      {/* 4. Poller Grid */}
       <PollerGrid pollers={pollers} />
 
-      {/* 4. Ingestion Chart */}
+      {/* 5. Ingestion Chart */}
       <IngestionChart buckets={ingestion} />
 
-      {/* 5. Entity Donut */}
+      {/* 6. Entity Donut */}
       <EntityDonut storage={storage} />
 
-      {/* 6. Event Activity */}
+      {/* 7. Event Activity */}
       <EventActivity storage={storage} />
 
-      {/* 7. Entity Freshness */}
+      {/* 8. Entity Freshness */}
       <EntityFreshness data={entityFreshness} />
 
-      {/* 8. Signal Quality */}
+      {/* 9. Signal Quality */}
       <SignalQualityChart data={signalQuality} />
 
-      {/* 9. Storage + Retention */}
+      {/* 10. Emergency Squawk Counter */}
+      <SquawkCounter data={squawkAlerts} />
+
+      {/* 11. P25 Talkgroup Activity */}
+      <TalkgroupActivity data={talkgroupActivity} />
+
+      {/* 12. Mesh Node Battery */}
+      <MeshBatteryChart data={meshBattery} />
+
+      {/* 13. Data Completeness Scorecard */}
+      <DataQualityCard data={dataQuality} />
+
+      {/* 14. Storage + Retention */}
       <StoragePanel
         storage={storage}
         retentionDays={retentionDays}
@@ -163,7 +230,7 @@ export default function AdminMetrics() {
         saved={retentionSaved}
       />
 
-      {/* 10. DB Connection Pool */}
+      {/* 15. DB Connection Pool */}
       <DbPoolPanel pool={dbPool} />
     </div>
   )
