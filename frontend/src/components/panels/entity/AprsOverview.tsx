@@ -1,6 +1,19 @@
 import type { OverviewProps } from './AircraftOverview'
 
+const STATION_TYPE_COLORS: Record<string, string> = {
+  mobile:         'text-amber-gold bg-amber-gold/10',
+  weather:        'text-sky-400 bg-sky-400/10',
+  emergency:      'text-red-400 bg-red-400/10',
+  infrastructure: 'text-purple-400 bg-purple-400/10',
+  aircraft:       'text-cyan-400 bg-cyan-400/10',
+  marine:         'text-blue-400 bg-blue-400/10',
+  fixed:          'text-green-400 bg-green-400/10',
+}
+
 export function AprsOverview({ entity, getIdentity }: OverviewProps) {
+  const stationType = getIdentity('station_type')
+  const symDesc = getIdentity('symbol_desc')
+
   const identityRows: [string, string | undefined][] = [
     ['Type',    entity.entity_type],
     ['Source',  entity.source],
@@ -12,6 +25,18 @@ export function AprsOverview({ entity, getIdentity }: OverviewProps) {
 
   return (
     <>
+      {(stationType || symDesc) && (
+        <div className="flex items-center gap-2 mb-2">
+          {stationType && (
+            <span className={`label-caps text-[8px] px-1.5 py-0.5 rounded-sm border border-white/10 ${STATION_TYPE_COLORS[stationType] ?? 'text-on-surface-variant bg-white/5'}`}>
+              {stationType}
+            </span>
+          )}
+          {symDesc && (
+            <span className="text-[9px] text-on-surface-variant truncate">{symDesc}</span>
+          )}
+        </div>
+      )}
       <div className="grid grid-cols-2 gap-2">
         <div className="bg-white/5 border border-white/10 p-2 rounded-sm relative overflow-hidden">
           <div className="flex items-center gap-1.5 mb-1 text-on-surface-variant relative z-10">
