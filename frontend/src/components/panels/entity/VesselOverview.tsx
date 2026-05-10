@@ -1,5 +1,25 @@
 import type { OverviewProps } from './AircraftOverview'
 
+const NAV_STATUS_COLORS: Record<string, string> = {
+  'Under Way Using Engine':   'text-emerald-400 border-emerald-500/40 bg-emerald-500/10',
+  'At Anchor':                'text-amber-400 border-amber-500/40 bg-amber-500/10',
+  'Not Under Command':        'text-red-400 border-red-500/40 bg-red-500/10',
+  'Restricted Manoeuvrability': 'text-orange-400 border-orange-500/40 bg-orange-500/10',
+  'Constrained By Her Draught': 'text-orange-400 border-orange-500/40 bg-orange-500/10',
+  'Moored':                   'text-sky-400 border-sky-500/40 bg-sky-500/10',
+  'Aground':                  'text-red-400 border-red-500/40 bg-red-500/10',
+  'Engaged In Fishing':       'text-teal-400 border-teal-500/40 bg-teal-500/10',
+  'Under Way Sailing':        'text-emerald-400 border-emerald-500/40 bg-emerald-500/10',
+}
+
+function navStatusClass(status: string | undefined): string {
+  if (!status) return 'text-gray-400 border-white/20 bg-white/5'
+  for (const [key, cls] of Object.entries(NAV_STATUS_COLORS)) {
+    if (status.toLowerCase().includes(key.toLowerCase())) return cls
+  }
+  return 'text-gray-400 border-white/20 bg-white/5'
+}
+
 export function VesselOverview({ entity, getIdentity }: OverviewProps) {
   const draughtVal = getIdentity('draught')
   const lengthVal = getIdentity('length_m')
@@ -20,10 +40,11 @@ export function VesselOverview({ entity, getIdentity }: OverviewProps) {
                       : undefined],
   ]
 
+  const navStatus = getIdentity('nav_status') ?? entity.status
+
   const routeRows: [string, string | undefined][] = [
     ['Destination', getIdentity('destination')],
     ['ETA',         getIdentity('eta')],
-    ['Nav Status',  getIdentity('nav_status') ?? entity.status],
   ]
 
   return (
@@ -66,6 +87,14 @@ export function VesselOverview({ entity, getIdentity }: OverviewProps) {
         <div>
           <span className="label-caps text-[9px] text-amber-gold-dim mb-1 block">Routing</span>
           <div className="space-y-1">
+            {navStatus && (
+              <div className="flex justify-between items-center gap-2">
+                <span className="text-[9px] text-on-surface-variant">Nav Status</span>
+                <span className={`text-[9px] font-mono border px-1.5 py-0.5 rounded-sm ${navStatusClass(navStatus)}`}>
+                  {navStatus}
+                </span>
+              </div>
+            )}
             {routeRows.filter(([, v]) => v != null).map(([label, val]) => (
               <div key={label} className="flex justify-between items-baseline gap-2">
                 <span className="text-[9px] text-on-surface-variant">{label}</span>

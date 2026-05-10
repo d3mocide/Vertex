@@ -21,8 +21,14 @@ function PollerCell({ p }: { p: PollerEntry }) {
     ? 'text-amber-400'
     : 'text-emerald-400'
 
+  const obsLabel = p.obs_per_min > 0
+    ? p.obs_per_min >= 100
+      ? `${Math.round(p.obs_per_min)}/m`
+      : `${p.obs_per_min.toFixed(1)}/m`
+    : null
+
   return (
-    <div className={`border ${border} bg-black/30 p-2.5 flex flex-col gap-1`}>
+    <div className={`border ${border} bg-black/30 p-2.5 flex flex-col gap-1.5`}>
       <div className="flex items-center justify-between gap-1">
         <span className="text-[11px] font-mono text-gray-300 truncate">{p.name}</span>
         <span className={`flex items-center gap-1 text-[9px] uppercase tracking-wider font-bold ${pill}`}>
@@ -30,9 +36,23 @@ function PollerCell({ p }: { p: PollerEntry }) {
           {isOk ? 'LIVE' : isStale ? 'STALE' : 'ERR'}
         </span>
       </div>
-      <div className="text-[9px] text-gray-600 font-mono">
-        {p.ts ? relativeTime(p.staleness_s) : 'no data'}
+
+      <div className="flex items-center justify-between gap-1">
+        <span className="text-[9px] text-gray-600 font-mono">
+          {p.ts ? relativeTime(p.staleness_s) : 'no data'}
+        </span>
+        <div className="flex items-center gap-1.5">
+          {obsLabel && (
+            <span className="text-[9px] font-mono text-sky-400/80">{obsLabel}</span>
+          )}
+          {p.error_count > 0 && (
+            <span className="text-[9px] font-mono text-red-400/70" title={`${p.error_count} consecutive error${p.error_count !== 1 ? 's' : ''}`}>
+              ×{p.error_count}
+            </span>
+          )}
+        </div>
       </div>
+
       {isError && p.last_error && (
         <div className="text-[8px] text-red-400/70 truncate" title={p.last_error}>
           {p.last_error}
