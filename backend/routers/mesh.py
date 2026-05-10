@@ -1,12 +1,46 @@
 from datetime import datetime, timezone, timedelta
+import logging
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy import text
+from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from deps import get_db
 
 router = APIRouter(tags=["mesh"])
+logger = logging.getLogger(__name__)
+
+_MESH_MESSAGES_DDL = """
+CREATE TABLE IF NOT EXISTS mesh_messages (
+    id TEXT PRIMARY KEY,
+    msg_type TEXT,
+    conversation_key TEXT,
+    text TEXT,
+    sender_name TEXT,
+    sender_key TEXT,
+    outgoing BOOLEAN DEFAULT FALSE,
+    acked BOOLEAN DEFAULT FALSE,
+    ts TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    source_url TEXT
+);
+CREATE INDEX IF NOT EXISTS ix_mesh_messages_ts ON mesh_messages (ts DESC);
+CREATE INDEX IF NOT EXISTS ix_mesh_messages_conversation ON mesh_messages (conversation_key);
+"""
+
+
+def _is_missing_mesh_messages_table(exc: ProgrammingError) -> bool:
+    msg = str(exc).lower()
+    return "mesh_messages" in msg and ("undefinedtable" in msg or "does not exist" in msg)
+
+
+async def _ensure_mesh_messages_table(db: AsyncSession) -> None:
+    for stmt in _MESH_MESSAGES_DDL.strip().split(";"):
+        statement = stmt.strip()
+        if not statement:
+            continue
+        await db.execute(text(statement))
+    await db.commit()
 
 
 @router.get("/mesh/links")
@@ -53,13 +87,24 @@ async def list_mesh_messages(
     db: AsyncSession = Depends(get_db),
 ):
     """Return recent mesh network messages from the database."""
-    result = await db.execute(
-        text(
-            "SELECT id, msg_type, conversation_key, text, sender_name, sender_key, outgoing, acked, ts as timestamp, source_url "
-            "FROM mesh_messages ORDER BY ts DESC LIMIT :limit"
-        ).bindparams(limit=limit)
-    )
+    query = text(
+        "SELECT id, msg_type, conversation_key, text, sender_name, sender_key, outgoing, acked, ts as timestamp, source_url "
+        "FROM mesh_messages ORDER BY ts DESC LIMIT :limit"
+    ).bindparams(limit=limit)
+    try:
+        result = await db.execute(query)
+    except ProgrammingError as exc:
+        if not _is_missing_mesh_messages_table(exc):
+            raise
+
+        logger.warning("[mesh] mesh_messages table missing; attempting one-time self-heal")
+        try:
+            await db.rollback()
+            await _ensure_mesh_messages_table(db)
+            result = await db.execute(query)
+        except Exception:
+            logger.exception("[mesh] failed to self-heal mesh_messages table")
+            return []
+
     rows = result.mappings().all()
-    # Convert timestamp to ISO string for JSON serialization if needed, 
-    # though mappings() usually handles datetime objects which FastAPI serializes.
     return [dict(r) for r in rows]

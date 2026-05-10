@@ -5,6 +5,23 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 
 ---
 
+## 2026-05-10 — Fixed Mesh RemoteTerm messages 500 and reduced health-log spam
+
+- Root cause for frontend console 500 on GET /api/v1/mesh/messages was a missing mesh_messages table in an existing database volume (new installs had db/init/08_mesh_messages.sql, but existing volumes were not auto-migrated).
+- Updated backend endpoint resilience in backend/routers/mesh.py:
+    - Added missing-table detection for mesh_messages query failures.
+    - Added one-time self-heal DDL path to create mesh_messages table/indexes and retry query.
+    - Endpoint now returns 200 with data (or [] on unrecoverable self-heal failure) instead of surfacing 500 for this migration gap.
+- Reduced MeshCore poller log noise in poller/pollers/meshcore.py:
+    - Moved full raw health payload dump from INFO to DEBUG.
+    - Replaced per-minute "radio connected" spam with throttled health summary INFO logs (state change or every 5 minutes).
+    - Summary includes key operator metrics (connected, battery_mv, rssi, snr, queue, errors, uptime).
+- Validation:
+    - python -m py_compile backend/routers/mesh.py poller/pollers/meshcore.py
+    - docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build -d backend poller
+    - docker compose logs shows one-time backend self-heal warning followed by GET /api/v1/mesh/messages 200 OK
+    - poller logs now show health summary instead of repeated full raw payload spam
+
 ## 2026-05-09 — Sprint 12: J1 Multi-Region (remaining) + J2 Mesh Link Visualization + J3 PWA
 
 ### J1 — Multi-Region Monitoring (remaining: DB migration + AIS poller)

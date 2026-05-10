@@ -13,6 +13,7 @@ import asyncio
 import base64
 import json
 import logging
+import time
 from urllib.parse import urlparse, urlunparse
 
 import httpx
@@ -28,6 +29,10 @@ logger = logging.getLogger(__name__)
 _CONTACT_POLL_INTERVAL = 60
 _RETRY_DELAY = 10
 _WS_PING_INTERVAL = 30
+_HEALTH_INFO_LOG_INTERVAL = 300
+
+_last_health_info_log_ts: dict[str, float] = {}
+_last_health_connected: dict[str, bool] = {}
 
 
 class MeshCorePoller(BasePoller):
@@ -250,7 +255,7 @@ async def _handle_ws_event(event: dict, base_url: str):
             })))
 
     elif event_type == "health":
-        logger.info("[meshcore] raw health update: %s", data)
+        logger.debug("[meshcore] raw health update: %s", data)
         # RemoteTerm uses 'radio_connected' in the health packet
         connected = data.get("radio_connected", data.get("connected", data.get("radio_ok", False)))
         
@@ -266,7 +271,28 @@ async def _handle_ws_event(event: dict, base_url: str):
         if battery_mv:
             battery_level = min(100, max(0, int((battery_mv - 3500) / (4200 - 3500) * 100)))
 
-        logger.info("[meshcore] radio %s (parsed from %s)", "connected" if connected else "disconnected", data)
+        now = time.monotonic()
+        prev_connected = _last_health_connected.get(base_url)
+        last_info_ts = _last_health_info_log_ts.get(base_url, 0.0)
+        should_log_info = (
+            prev_connected is None
+            or prev_connected != connected
+            or (now - last_info_ts) >= _HEALTH_INFO_LOG_INTERVAL
+        )
+        if should_log_info:
+            logger.info(
+                "[meshcore] health summary: url=%s connected=%s battery_mv=%s rssi=%s snr=%s queue=%s errors=%s uptime=%s",
+                base_url,
+                connected,
+                battery_mv,
+                stats.get("last_rssi"),
+                stats.get("last_snr"),
+                stats.get("queue_len"),
+                stats.get("errors"),
+                uptime,
+            )
+            _last_health_info_log_ts[base_url] = now
+        _last_health_connected[base_url] = connected
         
         payload = {
             **data,
