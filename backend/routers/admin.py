@@ -120,6 +120,7 @@ async def get_metrics(db: AsyncSession = Depends(get_db)):
     memory_mb = latest.get("memory_bytes", 0.0) / 1_048_576
     p95_ms = p95_from_buckets(latest.get("latency_buckets", []))
     ws_clients = latest.get("ws_clients", 0)
+    uptime_seconds = latest.get("uptime_seconds")
 
     # DB ping
     db_ping_ms: float = 0.0
@@ -167,6 +168,7 @@ async def get_metrics(db: AsyncSession = Depends(get_db)):
         "cpu_pct": round(cpu_pct, 1),
         "p95_ms": round(p95_ms, 1),
         "ws_clients": ws_clients,
+        "uptime_seconds": uptime_seconds,
         "db_ping_ms": db_ping_ms,
         "redis_ping_ms": redis_ping_ms,
         "history": history,
@@ -182,10 +184,11 @@ _TYPE_TO_POLLER: dict[str, str] = {
     "seismic": "seismic",
     "alert": "alerts",
     "news_article": "news",
-    "ground": "aprs",
+    "aprs": "aprs",
     "traffic": "traffic",
-    "satellite": "tinygs",
-    "fire": "fire",
+    "tinygs_station": "tinygs",
+    "fire_incident": "fire",
+    "stream_gauge": "streamgauge",
 }
 
 
