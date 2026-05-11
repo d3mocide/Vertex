@@ -27,12 +27,12 @@ Status: `[ ]` pending · `[~]` in progress · `[x]` done · `[-]` deferred/needs
 | F1 | FAA NOTAMs | `[~]` | Legacy FNS/USNS retired April 2026. Replacement: FAA NMS (nms.aim.faa.gov). New developer API at api.faa.gov requires account. Free alt: NASA Digital Information Platform or FAA SWIM/SCDS (free register). Needs evaluation of NMS API shape before implementing |
 | F2 | PIREPs + SIGMETs/AIRMETs | `[x]` | Added `_fetch_aviation_hazards()` to WeatherPoller (polls every 15 min); `/weather/aviation/hazards` endpoint; `PirepCard` in EnvironmentPanel |
 | F3 | METAR/TAF for nearby airports | `[x]` | Added `_fetch_aviation_obs()` to WeatherPoller; `/weather/aviation/obs` endpoint; `MetarCard` with flight category color coding + TAF expand |
-| F4 | NOAA GOES satellite imagery tiles | `[ ]` | IR/visible satellite tiles updated every 10 min. WMS endpoint, no key. Map overlay layer |
-| F5 | Personal Weather Stations (Wunderground) | `[ ]` | Hyper-local sensor readings at neighborhood level. Useful if NWS station coverage is sparse |
-| F6 | NWWS (National Weather Wire Service) | `[ ]` | Raw NWS text products (warnings, statements, discussions) via TCP. Free, no key. Supplement to RSS-based alerts |
+| F4 | NOAA GOES satellite imagery tiles | `[x]` | IR/visible satellite tiles via NOAA nowCOAST WMS proxy. `GOESLayer` + `goesVisible` toggle in Settings |
+| F5 | Personal Weather Stations (Wunderground) | `[x]` | `WeatherPoller._fetch_pws()` polls api.weather.com v2. `PWSCard` in EnvironmentPanel. Requires `WUNDERGROUND_API_KEY` + `WUNDERGROUND_STATION_ID` |
+| F6 | NWWS (National Weather Wire Service) | `[x]` | `WeatherPoller._fetch_nwws_products()` polls NWS REST API for AFD/HWO/LSR. `NwwsCard` with expandable text in EnvironmentPanel. No key required |
 | F7 | USCG NAIS Broadcast | `[ ]` | USCG AIS rebroadcast. Better inland waterway coverage than commercial AIS |
-| F8 | GDACS (Global Disaster Alert) | `[ ]` | GeoRSS for earthquakes, floods, cyclones, wildfires above thresholds. Complements USGS seismic |
-| F9 | USFS Active Fire perimeters (NIFC) | `[ ]` | Polygon overlays for fire containment lines. Complements existing EONET fire point data |
+| F8 | GDACS (Global Disaster Alert) | `[x]` | `GdacsPoller` parses GeoRSS, distance-gates by alert level, writes to events table. `GdacsCard` in EnvironmentPanel |
+| F9 | USFS Active Fire perimeters (NIFC) | `[x]` | `NifcPoller` fetches WFIGS GeoJSON every 30 min. `FirePerimeterLayer` polygon overlay + `firePerimetersVisible` toggle in Settings |
 | F10 | Broadcastify feed metadata | `[ ]` | Listener counts + active feed status for radio streams via Broadcastify API |
 
 ---
@@ -56,6 +56,14 @@ Status: `[ ]` pending · `[~]` in progress · `[x]` done · `[-]` deferred/needs
 ---
 
 ## Implementation Session Log
+
+### 2026-05-11
+- Implemented F4 (NOAA GOES satellite tiles) — `GOESLayer` raster WMS proxy via nowCOAST + Settings toggle
+- Implemented F5 (Wunderground PWS) — `WeatherPoller._fetch_pws()` + `/weather/pws` + `PWSCard`
+- Implemented F6 (NWS text products / NWWS) — `WeatherPoller._fetch_nwws_products()` + `/weather/nwws` + `NwwsCard`
+- Implemented F8 (GDACS disaster alerts) — `GdacsPoller` GeoRSS parser + events table + `GdacsCard`
+- Implemented F9 (NIFC fire perimeters) — `NifcPoller` ArcGIS GeoJSON + `FirePerimeterLayer` polygon overlay + Settings toggle
+- Added `nws_office`, `wunderground_api_key`, `wunderground_station_id` to poller config
 
 ### 2026-05-10
 - Implemented M1 (per-poller obs/min + error count) — DB query in `/admin/pollers`, `error_count` in BasePoller heartbeat, PollerGrid UI updated
