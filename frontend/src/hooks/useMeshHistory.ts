@@ -29,18 +29,7 @@ export function useMeshHistory() {
 
     hydrate()
     
-    // Periodically refresh links (topology) every 30s
-    // Messages are handled in real-time via WebSocket after hydration
-    const interval = setInterval(async () => {
-      try {
-        const res = await fetch(`${API_BASE}/mesh/links`, { headers: authHeaders() })
-        const data = await res.json()
-        if (Array.isArray(data)) setMeshLinks(data)
-      } catch (err) {
-        console.debug('[useMeshHistory] link poll failed:', err)
-      }
-    }, 30000)
-
-    return () => clearInterval(interval)
+    // Messages are handled in real-time via WebSocket after hydration.
+    // Topology (links) are refreshed by useMeshLinks().
   }, [connected, setMeshLinks, setMeshMessages])
 }

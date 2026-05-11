@@ -15,6 +15,7 @@ class RegionConfig(BaseModel):
     name: str
     bbox: RegionBbox
     enabled: bool = True
+    show_on_map: bool = True
 
 
 class Settings(BaseSettings):

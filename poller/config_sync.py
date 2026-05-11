@@ -120,6 +120,16 @@ async def _sync_poller_sources(
                 entry.type, entry.name, entry.url, entry.enabled, entry.source,
             )
             added += 1
+        elif entry.source == "config":
+            # Sync properties for existing config sources
+            await conn.execute(
+                """
+                UPDATE poller_sources 
+                SET name = $1, enabled = $2, updated_at = NOW()
+                WHERE type = $3 AND url = $4 AND source = 'config'
+                """,
+                entry.name, entry.enabled, entry.type, entry.url
+            )
 
     to_remove = db_config_keys - yaml_config_keys
     for src_type, url in to_remove:

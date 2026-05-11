@@ -102,7 +102,7 @@ function RadioTab() {
       <form onSubmit={create} className="grid grid-cols-3 gap-2">
         <input value={name} onChange={(e) => setName(e.target.value)} required placeholder="Name" className="col-span-1 bg-black/60 border border-white/10 text-gray-200 text-xs px-2 py-1.5 focus:outline-none focus:border-amber-gold/60" />
         <input value={url} onChange={(e) => setUrl(e.target.value)} required placeholder="Stream URL" className="col-span-1 bg-black/60 border border-white/10 text-gray-200 text-xs px-2 py-1.5 focus:outline-none focus:border-amber-gold/60" />
-        <select value={format} onChange={(e) => setFormat(e.target.value)} className="bg-black/60 border border-white/10 text-gray-200 text-xs px-2 py-1.5 focus:outline-none">
+        <select value={format} onChange={(e) => setFormat(e.target.value)} className="tactical-select">
           <option value="mp3">mp3</option>
           <option value="aac">aac</option>
           <option value="ogg">ogg</option>
@@ -244,7 +244,7 @@ function PollersTab() {
         {items.length === 0 && <p className="px-3 py-4 text-xs text-gray-600">No poller sources configured.</p>}
       </div>
       <form onSubmit={create} className="grid grid-cols-3 gap-2">
-        <select value={type} onChange={(e) => setType(e.target.value as PollerType)} className="bg-black/60 border border-white/10 text-gray-200 text-xs px-2 py-1.5 focus:outline-none">
+        <select value={type} onChange={(e) => setType(e.target.value as PollerType)} className="tactical-select">
           {POLLER_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
         </select>
         <input value={name} onChange={(e) => setName(e.target.value)} required placeholder="Name" className="bg-black/60 border border-white/10 text-gray-200 text-xs px-2 py-1.5 focus:outline-none focus:border-amber-gold/60" />
@@ -367,35 +367,41 @@ function RegionsTab() {
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 
-const TABS: { id: Tab; label: string }[] = [
-  { id: 'radio', label: 'Radio Streams' },
-  { id: 'news', label: 'News Feeds' },
-  { id: 'pollers', label: 'Pollers' },
-  { id: 'zones', label: 'Alert Zones' },
-  { id: 'regions', label: 'Regions' },
+const TABS: { id: Tab; label: string; icon: string }[] = [
+  { id: 'radio', label: 'Radio Streams', icon: 'radio' },
+  { id: 'news', label: 'News Feeds', icon: 'rss_feed' },
+  { id: 'pollers', label: 'Pollers', icon: 'settings_input_component' },
+  { id: 'zones', label: 'Alert Zones', icon: 'notification_important' },
+  { id: 'regions', label: 'Regions', icon: 'map' },
 ]
 
 export default function AdminFeeds() {
   const [tab, setTab] = useState<Tab>('radio')
 
   return (
-    <div className="max-w-3xl space-y-4">
-      <div className="flex border-b border-white/10">
-        {TABS.map(({ id, label }) => (
-          <button
-            key={id}
-            onClick={() => setTab(id)}
-            className={`px-4 py-3 text-[11px] font-bold uppercase tracking-widest transition-colors whitespace-nowrap ${
-              tab === id
-                ? 'text-amber-gold border-b-2 border-amber-gold -mb-px'
-                : 'text-on-surface-variant hover:text-on-surface border-b-2 border-transparent'
-            }`}
-          >
-            {label}
-          </button>
-        ))}
+    <div className="space-y-6">
+      {/* Tab Navigation */}
+      <div className="border-b border-white/10 -mx-6 px-6">
+        <div className="flex gap-1 overflow-x-auto">
+          {TABS.map(({ id, label, icon }) => (
+            <button
+              key={id}
+              onClick={() => setTab(id)}
+              className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-colors text-[11px] font-bold uppercase tracking-widest whitespace-nowrap ${
+                tab === id
+                  ? 'border-amber-gold text-amber-gold'
+                  : 'border-transparent text-on-surface-variant hover:text-on-surface'
+              }`}
+            >
+              <span className="ms text-[16px]">{icon}</span>
+              {label}
+            </button>
+          ))}
+        </div>
       </div>
-      <div>
+
+      {/* Tab Content */}
+      <div className="max-w-5xl space-y-8">
         {tab === 'radio'   && <RadioTab />}
         {tab === 'news'    && <NewsTab />}
         {tab === 'pollers' && <PollersTab />}

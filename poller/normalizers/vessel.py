@@ -128,6 +128,7 @@ def normalize_ais_catcher(data: dict) -> Optional[dict]:
         "heading": data.get("heading"),
         "speed": data.get("speed"),
         "status": nav_label or str(nav_code or ""),
+        "signal_quality": data.get("rssi"),
         "last_seen": _now(),
         "tags": ["vessel"],
     }

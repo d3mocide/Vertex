@@ -41,6 +41,8 @@ class MeshCorePoller(BasePoller):
 
     def __init__(self):
         self._sources: list[dict] = []
+        self._local_node_ids: dict[str, str] = {}  # base_url -> entity_id
+        self._last_link_update: dict[str, float] = {}  # link_key -> timestamp
 
     async def poll(self):
         pass  # streaming + periodic REST — overrides run()
@@ -74,7 +76,7 @@ class MeshCorePoller(BasePoller):
     async def _contact_poll_loop(self, src: dict):
         while True:
             try:
-                await _fetch_contacts(src)
+                await self._fetch_contacts(src)
                 await self._heartbeat("ok")
             except Exception as exc:
                 logger.error("[meshcore] contact fetch error: %s", exc)
@@ -103,7 +105,7 @@ class MeshCorePoller(BasePoller):
                     await set_feed("mesh:status", {"connected": True, "url": src["base_url"]})
                     async for raw in ws:
                         try:
-                            await _handle_ws_event(json.loads(raw), src["base_url"])
+                            await self._handle_ws_event(json.loads(raw), src["base_url"])
                         except Exception as exc:
                             logger.debug("[meshcore] WS event error: %s", exc)
             except Exception as exc:
@@ -113,6 +115,164 @@ class MeshCorePoller(BasePoller):
 
             await set_feed("mesh:status", {"connected": False, "url": src["base_url"]})
             await asyncio.sleep(_RETRY_DELAY)
+
+    async def _fetch_contacts(self, src: dict):
+        url = src["base_url"] + "/api/contacts"
+        auth = src.get("auth")
+        httpx_auth = httpx.BasicAuth(*auth) if auth else None
+
+        async with httpx.AsyncClient(auth=httpx_auth, timeout=10) as client:
+            resp = await client.get(url)
+            resp.raise_for_status()
+            payload = resp.json()
+
+        contacts = (
+            payload
+            if isinstance(payload, list)
+            else payload.get("items", payload.get("contacts", []))
+        )
+        count = 0
+        for contact in contacts:
+            entity = normalize_remoteterm_contact(contact)
+            if entity:
+                if contact.get("on_radio"):
+                    self._local_node_ids[src["base_url"]] = entity["entity_id"]
+                await publish_entity(entity)
+                count += 1
+        logger.debug("[meshcore] synced %d contacts from %s", count, src["base_url"])
+
+    async def _handle_ws_event(self, event: dict, base_url: str):
+        event_type = event.get("type")
+        data = event.get("data") or {}
+
+        if event_type == "contact":
+            entity = normalize_remoteterm_contact(data)
+            if entity:
+                if data.get("on_radio"):
+                    self._local_node_ids[base_url] = entity["entity_id"]
+                await publish_entity(entity)
+
+        elif event_type == "message":
+            # Save to DB for persistence
+            await _save_mesh_message(data, base_url)
+            
+            r = await get_bus()
+            await r.publish("civic:updates", json.dumps(sanitize_payload({
+                "type": "mesh_message",
+                "data": {
+                    "id":               data.get("id"),
+                    "msg_type":         data.get("type"),
+                    "conversation_key": data.get("conversation_key"),
+                    "text":             data.get("text"),
+                    "sender_name":      data.get("sender_name"),
+                    "sender_key":       data.get("sender_key"),
+                    "outgoing":         data.get("outgoing", False),
+                    "acked":            data.get("acked", False),
+                    "timestamp":        data.get("sender_timestamp"),
+                    "source_url":       base_url,
+                },
+            })))
+
+        elif event_type == "packet":
+            # Overheard raw packet — extract signal metrics for the sender
+            sender_id = data.get("from")
+            snr = data.get("rx_snr")
+            rssi = data.get("rx_rssi")
+            
+            if sender_id and snr is not None:
+                # Ensure sender ID matches the store format
+                node_b = f"mesh_node:{sender_id}" if not str(sender_id).startswith("mesh_node:") else str(sender_id)
+                link_key = f"{base_url}:local->{node_b}"
+                
+                # Throttle real-time link updates to max once per 10s
+                now = time.time()
+                if now - self._last_link_update.get(link_key, 0) < 10:
+                    return
+                self._last_link_update[link_key] = now
+
+                logger.debug("[meshcore] throttled link update from %s: snr=%s rssi=%s", sender_id, snr, rssi)
+                
+                r = await get_bus()
+                await r.publish("civic:updates", json.dumps(sanitize_payload({
+                    "type": "mesh_links",
+                    "data": [{
+                        "source_url": base_url,
+                        "node_a": "local", 
+                        "node_b": node_b,
+                        "snr": snr,
+                        "link_quality": None
+                    }]
+                })))
+
+        elif event_type == "health":
+            logger.debug("[meshcore] raw health update: %s", data)
+            # RemoteTerm uses 'radio_connected' in the health packet
+            connected = data.get("radio_connected", data.get("connected", data.get("radio_ok", False)))
+            
+            # Extract additional stats if available
+            stats = data.get("radio_stats", {})
+            battery_mv = stats.get("battery_mv")
+            uptime = stats.get("uptime_secs")
+            
+            # Map to UI expected fields
+            voltage = battery_mv / 1000.0 if battery_mv else None
+            # Simple Li-ion estimation: 4.2V = 100%, 3.5V = 0%
+            battery_level = None
+            if battery_mv:
+                battery_level = min(100, max(0, int((battery_mv - 3500) / (4200 - 3500) * 100)))
+
+            now_mono = time.monotonic()
+            prev_connected = _last_health_connected.get(base_url)
+            last_info_ts = _last_health_info_log_ts.get(base_url, 0.0)
+            should_log_info = (
+                prev_connected is None
+                or prev_connected != connected
+                or (now_mono - last_info_ts) >= _HEALTH_INFO_LOG_INTERVAL
+            )
+            if should_log_info:
+                logger.info(
+                    "[meshcore] health summary: url=%s connected=%s battery_mv=%s rssi=%s snr=%s queue=%s errors=%s uptime=%s",
+                    base_url,
+                    connected,
+                    battery_mv,
+                    stats.get("last_rssi"),
+                    stats.get("last_snr"),
+                    stats.get("queue_len"),
+                    stats.get("errors"),
+                    uptime,
+                )
+                _last_health_info_log_ts[base_url] = now_mono
+            _last_health_connected[base_url] = connected
+            
+            payload = {
+                **data,
+                "connected": connected,
+                "url": base_url,
+                "voltage": voltage,
+                "battery_level": battery_level,
+                "uptime_secs": uptime
+            }
+            await set_feed("mesh:status", payload)
+            
+            # Also publish to bus for real-time frontend updates
+            r = await get_bus()
+            await r.publish("civic:updates", json.dumps(sanitize_payload({
+                "type": "mesh_status",
+                "data": {"connected": connected, "url": base_url, **data}
+            })))
+
+            # If we know the local node ID, publish an entity update so the battery 
+            # level is persisted and counted in the data quality metric.
+            local_id = self._local_node_ids.get(base_url)
+            if local_id and battery_level is not None:
+                await publish_entity({
+                    "entity_id": local_id,
+                    "entity_type": "mesh_node",
+                    "source": "meshcore",
+                    "identity": {
+                        "battery_level": battery_level
+                    }
+                }, record_observation=False)
 
 
 async def _fetch_neighbors(src: dict) -> list[dict]:
@@ -175,141 +335,6 @@ async def _upsert_mesh_links(source_url: str, neighbors: list[dict]) -> None:
             for row in rows
         ]
     })))
-
-
-async def _fetch_contacts(src: dict):
-    url = src["base_url"] + "/api/contacts"
-    auth = src.get("auth")
-    httpx_auth = httpx.BasicAuth(*auth) if auth else None
-
-    async with httpx.AsyncClient(auth=httpx_auth, timeout=10) as client:
-        resp = await client.get(url)
-        resp.raise_for_status()
-        payload = resp.json()
-
-    contacts = (
-        payload
-        if isinstance(payload, list)
-        else payload.get("items", payload.get("contacts", []))
-    )
-    count = 0
-    for contact in contacts:
-        entity = normalize_remoteterm_contact(contact)
-        if entity:
-            await publish_entity(entity)
-            count += 1
-    logger.debug("[meshcore] synced %d contacts from %s", count, src["base_url"])
-
-
-async def _handle_ws_event(event: dict, base_url: str):
-    event_type = event.get("type")
-    data = event.get("data") or {}
-
-    if event_type == "contact":
-        entity = normalize_remoteterm_contact(data)
-        if entity:
-            await publish_entity(entity)
-
-    elif event_type == "message":
-        # Save to DB for persistence
-        await _save_mesh_message(data, base_url)
-        
-        r = await get_bus()
-        await r.publish("civic:updates", json.dumps(sanitize_payload({
-            "type": "mesh_message",
-            "data": {
-                "id":               data.get("id"),
-                "msg_type":         data.get("type"),
-                "conversation_key": data.get("conversation_key"),
-                "text":             data.get("text"),
-                "sender_name":      data.get("sender_name"),
-                "sender_key":       data.get("sender_key"),
-                "outgoing":         data.get("outgoing", False),
-                "acked":            data.get("acked", False),
-                "timestamp":        data.get("sender_timestamp"),
-                "source_url":       base_url,
-            },
-        })))
-
-    elif event_type == "packet":
-        # Overheard raw packet — extract signal metrics for the sender
-        sender_id = data.get("from")
-        snr = data.get("rx_snr")
-        rssi = data.get("rx_rssi")
-        logger.debug("[meshcore] raw packet from %s: snr=%s rssi=%s", sender_id, snr, rssi)
-        
-        if sender_id and snr is not None:
-            # Ensure sender ID matches the store format
-            node_b = f"mesh_node:{sender_id}" if not str(sender_id).startswith("mesh_node:") else str(sender_id)
-            
-            r = await get_bus()
-            await r.publish("civic:updates", json.dumps(sanitize_payload({
-                "type": "mesh_links",
-                "data": [{
-                    "source_url": base_url,
-                    "node_a": "local", 
-                    "node_b": node_b,
-                    "snr": snr,
-                    "link_quality": None
-                }]
-            })))
-
-    elif event_type == "health":
-        logger.debug("[meshcore] raw health update: %s", data)
-        # RemoteTerm uses 'radio_connected' in the health packet
-        connected = data.get("radio_connected", data.get("connected", data.get("radio_ok", False)))
-        
-        # Extract additional stats if available
-        stats = data.get("radio_stats", {})
-        battery_mv = stats.get("battery_mv")
-        uptime = stats.get("uptime_secs")
-        
-        # Map to UI expected fields
-        voltage = battery_mv / 1000.0 if battery_mv else None
-        # Simple Li-ion estimation: 4.2V = 100%, 3.5V = 0%
-        battery_level = None
-        if battery_mv:
-            battery_level = min(100, max(0, int((battery_mv - 3500) / (4200 - 3500) * 100)))
-
-        now = time.monotonic()
-        prev_connected = _last_health_connected.get(base_url)
-        last_info_ts = _last_health_info_log_ts.get(base_url, 0.0)
-        should_log_info = (
-            prev_connected is None
-            or prev_connected != connected
-            or (now - last_info_ts) >= _HEALTH_INFO_LOG_INTERVAL
-        )
-        if should_log_info:
-            logger.info(
-                "[meshcore] health summary: url=%s connected=%s battery_mv=%s rssi=%s snr=%s queue=%s errors=%s uptime=%s",
-                base_url,
-                connected,
-                battery_mv,
-                stats.get("last_rssi"),
-                stats.get("last_snr"),
-                stats.get("queue_len"),
-                stats.get("errors"),
-                uptime,
-            )
-            _last_health_info_log_ts[base_url] = now
-        _last_health_connected[base_url] = connected
-        
-        payload = {
-            **data,
-            "connected": connected,
-            "url": base_url,
-            "voltage": voltage,
-            "battery_level": battery_level,
-            "uptime_secs": uptime
-        }
-        await set_feed("mesh:status", payload)
-        
-        # Also publish to bus for real-time frontend updates
-        r = await get_bus()
-        await r.publish("civic:updates", json.dumps(sanitize_payload({
-            "type": "mesh_status",
-            "data": {"connected": connected, "url": base_url, **data}
-        })))
 
 
 async def _save_mesh_message(data: dict, source_url: str):

@@ -32,76 +32,73 @@ interface Props {
 
 export function MeshLinksLayer({ map }: Props) {
   const entities = useCivicStore((s) => s.entities)
-  const linksRef = useRef<MeshLink[]>([])
+  const meshLinks = useCivicStore((s) => s.meshLinks)
 
+  // Initialize Layer and Source
   useEffect(() => {
-    let cancelled = false
-    const fetchAndUpdate = async () => {
-      try {
-        const res = await fetch(`${API_BASE}/mesh/links`, { headers: authHeaders() })
-        if (!res.ok) return
-        const data: MeshLink[] = await res.json()
-        if (!cancelled) {
-          linksRef.current = data
-          updateLayer()
-        }
-      } catch {}
-    }
+    if (!map) return
 
-    const updateLayer = () => {
-      const features = linksRef.current.flatMap((link) => {
-        const nodeA = entities[link.node_a]
-        const nodeB = entities[link.node_b]
-        if (!nodeA?.lat || !nodeA?.lon || !nodeB?.lat || !nodeB?.lon) return []
-        return [{
-          type: 'Feature' as const,
-          geometry: {
-            type: 'LineString' as const,
-            coordinates: [
-              [nodeA.lon, nodeA.lat],
-              [nodeB.lon, nodeB.lat],
-            ],
-          },
-          properties: {
-            snr: link.snr,
-            color: snrToColorHex(link.snr),
-          },
-        }]
+    if (!map.getSource(SOURCE_ID)) {
+      map.addSource(SOURCE_ID, {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features: [] }
       })
 
-      const geojson = { type: 'FeatureCollection' as const, features }
-
-      if (map.getSource(SOURCE_ID)) {
-        (map.getSource(SOURCE_ID) as any).setData(geojson)
-      } else {
-        map.addSource(SOURCE_ID, { type: 'geojson', data: geojson })
-        map.addLayer({
-          id: LAYER_ID,
-          type: 'line',
-          source: SOURCE_ID,
-          paint: {
-            'line-color': ['get', 'color'],
-            'line-width': 2,
-            'line-opacity': 0.8,
-            'line-dasharray': [4, 2],
-          },
-        })
-      }
+      map.addLayer({
+        id: LAYER_ID,
+        type: 'line',
+        source: SOURCE_ID,
+        paint: {
+          'line-color': ['get', 'color'],
+          'line-width': 2,
+          'line-opacity': 0.8,
+          'line-dasharray': [4, 2],
+        },
+      })
     }
 
-    fetchAndUpdate()
-    const interval = setInterval(fetchAndUpdate, 30_000)
-
     return () => {
-      cancelled = true
-      clearInterval(interval)
-      if (!map || typeof map.getLayer !== 'function') return
       try {
         if (map.getLayer(LAYER_ID)) map.removeLayer(LAYER_ID)
         if (map.getSource(SOURCE_ID)) map.removeSource(SOURCE_ID)
-      } catch { /* ignore */ }
+      } catch (err) {
+        console.debug('[MeshLinksLayer] cleanup failed:', err)
+      }
     }
-  }, [map, entities])
+  }, [map])
+
+  // Update Data
+  useEffect(() => {
+    if (!map) return
+    const source = map.getSource(SOURCE_ID) as any
+    if (!source) return
+
+    const features = meshLinks.flatMap((link) => {
+      const nodeA = entities[link.node_a]
+      const nodeB = entities[link.node_b]
+      if (!nodeA?.lat || !nodeA?.lon || !nodeB?.lat || !nodeB?.lon) return []
+      
+      return [{
+        type: 'Feature' as const,
+        geometry: {
+          type: 'LineString' as const,
+          coordinates: [
+            [nodeA.lon, nodeA.lat],
+            [nodeB.lon, nodeB.lat],
+          ],
+        },
+        properties: {
+          snr: link.snr,
+          color: snrToColorHex(link.snr),
+        },
+      }]
+    })
+
+    source.setData({
+      type: 'FeatureCollection',
+      features
+    })
+  }, [map, entities, meshLinks])
 
   return null
 }

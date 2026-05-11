@@ -81,74 +81,85 @@ export function PirepCard() {
       {total === 0 ? (
         <div className="border border-white/10 bg-white/[0.02] px-3 py-2">
           <span className="font-mono text-[9px] text-on-surface-variant uppercase tracking-widest">
-            {data ? 'No PIREPs or advisories in region' : 'Awaiting first aviation weather poll (15 min)'}
+            {data ? 'No active advisories' : 'Awaiting data...'}
           </span>
         </div>
       ) : (
-        <div className="space-y-2">
-          {/* SIGMETs */}
-          {sigmets.slice(0, 2).map((s, i) => (
-            <div key={`sigmet-${i}`} className="border border-red-500/30 bg-red-500/5 px-3 py-2">
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-[9px] font-bold text-red-400 uppercase tracking-wider">SIGMET — {s.hazard ?? 'Unknown'}</span>
-                <span className="font-mono text-[8px] text-red-300/60">{s.severity}</span>
+        <div className="space-y-6">
+          {/* SIGMETs / AIRMETs Group */}
+          {(sigmets.length > 0 || airmets.length > 0) && (
+            <div>
+              <div className="text-[8px] font-black text-on-surface-variant/40 uppercase tracking-[0.2em] mb-2 flex items-center gap-2">
+                <span className="w-1 h-1 rounded-full bg-red-500/40" />
+                Weather Advisories
               </div>
-              {s.raw && (
-                <button
-                  className="mt-1 text-[8px] font-mono text-on-surface-variant/60 hover:text-on-surface/80 text-left w-full truncate"
-                  onClick={() => setExpanded(expanded === `s${i}` ? null : `s${i}`)}
-                >
-                  {expanded === `s${i}` ? s.raw : s.raw.slice(0, 80) + (s.raw.length > 80 ? '…' : '')}
-                </button>
-              )}
+              <div className="space-y-2">
+                {[...sigmets.slice(0, 3), ...airmets.slice(0, 3)].map((s, i) => {
+                  const isSigmet = s.type === 'SIGMET'
+                  return (
+                    <div key={`adv-${i}`} className={`group relative border-l-2 ${isSigmet ? 'border-red-500/40 bg-red-500/5' : 'border-amber-500/40 bg-amber-500/5'} pl-3 py-1.5`}>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className={`text-[9px] font-black uppercase tracking-wider ${isSigmet ? 'text-red-400' : 'text-amber-400'}`}>
+                          {s.hazard ?? 'HAZARD'}
+                        </span>
+                        <span className="font-mono text-[8px] text-on-surface-variant/40 uppercase">{isSigmet ? 'Sigmet' : 'Airmet'}</span>
+                      </div>
+                      {s.raw && (
+                        <button
+                          className="mt-1 text-[8px] font-mono text-on-surface-variant/60 group-hover:text-on-surface/80 text-left w-full truncate italic"
+                          onClick={() => setExpanded(expanded === `s${i}` ? null : `s${i}`)}
+                        >
+                          {expanded === `s${i}` ? s.raw : s.raw.slice(0, 100) + (s.raw.length > 100 ? '…' : '')}
+                        </button>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
             </div>
-          ))}
+          )}
 
-          {/* AIRMETs */}
-          {airmets.slice(0, 3).map((a, i) => (
-            <div key={`airmet-${i}`} className="border border-amber-500/30 bg-amber-500/5 px-3 py-2">
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-[9px] font-bold text-amber-400 uppercase tracking-wider">AIRMET — {a.hazard ?? 'Unknown'}</span>
+          {/* PIREPs Group */}
+          {pireps.length > 0 && (
+            <div>
+              <div className="text-[8px] font-black text-on-surface-variant/40 uppercase tracking-[0.2em] mb-2 flex items-center gap-2">
+                <span className="w-1 h-1 rounded-full bg-sky-500/40" />
+                Pilot Reports
               </div>
-              {a.raw && (
-                <button
-                  className="mt-1 text-[8px] font-mono text-on-surface-variant/60 hover:text-on-surface/80 text-left w-full truncate"
-                  onClick={() => setExpanded(expanded === `a${i}` ? null : `a${i}`)}
-                >
-                  {expanded === `a${i}` ? a.raw : a.raw.slice(0, 80) + (a.raw.length > 80 ? '…' : '')}
-                </button>
-              )}
-            </div>
-          ))}
-
-          {/* PIREPs */}
-          {pireps.slice(0, 5).map((p, i) => (
-            <div key={`pirep-${i}`} className="border border-white/10 bg-white/[0.02] px-3 py-2">
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-[9px] font-mono text-sky-300/80">
-                  {p.aircraft ?? p.type} @ FL{p.altitude ?? '???'}
-                </span>
-                <div className="flex items-center gap-2 shrink-0">
-                  {p.turbulence && p.turbulence !== 'NONE' && (
-                    <span className={`text-[8px] font-mono ${turbColor(p.turbulence)}`}>
-                      TURB {p.turbulence}
-                    </span>
-                  )}
-                  {p.icing && p.icing !== 'NONE' && (
-                    <span className="text-[8px] font-mono text-cyan-400">ICG {p.icing}</span>
-                  )}
-                </div>
+              <div className="space-y-1.5">
+                {pireps.slice(0, 8).map((p, i) => (
+                  <div key={`pirep-${i}`} className="flex flex-col border-b border-white/5 pb-1.5 last:border-0">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[9px] font-black text-on-surface tracking-tighter uppercase">{p.aircraft ?? 'UNK'}</span>
+                        <span className="text-[9px] font-mono text-sky-400/60">FL{p.altitude ?? '??'}</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        {p.turbulence && p.turbulence !== 'NONE' && (
+                          <span className={`text-[7px] font-black px-1 rounded-sm bg-white/5 uppercase ${turbColor(p.turbulence)}`}>
+                            {p.turbulence}
+                          </span>
+                        )}
+                        {p.icing && p.icing !== 'NONE' && (
+                          <span className="text-[7px] font-black px-1 rounded-sm bg-cyan-400/10 text-cyan-400 uppercase">
+                            ICG {p.icing}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    {p.raw && (
+                      <button
+                        className="mt-0.5 text-[8px] font-mono text-on-surface-variant/40 hover:text-on-surface-variant/80 text-left w-full truncate"
+                        onClick={() => setExpanded(expanded === `p${i}` ? null : `p${i}`)}
+                      >
+                        {expanded === `p${i}` ? p.raw : p.raw.slice(0, 120)}
+                      </button>
+                    )}
+                  </div>
+                ))}
               </div>
-              {p.raw && (
-                <button
-                  className="mt-1 text-[8px] font-mono text-on-surface-variant/60 hover:text-on-surface/80 text-left w-full"
-                  onClick={() => setExpanded(expanded === `p${i}` ? null : `p${i}`)}
-                >
-                  {expanded === `p${i}` ? p.raw : p.raw.slice(0, 100) + (p.raw.length > 100 ? '…' : '')}
-                </button>
-              )}
             </div>
-          ))}
+          )}
         </div>
       )}
     </div>

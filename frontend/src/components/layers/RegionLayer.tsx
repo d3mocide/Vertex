@@ -14,7 +14,7 @@ const LINE_ID  = 'region-bounds-line'
 function buildGeoJSON(regions: Region[]): GeoJSON.FeatureCollection {
   return {
     type: 'FeatureCollection',
-    features: regions.filter(r => r.enabled).map(r => ({
+    features: regions.filter(r => r.enabled && (r.show_on_map === undefined || r.show_on_map === true)).map(r => ({
       type: 'Feature' as const,
       geometry: {
         type: 'Polygon' as const,

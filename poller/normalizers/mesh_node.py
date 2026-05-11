@@ -75,6 +75,7 @@ def normalize_remoteterm_contact(data: dict) -> Optional[dict]:
             "hw_model":     "",
             "on_radio":     data.get("on_radio", False),
             "favorite":     data.get("favorite", False),
+            "battery_level": data.get("battery_level"),
         },
         "lat":      data.get("lat"),
         "lon":      data.get("lon"),

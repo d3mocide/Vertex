@@ -14,12 +14,13 @@ export interface Region {
   name: string
   bbox: RegionBbox
   enabled: boolean
+  show_on_map: boolean
 }
 
 export function useRegions(): Region[] {
   const [regions, setRegions] = useState<Region[]>([])
   useEffect(() => {
-    fetch(`${API_BASE}/config/regions`, { headers: authHeaders() })
+    fetch(`${API_BASE}/config/regions?t=${Date.now()}`, { headers: authHeaders() })
       .then(r => {
         if (!r.ok) throw new Error('Not authorized')
         return r.json()

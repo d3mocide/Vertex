@@ -23,7 +23,8 @@ class WeatherPoller(BasePoller):
 
     async def setup(self):
         self._airnow_consecutive_failures = 0
-        self._aviation_tick = 0
+        # Trigger aviation weather fetch on the first poll cycle
+        self._aviation_tick = 999
 
     async def poll(self):
         global _aviation_tick
@@ -134,120 +135,154 @@ class WeatherPoller(BasePoller):
                 self._airnow_consecutive_failures = 0
 
     async def _fetch_aviation_hazards(self) -> dict:
-        """Fetch PIREPs and SIGMETs/AIRMETs from aviationweather.gov."""
-        bbox = f"{settings.bbox_min_lat},{settings.bbox_min_lon},{settings.bbox_max_lat},{settings.bbox_max_lon}"
-        pireps, sigmets, airmets = [], [], []
-        async with httpx.AsyncClient(timeout=20, headers=_HEADERS) as client:
-            try:
-                r = await client.get(f"{AVWX_BASE}/pirep", params={"bbox": bbox, "age": "3", "format": "json"})
-                if r.status_code == 200:
-                    data = r.json()
-                    if isinstance(data, list):
-                        pireps = [
-                            {
-                                "type": p.get("reportType", "PIREP"),
-                                "time": p.get("obsTime") or p.get("receiptTime"),
-                                "lat": p.get("lat"),
-                                "lon": p.get("lon"),
-                                "aircraft": p.get("aircraftRef"),
-                                "altitude": p.get("altitude"),
-                                "turbulence": p.get("turbIntensity"),
-                                "icing": p.get("icgIntensity"),
-                                "raw": p.get("rawOb"),
-                            }
-                            for p in data
-                        ]
-            except Exception as exc:
-                logger.debug("[weather] PIREP fetch failed: %s", exc)
+        """Fetch PIREPs and SIGMETs/AIRMETs from aviationweather.gov for all regions."""
+        # Use regions if configured, else fallback to settings bbox
+        regions = settings.regions or [None]
+        
+        all_pireps = {}
+        all_sigmets = {}
+        all_airmets = {}
 
+        async with httpx.AsyncClient(timeout=20, headers=_HEADERS) as client:
+            for region in regions:
+                if region:
+                    b = region.bbox
+                    bbox = f"{b.min_lat},{b.min_lon},{b.max_lat},{b.max_lon}"
+                else:
+                    bbox = f"{settings.bbox_min_lat},{settings.bbox_min_lon},{settings.bbox_max_lat},{settings.bbox_max_lon}"
+
+                try:
+                    r = await client.get(f"{AVWX_BASE}/pirep", params={"bbox": bbox, "age": "3", "format": "json"})
+                    if r.status_code == 200:
+                        data = r.json()
+                        if isinstance(data, list):
+                            for p in data:
+                                # Deduplicate by raw observation
+                                raw = p.get("rawOb")
+                                if raw and raw not in all_pireps:
+                                    all_pireps[raw] = {
+                                        "type": p.get("reportType", "PIREP"),
+                                        "time": p.get("obsTime") or p.get("receiptTime"),
+                                        "lat": p.get("lat"),
+                                        "lon": p.get("lon"),
+                                        "aircraft": p.get("aircraftRef"),
+                                        "altitude": p.get("altitude"),
+                                        "turbulence": p.get("turbIntensity"),
+                                        "icing": p.get("icgIntensity"),
+                                        "raw": raw,
+                                    }
+                except Exception as exc:
+                    logger.debug("[weather] PIREP fetch failed for region %s: %s", region.id if region else "default", exc)
+
+            # Global/CONUS-wide SIGMETs/AIRMETs (don't need bbox usually, or just fetch once)
             try:
                 r = await client.get(f"{AVWX_BASE}/sigmet", params={"format": "json"})
                 if r.status_code == 200:
                     data = r.json()
                     if isinstance(data, list):
-                        sigmets = [
-                            {
-                                "type": s.get("airSigmetType", "SIGMET"),
+                        for s in data:
+                            raw = s.get("rawAirSigmet")
+                            if not raw: continue
+                            entry = {
+                                "type": s.get("airSigmetType"),
                                 "hazard": s.get("hazard"),
                                 "severity": s.get("severity"),
                                 "valid_from": s.get("validTimeFrom"),
                                 "valid_to": s.get("validTimeTo"),
-                                "area": s.get("area"),
-                                "raw": s.get("rawAirSigmet"),
+                                "raw": raw,
                             }
-                            for s in data
-                            if s.get("airSigmetType") == "SIGMET"
-                        ]
-                        airmets = [
-                            {
-                                "type": s.get("airSigmetType", "AIRMET"),
-                                "hazard": s.get("hazard"),
-                                "severity": s.get("severity"),
-                                "valid_from": s.get("validTimeFrom"),
-                                "valid_to": s.get("validTimeTo"),
-                                "area": s.get("area"),
-                                "raw": s.get("rawAirSigmet"),
-                            }
-                            for s in data
-                            if s.get("airSigmetType") == "AIRMET"
-                        ]
+                            if s.get("airSigmetType") == "SIGMET":
+                                all_sigmets[raw] = entry
+                            else:
+                                all_airmets[raw] = entry
             except Exception as exc:
                 logger.debug("[weather] SIGMET/AIRMET fetch failed: %s", exc)
 
-        return {"pireps": pireps, "sigmets": sigmets, "airmets": airmets}
+        return {
+            "pireps": list(all_pireps.values()),
+            "sigmets": list(all_sigmets.values()),
+            "airmets": list(all_airmets.values())
+        }
 
     async def _fetch_aviation_obs(self) -> dict:
-        """Fetch nearby METARs and TAFs from aviationweather.gov."""
-        bbox = f"{settings.bbox_min_lat},{settings.bbox_min_lon},{settings.bbox_max_lat},{settings.bbox_max_lon}"
-        metars, tafs = [], []
+        """Fetch METARs and TAFs for all regions."""
+        regions = settings.regions or [None]
+        all_metars = {}
+        all_tafs = {}
+
         async with httpx.AsyncClient(timeout=20, headers=_HEADERS) as client:
-            try:
-                r = await client.get(
-                    f"{AVWX_BASE}/metar",
-                    params={"bbox": bbox, "format": "json", "hours": "2"},
-                )
-                if r.status_code == 200:
-                    data = r.json()
-                    if isinstance(data, list):
-                        metars = [
-                            {
-                                "station": m.get("stationId"),
-                                "time": m.get("reportTime") or m.get("obsTime"),
-                                "temp_c": m.get("temp"),
-                                "dewpoint_c": m.get("dewp"),
-                                "wind_dir": m.get("wdir"),
-                                "wind_kt": m.get("wspd"),
-                                "gust_kt": m.get("wgst"),
-                                "visibility_sm": m.get("visib"),
-                                "altimeter": m.get("altim"),
-                                "flight_category": m.get("fltcat"),
-                                "raw": m.get("rawOb"),
-                            }
-                            for m in data
-                        ]
-            except Exception as exc:
-                logger.debug("[weather] METAR fetch failed: %s", exc)
+            for region in regions:
+                if region:
+                    b = region.bbox
+                    bbox = f"{b.min_lat},{b.min_lon},{b.max_lat},{b.max_lon}"
+                else:
+                    bbox = f"{settings.bbox_min_lat},{settings.bbox_min_lon},{settings.bbox_max_lat},{settings.bbox_max_lon}"
 
-            try:
-                r = await client.get(
-                    f"{AVWX_BASE}/taf",
-                    params={"bbox": bbox, "format": "json"},
-                )
-                if r.status_code == 200:
-                    data = r.json()
-                    if isinstance(data, list):
-                        tafs = [
-                            {
-                                "station": t.get("stationId"),
-                                "issue_time": t.get("issueTime"),
-                                "valid_from": t.get("validTimeFrom"),
-                                "valid_to": t.get("validTimeTo"),
-                                "raw": t.get("rawTAF"),
-                            }
-                            for t in data
-                        ]
-            except Exception as exc:
-                logger.debug("[weather] TAF fetch failed: %s", exc)
+                try:
+                    r = await client.get(
+                        f"{AVWX_BASE}/metar",
+                        params={"bbox": bbox, "format": "json", "hours": "2"},
+                    )
+                    if r.status_code == 200:
+                        data = r.json()
+                        if isinstance(data, list):
+                            for m in data:
+                                # Try multiple possible keys for station ID
+                                icao = m.get("icaoId") or m.get("stationId") or m.get("id")
+                                
+                                # Fallback: Parse from raw observation (e.g., "METAR KSLE ...")
+                                raw = m.get("rawOb")
+                                if not icao and raw:
+                                    parts = raw.split()
+                                    if len(parts) > 1:
+                                        icao = parts[1] # Usually the second part of a METAR
 
-        return {"metars": metars, "tafs": tafs}
+                                if icao and icao not in all_metars:
+                                    all_metars[icao] = {
+                                        "station": icao,
+                                        "time": m.get("reportTime") or m.get("obsTime"),
+                                        "temp_c": m.get("temp"),
+                                        "dewpoint_c": m.get("dewp"),
+                                        "wind_dir": m.get("wdir"),
+                                        "wind_kt": m.get("wspd"),
+                                        "gust_kt": m.get("wgst"),
+                                        "visibility_sm": m.get("visib"),
+                                        "altimeter": m.get("altim"),
+                                        "flight_category": m.get("fltCat"),
+                                        "raw": raw,
+                                    }
+                except Exception as exc:
+                    logger.debug("[weather] METAR fetch failed for region %s: %s", region.id if region else "default", exc)
+
+                try:
+                    r = await client.get(
+                        f"{AVWX_BASE}/taf",
+                        params={"bbox": bbox, "format": "json"},
+                    )
+                    if r.status_code == 200:
+                        data = r.json()
+                        if isinstance(data, list):
+                            for t in data:
+                                # Try multiple possible keys for station ID
+                                icao = t.get("icaoId") or t.get("stationId") or t.get("id")
+                                
+                                # Fallback: Parse from raw TAF (e.g., "TAF KSLE ...")
+                                raw = t.get("rawTAF")
+                                if not icao and raw:
+                                    parts = raw.split()
+                                    if len(parts) > 1:
+                                        icao = parts[1]
+
+                                if icao and icao not in all_tafs:
+                                    all_tafs[icao] = {
+                                        "station": icao,
+                                        "issue_time": t.get("issueTime"),
+                                        "valid_from": t.get("validTimeFrom"),
+                                        "valid_to": t.get("validTimeTo"),
+                                        "raw": raw,
+                                    }
+                except Exception as exc:
+                    logger.debug("[weather] TAF fetch failed for region %s: %s", region.id if region else "default", exc)
+
+        return {"metars": list(all_metars.values()), "tafs": list(all_tafs.values())}
 

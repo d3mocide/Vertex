@@ -16,6 +16,7 @@ class RegionOut(BaseModel):
     name: str
     bbox: RegionBboxOut
     enabled: bool
+    show_on_map: bool = True
 
 
 @router.get("/regions", response_model=list[RegionOut])
@@ -27,7 +28,8 @@ async def get_regions():
         with open(sources_path) as f:
             data = yaml.safe_load(f) or {}
         raw = data.get("regions") or []
-        return [RegionOut(**r) for r in raw]
+        # Support default show_on_map=True if missing in YAML
+        return [RegionOut(**{**r, "show_on_map": r.get("show_on_map", True)}) for r in raw]
     except (FileNotFoundError, Exception):
         pass
     # Fallback: single region from backend config
@@ -42,4 +44,5 @@ async def get_regions():
             max_lon=settings.bbox_max_lon,
         ),
         enabled=True,
+        show_on_map=True,
     )]

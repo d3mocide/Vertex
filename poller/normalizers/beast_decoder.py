@@ -41,7 +41,7 @@ class _AircraftState:
     odd_ts: float | None = None
     last_position_ts: float | None = None
     last_mlat_ticks: int | None = None
-    signal_peak: int | None = None
+    signal_quality: int | None = None
     msg_count: int = 0
     last_seen_ts: float = 0.0
 
@@ -131,7 +131,7 @@ class BeastAircraftDecoder:
             ac.last_mlat_ticks = int(mlat_ticks)
         if signal is not None:
             signal_int = int(signal)
-            ac.signal_peak = signal_int if ac.signal_peak is None else max(ac.signal_peak, signal_int)
+            ac.signal_quality = signal_int if ac.signal_quality is None else max(ac.signal_quality, signal_int)
 
         typecode = self._safe(lambda: pms.adsb.typecode(hex_msg))
         if df in (17, 18):
@@ -317,7 +317,7 @@ class BeastAircraftDecoder:
             "heading": ac.heading,
             "speed": ac.speed,
             "vertical_rate": ac.vertical_rate,
-            "signal_peak": ac.signal_peak,
+            "signal_quality": ac.signal_quality,
             "msg_count": ac.msg_count,
             "mlat_ticks": ac.last_mlat_ticks,
             "comm_b": comm_b,

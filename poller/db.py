@@ -85,8 +85,8 @@ async def write_entity_observation(entity: dict, record_observation: bool = True
         await conn.execute(
             """
             INSERT INTO observations
-                (entity_id, ts, lat, lon, altitude, heading, speed, vertical_rate, status, geom)
-            VALUES ($1, NOW(), $2::float, $3::float, $4::float, $5::float, $6::float, $7::float, $8::text,
+                (entity_id, ts, lat, lon, altitude, heading, speed, vertical_rate, signal_quality, status, geom)
+            VALUES ($1, NOW(), $2::float, $3::float, $4::float, $5::float, $6::float, $7::float, $8::float, $9::text,
                 CASE WHEN $2::float IS NOT NULL AND $3::float IS NOT NULL
                      THEN ST_SetSRID(ST_MakePoint($3::float, $2::float), 4326)
                      ELSE NULL END)
@@ -98,6 +98,7 @@ async def write_entity_observation(entity: dict, record_observation: bool = True
             entity.get("heading"),
             entity.get("speed"),
             entity.get("vertical_rate"),
+            entity.get("signal_quality"),
             entity.get("status"),
         )
 

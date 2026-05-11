@@ -140,6 +140,7 @@ regions:
       min_lon: -123.5
       max_lon: -121.8
     enabled: true
+    show_on_map: true      # Set to false to poll data but hide the bounding box on the map
 
   # Example second region (disabled by default)
   # - id: "coast"
@@ -149,4 +150,5 @@ regions:
   #     max_lat: 46.5
   #     min_lon: -124.5
   #     max_lon: -123.8
-  #   enabled: falsee
+  #   enabled: false
+  #   show_on_map: false

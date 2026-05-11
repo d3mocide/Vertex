@@ -157,6 +157,8 @@ export function EnvironmentPanel() {
               aqi={weather.aqi}
               aqiLabel={weather.aqi_label}
             />
+
+            <MetarCard />
           </div>
 
           {/* RIGHT COLUMN: Radar + Aviation */}
@@ -165,7 +167,6 @@ export function EnvironmentPanel() {
             <WeatherCard />
             <SeismicCard events={mergedSeismicEvents} />
             <PirepCard />
-            <MetarCard />
           </div>
 
         </div>

@@ -53,18 +53,24 @@ class AdsbPoller(BasePoller):
         self._airlines_db = AirlinesDb()
         self._navaids_db = NavaidsDb()
         self._tick_count: int = 0
+        self._last_source_refresh: float = 0.0
 
     async def setup(self):
-        from db import get_pool
-        rows = await get_pool().fetch(
-            "SELECT url FROM poller_sources WHERE type = 'adsb' AND enabled = TRUE"
-        )
-        self._source_urls = [row["url"] for row in rows]
-        if self._source_urls:
-            logger.info("[adsb] %d local source(s): %s", len(self._source_urls), self._source_urls)
-        else:
-            logger.info("[adsb] no local sources configured — falling back to OpenSky")
+        await self._refresh_sources()
         await self._hydrate_from_redis()
+
+    async def _refresh_sources(self):
+        from db import get_pool
+        try:
+            rows = await get_pool().fetch(
+                "SELECT url FROM poller_sources WHERE type = 'adsb' AND enabled = TRUE"
+            )
+            next_urls = [row["url"] for row in rows]
+            if next_urls != self._source_urls:
+                self._source_urls = next_urls
+                logger.info("[adsb] sources updated: %s", self._source_urls)
+        except Exception as exc:
+            logger.warning("[adsb] failed to refresh sources from DB: %s", exc)
 
     @staticmethod
     def _effective_opensky_stale_threshold() -> int:
@@ -125,6 +131,12 @@ class AdsbPoller(BasePoller):
             logger.warning("[adsb] Redis hydration failed (non-fatal): %s", exc)
 
     async def poll(self):
+        # Refresh sources every 30s to pick up hot-reloaded config changes
+        now = time.time()
+        if now - self._last_source_refresh > 30:
+            await self._refresh_sources()
+            self._last_source_refresh = now
+
         # Tick loop and enrichment worker run in every mode so the snapshot and
         # stale eviction are always active (fixes the pure-OpenSky snapshot gap).
         self._ensure_support_tasks()
