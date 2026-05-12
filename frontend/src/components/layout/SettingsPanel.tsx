@@ -12,6 +12,8 @@ export function SettingsPanel() {
     radarVisible, setRadarVisible,
     radarOpacity, setRadarOpacity,
     smokeVisible, setSmokeVisible,
+    goesVisible, setGoesVisible,
+    firePerimetersVisible, setFirePerimetersVisible,
     camerasVisible, setCamerasVisible,
     geofencesVisible, setGeofencesVisible,
     trailsVisible, setTrailsVisible,
@@ -122,6 +124,8 @@ export function SettingsPanel() {
             <div className="space-y-3">
               <ToggleRow label="Radar" icon="radar" checked={radarVisible} onChange={setRadarVisible} />
               <ToggleRow label="Smoke Overlay" icon="air" checked={smokeVisible} onChange={setSmokeVisible} />
+              <ToggleRow label="GOES Satellite" icon="satellite_alt" checked={goesVisible} onChange={setGoesVisible} />
+              <ToggleRow label="Fire Perimeters" icon="local_fire_department" checked={firePerimetersVisible} onChange={setFirePerimetersVisible} />
               <ToggleRow label="Cameras" icon="videocam" checked={camerasVisible} onChange={setCamerasVisible} />
               <ToggleRow label="Zone Monitor" icon="verified_user" checked={geofencesVisible} onChange={setGeofencesVisible} />
               <ToggleRow label="History Trails" icon="timeline" checked={trailsVisible} onChange={setTrailsVisible} />

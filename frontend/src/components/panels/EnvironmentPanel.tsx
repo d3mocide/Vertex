@@ -10,6 +10,9 @@ import { WeatherCard } from './environment/WeatherCard'
 import { RadarControls } from './environment/RadarMiniMap'
 import { PirepCard } from './environment/PirepCard'
 import { MetarCard } from './environment/MetarCard'
+import { GdacsCard } from './environment/GdacsCard'
+import { NwwsCard } from './environment/NwwsCard'
+import { PWSCard } from './environment/PWSCard'
 
 export function EnvironmentPanel() {
   const weather = useCivicStore((s) => s.weather)
@@ -159,12 +162,15 @@ export function EnvironmentPanel() {
             />
 
             <MetarCard />
+            <GdacsCard />
+            <NwwsCard />
           </div>
 
           {/* RIGHT COLUMN: Radar + Aviation */}
           <div className="flex-1 min-w-0 flex flex-col self-stretch lg:self-start gap-6">
             <RadarControls />
             <WeatherCard />
+            <PWSCard />
             <SeismicCard events={mergedSeismicEvents} />
             <PirepCard />
           </div>

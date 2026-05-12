@@ -159,6 +159,14 @@ class Settings(BaseSettings):
     p25_audio_dir: str = "/data/audio"
     p25_audio_retention_days: int = 7
 
+    # NWS text products (NWWS-style). Office code for the local forecast office.
+    nws_office: str = "PDX"
+
+    # Weather Underground / Weather Company Personal Weather Station.
+    # Obtain an API key at https://www.wunderground.com/member/api-keys
+    wunderground_api_key: str = ""
+    wunderground_station_id: str = ""
+
     class Config:
         env_file = ".env"
 
