@@ -95,3 +95,62 @@ async def proxy_smoke_wms(request: Request):
 
     content_type = upstream.headers.get("content-type", "image/png")
     return Response(content=upstream.content, media_type=content_type)
+
+
+# NOAA GOES-East satellite imagery via nowCOAST ArcGIS WMS
+GOES_WMS_URL = (
+    "https://nowcoast.noaa.gov/arcgis/rest/services"
+    "/nowcoast/sat_meteo_imagery_time/MapServer/WmsServer"
+)
+
+
+@router.get("/goes/wms")
+async def proxy_goes_wms(request: Request):
+    """Proxy NOAA GOES satellite WMS tiles to avoid browser CORS issues."""
+    try:
+        async with httpx.AsyncClient(timeout=20.0) as client:
+            upstream = await client.get(GOES_WMS_URL, params=request.query_params)
+    except Exception:
+        return Response(content=TRANSPARENT_PNG, media_type="image/png")
+
+    if upstream.status_code != 200:
+        return Response(content=TRANSPARENT_PNG, media_type="image/png")
+
+    content_type = upstream.headers.get("content-type", "image/png")
+    return Response(content=upstream.content, media_type=content_type)
+
+
+@router.get("/fire/perimeters")
+async def get_fire_perimeters():
+    """Active fire perimeters from NIFC WFIGS (cached by poller)."""
+    raw = await get_redis().get("feed:fire:perimeters")
+    if not raw:
+        return {"type": "FeatureCollection", "features": []}
+    try:
+        return json.loads(raw)
+    except (json.JSONDecodeError, TypeError):
+        return {"type": "FeatureCollection", "features": []}
+
+
+@router.get("/nwws")
+async def get_nwws_products():
+    """Recent NWS text products (AFD, HWO, LSR) from the local forecast office."""
+    raw = await get_redis().get("feed:weather:nwws_products")
+    if not raw:
+        return []
+    try:
+        return json.loads(raw)
+    except (json.JSONDecodeError, TypeError):
+        return []
+
+
+@router.get("/pws")
+async def get_pws_observation():
+    """Current Personal Weather Station observation from Weather Underground."""
+    raw = await get_redis().get("feed:weather:pws")
+    if not raw:
+        return {}
+    try:
+        return json.loads(raw)
+    except (json.JSONDecodeError, TypeError):
+        return {}

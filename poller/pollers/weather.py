@@ -25,6 +25,8 @@ class WeatherPoller(BasePoller):
         self._airnow_consecutive_failures = 0
         # Trigger aviation weather fetch on the first poll cycle
         self._aviation_tick = 999
+        # Trigger NWWS fetch on first cycle
+        self._nwws_tick = 999
 
     async def poll(self):
         global _aviation_tick
@@ -61,6 +63,20 @@ class WeatherPoller(BasePoller):
                 await set_feed("weather:aviation_obs", {"metars": [], "tafs": []})
             elif isinstance(avobs, dict):
                 await set_feed("weather:aviation_obs", avobs)
+
+        # NWS text products every 30 min
+        self._nwws_tick += 1
+        if self._nwws_tick >= (1800 // self.interval):
+            self._nwws_tick = 0
+            products = await self._fetch_nwws_products()
+            if products:
+                await set_feed("weather:nwws_products", products)
+
+        # PWS every 5 min (same as main poll)
+        if settings.wunderground_api_key and settings.wunderground_station_id:
+            pws = await self._fetch_pws()
+            if isinstance(pws, dict) and pws:
+                await set_feed("weather:pws", pws)
 
     async def _fetch_observation(self) -> dict:
         url = f"{NWS_BASE}/stations/{settings.nws_station_primary}/observations/latest"
@@ -291,4 +307,94 @@ class WeatherPoller(BasePoller):
                     logger.debug("[weather] TAF fetch failed for region %s: %s", region.id if region else "default", exc)
 
         return {"metars": list(all_metars.values()), "tafs": list(all_tafs.values())}
+
+    async def _fetch_nwws_products(self) -> list[dict]:
+        """Fetch recent NWS text products (AFD, HWO, LSR) for the local forecast office."""
+        office = settings.nws_office or "PDX"
+        product_types = [
+            ("AFD", "Area Forecast Discussion"),
+            ("HWO", "Hazardous Weather Outlook"),
+            ("LSR", "Local Storm Report"),
+        ]
+        results: list[dict] = []
+        async with httpx.AsyncClient(timeout=15, headers=_HEADERS) as client:
+            for code, name in product_types:
+                url = f"{NWS_BASE}/products/types/{code}/locations/{office}"
+                try:
+                    resp = await client.get(url)
+                    if resp.status_code != 200:
+                        continue
+                    data = resp.json()
+                    items = (data.get("@graph") or [])[:1]  # only the latest
+                    for item in items:
+                        # Fetch full product text if only a stub is returned
+                        text = item.get("productText")
+                        if not text:
+                            product_url = item.get("@id") or item.get("id")
+                            if product_url:
+                                try:
+                                    pr = await client.get(product_url)
+                                    if pr.status_code == 200:
+                                        text = pr.json().get("productText", "")
+                                except Exception:
+                                    pass
+                        results.append({
+                            "code": code,
+                            "name": name,
+                            "office": office,
+                            "issuance_time": item.get("issuanceTime"),
+                            "text": (text or "").strip(),
+                        })
+                except Exception as exc:
+                    logger.debug("[weather] NWWS %s fetch failed: %s", code, exc)
+        return results
+
+    async def _fetch_pws(self) -> dict:
+        """Fetch current observation from a Weather Underground PWS."""
+        key = settings.wunderground_api_key
+        station = settings.wunderground_station_id
+        if not key or not station:
+            return {}
+        url = "https://api.weather.com/v2/pws/observations/current"
+        params = {
+            "stationId": station,
+            "format": "json",
+            "units": "e",
+            "apiKey": key,
+            "numericPrecision": "decimal",
+        }
+        try:
+            async with httpx.AsyncClient(timeout=15) as client:
+                resp = await client.get(url, params=params)
+                resp.raise_for_status()
+                data = resp.json()
+            obs_list = data.get("observations") or []
+            if not obs_list:
+                return {}
+            obs = obs_list[0]
+            imperial = obs.get("imperial") or {}
+            return {
+                "station_id": obs.get("stationID"),
+                "obs_time_utc": obs.get("obsTimeUtc"),
+                "lat": obs.get("lat"),
+                "lon": obs.get("lon"),
+                "neighborhood": obs.get("neighborhood"),
+                "solar_radiation": obs.get("solarRadiation"),
+                "uv": obs.get("uv"),
+                "wind_dir": obs.get("winddir"),
+                "humidity": obs.get("humidity"),
+                "temp_f": imperial.get("temp"),
+                "heat_index_f": imperial.get("heatIndex"),
+                "dewpoint_f": imperial.get("dewpt"),
+                "wind_chill_f": imperial.get("windChill"),
+                "wind_speed_mph": imperial.get("windSpeed"),
+                "wind_gust_mph": imperial.get("windGust"),
+                "pressure_inhg": imperial.get("pressure"),
+                "precip_rate_in": imperial.get("precipRate"),
+                "precip_total_in": imperial.get("precipTotal"),
+                "elev_ft": imperial.get("elev"),
+            }
+        except Exception as exc:
+            logger.warning("[weather] PWS fetch failed for %s: %s", station, exc)
+            return {}
 

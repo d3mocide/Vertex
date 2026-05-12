@@ -92,6 +92,10 @@ interface CivicStore {
   setRadarOpacity:     (v: number) => void
   smokeVisible:        boolean
   setSmokeVisible:     (v: boolean) => void
+  goesVisible:         boolean
+  setGoesVisible:      (v: boolean) => void
+  firePerimetersVisible: boolean
+  setFirePerimetersVisible: (v: boolean) => void
   setCamerasVisible:   (v: boolean) => void
   setGeofencesVisible: (v: boolean) => void
   setTrailsVisible:    (v: boolean) => void
@@ -319,8 +323,10 @@ export const useCivicStore = create<CivicStore>()(
   ldiMode:          false,
   radarVisible:     false,
   radarOpacity:     0.6,
-  smokeVisible:        false,
-  camerasVisible:      false,
+  smokeVisible:           false,
+  goesVisible:            false,
+  firePerimetersVisible:  false,
+  camerasVisible:         false,
   geofencesVisible:    true,
   trailsVisible:       true,
   lightningStrikes:    [],
@@ -508,8 +514,10 @@ export const useCivicStore = create<CivicStore>()(
   setLdiMode:        (ldiMode)        => set({ ldiMode }),
   setRadarVisible:   (radarVisible)   => set({ radarVisible }),
   setRadarOpacity:   (radarOpacity)   => set({ radarOpacity }),
-  setSmokeVisible:   (smokeVisible)   => set({ smokeVisible }),
-  setCamerasVisible: (camerasVisible) => set({ camerasVisible }),
+  setSmokeVisible:          (smokeVisible)          => set({ smokeVisible }),
+  setGoesVisible:           (goesVisible)           => set({ goesVisible }),
+  setFirePerimetersVisible: (firePerimetersVisible) => set({ firePerimetersVisible }),
+  setCamerasVisible:        (camerasVisible)        => set({ camerasVisible }),
   setGeofencesVisible: (geofencesVisible) => set({ geofencesVisible }),
   setTrailsVisible:  (trailsVisible)  => set({ trailsVisible }),
   appendLightningStrikes: (incoming) =>
@@ -603,8 +611,10 @@ export const useCivicStore = create<CivicStore>()(
       trailsVisible:      state.trailsVisible,
       radarVisible:       state.radarVisible,
       radarOpacity:       state.radarOpacity,
-      smokeVisible:       state.smokeVisible,
-      camerasVisible:     state.camerasVisible,
+      smokeVisible:         state.smokeVisible,
+      goesVisible:          state.goesVisible,
+      firePerimetersVisible: state.firePerimetersVisible,
+      camerasVisible:       state.camerasVisible,
       geofencesVisible:   state.geofencesVisible,
       annotationsVisible: state.annotationsVisible,
       lightningVisible:   state.lightningVisible,

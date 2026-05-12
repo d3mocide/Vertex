@@ -492,7 +492,7 @@ class TestDecoderIngestV2(unittest.TestCase):
         self.decoder.ingest(msg, signal=200)
         icao = pms.icao(self.CALLSIGN_MSG).lower()
         ac = self.decoder._aircraft.get(icao)
-        self.assertEqual(ac.signal_peak, 200)
+        self.assertEqual(ac.signal_quality, 200)
 
     def test_mlat_ticks_stored(self):
         import pyModeS as pms
