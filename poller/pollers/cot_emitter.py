@@ -48,7 +48,7 @@ _COLOR_MAP: dict[str, str] = {
 
 def _xe(val: object) -> str:
     """Escape a value for safe interpolation into XML text or attribute values."""
-    return xml.sax.saxutils.escape(str(val))
+    return xml.sax.saxutils.escape(str(val), entities={'"': "&quot;", "'": "&apos;"})
 
 
 def _ts(dt: datetime) -> str:
