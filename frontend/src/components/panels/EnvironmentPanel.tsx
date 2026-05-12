@@ -162,7 +162,6 @@ export function EnvironmentPanel() {
             />
 
             <MetarCard />
-            <GdacsCard />
             <NwwsCard />
           </div>
 
@@ -171,6 +170,7 @@ export function EnvironmentPanel() {
             <RadarControls />
             <WeatherCard />
             <PWSCard />
+            <GdacsCard />
             <SeismicCard events={mergedSeismicEvents} />
             <PirepCard />
           </div>
