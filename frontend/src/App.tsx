@@ -53,7 +53,7 @@ function Dashboard() {
       <div
         className={`
           fixed inset-0 transition-opacity duration-300
-          ${activeTab === 'safety' ? 'opacity-100 z-0' : activeTab === 'flightlog' ? 'opacity-70 z-0' : 'opacity-30 z-0'}
+          ${activeTab === 'safety' ? 'opacity-100 z-0' : 'opacity-30 z-0'}
         `}
         aria-hidden={activeTab !== 'safety'}
       >

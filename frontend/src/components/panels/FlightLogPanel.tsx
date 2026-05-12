@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react'
+import maplibregl from 'maplibre-gl'
 import { useCivicStore, Entity } from '../../store'
-import { API_BASE } from '../../config'
+import { API_BASE, MAP_STYLE, DEFAULT_CENTER } from '../../config'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const TIME_WINDOWS = [
@@ -219,6 +220,142 @@ function AircraftRow({
         )}
       </div>
     </button>
+  )
+}
+
+// ─── Flight Mini Map ──────────────────────────────────────────────────────────
+function FlightMiniMap({ trailPoints, entity }: {
+  trailPoints: ObsPoint[]
+  entity:      Entity | null
+}) {
+  const containerRef = useRef<HTMLDivElement>(null)
+  const mapRef       = useRef<maplibregl.Map | null>(null)
+  const [ready, setReady] = useState(false)
+
+  // Initialise the map once
+  useEffect(() => {
+    if (!containerRef.current) return
+    const m = new maplibregl.Map({
+      container:        containerRef.current,
+      style:            MAP_STYLE,
+      center:           DEFAULT_CENTER,
+      zoom:             7,
+      interactive:      false,
+      attributionControl: false,
+    })
+
+    m.on('load', () => {
+      m.getCanvas().style.filter = 'brightness(0.75) contrast(1.05)'
+
+      // Trail
+      m.addSource('fl-trail', {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features: [] },
+      })
+      m.addLayer({
+        id:     'fl-trail-line',
+        type:   'line',
+        source: 'fl-trail',
+        layout: { 'line-join': 'round', 'line-cap': 'round' },
+        paint:  { 'line-color': '#00E5FF', 'line-width': 2.5, 'line-opacity': 0.85 },
+      })
+
+      // Current position — outer glow + inner dot
+      m.addSource('fl-pos', {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features: [] },
+      })
+      m.addLayer({
+        id: 'fl-pos-glow', type: 'circle', source: 'fl-pos',
+        paint: { 'circle-radius': 9, 'circle-color': '#00E5FF', 'circle-opacity': 0.18 },
+      })
+      m.addLayer({
+        id: 'fl-pos-dot', type: 'circle', source: 'fl-pos',
+        paint: {
+          'circle-radius': 4,
+          'circle-color': '#00E5FF',
+          'circle-stroke-color': '#FFFFFF',
+          'circle-stroke-width': 1.5,
+        },
+      })
+
+      mapRef.current = m
+      setReady(true)
+    })
+
+    return () => {
+      mapRef.current = null
+      setReady(false)
+      m.remove()
+    }
+  }, [])
+
+  // Update trail whenever points change
+  useEffect(() => {
+    const m = mapRef.current
+    if (!m || !ready) return
+    const pts = trailPoints.filter(p => p.lat != null && p.lon != null)
+    const coords = pts.map(p => [p.lon, p.lat] as [number, number])
+
+    ;(m.getSource('fl-trail') as maplibregl.GeoJSONSource).setData({
+      type: 'Feature', properties: {},
+      geometry: { type: 'LineString', coordinates: coords },
+    })
+
+    if (coords.length >= 2) {
+      const lons = coords.map(c => c[0])
+      const lats = coords.map(c => c[1])
+      m.fitBounds(
+        [[Math.min(...lons), Math.min(...lats)], [Math.max(...lons), Math.max(...lats)]],
+        { padding: 36, maxZoom: 11, animate: false },
+      )
+    }
+  }, [ready, trailPoints])
+
+  // Update live position dot
+  useEffect(() => {
+    const m = mapRef.current
+    if (!m || !ready) return
+    const hasPos = entity?.lat != null && entity?.lon != null
+    ;(m.getSource('fl-pos') as maplibregl.GeoJSONSource).setData({
+      type: 'FeatureCollection',
+      features: hasPos
+        ? [{ type: 'Feature', properties: {}, geometry: { type: 'Point', coordinates: [entity!.lon!, entity!.lat!] } }]
+        : [],
+    })
+    // If no trail yet, centre on live position
+    if (trailPoints.length < 2 && hasPos) {
+      m.setCenter([entity!.lon!, entity!.lat!])
+      m.setZoom(9)
+    }
+  }, [ready, entity, trailPoints.length])
+
+  const isEmpty = trailPoints.length === 0 && !entity
+
+  return (
+    <div className="relative w-full h-48 bg-onyx-deep/60 rounded-sm overflow-hidden border border-white/5 shadow-inner">
+      <div ref={containerRef} className="absolute inset-0" />
+
+      {/* Bottom vignette */}
+      <div className="absolute inset-0 pointer-events-none bg-gradient-to-t from-onyx-black/50 to-transparent" />
+
+      {/* Track point counter */}
+      {!isEmpty && (
+        <div className="absolute bottom-2 left-2 pointer-events-none">
+          <span className="font-mono text-[7px] text-on-surface-variant/60 uppercase tracking-widest bg-onyx-black/60 px-1.5 py-0.5 rounded-sm">
+            {trailPoints.length > 0 ? `${trailPoints.length} pts` : 'live position'}
+          </span>
+        </div>
+      )}
+
+      {/* Empty state */}
+      {isEmpty && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 text-on-surface-variant/20 pointer-events-none">
+          <span className="ms text-3xl">flight_takeoff</span>
+          <span className="text-[8px] font-mono uppercase tracking-widest">Select aircraft for trail</span>
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -463,6 +600,9 @@ export function FlightLogPanel() {
                 </button>
               </h3>
 
+              {/* Flight trail mini-map */}
+              <FlightMiniMap trailPoints={trailPoints} entity={detailEntity} />
+
               {/* Identity card */}
               <div className="p-3 border border-cyan-adsb/30 bg-cyan-adsb/5 rounded-sm space-y-1.5">
                 <div className="flex items-start justify-between border-b border-cyan-adsb/10 pb-2 mb-2">
@@ -665,7 +805,7 @@ export function FlightLogPanel() {
             {selectedEntityId && (detailEntity || replayFlights[selectedEntityId]) && (
               <span className="font-mono text-[9px] text-cyan-adsb uppercase flex items-center gap-1.5">
                 <span className="w-1 h-1 rounded-full bg-cyan-adsb animate-pulse" />
-                trail on map
+                selected
               </span>
             )}
           </div>
