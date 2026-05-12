@@ -18,10 +18,43 @@ class RegionConfig(BaseModel):
     show_on_map: bool = True
 
 
+def load_regions(settings: Optional["Settings"] = None) -> list[RegionConfig]:
+    """Load regions from sources.yml, falling back to the single bbox from settings."""
+    import yaml, os
+    from config import settings as global_settings
+    s = settings or global_settings
+    sources_path = os.environ.get("SOURCES_YML", "/config/sources.yml")
+    try:
+        if os.path.exists(sources_path):
+            with open(sources_path) as f:
+                data = yaml.safe_load(f) or {}
+            raw = data.get("regions") or []
+            regions = [RegionConfig(**r) for r in raw if r.get("enabled", True)]
+            if regions:
+                return regions
+    except Exception:
+        pass
+    # Fallback: build a single region from env-var bbox
+    return [RegionConfig(
+        id="default",
+        name=s.region_name,
+        bbox=RegionBbox(
+            min_lat=s.bbox_min_lat,
+            max_lat=s.bbox_max_lat,
+            min_lon=s.bbox_min_lon,
+            max_lon=s.bbox_max_lon,
+        ),
+    )]
+
+
 class Settings(BaseSettings):
     redis_url: str = "redis://localhost:6379"
     database_url: str = "postgresql+asyncpg://vertex:vertex@localhost:5432/vertex"
     log_level: str = "INFO"
+
+    @property
+    def regions(self) -> list[RegionConfig]:
+        return load_regions(self)
 
     # Home location (Tualatin)
     region_lat: float = 45.3842
@@ -172,29 +205,3 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
-
-
-def load_regions() -> list[RegionConfig]:
-    """Load regions from sources.yml, falling back to the single bbox from settings."""
-    import yaml, os
-    sources_path = os.environ.get("SOURCES_YML", "/config/sources.yml")
-    try:
-        with open(sources_path) as f:
-            data = yaml.safe_load(f) or {}
-        raw = data.get("regions") or []
-        regions = [RegionConfig(**r) for r in raw if r.get("enabled", True)]
-        if regions:
-            return regions
-    except (FileNotFoundError, Exception):
-        pass
-    # Fallback: build a single region from env-var bbox
-    return [RegionConfig(
-        id="default",
-        name=settings.region_name if hasattr(settings, "region_name") else "Default",
-        bbox=RegionBbox(
-            min_lat=settings.bbox_min_lat,
-            max_lat=settings.bbox_max_lat,
-            min_lon=settings.bbox_min_lon,
-            max_lon=settings.bbox_max_lon,
-        ),
-    )]

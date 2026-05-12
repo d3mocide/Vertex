@@ -1,7 +1,7 @@
 import asyncio
 import logging
 import httpx
-from config import settings
+from config import settings, load_regions
 from bus import set_feed
 from normalizers.weather import normalize_observation
 from .base import BasePoller
@@ -29,8 +29,6 @@ class WeatherPoller(BasePoller):
         self._nwws_tick = 999
 
     async def poll(self):
-        global _aviation_tick
-
         obs, aqi = await asyncio.gather(
             self._fetch_observation(),
             self._fetch_aqi(),
@@ -57,11 +55,16 @@ class WeatherPoller(BasePoller):
                 logger.warning("[weather] aviation hazards fetch failed: %s", hazards)
                 await set_feed("weather:aviation_hazards", {"pireps": [], "sigmets": [], "airmets": []})
             elif isinstance(hazards, dict):
+                logger.info("[weather] published aviation hazards: %d pireps, %d sigmets, %d airmets", 
+                            len(hazards.get("pireps", [])), len(hazards.get("sigmets", [])), len(hazards.get("airmets", [])))
                 await set_feed("weather:aviation_hazards", hazards)
+
             if isinstance(avobs, Exception):
                 logger.warning("[weather] aviation obs fetch failed: %s", avobs)
                 await set_feed("weather:aviation_obs", {"metars": [], "tafs": []})
             elif isinstance(avobs, dict):
+                logger.info("[weather] published aviation observations: %d metars, %d tafs",
+                            len(avobs.get("metars", [])), len(avobs.get("tafs", [])))
                 await set_feed("weather:aviation_obs", avobs)
 
         # NWS text products every 30 min
@@ -159,7 +162,7 @@ class WeatherPoller(BasePoller):
     async def _fetch_aviation_hazards(self) -> dict:
         """Fetch PIREPs and SIGMETs/AIRMETs from aviationweather.gov for all regions."""
         # Use regions if configured, else fallback to settings bbox
-        regions = settings.regions or [None]
+        regions = load_regions() or [None]
         
         all_pireps = {}
         all_sigmets = {}
@@ -228,7 +231,7 @@ class WeatherPoller(BasePoller):
 
     async def _fetch_aviation_obs(self) -> dict:
         """Fetch METARs and TAFs for all regions."""
-        regions = settings.regions or [None]
+        regions = load_regions() or [None]
         all_metars = {}
         all_tafs = {}
 
@@ -315,6 +318,7 @@ class WeatherPoller(BasePoller):
             ("AFD", "Area Forecast Discussion"),
             ("HWO", "Hazardous Weather Outlook"),
             ("LSR", "Local Storm Report"),
+            ("CF6", "F6 Climate Data"),
         ]
         results: list[dict] = []
         async with httpx.AsyncClient(timeout=15, headers=_HEADERS) as client:

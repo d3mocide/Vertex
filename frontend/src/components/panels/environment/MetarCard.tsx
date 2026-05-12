@@ -82,61 +82,56 @@ export function MetarCard() {
         <span className="ml-auto font-mono text-[9px] text-gray-500">{metars.length} station{metars.length !== 1 ? 's' : ''}</span>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        {metars.slice(0, 10).map((m, i) => {
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-2">
+        {metars.slice(0, 12).map((m, i) => {
           const taf = m.station ? tafByStation[m.station] : null
           const catCls = flightCatColor(m.flight_category)
           return (
-            <div key={i} className="border border-white/5 bg-white/[0.02] p-2 hover:bg-white/[0.04] transition-colors">
-              <div className="flex items-center justify-between gap-2 mb-2 border-b border-white/5 pb-1">
-                <span className="font-mono text-[10px] font-black text-on-surface tracking-tighter">{m.station ?? '????'}</span>
+            <div key={i} className="border border-white/5 bg-white/[0.02] p-2 hover:bg-white/[0.04] transition-colors flex flex-col gap-1.5">
+              <div className="flex items-center justify-between gap-2 border-b border-white/5 pb-1">
                 <div className="flex items-center gap-2">
+                  <span className="font-mono text-[10px] font-black text-on-surface tracking-tighter">{m.station ?? '????'}</span>
                   <span className={`font-mono text-[8px] font-bold px-1.5 py-0.5 rounded-sm bg-white/5 ${catCls}`}>
                     {m.flight_category ?? '--'}
                   </span>
                 </div>
-              </div>
-              
-              <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[9px] font-mono leading-tight">
-                <div className="flex justify-between border-r border-white/5 pr-2">
-                  <span className="text-on-surface-variant/40 uppercase text-[7px]">Temp</span>
-                  <span className="text-on-surface font-bold">{m.temp_c != null ? `${m.temp_c}°` : '--'}</span>
-                </div>
-                <div className="flex justify-between pl-1">
-                  <span className="text-on-surface-variant/40 uppercase text-[7px]">Dew</span>
-                  <span className="text-on-surface">{m.dewpoint_c != null ? `${m.dewpoint_c}°` : '--'}</span>
-                </div>
-                
-                <div className="col-span-2 flex justify-between py-0.5 border-y border-white/5 my-0.5">
-                  <span className="text-on-surface-variant/40 uppercase text-[7px]">Wind</span>
-                  <span className="text-amber-gold font-bold">
-                    {windDir(m.wind_dir)} {m.wind_kt != null ? `${m.wind_kt}kt` : '--'}
-                    {m.gust_kt != null ? ` G${m.gust_kt}` : ''}
-                  </span>
-                </div>
-
-                <div className="flex justify-between border-r border-white/5 pr-2">
-                  <span className="text-on-surface-variant/40 uppercase text-[7px]">Vis</span>
-                  <span className="text-on-surface">{m.visibility_sm != null ? `${m.visibility_sm}m` : '--'}</span>
-                </div>
-                <div className="flex justify-between pl-1">
-                  <span className="text-on-surface-variant/40 uppercase text-[7px]">Alt</span>
-                  <span className="text-sky-400/80">{m.altimeter != null ? `${m.altimeter.toFixed(2)}` : '--'}</span>
+                <div className="font-mono text-[9px] font-bold text-amber-gold">
+                  {windDir(m.wind_dir)} {m.wind_kt != null ? `${m.wind_kt}kt` : '--'}
+                  {m.gust_kt != null ? ` G${m.gust_kt}` : ''}
                 </div>
               </div>
-
-              {taf && (
-                <button
-                  className="mt-2 text-[7px] font-mono text-violet-400/40 hover:text-violet-300 uppercase tracking-widest w-full text-center py-1 border border-violet-400/10 bg-violet-400/5 hover:bg-violet-400/10 transition-colors"
-                  onClick={() => setShowTaf(showTaf === String(i) ? null : String(i))}
-                >
-                  {showTaf === String(i) ? 'CLOSE TAF' : 'VIEW TAF'}
-                </button>
-              )}
               
+              <div className="flex items-center justify-between gap-4 text-[9px] font-mono leading-none">
+                <div className="flex gap-3">
+                  <div className="flex gap-1">
+                    <span className="text-on-surface-variant/40 uppercase text-[7px]">T/D</span>
+                    <span className="text-on-surface font-bold">
+                      {m.temp_c != null ? `${Math.round(m.temp_c)}` : '--'}/{m.dewpoint_c != null ? `${Math.round(m.dewpoint_c)}` : '--'}°
+                    </span>
+                  </div>
+                  <div className="flex gap-1">
+                    <span className="text-on-surface-variant/40 uppercase text-[7px]">VIS</span>
+                    <span className="text-on-surface">{m.visibility_sm != null ? `${m.visibility_sm}` : '--'}</span>
+                  </div>
+                  <div className="flex gap-1">
+                    <span className="text-on-surface-variant/40 uppercase text-[7px]">ALT</span>
+                    <span className="text-sky-400/80">{m.altimeter != null ? `${m.altimeter.toFixed(2)}` : '--'}</span>
+                  </div>
+                </div>
+
+                {taf && (
+                  <button
+                    className={`text-[7px] font-mono px-2 py-0.5 border transition-colors uppercase tracking-widest ${showTaf === String(i) ? 'bg-violet-400 text-black border-violet-400' : 'text-violet-400/60 border-violet-400/20 hover:bg-violet-400/10'}`}
+                    onClick={() => setShowTaf(showTaf === String(i) ? null : String(i))}
+                  >
+                    TAF
+                  </button>
+                )}
+              </div>
+
               {showTaf === String(i) && taf && (
-                <div className="mt-2 p-2 bg-black/40 border border-violet-400/20">
-                  <p className="text-[8px] font-mono text-violet-200/60 leading-relaxed italic break-words">
+                <div className="p-1.5 bg-black/40 border border-violet-400/20 animate-in fade-in slide-in-from-top-1">
+                  <p className="text-[8px] font-mono text-violet-200/60 leading-tight italic break-words">
                     {taf.raw}
                   </p>
                 </div>

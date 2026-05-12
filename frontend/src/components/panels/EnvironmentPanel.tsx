@@ -88,7 +88,7 @@ export function EnvironmentPanel() {
       <div className="flex-1 overflow-y-auto min-h-0 pb-24">
         <div className="flex flex-col lg:flex-row gap-6 lg:gap-10 p-2 sm:p-4 lg:p-6 items-stretch lg:items-start">
 
-          {/* LEFT COLUMN: Data Stream */}
+          {/* LEFT COLUMN */}
           <div className="flex-1 min-w-0 flex flex-col gap-8 lg:pr-1">
             {/* NWS Alerts */}
             <section aria-labelledby="nws-heading">
@@ -153,7 +153,9 @@ export function EnvironmentPanel() {
             </section>
 
             <AqiGauge aqi={weather.aqi} />
-
+            <NwwsCard />
+            <GdacsCard />
+            
             <FireStatusCard
               localFires={localFires}
               regionalFires={regionalFires}
@@ -161,17 +163,19 @@ export function EnvironmentPanel() {
               aqiLabel={weather.aqi_label}
             />
 
-            <MetarCard />
-            <NwwsCard />
+            <SeismicCard events={mergedSeismicEvents} />
           </div>
 
-          {/* RIGHT COLUMN: Radar + Aviation */}
-          <div className="flex-1 min-w-0 flex flex-col self-stretch lg:self-start gap-6">
+          {/* RIGHT COLUMN */}
+          <div className="flex-1 min-w-0 flex flex-col self-stretch lg:self-start gap-8">
             <RadarControls />
-            <WeatherCard />
-            <PWSCard />
-            <GdacsCard />
-            <SeismicCard events={mergedSeismicEvents} />
+            
+            <div className="flex flex-col gap-4">
+              <WeatherCard />
+              <PWSCard />
+            </div>
+
+            <MetarCard />
             <PirepCard />
           </div>
 

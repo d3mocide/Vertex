@@ -14,12 +14,14 @@ const CODE_ICONS: Record<string, string> = {
   AFD: 'cloud',
   HWO: 'warning',
   LSR: 'storm',
+  CF6: 'calendar_month',
 }
 
 const CODE_COLORS: Record<string, string> = {
   AFD: 'text-sky-400',
   HWO: 'text-amber-400',
   LSR: 'text-red-400',
+  CF6: 'text-violet-400',
 }
 
 function formatIso(ts: string | null | undefined): string {
