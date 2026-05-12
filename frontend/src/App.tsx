@@ -29,6 +29,7 @@ import { GeofenceController }  from './components/panels/GeofenceController'
 import { CameraModal }         from './components/panels/CameraModal'
 import { IncidentsPanel }      from './components/panels/IncidentsPanel'
 import { CommsPanel }          from './components/panels/CommsPanel'
+import { FlightLogPanel }      from './components/panels/FlightLogPanel'
 import { AnnotationController } from './components/panels/AnnotationController'
 import { InstallPrompt } from './components/InstallPrompt'
 
@@ -52,7 +53,7 @@ function Dashboard() {
       <div
         className={`
           fixed inset-0 transition-opacity duration-300
-          ${activeTab === 'safety' ? 'opacity-100 z-0' : 'opacity-30 z-0'}
+          ${activeTab === 'safety' ? 'opacity-100 z-0' : activeTab === 'flightlog' ? 'opacity-70 z-0' : 'opacity-30 z-0'}
         `}
         aria-hidden={activeTab !== 'safety'}
       >
@@ -84,6 +85,7 @@ function Dashboard() {
                 {activeTab === 'events'         && <EventLogPanel      />}
                 {activeTab === 'incidents'      && <IncidentsPanel     />}
                 {activeTab === 'comms'          && <CommsPanel         />}
+                {activeTab === 'flightlog'      && <FlightLogPanel     />}
               </div>
             )}
 

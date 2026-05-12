@@ -1,13 +1,12 @@
 import { useCivicStore, NavTab } from '../../store'
 
 const TABS: { id: NavTab; label: string; icon: string }[] = [
-  { id: 'safety',         label: 'Map',    icon: 'dashboard'  },
-  { id: 'incidents',      label: 'Alerts', icon: 'report'     },
-  { id: 'infrastructure', label: 'Infra',  icon: 'traffic'    },
-  { id: 'environment',    label: 'Env',    icon: 'eco'        },
-  { id: 'community',      label: 'Comm',   icon: 'groups'     },
-  { id: 'comms',          label: 'Comms',  icon: 'forum'      },
-  { id: 'events',         label: 'Log',    icon: 'history'    },
+  { id: 'safety',         label: 'Map',     icon: 'dashboard'  },
+  { id: 'incidents',      label: 'Alerts',  icon: 'report'     },
+  { id: 'environment',    label: 'Env',     icon: 'eco'        },
+  { id: 'comms',          label: 'Comms',   icon: 'forum'      },
+  { id: 'flightlog',      label: 'Flights', icon: 'flight'     },
+  { id: 'events',         label: 'Log',     icon: 'history'    },
 ]
 
 export function MobileNav() {

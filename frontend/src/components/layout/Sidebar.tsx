@@ -297,6 +297,15 @@ export function Sidebar() {
           >
             <span className="ms text-[20px]" aria-hidden="true">forum</span>
           </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('flightlog')}
+            className="text-on-surface-variant hover:text-amber-gold transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-amber-gold"
+            aria-label="Flight Log"
+            title="Flight Log"
+          >
+            <span className="ms text-[20px]" aria-hidden="true">flight</span>
+          </button>
 
           <div className="mt-2 w-8 border-t border-white/10" aria-hidden="true" />
 
