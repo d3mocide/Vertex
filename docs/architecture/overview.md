@@ -16,8 +16,8 @@ Vertex is a local-first situational awareness stack built around five cooperatin
 
 ```text
 external APIs and local sensors
-        -> poller
-        -> PostgreSQL
+        -> poller (14 async workers)
+        -> PostgreSQL + PostGIS
         -> Redis pub/sub
         -> backend WebSocket and REST
         -> frontend store and map layers
@@ -35,24 +35,33 @@ Major surfaces include:
 - radio metadata and dynamic source configuration
 - authentication and admin flows
 - outbound alert rule and webhook handling
+- Prometheus metrics endpoint
+- admin metrics (poller heartbeats, ingestion rates, signal quality, entity freshness, squawk counters, talkgroup activity, mesh battery, data completeness)
 
 ## Poller Responsibilities
 
 The poller is the ingestion engine. It connects to local devices, remote APIs, and feed endpoints, normalizes payloads, persists data, and publishes real-time updates.
 
-Current poller coverage includes:
+Current poller coverage (14 async workers):
 
-- ADS-B aircraft
-- AIS vessels
-- APRS stations
-- weather conditions and alerts
-- traffic incidents, cameras, and flow
-- wildfire activity
-- news and emergency alert feeds
-- P25 metadata
-- MeshCore updates
-- seismic events
-- summary generation
+| Poller | Source |
+|--------|--------|
+| ADS-B | Local BEAST / tar1090 JSON, optional OpenSky supplement |
+| AIS | Local AIS-catcher WebSocket or AISstream.io cloud fallback |
+| APRS | APRS-IS network |
+| Weather | NWS observations, alerts, METAR/TAF, PIREPs/SIGMETs, NWWS text products, AirNow AQI, Wunderground PWS, NOAA GOES WMS |
+| Traffic | ODOT TripCheck incidents, cameras, flow sensors |
+| Fire | USFS USGS active fire points; NIFC/WFIGS fire perimeters |
+| News | Aggregated RSS and Atom feeds |
+| Alerts | FlashAlert, NWS CAP, county RSS |
+| P25 | OP25 metadata endpoint |
+| MeshCore | MeshCore bridge WebSocket |
+| Seismic | USGS earthquake feed |
+| GDACS | Global Disaster Alert and Coordination System GeoRSS |
+| AI Summary | LiteLLM-compatible situational summary generation |
+| Anomaly Detection | Sigma-threshold anomaly alerting on telemetry streams |
+
+TinyGS satellite ground station ingestion is available as an optional worker enabled via `TINYGS_ENABLED`.
 
 ## Frontend Responsibilities
 
@@ -64,6 +73,16 @@ High-level flow:
 2. `/ws` pushes incremental updates.
 3. Zustand stores merge and normalize feed data.
 4. Deck.gl layer builders render entities, trails, overlays, and UI panels.
+
+Key layer builders:
+
+- entity layer (aircraft, vessels, APRS, hazard icons)
+- trail and history layers
+- lightning, stream gauge, mesh node, and camera layers
+- fire perimeter polygon overlay (NIFC)
+- GOES satellite raster tile overlay
+- seismic event scatter layer
+- custom KML / GeoJSON layers
 
 ## Configuration Boundaries
 
@@ -89,6 +108,13 @@ Redis is used for:
 - live entity and event fan-out
 - hot feed cache snapshots
 - inter-service publish/subscribe
+
+## Optional Compose Profiles
+
+| Profile | What it adds |
+|---------|-------------|
+| `monitoring` | Grafana + Prometheus for dashboards and metrics |
+| `offline` | tileserver-gl for local raster map tile serving |
 
 ## Operational Notes
 

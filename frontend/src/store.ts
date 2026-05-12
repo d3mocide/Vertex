@@ -103,6 +103,8 @@ interface CivicStore {
   setMobileNavOpen:    (v: boolean) => void
   settingsOpen:        boolean
   setSettingsOpen:     (v: boolean) => void
+  helpOpen:            boolean
+  setHelpOpen:         (v: boolean) => void
   entityFilter:        EntityTypeFilter
   setEntityFilter:     (f: Partial<EntityTypeFilter>) => void
   entitySearchQuery:   string
@@ -346,6 +348,7 @@ export const useCivicStore = create<CivicStore>()(
   annotationToolbarOpen: false,
   mobileNavOpen:    false,
   settingsOpen:     false,
+  helpOpen:         false,
   entityFilter:     { aircraft: true, adsbLocal: true, adsbSupplement: true, vessel: true, mesh_node: true, aprs: true, fire_incident: true, satellite: true, tinygs_station: true },
   entitySearchQuery: '',
   entityAltRange:   ALT_RANGE_DEFAULT,
@@ -541,6 +544,7 @@ export const useCivicStore = create<CivicStore>()(
   setTerrainExaggeration: (terrainExaggeration) => set({ terrainExaggeration }),
   setMobileNavOpen:  (mobileNavOpen)  => set({ mobileNavOpen }),
   setSettingsOpen:   (settingsOpen)   => set({ settingsOpen }),
+  setHelpOpen:       (helpOpen)       => set({ helpOpen }),
   setEntityFilter:   (f)              => set((s) => ({ entityFilter: { ...s.entityFilter, ...f } })),
   setEntitySearchQuery: (entitySearchQuery) => set({ entitySearchQuery }),
   setEntityAltRange:   (entityAltRange)    => set({ entityAltRange }),

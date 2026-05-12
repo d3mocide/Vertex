@@ -4,7 +4,7 @@ This page describes how map symbols render in Vertex by zoom level and signal ty
 
 ## Last Updated From Code
 
-- Date: 2026-05-06
+- Date: 2026-05-12
 - Intent: Keep this page synchronized with rendering rules in the frontend layer builders.
 - Primary source files:
   - frontend/src/layers/buildEntityLayers.ts
@@ -13,6 +13,8 @@ This page describes how map symbols render in Vertex by zoom level and signal ty
   - frontend/src/layers/buildMeshNodeLayer.ts
   - frontend/src/layers/buildCameraLayer.ts
   - frontend/src/layers/colorUtils.ts
+  - frontend/src/layers/FirePerimeterLayer.tsx
+  - frontend/src/layers/GOESLayer.tsx
 
 If map symbol behavior changes, update this document in the same change set.
 
@@ -162,6 +164,36 @@ Layer source: frontend/src/layers/buildCameraLayer.ts
 
 - Default: rgba(255, 184, 0, 200)
 - Selected: rgba(255, 184, 0, 255)
+
+## Seismic Event Layer
+
+Seismic events are rendered as a Deck.gl ScatterplotLayer on the situational map.
+
+### Appearance
+
+- Points sized by magnitude
+- Color intensity scaled by recency
+
+## Fire Perimeter Layer
+
+Layer source: frontend/src/layers/FirePerimeterLayer.tsx
+
+Active fire perimeters are fetched from the NIFC/WFIGS GeoJSON endpoint and rendered as filled polygons.
+
+- Fill: semi-transparent orange-red
+- Stroke: solid orange-red outline
+- Toggled via the fire perimeters toggle in Settings
+- Refreshed approximately every 30 minutes
+
+## GOES Satellite Overlay
+
+Layer source: frontend/src/layers/GOESLayer.tsx
+
+NOAA GOES satellite imagery is served as WMS tiles proxied via NOAA nowCOAST.
+
+- Two modes: IR (infrared) and visible
+- Rendered as a raster tile layer behind entity layers
+- Toggled via the GOES satellite toggle in Settings
 
 ## Notes
 

@@ -15,6 +15,7 @@ import { Header }            from './components/layout/Header'
 import { EnvBar }            from './components/layout/EnvBar'
 import { MobileNav }         from './components/layout/MobileNav'
 import { SettingsPanel }     from './components/layout/SettingsPanel'
+import { HelpPanel }         from './components/panels/HelpPanel'
 import { Map }               from './components/Map'
 import { TacticalAudio }     from './components/panels/TacticalAudio'
 import { EntityDetail }      from './components/panels/EntityDetail'
@@ -120,6 +121,7 @@ function Dashboard() {
 
       <MobileNav />
       <SettingsPanel />
+      <HelpPanel />
       <InstallPrompt />
     </div>
   )

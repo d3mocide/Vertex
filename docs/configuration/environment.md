@@ -27,7 +27,6 @@ These settings control map centering and feed relevance.
 |----------|---------|
 | `REGION_LAT` | Default map latitude |
 | `REGION_LON` | Default map longitude |
-| `REGION_ALT` | Human-readable reference altitude |
 | `REGION_NAME` | Region label shown in the app |
 | `BBOX_MIN_LAT` | Southern bounding edge |
 | `BBOX_MAX_LAT` | Northern bounding edge |
@@ -43,16 +42,20 @@ When relocating the system, update the region center, bounding box, and weather 
 | `NWS_STATION_PRIMARY` | Primary NWS observation station | Example: `KHIO` |
 | `NWS_STATION_SECONDARY` | Secondary observation station | Fallback station |
 | `NWS_ZONE` | Primary NWS zone code | Used for local weather context |
+| `NWS_OFFICE` | NWS forecast office identifier | Used to fetch NWWS text products (AFD, HWO, LSR). Example: `PQR` |
 | `NWS_ALERT_ZONES` | Comma-separated alert zones | Used as startup fallback if alert zones are not populated elsewhere |
 | `ODOT_API_KEY` | TripCheck API key | Required for traffic feeds |
 | `AIRNOW_API_KEY` | AirNow API key | Required for AQI |
 | `AISSTREAM_API_KEY` | AISstream API key | Only needed when using cloud AIS fallback |
+| `WUNDERGROUND_API_KEY` | Wunderground API key | Required for Personal Weather Station data |
+| `WUNDERGROUND_STATION_ID` | Wunderground station ID | The specific PWS station to poll |
 
 ## Wildfire and APRS Controls
 
 | Variable | Purpose | Notes |
 |----------|---------|-------|
 | `FIRE_ALERT_RADIUS_KM` | Local wildfire alert radius | Fires within bbox or this radius remain alertable |
+| `FIRE_ALERT_RECENT_HOURS` | Max age for local fire alert retention | Suppresses stale local incidents |
 | `FIRE_REGIONAL_RADIUS_KM` | Regional wildfire awareness radius | Used for smoke and context awareness |
 | `FIRE_REGIONAL_RECENT_HOURS` | Max age for regional wildfire retention | Suppresses stale distant incidents |
 | `APRS_CALLSIGN` | APRS-IS login callsign | Used when APRS fallback is enabled |
@@ -70,9 +73,17 @@ These settings control aircraft ingest strategy and enrichment behavior.
 | `ADSB_BEAST_PORT` | BEAST endpoint port |
 | `ADSB_BEAST_RECONNECT_INITIAL_SECONDS` | Initial reconnect delay |
 | `ADSB_BEAST_RECONNECT_MAX_SECONDS` | Maximum reconnect delay |
+| `ADSB_BEAST_STALE_THRESHOLD_SECONDS` | Seconds before a BEAST-sourced entity is considered stale |
 | `ADSB_BEAST_HTTP_FALLBACK` | Keeps HTTP polling active while BEAST is enabled |
 | `ADSB_PUBLISH_ONLY_CHANGES` | Reduces aircraft publish noise by emitting only changed updates |
+| `ADSB_OPENSKY_SUPPLEMENT` | Enables OpenSky as a supplemental data source |
+| `ADSB_OPENSKY_INTERVAL` | OpenSky poll interval in seconds |
+| `ADSB_OPENSKY_STALE_THRESHOLD` | Minutes before an OpenSky-sourced entity is considered stale |
+| `ADSB_OPENSKY_RECORD_OBSERVATIONS` | Persists OpenSky observations to history |
+| `ADSB_OPENSKY_USERNAME` | OpenSky account username (optional, for higher rate limits) |
+| `ADSB_OPENSKY_PASSWORD` | OpenSky account password |
 | `ADSB_HISTORY_MODE` | Observation storage mode: `record` or `live_only` |
+| `ADSB_ENRICHMENT_CACHE_DIR` | Directory for enrichment reference data |
 | `ADSB_AIRCRAFT_DB_PATH` | Aircraft metadata CSV path |
 | `ADSB_AIRPORTS_DB_PATH` | Airports reference file path |
 | `ADSB_AIRLINES_DB_PATH` | Airline reference file path |
@@ -80,15 +91,42 @@ These settings control aircraft ingest strategy and enrichment behavior.
 
 `ADSB_HISTORY_MODE=record` stores observation history for trails and historical queries. `live_only` keeps live tracking and geofence behavior while reducing database write volume.
 
+## CoT / TAK Output
+
+Cursor-on-Target (CoT) output sends entity positions to TAK-compatible receivers.
+
+| Variable | Purpose | Notes |
+|----------|---------|-------|
+| `COT_ENABLED` | Enables CoT UDP multicast output | Default: `false` |
+| `COT_MULTICAST_ADDR` | Multicast group address | Standard TAK address: `239.2.3.1` |
+| `COT_MULTICAST_PORT` | Multicast UDP port | Standard TAK port: `6969` |
+| `COT_STALE_SECONDS` | CoT stale timeout in seconds | |
+| `COT_TAKSERVER_HOST` | TAK Server host for TCP output | Leave blank to use multicast only |
+| `COT_TAKSERVER_PORT` | TAK Server TCP port | Typically `8087` |
+| `COT_RECEIVE_ENABLED` | Enables CoT receive mode for ingesting external CoT feeds | |
+| `COT_RECEIVE_HOST` | Host to bind the CoT receiver | |
+| `COT_RECEIVE_PORT` | Port for the CoT receiver | |
+
 ## Traffic and Frontend Settings
 
 | Variable | Purpose | Notes |
 |----------|---------|-------|
 | `TRAFFIC_FLOW_CORRIDORS` | Comma-separated highway filters | Used to narrow traffic detector coverage |
-| `VITE_RADAR_LAYER` | Radar overlay layer ID | Frontend build-time variable |
+| `VITE_RADAR_LAYER` | Primary radar overlay layer ID | Frontend build-time variable |
+| `VITE_RADAR_FALLBACK_LAYER` | Fallback radar layer at low zoom | Frontend build-time variable |
+| `VITE_RADAR_FALLBACK_MAX_ZOOM` | Zoom threshold below which fallback layer activates | Frontend build-time variable |
 | `VITE_OBSERVATION_RANGE_KM` | Trail/history display radius | Frontend build-time variable |
+| `VITE_PRESERVE_DRAWING_BUFFER` | Enables WebGL drawing buffer preservation (needed for canvas exports) | Frontend build-time variable |
 
-## Optional AI Summary Settings
+## TinyGS
+
+| Variable | Purpose |
+|----------|---------|
+| `TINYGS_ENABLED` | Enables TinyGS satellite ground station polling |
+
+TinyGS credentials and station configuration are managed separately through the TinyGS platform. Enable this only when a local TinyGS station is operational.
+
+## AI Summary Settings
 
 | Variable | Purpose |
 |----------|---------|
@@ -97,6 +135,14 @@ These settings control aircraft ingest strategy and enrichment behavior.
 | `SUMMARY_LLM_API_BASE` | Custom base URL for self-hosted or proxy backends |
 
 Leave `SUMMARY_LLM_MODEL` blank to disable summary generation.
+
+## Anomaly Detection Settings
+
+| Variable | Purpose | Notes |
+|----------|---------|-------|
+| `ANOMALY_ENABLED` | Enables background anomaly detection | Default: `true` |
+| `ANOMALY_WINDOW_MINUTES` | Rolling window for baseline calculation | Default: `60` |
+| `ANOMALY_SIGMA_THRESHOLD` | Standard deviations above baseline to trigger an alert | Default: `2.5` |
 
 ## Authentication Settings
 
@@ -107,6 +153,15 @@ Leave `SUMMARY_LLM_MODEL` blank to disable summary generation.
 | `AUTH_TOKEN_EXPIRE_HOURS` | Token lifetime in hours |
 
 Use a strong random value for `AUTH_SECRET_KEY` before enabling authentication.
+
+## CORS and TLS
+
+| Variable | Purpose |
+|----------|---------|
+| `CORS_ORIGINS` | JSON array of allowed origins for CORS | Example: `["http://localhost:3000"]` |
+| `CORS_ALLOW_CREDENTIALS` | Whether to allow credentialed cross-origin requests |
+| `TLS_CERT_PATH` | Path to TLS certificate (used with the `tls` Compose profile) |
+| `TLS_KEY_PATH` | Path to TLS private key |
 
 ## Recommended Editing Order
 
