@@ -29,6 +29,7 @@ import { GeofenceController }  from './components/panels/GeofenceController'
 import { CameraModal }         from './components/panels/CameraModal'
 import { IncidentsPanel }      from './components/panels/IncidentsPanel'
 import { CommsPanel }          from './components/panels/CommsPanel'
+import { FlightLogPanel }      from './components/panels/FlightLogPanel'
 import { AnnotationController } from './components/panels/AnnotationController'
 import { InstallPrompt } from './components/InstallPrompt'
 
@@ -84,6 +85,7 @@ function Dashboard() {
                 {activeTab === 'events'         && <EventLogPanel      />}
                 {activeTab === 'incidents'      && <IncidentsPanel     />}
                 {activeTab === 'comms'          && <CommsPanel         />}
+                {activeTab === 'flightlog'      && <FlightLogPanel     />}
               </div>
             )}
 
