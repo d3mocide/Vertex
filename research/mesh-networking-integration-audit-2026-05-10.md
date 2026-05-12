@@ -1,11 +1,5 @@
 # Mesh Networking Integration Audit — 2026-05-10
 
-## Overview
-This audit covers the current state of the Mesh Core integration with the **RemoteTerm** instance at `http://192.168.75.175:8000`. This integration provides real-time comms, map-based link visualization, and node neighbor tracking.
-
-## Validation Status: http://192.168.75.175:8000
-Audit performed via `vertex-poller-1` container diagnostics on 2026-05-10.
-
 | Component | Endpoint | Result | Status |
 | :--- | :--- | :--- | :--- |
 | **Contacts** | `GET /api/contacts` | Valid JSON array of mesh nodes | ✅ OK |

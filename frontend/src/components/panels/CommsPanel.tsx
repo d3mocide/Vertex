@@ -6,7 +6,9 @@ import { DEFAULT_CENTER } from '../../config'
 function formatTime(iso: string) {
   if (!iso) return '--:--'
   try {
-    return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    const d = new Date(iso)
+    if (isNaN(d.getTime())) return '--:--'
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
   } catch {
     return '--:--'
   }
@@ -15,7 +17,7 @@ function formatTime(iso: string) {
 function NodeRow({ node, distM }: { node: Entity; distM: number }) {
   const km = (distM / 1000).toFixed(1)
   const isMesh = node.entity_type === 'mesh_node'
-  
+
   return (
     <div className="flex items-center justify-between p-1.5 px-3 hover:bg-white/10 transition-colors group">
       <div className="flex items-center gap-2.5">
@@ -84,7 +86,7 @@ function AircraftRow({ track, distM }: { track: Track; distM: number }) {
 
 function Sparkline({ data, max, color }: { data: number[]; max: number; color: string }) {
   if (data.length < 2) return <div className="h-4 w-12 bg-white/5 animate-pulse rounded-sm" />
-  
+
   const width = 60
   const height = 16
   const points = data.map((val, i) => {
@@ -122,9 +124,9 @@ function SignalMeter({ label, value, max, colorClass, history }: { label: string
         {history && <Sparkline data={history} max={max} color={hexColor} />}
       </div>
       <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden border border-white/5">
-        <div 
-          className={`h-full transition-all duration-1000 ${colorClass.replace('text-', 'bg-')}`} 
-          style={{ width: `${percent}%`, boxShadow: `0 0 10px ${percent > 50 ? `${hexColor}4D` : 'transparent'}` }} 
+        <div
+          className={`h-full transition-all duration-1000 ${colorClass.replace('text-', 'bg-')}`}
+          style={{ width: `${percent}%`, boxShadow: `0 0 10px ${percent > 50 ? `${hexColor}4D` : 'transparent'}` }}
         />
       </div>
     </div>
@@ -136,7 +138,7 @@ function SpectralMonitor({ links, history, status }: { links: MeshLink[]; histor
   const topLinks = [...links].sort((a, b) => (b.snr || 0) - (a.snr || 0)).slice(0, 3)
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+    <div className="grid grid-cols-1 gap-4 mt-2">
       {/* Local Device Card (Always show if status exists) */}
       {status && (
         <div className="p-3 border border-amber-gold/30 bg-amber-gold/5 rounded-sm flex flex-col gap-3 group">
@@ -208,11 +210,11 @@ export function CommsPanel() {
 
   // Calculate nearest nodes
   const nearestNodes = useMemo(() => {
-    const list = Object.values(entities).filter(e => 
-      (e.entity_type === 'mesh_node' || e.entity_type === 'aprs' || e.entity_type === 'tinygs_station') && 
+    const list = Object.values(entities).filter(e =>
+      (e.entity_type === 'mesh_node' || e.entity_type === 'aprs' || e.entity_type === 'tinygs_station') &&
       e.lat != null && e.lon != null
     )
-    
+
     return list.map(e => ({
       entity: e,
       dist: getDistanceMeters(DEFAULT_CENTER[1], DEFAULT_CENTER[0], e.lat!, e.lon!)
@@ -232,7 +234,7 @@ export function CommsPanel() {
   }, [tracks])
 
   const p25Events = useMemo(() => {
-    return systemEvents.filter(ev => 
+    return systemEvents.filter(ev =>
       ev.event_type === 'p25_call_start' || ev.event_type === 'p25_call_end'
     ).reverse().slice(0, 8)
   }, [systemEvents])
@@ -240,8 +242,8 @@ export function CommsPanel() {
   const filteredMessages = useMemo(() => {
     if (!msgFilter) return [...meshMessages].reverse()
     const q = msgFilter.toLowerCase()
-    return meshMessages.filter(m => 
-      (m.text ?? '').toLowerCase().includes(q) || 
+    return meshMessages.filter(m =>
+      (m.text ?? '').toLowerCase().includes(q) ||
       (m.sender_name ?? '').toLowerCase().includes(q) ||
       (m.conversation_key ?? '').toLowerCase().includes(q)
     ).reverse()
@@ -262,10 +264,11 @@ export function CommsPanel() {
           <span className="font-mono text-[9px] text-green-ais uppercase tracking-widest">ACTIVE</span>
         </div>
       </div>
-
-      <div className="flex-1 overflow-y-auto p-4 pb-24 flex flex-col lg:flex-row gap-6">
-        {/* Left Column: Radio & Topology */}
-        <div className="flex-1 space-y-6 max-w-md">
+      {/* Scrollable body */}
+      <div className="flex-1 overflow-y-auto min-h-0 pb-24">
+        <div className="flex flex-col lg:flex-row gap-6 lg:gap-10 p-2 sm:p-4 lg:p-6 items-stretch lg:items-start">
+          {/* Left Column: Radio & Topology */}
+          <div className="flex-1 min-w-0 lg:max-w-md space-y-6">
           {/* RF Communications Card */}
           <section>
             <h3 className="section-heading mb-3 flex items-center gap-2">
@@ -340,9 +343,9 @@ export function CommsPanel() {
                 </span>
               </div>
               {nearestNodes.length > 0 ? (
-                <div className="grid grid-cols-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2">
                   {nearestNodes.map(({ entity, dist }) => (
-                    <div key={entity.entity_id} className="border-b border-white/5 odd:border-r">
+                    <div key={entity.entity_id} className="border-b border-white/5 sm:odd:border-r">
                       <NodeRow node={entity} distM={dist} />
                     </div>
                   ))}
@@ -355,19 +358,27 @@ export function CommsPanel() {
             </div>
           </section>
 
+          {/* Spectral Health / Signal Graphs */}
+          <section>
+            <h3 className="section-heading mb-3 flex items-center gap-2">
+              <span className="ms text-[14px] text-amber-gold">analytics</span>
+              Spectral Health
+            </h3>
+            <SpectralMonitor links={meshLinks} history={linkHistory} status={meshStatus} />
+          </section>
         </div>
 
         {/* Right Column: Mesh Chat */}
-        <div className="flex-[2] flex flex-col min-h-[400px]">
+        <div className="flex-[2] min-w-0 flex flex-col gap-6">
           <h3 className="section-heading mb-3 flex items-center gap-2">
             <span className="ms text-[14px] text-amber-gold">chat</span>
             Mesh Network Messaging
           </h3>
-          
-          <div className="flex-1 flex flex-col border border-white/10 bg-onyx-deep/40 rounded-sm overflow-hidden">
+
+          <div className="flex-1 lg:flex-none lg:h-[800px] flex flex-col border border-white/10 bg-onyx-deep/40 rounded-sm overflow-hidden">
             {/* Filter bar */}
             <div className="p-2 border-b border-white/10 bg-white/5 flex gap-2">
-              <input 
+              <input
                 type="text"
                 placeholder="Filter messages..."
                 value={msgFilter}
@@ -392,11 +403,11 @@ export function CommsPanel() {
                         {msg.conversation_key || 'public'}
                       </span>
                     </div>
-                    <div 
+                    <div
                       className={`
                         max-w-[85%] px-3 py-2 rounded-lg text-[12px] leading-relaxed
-                        ${msg.outgoing 
-                          ? 'bg-amber-gold text-onyx-black rounded-tr-none' 
+                        ${msg.outgoing
+                          ? 'bg-amber-gold text-onyx-black rounded-tr-none'
                           : 'bg-white/10 text-on-surface border border-white/5 rounded-tl-none'}
                       `}
                     >
@@ -417,11 +428,9 @@ export function CommsPanel() {
               )}
             </div>
           </div>
-
-          {/* Spectral Health / Signal Graphs */}
-          <SpectralMonitor links={meshLinks} history={linkHistory} status={meshStatus} />
         </div>
       </div>
     </div>
-  )
+  </div>
+)
 }
