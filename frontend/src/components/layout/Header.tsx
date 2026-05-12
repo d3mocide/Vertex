@@ -49,7 +49,7 @@ function NotificationsDropdown({ events, onClose }: { events: SystemEvent[]; onC
 }
 
 export function Header() {
-  const { activeTab, setActiveTab, mode, setSettingsOpen, systemEvents } = useCivicStore()
+  const { activeTab, setActiveTab, mode, setSettingsOpen, setHelpOpen, systemEvents } = useCivicStore()
   const [notificationsOpen, setNotificationsOpen] = useState(false)
   const notifRef = useRef<HTMLDivElement>(null)
 
@@ -155,6 +155,14 @@ export function Header() {
             title="Export map snapshot"
           >
             <span className="ms text-[18px]">photo_camera</span>
+          </button>
+          <button
+            onClick={() => setHelpOpen(true)}
+            className="hover:text-amber-gold transition-colors p-1 focus:outline-none focus-visible:ring-1 focus-visible:ring-amber-gold"
+            aria-label="Documentation"
+            title="Documentation"
+          >
+            <span className="ms text-[18px]">help_outline</span>
           </button>
           <button
             onClick={() => setSettingsOpen(true)}
