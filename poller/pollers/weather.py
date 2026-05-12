@@ -51,9 +51,15 @@ class WeatherPoller(BasePoller):
                 self._fetch_aviation_obs(),
                 return_exceptions=True,
             )
-            if isinstance(hazards, dict):
+            if isinstance(hazards, Exception):
+                logger.warning("[weather] aviation hazards fetch failed: %s", hazards)
+                await set_feed("weather:aviation_hazards", {"pireps": [], "sigmets": [], "airmets": []})
+            elif isinstance(hazards, dict):
                 await set_feed("weather:aviation_hazards", hazards)
-            if isinstance(avobs, dict):
+            if isinstance(avobs, Exception):
+                logger.warning("[weather] aviation obs fetch failed: %s", avobs)
+                await set_feed("weather:aviation_obs", {"metars": [], "tafs": []})
+            elif isinstance(avobs, dict):
                 await set_feed("weather:aviation_obs", avobs)
 
     async def _fetch_observation(self) -> dict:

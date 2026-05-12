@@ -4,6 +4,7 @@ import { getDistanceMeters } from '../../layers/geoUtils'
 import { DEFAULT_CENTER } from '../../config'
 
 function formatTime(iso: string) {
+  if (!iso) return '--:--'
   try {
     return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
   } catch {
@@ -240,8 +241,9 @@ export function CommsPanel() {
     if (!msgFilter) return [...meshMessages].reverse()
     const q = msgFilter.toLowerCase()
     return meshMessages.filter(m => 
-      m.text.toLowerCase().includes(q) || 
-      m.sender_name.toLowerCase().includes(q)
+      (m.text ?? '').toLowerCase().includes(q) || 
+      (m.sender_name ?? '').toLowerCase().includes(q) ||
+      (m.conversation_key ?? '').toLowerCase().includes(q)
     ).reverse()
   }, [meshMessages, msgFilter])
 
@@ -377,14 +379,17 @@ export function CommsPanel() {
             {/* Message Feed */}
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
               {filteredMessages.length > 0 ? (
-                filteredMessages.map((msg) => (
-                  <div key={msg.id || Math.random()} className={`flex flex-col ${msg.outgoing ? 'items-end' : 'items-start'}`}>
+                filteredMessages.map((msg, idx) => (
+                  <div key={msg.id || `${msg.sender_key || 'unknown'}-${msg.timestamp || 'no-ts'}-${idx}`} className={`flex flex-col ${msg.outgoing ? 'items-end' : 'items-start'}`}>
                     <div className="flex items-center gap-2 mb-1 px-1">
                       <span className="font-bold text-[10px] text-amber-gold uppercase tracking-tight">
-                        {msg.sender_name}
+                        {msg.sender_name || 'Unknown'}
                       </span>
                       <span className="font-mono text-[8px] text-on-surface-variant">
-                        {formatTime(msg.timestamp)}
+                        {formatTime(msg.timestamp || '')}
+                      </span>
+                      <span className="font-mono text-[8px] text-on-surface-variant/70 uppercase">
+                        {msg.conversation_key || 'public'}
                       </span>
                     </div>
                     <div 
@@ -395,7 +400,7 @@ export function CommsPanel() {
                           : 'bg-white/10 text-on-surface border border-white/5 rounded-tl-none'}
                       `}
                     >
-                      {msg.text}
+                      {msg.text || '(empty message)'}
                       {msg.msg_type === 'direct' && (
                         <div className={`text-[8px] mt-1 font-mono uppercase opacity-60 ${msg.outgoing ? 'text-onyx-black' : 'text-amber-gold'}`}>
                           Direct • {msg.acked ? 'Acked' : 'Pending'}

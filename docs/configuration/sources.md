@@ -23,9 +23,10 @@ Do not use it for:
 
 - API keys
 - database or Redis URLs
-- region bounding box values
 
-Those belong in `.env`.
+Region bounding boxes are supported here under `regions` and are the preferred way to define one or more monitored regions.
+
+API keys and infrastructure values belong in `.env`.
 
 ## Behavior Notes
 
@@ -43,6 +44,30 @@ Those belong in `.env`.
 | `alert_feeds` | High-priority emergency or incident feeds |
 | `poller_sources` | Local or remote machine endpoints for ingestion workers |
 | `alert_zones` | Default NWS alert zone configuration |
+| `regions` | One or more region BBOX definitions used by compatible pollers |
+
+## Region Bounding Boxes
+
+`regions` in `sources.yml` is the first-choice geographic scope definition.
+
+Behavior:
+
+1. If one or more enabled `regions` entries exist, compatible pollers iterate those region BBOX values.
+2. If `regions` is missing or empty, pollers fall back to `.env` `BBOX_MIN_LAT`, `BBOX_MAX_LAT`, `BBOX_MIN_LON`, and `BBOX_MAX_LON`.
+
+Example:
+
+```yaml
+regions:
+  - id: "home"
+    name: "Tualatin Valley"
+    bbox:
+      min_lat: 44.8
+      max_lat: 45.9
+      min_lon: -123.5
+      max_lon: -121.8
+    enabled: true
+```
 
 ## Shared Entry Fields
 

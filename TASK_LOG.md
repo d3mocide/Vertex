@@ -5,6 +5,85 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 
 ---
 
+## 2026-05-11 — Added per-source polling controls to Admin Debug probes
+
+- Updated `frontend/src/admin/AdminDebug.tsx` to support per-source recurring diagnostics polling.
+- Added source-specific polling state keyed by source id/url:
+    - polling enable/disable toggle per selected source,
+    - polling interval selection per selected source (15s/30s/60s/120s),
+    - independent run-state, error, and latest probe result storage per source.
+- Implemented background polling timers that execute the existing `POST /api/v1/admin/debug/remote-feeds/probe` call on each enabled source interval.
+- Added in-flight request guards to prevent overlapping probe requests for the same source.
+- Kept manual probe execution intact; selected-source UI now reflects source-specific running/polling/error state.
+- Validation:
+    - `cd frontend && npm install && npx tsc --noEmit` ✓
+
+## 2026-05-11 — Expanded Admin Debug probes to all remote source types
+
+- Extended `backend/routers/admin_debug.py` with a generalized diagnostics endpoint: `POST /api/v1/admin/debug/remote-feeds/probe`.
+- Added source-type-specific on-demand probe handlers for `adsb`, `ais`, `p25`, `meshcore`, `fire`, and `aprs`:
+    - ADS-B: HTTP fetch + payload shape check for `aircraft` list.
+    - AIS: websocket connection/event capture over configurable probe window.
+    - P25: HTTP POST update-command probe and response-shape summary.
+    - MeshCore: REST endpoint checks, websocket event counters, and persisted `mesh_messages` storage stats.
+    - Fire: HTTP fetch + `events` payload check.
+    - APRS: TCP connect/login-banner diagnostic check.
+- Preserved backward compatibility by keeping `POST /api/v1/admin/debug/meshcore/probe` and delegating to the new generic probe path.
+- Updated `GET /api/v1/admin/debug/remote-feeds` response usage for generalized source selection.
+- Updated `frontend/src/admin/AdminDebug.tsx` to:
+    - enumerate all supported enabled remote sources,
+    - run probes via the new generic endpoint,
+    - render generalized check rows (name/protocol/status/latency/summary),
+    - conditionally render websocket and storage sections when provided by the selected source type.
+- Validation:
+    - `cd frontend && npm install && npx tsc --noEmit` ✓
+    - `docker compose config --quiet` ✓
+    - `c:/Projects/Vertex/.venv/Scripts/python.exe -m py_compile backend/routers/admin_debug.py` ✓
+
+## 2026-05-11 — Documented poller distance/BBOX filtering and clarified METAR empty-state messaging
+
+- Investigated the METAR/TAF "No nearby airports" behavior end-to-end and confirmed aviation observations are filtered by configured region BBOX, not by nearest-airport distance.
+- Verified active deployment bounds in `.env` and `config/sources.yml`; current configured region includes Portland metro bounds, so an empty list is not explained by PDX being outside configured geographic scope.
+- Updated `frontend/src/components/panels/environment/MetarCard.tsx` empty-state copy from "No nearby airports" to "No airports in configured region bounds" to better reflect actual filtering semantics.
+- Hardened `poller/pollers/weather.py` aviation polling path: when aviation fetch tasks fail, the poller now logs explicit warnings and publishes empty `weather:aviation_obs` / `weather:aviation_hazards` payloads instead of leaving Redis keys absent.
+- Added `docs/configuration/poller-filtering.md` with a per-poller matrix covering BBOX, distance/radius, zone, corridor, and age/relevance gating across sources.
+- Updated `docs/README.md` to include the new poller-filtering reference page.
+- Corrected `docs/configuration/sources.md` to reflect current multi-region behavior: `regions` in `sources.yml` is supported/preferred, with `.env` `BBOX_*` as fallback.
+
+## 2026-05-11 — Fixed MeshCore public-feed reliability and message surfacing
+
+- Root-cause analysis found two primary issues:
+    - MeshCore ingest assumed a rigid RemoteTerm message schema; missing `id` or `conversation_key` caused DB write failures and blocked real-time publish in the same code path.
+    - Frontend mesh history hydration replaced store state, allowing reconnect-time race conditions to overwrite newly arrived live WebSocket messages.
+- Updated `poller/pollers/meshcore.py`:
+    - Added robust message normalization (`_normalize_mesh_message`) with alias/fallback support for evolving RemoteTerm payload keys.
+    - Added synthetic stable message IDs when upstream IDs are absent.
+    - Added safe defaults for `conversation_key`, `sender_name`, and timestamps.
+    - Decoupled persistence from pub/sub broadcast so DB insert failures no longer prevent live `mesh_message` events from reaching clients.
+    - Expanded `ON CONFLICT` update to refresh all message fields, not only `acked`.
+- Updated `frontend/src/store.ts`:
+    - Added deduplicating merge logic for mesh messages and changed `setMeshMessages` to merge instead of replace.
+    - Raised mesh message retention ring from 100 to 300 entries for better operator context.
+- Updated `frontend/src/hooks/useMeshHistory.ts` to stop reversing/replacing history payload and rely on store merge ordering.
+- Updated `frontend/src/components/panels/CommsPanel.tsx` to be null-safe in filtering/rendering and show conversation-key metadata per message for better feed context.
+- Updated `frontend/src/notifications.ts` to avoid runtime exceptions when sender name/message body are missing.
+- Validation:
+    - `python -m py_compile poller/pollers/meshcore.py` passed.
+    - `cd frontend && npm install && npx tsc --noEmit` passed with zero errors.
+    - Runtime check: poller remained healthy; MeshCore websocket reconnected after transient timeout and reported `connected=True`.
+
+## 2026-05-11 — Added Admin Debug section with on-demand remote feed diagnostics
+
+- Added backend debug router `backend/routers/admin_debug.py` and registered it in `backend/main.py`.
+- New endpoint `GET /api/v1/admin/debug/remote-feeds` lists enabled remote sources (including meshcore) with credential-safe URLs.
+- New endpoint `POST /api/v1/admin/debug/meshcore/probe` performs an on-demand probe for a selected MeshCore source:
+    - REST checks for `/api/health`, `/api/contacts`, `/api/neighbors` with latency and status reporting.
+    - WebSocket probe (`/api/ws`) with event-type counters over a configurable time window.
+    - Correlates with persisted `mesh_messages` DB stats (total, last hour, latest timestamp).
+    - Returns operator-facing recommendations for common silent-failure patterns.
+- Added `frontend/src/admin/AdminDebug.tsx` as a new admin panel for running probes on demand and rendering results.
+- Updated `frontend/src/AdminApp.tsx` navigation to include a new `Debug` section (`bug_report` icon).
+
 ## 2026-05-10 — Fixed Mesh RemoteTerm messages 500 and reduced health-log spam
 
 - Root cause for frontend console 500 on GET /api/v1/mesh/messages was a missing mesh_messages table in an existing database volume (new installs had db/init/08_mesh_messages.sql, but existing volumes were not auto-migrated).

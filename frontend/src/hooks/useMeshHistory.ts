@@ -21,7 +21,7 @@ export function useMeshHistory() {
         const msgs = await msgsRes.json()
 
         if (Array.isArray(links)) setMeshLinks(links)
-        if (Array.isArray(msgs)) setMeshMessages(msgs.reverse()) // Store expects oldest first if appending
+        if (Array.isArray(msgs)) setMeshMessages(msgs)
       } catch (err) {
         console.debug('[useMeshHistory] hydrate failed:', err)
       }

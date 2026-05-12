@@ -65,7 +65,7 @@ export function MetarCard() {
         </div>
         <div className="border border-white/10 bg-white/[0.02] px-3 py-2">
           <span className="font-mono text-[9px] text-on-surface-variant uppercase tracking-widest">
-            {data ? 'No nearby airports' : 'Awaiting first aviation weather poll (15 min)'}
+            {data ? 'No airports in configured region bounds' : 'Awaiting first aviation weather poll (15 min)'}
           </span>
         </div>
       </div>

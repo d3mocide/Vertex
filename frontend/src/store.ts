@@ -231,6 +231,38 @@ function normalizeIncomingLightning(
   return out
 }
 
+const MESH_MESSAGES_MAX = 300
+
+function meshMsgTime(msg: MeshMessage): number {
+  if (!msg?.timestamp) return 0
+  const ts = Date.parse(msg.timestamp)
+  return Number.isNaN(ts) ? 0 : ts
+}
+
+function meshMsgFingerprint(msg: MeshMessage): string {
+  if (msg?.id) return `id:${msg.id}`
+  const sender = msg?.sender_key ?? msg?.sender_name ?? 'unknown'
+  const text = msg?.text ?? ''
+  const conv = msg?.conversation_key ?? 'public'
+  const ts = msg?.timestamp ?? ''
+  return `fp:${conv}|${sender}|${ts}|${text}`
+}
+
+function mergeMeshMessages(existing: MeshMessage[], incoming: MeshMessage[]): MeshMessage[] {
+  const byKey = new Map<string, MeshMessage>()
+
+  for (const msg of existing) {
+    byKey.set(meshMsgFingerprint(msg), msg)
+  }
+  for (const msg of incoming) {
+    byKey.set(meshMsgFingerprint(msg), msg)
+  }
+
+  return Array.from(byKey.values())
+    .sort((a, b) => meshMsgTime(a) - meshMsgTime(b))
+    .slice(-MESH_MESSAGES_MAX)
+}
+
 const emptyRadio: RadioState = {
   tgid: null, tag: null, freq_hz: null, state: null, updated: null,
 }
@@ -448,10 +480,9 @@ export const useCivicStore = create<CivicStore>()(
   setAirports:  (airports) => set({ airports }),
   setSummary:   (patch)   => set((s) => ({ summary: { ...s.summary, ...patch } })),
   appendMeshMessage: (msg) => set(s => {
-    if (msg.id && s.meshMessages.some((m) => m.id === msg.id)) return {}
-    return { meshMessages: [...s.meshMessages, msg].slice(-100) }
+    return { meshMessages: mergeMeshMessages(s.meshMessages, [msg]) }
   }),
-  setMeshMessages: (msgs) => set({ meshMessages: msgs }),
+  setMeshMessages: (msgs) => set((s) => ({ meshMessages: mergeMeshMessages(s.meshMessages, msgs) })),
   setMeshLinks: (links) => set({ meshLinks: links }),
   setMeshStatus: (status) => set({ meshStatus: status }),
   updateLinkHistory: (links) => set(state => {

@@ -49,9 +49,11 @@ export async function notifyMeshMessage(msg: MeshMessage): Promise<void> {
   if (!('Notification' in window) || Notification.permission !== 'granted') return
   if (msg.outgoing) return
 
-  const title = `MESH: ${msg.sender_name.toUpperCase()}`
+  const sender = (msg.sender_name || 'UNKNOWN').toUpperCase()
+  const body = msg.text || '(empty message)'
+  const title = `MESH: ${sender}`
   const options: NotificationOptions = {
-    body: msg.text,
+    body,
     tag: 'mesh_message',
     silent: false,
   }

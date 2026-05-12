@@ -11,6 +11,7 @@ Credentials can be embedded: http://user:pass@192.168.1.x:8000
 
 import asyncio
 import base64
+import hashlib
 import json
 import logging
 import time
@@ -153,24 +154,23 @@ class MeshCorePoller(BasePoller):
                 await publish_entity(entity)
 
         elif event_type == "message":
-            # Save to DB for persistence
-            await _save_mesh_message(data, base_url)
-            
+            message = _normalize_mesh_message(data, base_url)
+
+            # Persist when possible, but never block real-time publication.
+            try:
+                await _save_mesh_message(message)
+            except Exception as exc:
+                logger.warning(
+                    "[meshcore] failed to persist mesh message id=%s conv=%s: %s",
+                    message.get("id"),
+                    message.get("conversation_key"),
+                    exc,
+                )
+
             r = await get_bus()
             await r.publish("civic:updates", json.dumps(sanitize_payload({
                 "type": "mesh_message",
-                "data": {
-                    "id":               data.get("id"),
-                    "msg_type":         data.get("type"),
-                    "conversation_key": data.get("conversation_key"),
-                    "text":             data.get("text"),
-                    "sender_name":      data.get("sender_name"),
-                    "sender_key":       data.get("sender_key"),
-                    "outgoing":         data.get("outgoing", False),
-                    "acked":            data.get("acked", False),
-                    "timestamp":        data.get("sender_timestamp"),
-                    "source_url":       base_url,
-                },
+                "data": message,
             })))
 
         elif event_type == "packet":
@@ -337,12 +337,142 @@ async def _upsert_mesh_links(source_url: str, neighbors: list[dict]) -> None:
     })))
 
 
-async def _save_mesh_message(data: dict, source_url: str):
+def _coalesce(*values):
+    for value in values:
+        if value is None:
+            continue
+        if isinstance(value, str):
+            trimmed = value.strip()
+            if trimmed:
+                return trimmed
+            continue
+        return value
+    return None
+
+
+def _to_bool(value, default: bool = False) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return value != 0
+    if isinstance(value, str):
+        lowered = value.strip().lower()
+        if lowered in {"1", "true", "yes", "y", "on", "acked", "delivered"}:
+            return True
+        if lowered in {"0", "false", "no", "n", "off", "pending"}:
+            return False
+    return default
+
+
+def _normalize_mesh_message(data: dict, source_url: str) -> dict:
+    payload = data.get("payload") if isinstance(data.get("payload"), dict) else {}
+    sender = data.get("sender") if isinstance(data.get("sender"), dict) else {}
+    conv = data.get("conversation") if isinstance(data.get("conversation"), dict) else {}
+
+    text = _coalesce(
+        data.get("text"),
+        data.get("message"),
+        data.get("body"),
+        data.get("content"),
+        payload.get("text"),
+        payload.get("message"),
+        payload.get("body"),
+    )
+    if text is None:
+        text = ""
+    text = str(text)
+
+    conversation_key = _coalesce(
+        data.get("conversation_key"),
+        data.get("conversationKey"),
+        conv.get("key"),
+        conv.get("id"),
+        data.get("channel"),
+    )
+    if conversation_key is None:
+        conversation_key = "public"
+    conversation_key = str(conversation_key)[:128]
+
+    msg_type = _coalesce(
+        data.get("type"),
+        data.get("msg_type"),
+        data.get("message_type"),
+        conv.get("type"),
+    )
+    if msg_type is None:
+        msg_type = "public"
+    msg_type = str(msg_type)[:32]
+
+    sender_name = _coalesce(
+        data.get("sender_name"),
+        data.get("senderName"),
+        data.get("from_name"),
+        sender.get("name"),
+        sender.get("callsign"),
+        data.get("name"),
+    )
+    if sender_name is None:
+        sender_name = "Unknown"
+    sender_name = str(sender_name)[:128]
+
+    sender_key = _coalesce(
+        data.get("sender_key"),
+        data.get("senderKey"),
+        data.get("from"),
+        sender.get("key"),
+        sender.get("id"),
+    )
+    if sender_key is None:
+        sender_key = "unknown"
+    sender_key = str(sender_key)[:128]
+
+    timestamp = _coalesce(
+        data.get("sender_timestamp"),
+        data.get("senderTimestamp"),
+        data.get("timestamp"),
+        data.get("ts"),
+        data.get("sent_at"),
+        data.get("created_at"),
+    )
+    timestamp = str(timestamp) if timestamp is not None else ""
+
+    message_id = _coalesce(
+        data.get("id"),
+        data.get("message_id"),
+        data.get("msg_id"),
+        data.get("uuid"),
+    )
+    if message_id is None:
+        fingerprint = f"{source_url}|{conversation_key}|{sender_key}|{timestamp}|{text}"
+        message_id = hashlib.sha1(fingerprint.encode("utf-8", errors="ignore")).hexdigest()
+    message_id = str(message_id)[:64]
+
+    outgoing = _to_bool(_coalesce(data.get("outgoing"), data.get("is_outgoing"), data.get("sent_by_me")), False)
+    acked = _to_bool(
+        _coalesce(data.get("acked"), data.get("is_acked"), data.get("delivered"), data.get("status")),
+        False,
+    )
+
+    return {
+        "id": message_id,
+        "msg_type": msg_type,
+        "conversation_key": conversation_key,
+        "text": text,
+        "sender_name": sender_name,
+        "sender_key": sender_key,
+        "outgoing": outgoing,
+        "acked": acked,
+        "timestamp": timestamp,
+        "source_url": source_url,
+    }
+
+
+async def _save_mesh_message(message: dict):
     from db import get_pool
     import datetime
-    
+
     # Try to parse timestamp, fallback to now
-    ts_raw = data.get("sender_timestamp")
+    ts_raw = message.get("timestamp")
     try:
         ts = datetime.datetime.fromisoformat(ts_raw.replace("Z", "+00:00")) if ts_raw else datetime.datetime.now(datetime.timezone.utc)
     except:
@@ -353,18 +483,27 @@ async def _save_mesh_message(data: dict, source_url: str):
         """
         INSERT INTO mesh_messages (id, msg_type, conversation_key, text, sender_name, sender_key, outgoing, acked, ts, source_url)
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-        ON CONFLICT (id) DO UPDATE SET acked = EXCLUDED.acked
+        ON CONFLICT (id) DO UPDATE SET
+            msg_type = EXCLUDED.msg_type,
+            conversation_key = EXCLUDED.conversation_key,
+            text = EXCLUDED.text,
+            sender_name = EXCLUDED.sender_name,
+            sender_key = EXCLUDED.sender_key,
+            outgoing = EXCLUDED.outgoing,
+            acked = EXCLUDED.acked,
+            ts = EXCLUDED.ts,
+            source_url = EXCLUDED.source_url
         """,
-        data.get("id"),
-        data.get("type"),
-        data.get("conversation_key"),
-        data.get("text"),
-        data.get("sender_name"),
-        data.get("sender_key"),
-        data.get("outgoing", False),
-        data.get("acked", False),
+        message.get("id"),
+        message.get("msg_type"),
+        message.get("conversation_key"),
+        message.get("text"),
+        message.get("sender_name"),
+        message.get("sender_key"),
+        message.get("outgoing", False),
+        message.get("acked", False),
         ts,
-        source_url
+        message.get("source_url")
     )
 
 

@@ -2,13 +2,15 @@ import React, { useState } from 'react'
 import AdminMetrics from './admin/AdminMetrics'
 import AdminUsers from './admin/AdminUsers'
 import AdminFeeds from './admin/AdminFeeds'
+import AdminDebug from './admin/AdminDebug'
 
-type Section = 'metrics' | 'users' | 'feeds'
+type Section = 'metrics' | 'users' | 'feeds' | 'debug'
 
 const NAV: { id: Section; label: string; icon: string }[] = [
   { id: 'metrics', label: 'Metrics', icon: 'monitoring' },
   { id: 'users', label: 'Users', icon: 'group' },
   { id: 'feeds', label: 'Feeds', icon: 'rss_feed' },
+  { id: 'debug', label: 'Debug', icon: 'bug_report' },
 ]
 
 export default function AdminApp() {
@@ -62,6 +64,7 @@ export default function AdminApp() {
           {active === 'metrics' && <AdminMetrics />}
           {active === 'users' && <AdminUsers />}
           {active === 'feeds' && <AdminFeeds />}
+          {active === 'debug' && <AdminDebug />}
         </div>
       </main>
     </div>
