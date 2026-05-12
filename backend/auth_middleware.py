@@ -12,7 +12,13 @@ from db.session import async_session_factory
 
 _ALGORITHM = "HS256"
 _PUBLIC_PATHS = frozenset({"/health", "/metrics"})
-_PUBLIC_PREFIXES = ("/api/v1/weather/smoke/wms",)
+_PUBLIC_PREFIXES = (
+    "/api/v1/weather/smoke/wms",
+    "/api/v1/weather/goes/wms",
+    "/api/v1/weather/radar/wms",
+    "/api/v1/weather/alerts/wms",
+    "/api/v1/weather/lightning/wms",
+)
 _MUTATING_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
 _AUTH_PUBLIC_PATHS = frozenset({"/api/v1/auth/login", "/api/v1/auth/token", "/api/v1/auth/setup", "/api/v1/auth/status"})
 _AUTH_WRITE_EXEMPT = frozenset({"/api/v1/auth/token", "/api/v1/auth/setup"})

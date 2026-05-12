@@ -11,6 +11,9 @@ import { ObservationRingLayer } from './layers/ObservationRingLayer'
 import { CustomLayersLayer }    from './layers/CustomLayersLayer'
 import { AnnotationOverlay }    from './layers/AnnotationOverlay'
 import { TerrainLayer }         from './layers/TerrainLayer'
+import { RadarReflectivityLayer } from './layers/RadarReflectivityLayer'
+import { NWSAlertsLayer }         from './layers/NWSAlertsLayer'
+import { LightningDensityLayer }  from './layers/LightningDensityLayer'
 import { MapOverlay }           from './MapOverlay'
 import { useWebSocket }  from '../hooks/useWebSocket'
 import { useRegions }    from '../hooks/useRegions'
@@ -86,6 +89,9 @@ export function Map() {
         <>
           <TerrainLayer          map={map} />
           <RadarLayer            map={map} />
+          <RadarReflectivityLayer map={map} />
+          <NWSAlertsLayer        map={map} />
+          <LightningDensityLayer map={map} />
           <SmokeLayer            map={map} />
           <GOESLayer             map={map} />
           <FirePerimeterLayer    map={map} />

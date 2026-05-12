@@ -82,6 +82,7 @@ Update `TASK_LOG.md` using the `/update-task-log` skill or by appending an entry
 3. Add any new config vars to `poller/config.py` (Pydantic Settings) and `.env.example`
 4. Add a new API route in `backend/routers/` if the frontend needs to query this data
 5. Register the router in `backend/main.py`
+6. **Whitelist Proxy Endpoints**: If the new feed includes a proxy endpoint (e.g., WMS tiles) accessed directly by the map library without auth headers, you **must** add its prefix to `_PUBLIC_PREFIXES` in `backend/auth_middleware.py`.
 
 ### Modifying the database schema
 
@@ -153,6 +154,12 @@ Map presentation is split by responsibility. Follow these rules for all new or m
 	- expected lifetime of the exception,
 	- migration plan back to Deck.
 	Add this note in `TASK_LOG.md` and the map-layer research artifact.
+
+### 5) Authentication for Map Layers
+
+- Standard data endpoints (REST/WS) must remain authenticated.
+- Proxy endpoints for map tiles (WMS/Raster) that are called directly by the map engine without easy header injection should be whitelisted in `backend/auth_middleware.py`.
+- **Never** whitelist mutating methods (POST/PUT/DELETE) or sensitive data endpoints.
 
 ---
 

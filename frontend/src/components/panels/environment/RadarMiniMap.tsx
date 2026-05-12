@@ -3,10 +3,29 @@ import maplibregl from 'maplibre-gl'
 import { useCivicStore } from '../../../store'
 import { RADAR_LAYER, MAP_STYLE, DEFAULT_CENTER } from '../../../config'
 import { RadarLayer } from '../../layers/RadarLayer'
+import { RadarReflectivityLayer } from '../../layers/RadarReflectivityLayer'
+import { NWSAlertsLayer } from '../../layers/NWSAlertsLayer'
+import { LightningDensityLayer } from '../../layers/LightningDensityLayer'
+import { GOESLayer } from '../../layers/GOESLayer'
 
-function RadarMiniMapCanvas({ isFullHeight }: { isFullHeight?: boolean }) {
+interface MiniMapVisibility {
+  iemRadar: boolean
+  noaaRadar: boolean
+  nwsAlerts: boolean
+  lightning: boolean
+  satellite: boolean
+}
+
+function RadarMiniMapCanvas({ 
+  isFullHeight, 
+  visibility 
+}: { 
+  isFullHeight?: boolean
+  visibility: MiniMapVisibility
+}) {
   const mapContainerRef = useRef<HTMLDivElement>(null)
   const [map, setMap] = useState<maplibregl.Map | null>(null)
+  const radarOpacity = useCivicStore((s) => s.radarOpacity)
 
   useEffect(() => {
     if (!mapContainerRef.current) return
@@ -31,23 +50,28 @@ function RadarMiniMapCanvas({ isFullHeight }: { isFullHeight?: boolean }) {
 
   return (
     <div
-      className={`relative w-full ${isFullHeight ? 'flex-1 min-h-0' : 'h-[420px]'} bg-onyx-deep/60 rounded-sm overflow-hidden mb-4 border border-white/5`}
-      style={{
-        maskImage: 'radial-gradient(ellipse 88% 88% at 50% 50%, black 45%, transparent 100%)',
-        WebkitMaskImage: 'radial-gradient(ellipse 88% 88% at 50% 50%, black 45%, transparent 100%)',
-      }}
+      className={`relative w-full ${isFullHeight ? 'flex-1 min-h-0' : 'h-[420px]'} bg-onyx-deep/60 rounded-sm overflow-hidden mb-4 border border-white/5 shadow-inner`}
     >
       <div ref={mapContainerRef} className="absolute inset-0" />
-      {map && <RadarLayer map={map} forceVisible={true} />}
+      
+      {map && (
+        <>
+          <RadarLayer map={map} forceVisible={visibility.iemRadar} />
+          <RadarReflectivityLayer map={map} visible={visibility.noaaRadar} opacity={radarOpacity} />
+          <NWSAlertsLayer map={map} visible={visibility.nwsAlerts} />
+          <LightningDensityLayer map={map} visible={visibility.lightning} />
+          <GOESLayer map={map} visible={visibility.satellite} />
+        </>
+      )}
 
       <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute inset-0 bg-gradient-to-t from-onyx-black/40 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-onyx-black/60 to-transparent" />
         <div className="absolute inset-0 flex items-center justify-center opacity-20">
           <div className="w-4 h-px bg-amber-gold" />
           <div className="h-4 w-px bg-amber-gold" />
         </div>
         <div
-          className="absolute inset-0 animate-spin-slow opacity-20"
+          className="absolute inset-0 animate-spin-slow opacity-10"
           style={{ background: 'conic-gradient(from 0deg, rgba(255, 184, 0, 0.15) 0deg, transparent 90deg)' }}
         />
       </div>
@@ -59,6 +83,19 @@ export function RadarControls({ isFullHeight }: { isFullHeight?: boolean }) {
   const radarOpacity  = useCivicStore((s) => s.radarOpacity)
   const setRadarOpacity = useCivicStore((s) => s.setRadarOpacity)
 
+  // Local state for mini-map visibility independent of global map
+  const [visibility, setVisibility] = useState<MiniMapVisibility>({
+    iemRadar: true,
+    noaaRadar: false,
+    nwsAlerts: false,
+    lightning: false,
+    satellite: false,
+  })
+
+  const toggle = (key: keyof MiniMapVisibility) => {
+    setVisibility(prev => ({ ...prev, [key]: !prev[key] }))
+  }
+
   const handleOpacity = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => setRadarOpacity(Number(e.target.value)),
     [setRadarOpacity],
@@ -66,11 +103,45 @@ export function RadarControls({ isFullHeight }: { isFullHeight?: boolean }) {
 
   return (
     <div className={`hud-panel p-4 bg-onyx-deep/40 flex flex-col ${isFullHeight ? 'h-full' : ''}`}>
-      <RadarMiniMapCanvas isFullHeight={isFullHeight} />
+      {/* Tactical Overlays Local Toggles */}
+      <div className="flex items-center gap-2 mb-4 overflow-x-auto no-scrollbar py-1">
+        <MiniToggle
+          active={visibility.iemRadar}
+          onClick={() => toggle('iemRadar')}
+          icon="radar"
+          label="IEM"
+        />
+        <MiniToggle
+          active={visibility.noaaRadar}
+          onClick={() => toggle('noaaRadar')}
+          icon="radar"
+          label="NOAA"
+        />
+        <MiniToggle
+          active={visibility.nwsAlerts}
+          onClick={() => toggle('nwsAlerts')}
+          icon="notification_important"
+          label="Alerts"
+        />
+        <MiniToggle
+          active={visibility.lightning}
+          onClick={() => toggle('lightning')}
+          icon="electric_bolt"
+          label="Bolts"
+        />
+        <MiniToggle
+          active={visibility.satellite}
+          onClick={() => toggle('satellite')}
+          icon="satellite_alt"
+          label="Sat"
+        />
+      </div>
+
+      <RadarMiniMapCanvas isFullHeight={isFullHeight} visibility={visibility} />
 
       <div className="transition-all duration-300">
         <div className="flex items-center justify-between mb-2">
-          <span className="label-caps text-[9px] text-on-surface-variant">SCAN OPACITY</span>
+          <span className="label-caps text-[9px] text-on-surface-variant uppercase tracking-widest">SCAN OPACITY</span>
           <span className="font-mono text-[10px] text-amber-gold font-bold">
             {Math.round(radarOpacity * 100)}%
           </span>
@@ -90,9 +161,26 @@ export function RadarControls({ isFullHeight }: { isFullHeight?: boolean }) {
       </div>
 
       <div className="mt-4 flex items-center justify-between font-mono text-[8px] text-on-surface-variant/60 uppercase tracking-widest">
-        <span>{RADAR_LAYER.replace(/-0$/, '')} · IEM NEXRAD</span>
+        <span>{RADAR_LAYER.replace(/-0$/, '')} · MULTI-SOURCE</span>
         <span>5 MIN REFRESH</span>
       </div>
     </div>
+  )
+}
+
+function MiniToggle({ active, onClick, icon, label }: { active: boolean; onClick: () => void; icon: string; label: string }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`
+        flex items-center gap-1.5 px-2 py-1 rounded-sm border transition-all duration-300
+        ${active
+          ? 'bg-amber-gold/20 border-amber-gold/40 text-amber-gold shadow-[0_0_10px_rgba(255,184,0,0.1)]'
+          : 'bg-white/5 border-white/5 text-on-surface-variant/60 hover:bg-white/10 hover:text-on-surface'}
+      `}
+    >
+      <span className="ms text-[14px]" style={{ fontVariationSettings: `'FILL' ${active ? 1 : 0}` }}>{icon}</span>
+      <span className="text-[9px] font-black uppercase tracking-tight whitespace-nowrap">{label}</span>
+    </button>
   )
 }

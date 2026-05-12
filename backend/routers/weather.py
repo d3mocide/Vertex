@@ -9,8 +9,14 @@ from redis_bus import get_redis
 router = APIRouter(prefix="/weather", tags=["weather"])
 
 SMOKE_WMS_URL = (
-    "https://maps.ncei.noaa.gov/arcgis/rest/services/nowCoast_Visible_Imagery/MapServer/WmsServer"
+    "https://nowcoast.noaa.gov/geoserver/observations/satellite/wms"
 )
+GOES_WMS_URL = "https://nowcoast.noaa.gov/geoserver/satellite/wms"
+GEOSERVER_WMS_URL = "https://nowcoast.noaa.gov/geoserver/wms"
+
+WMS_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+}
 
 def _png_chunk(chunk_type: bytes, data: bytes) -> bytes:
     crc = zlib.crc32(chunk_type + data) & 0xFFFFFFFF
@@ -33,6 +39,21 @@ def _make_transparent_png() -> bytes:
 
 # 1x1 transparent PNG fallback returned when upstream tiles fail.
 TRANSPARENT_PNG = _make_transparent_png()
+
+
+async def _proxy_wms(url: str, params: dict):
+    """Internal helper to proxy WMS requests with proper headers and error handling."""
+    try:
+        async with httpx.AsyncClient(timeout=20.0) as client:
+            upstream = await client.get(url, params=params, headers=WMS_HEADERS)
+    except Exception:
+        return Response(content=TRANSPARENT_PNG, media_type="image/png")
+
+    if upstream.status_code != 200:
+        return Response(content=TRANSPARENT_PNG, media_type="image/png")
+
+    content_type = upstream.headers.get("content-type", "image/png")
+    return Response(content=upstream.content, media_type=content_type)
 
 
 @router.get("")
@@ -84,40 +105,31 @@ async def get_aviation_obs():
 @router.get("/smoke/wms")
 async def proxy_smoke_wms(request: Request):
     # Proxy NOAA smoke WMS tiles through backend to avoid browser CORS failures.
-    try:
-        async with httpx.AsyncClient(timeout=15.0) as client:
-            upstream = await client.get(SMOKE_WMS_URL, params=request.query_params)
-    except Exception:
-        return Response(content=TRANSPARENT_PNG, media_type="image/png")
-
-    if upstream.status_code != 200:
-        return Response(content=TRANSPARENT_PNG, media_type="image/png")
-
-    content_type = upstream.headers.get("content-type", "image/png")
-    return Response(content=upstream.content, media_type=content_type)
-
-
-# NOAA GOES-East satellite imagery via nowCOAST ArcGIS WMS
-GOES_WMS_URL = (
-    "https://nowcoast.noaa.gov/arcgis/rest/services"
-    "/nowcoast/sat_meteo_imagery_time/MapServer/WmsServer"
-)
+    return await _proxy_wms(SMOKE_WMS_URL, request.query_params)
 
 
 @router.get("/goes/wms")
 async def proxy_goes_wms(request: Request):
     """Proxy NOAA GOES satellite WMS tiles to avoid browser CORS issues."""
-    try:
-        async with httpx.AsyncClient(timeout=20.0) as client:
-            upstream = await client.get(GOES_WMS_URL, params=request.query_params)
-    except Exception:
-        return Response(content=TRANSPARENT_PNG, media_type="image/png")
+    return await _proxy_wms(GOES_WMS_URL, request.query_params)
 
-    if upstream.status_code != 200:
-        return Response(content=TRANSPARENT_PNG, media_type="image/png")
 
-    content_type = upstream.headers.get("content-type", "image/png")
-    return Response(content=upstream.content, media_type=content_type)
+@router.get("/radar/wms")
+async def proxy_radar_wms(request: Request):
+    """Proxy NOAA nowCOAST Base Reflectivity mosaic tiles."""
+    return await _proxy_wms(GEOSERVER_WMS_URL, request.query_params)
+
+
+@router.get("/alerts/wms")
+async def proxy_alerts_wms(request: Request):
+    """Proxy NOAA nowCOAST Watches/Warnings/Advisories overlay."""
+    return await _proxy_wms(GEOSERVER_WMS_URL, request.query_params)
+
+
+@router.get("/lightning/wms")
+async def proxy_lightning_wms(request: Request):
+    """Proxy NOAA nowCOAST Lightning Strike Density tiles."""
+    return await _proxy_wms(GEOSERVER_WMS_URL, request.query_params)
 
 
 @router.get("/fire/perimeters")

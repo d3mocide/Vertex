@@ -18,6 +18,9 @@ export function SettingsPanel() {
     geofencesVisible, setGeofencesVisible,
     trailsVisible, setTrailsVisible,
     lightningVisible, setLightningVisible,
+    radarReflectivityVisible, setRadarReflectivityVisible,
+    nwsAlertsVisible, setNwsAlertsVisible,
+    lightningDensityVisible, setLightningDensityVisible,
     gaugesVisible, setGaugesVisible,
     terrainEnabled, setTerrainEnabled,
     terrainExaggeration, setTerrainExaggeration,
@@ -122,15 +125,23 @@ export function SettingsPanel() {
           <section>
             <h2 className="label-caps mb-3">Map Layers</h2>
             <div className="space-y-3">
-              <ToggleRow label="Radar" icon="radar" checked={radarVisible} onChange={setRadarVisible} />
-              <ToggleRow label="Smoke Overlay" icon="air" checked={smokeVisible} onChange={setSmokeVisible} />
+              {/* Weather & Atmospheric */}
+              <ToggleRow label="IEM Radar" icon="radar" checked={radarVisible} onChange={setRadarVisible} />
+              <ToggleRow label="NOAA Radar" icon="radar" checked={radarReflectivityVisible} onChange={setRadarReflectivityVisible} />
               <ToggleRow label="GOES Satellite" icon="satellite_alt" checked={goesVisible} onChange={setGoesVisible} />
-              <ToggleRow label="Fire Perimeters" icon="local_fire_department" checked={firePerimetersVisible} onChange={setFirePerimetersVisible} />
-              <ToggleRow label="Cameras" icon="videocam" checked={camerasVisible} onChange={setCamerasVisible} />
-              <ToggleRow label="Zone Monitor" icon="verified_user" checked={geofencesVisible} onChange={setGeofencesVisible} />
-              <ToggleRow label="History Trails" icon="timeline" checked={trailsVisible} onChange={setTrailsVisible} />
+              <ToggleRow label="NWS Alerts" icon="notification_important" checked={nwsAlertsVisible} onChange={setNwsAlertsVisible} />
               <ToggleRow label="Lightning" icon="bolt" checked={lightningVisible} onChange={setLightningVisible} />
+              <ToggleRow label="Lightning Density" icon="electric_bolt" checked={lightningDensityVisible} onChange={setLightningDensityVisible} />
+              <ToggleRow label="Smoke Overlay" icon="air" checked={smokeVisible} onChange={setSmokeVisible} />
+
+              {/* Hazards & Environmental */}
+              <ToggleRow label="Fire Perimeters" icon="local_fire_department" checked={firePerimetersVisible} onChange={setFirePerimetersVisible} />
               <ToggleRow label="Stream Gauges" icon="water" checked={gaugesVisible} onChange={setGaugesVisible} />
+
+              {/* Operational & Tactical */}
+              <ToggleRow label="Zone Monitor" icon="verified_user" checked={geofencesVisible} onChange={setGeofencesVisible} />
+
+              {/* Map Foundation */}
               <ToggleRow label="3D Terrain" icon="landscape" checked={terrainEnabled} onChange={setTerrainEnabled} />
             </div>
           </section>
@@ -231,6 +242,8 @@ export function SettingsPanel() {
               <ToggleRow label="Mesh Nodes" icon="hub" checked={entityFilter.mesh_node} onChange={(v) => setEntityFilter({ mesh_node: v })} />
               <ToggleRow label="APRS" icon="sensors" checked={entityFilter.aprs} onChange={(v) => setEntityFilter({ aprs: v })} />
               <ToggleRow label="Fire Incidents" icon="local_fire_department" checked={entityFilter.fire_incident} onChange={(v) => setEntityFilter({ fire_incident: v })} />
+              <ToggleRow label="Cameras" icon="videocam" checked={camerasVisible} onChange={setCamerasVisible} />
+              <ToggleRow label="History Trails" icon="timeline" checked={trailsVisible} onChange={setTrailsVisible} />
             </div>
           </section>
 

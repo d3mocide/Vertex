@@ -3,7 +3,10 @@ import maplibregl from 'maplibre-gl'
 import { useCivicStore } from '../../store'
 import { API_BASE } from '../../config'
 
-interface Props { map: maplibregl.Map }
+interface Props {
+  map: maplibregl.Map
+  visible?: boolean
+}
 
 const SRC_GOES = 'goes-overlay'
 const LYR_GOES = 'goes-overlay-layer'
@@ -17,22 +20,24 @@ const GOES_WMS_PROXY = `${API_BASE}/weather/goes/wms`
 const GOES_WMS_PARAMS = [
   'service=WMS',
   'request=GetMap',
-  'version=1.1.1',
-  'layers=18',
+  'version=1.3.0',
+  'layers=goes_longwave_imagery',
   'styles=',
   'format=image/png',
   'transparent=true',
-  'srs=EPSG:3857',
+  'crs=EPSG:3857',
   'width=256',
   'height=256',
   'bbox={bbox-epsg-3857}',
 ].join('&')
 
-export function GOESLayer({ map }: Props) {
-  const goesVisible = useCivicStore((s) => s.goesVisible)
+export function GOESLayer({ map, visible }: Props) {
+  const storeVisible = useCivicStore((s) => s.goesVisible)
+  const isVisible = visible !== undefined ? visible : storeVisible
 
   useEffect(() => {
     if (!map || typeof map.getLayer !== 'function') return
+    if (!isVisible) return
 
     if (!map.getSource(SRC_GOES)) {
       map.addSource(SRC_GOES, {
@@ -50,10 +55,18 @@ export function GOESLayer({ map }: Props) {
 
     try {
       if (map.getLayer(LYR_GOES)) {
-        map.setLayoutProperty(LYR_GOES, 'visibility', goesVisible ? 'visible' : 'none')
+        map.setLayoutProperty(LYR_GOES, 'visibility', 'visible')
       }
     } catch { /* ignore */ }
-  }, [map, goesVisible])
+
+    return () => {
+      try {
+        if (map.getLayer(LYR_GOES)) {
+          map.setLayoutProperty(LYR_GOES, 'visibility', 'none')
+        }
+      } catch { /* ignore */ }
+    }
+  }, [map, isVisible])
 
   return null
 }
