@@ -5,6 +5,18 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 
 ---
 
+## 2026-05-13 — Stabilized geofence state-transition tests under query throttling
+
+- Fixed flaky/failing geofence unit tests caused by shared module throttle state between tests.
+- Updated [poller/tests/test_geofence.py](poller/tests/test_geofence.py) test lifecycle hooks to:
+    - clear `gf._last_geofence_check` in setup,
+    - set `gf._GEOFENCE_CHECK_INTERVAL = 0.0` during each test,
+    - restore the original interval in teardown.
+- This keeps tests focused on entry/exit/dwell transition behavior instead of rate-limit timing.
+- Validation:
+    - `python -m pytest -q tests/test_geofence.py -q` -> `7 passed`
+    - `python -m pytest -q tests -q` -> `79 passed, 18 skipped`
+
 ## 2026-05-13 — Fixed advisory banner background rendering on Overview tab
 
 - Diagnosed z-index layering issue: the Map layer (`fixed inset-0 z-0`) at full opacity on the Overview tab was visually obscuring the AlertStatusBar.

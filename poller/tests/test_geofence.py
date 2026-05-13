@@ -59,6 +59,13 @@ def run(coro):
 class TestGeofenceStateTransitions:
     def setup_method(self):
         gf._entity_state.clear()
+        gf._last_geofence_check.clear()
+        self._original_check_interval = gf._GEOFENCE_CHECK_INTERVAL
+        # Keep unit tests focused on transition logic, not query throttling.
+        gf._GEOFENCE_CHECK_INTERVAL = 0.0
+
+    def teardown_method(self):
+        gf._GEOFENCE_CHECK_INTERVAL = self._original_check_interval
 
     def test_first_observation_initializes_silently(self):
         conn = _make_conn([_fence_row()])
