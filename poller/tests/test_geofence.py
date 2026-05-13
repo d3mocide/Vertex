@@ -53,7 +53,7 @@ def _make_conn(inside_rows: list[dict], exited_rows: list[dict] | None = None) -
 
 
 def run(coro):
-    return asyncio.get_event_loop().run_until_complete(coro)
+    return asyncio.run(coro)
 
 
 class TestGeofenceStateTransitions:
