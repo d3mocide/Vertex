@@ -5,7 +5,7 @@ export function WsClientChart({ history }: { history: HistoryPoint[] }) {
   if (history.length < 2) {
     return (
       <section>
-        <h2 className="text-[10px] uppercase tracking-widest text-gray-500 mb-3">WebSocket Clients</h2>
+        <h2 className="text-[11px] uppercase tracking-widest text-gray-500 mb-3">WebSocket Clients</h2>
         <p className="text-xs text-gray-600">Collecting history…</p>
       </section>
     )
@@ -24,7 +24,7 @@ export function WsClientChart({ history }: { history: HistoryPoint[] }) {
 
   return (
     <section>
-      <h2 className="text-[10px] uppercase tracking-widest text-gray-500 mb-3">
+      <h2 className="text-[11px] uppercase tracking-widest text-gray-500 mb-3">
         WebSocket Clients
         <span className="ml-2 text-sky-400 normal-case tracking-normal font-mono">{current} now</span>
       </h2>
@@ -49,8 +49,8 @@ export function WsClientChart({ history }: { history: HistoryPoint[] }) {
           />
         </svg>
         <div className="flex justify-between mt-1">
-          <span className="text-[9px] text-gray-600 font-mono">60m ago</span>
-          <span className="text-[9px] text-gray-600 font-mono">now</span>
+          <span className="text-[11px] text-gray-600 font-mono">60m ago</span>
+          <span className="text-[11px] text-gray-600 font-mono">now</span>
         </div>
       </div>
     </section>

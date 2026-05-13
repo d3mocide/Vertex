@@ -28,8 +28,8 @@ export function AqiGauge({ aqi }: { aqi: number | undefined }) {
           {aqi}
         </span>
         <div className="flex flex-col">
-          <span className="font-mono text-[10px] font-bold uppercase tracking-wider" style={{ color }}>{label}</span>
-          <span className="text-[8px] text-on-surface-variant uppercase tracking-tighter">Current EPA Rating</span>
+          <span className="font-mono text-[12px] font-bold uppercase tracking-wider" style={{ color }}>{label}</span>
+          <span className="text-[11px] text-on-surface-variant uppercase tracking-tighter">Current EPA Rating</span>
         </div>
       </div>
 
@@ -48,7 +48,7 @@ export function AqiGauge({ aqi }: { aqi: number | undefined }) {
         />
       </div>
 
-      <div className="flex justify-between mt-2 font-mono text-[7px] text-on-surface-variant/50 uppercase tracking-tighter">
+      <div className="flex justify-between mt-2 font-mono text-[11px] text-on-surface-variant/50 uppercase tracking-tighter">
         <span>0 Good</span>
         <span>100 Mod</span>
         <span>200 Unhealthy</span>

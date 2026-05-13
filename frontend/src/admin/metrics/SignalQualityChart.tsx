@@ -17,13 +17,13 @@ export function SignalQualityChart({ data }: { data: SignalQualityData | null })
   if (!data || data.types.length === 0) {
     return (
       <section>
-        <h2 className="text-[10px] uppercase tracking-widest text-gray-500 mb-3">Signal Quality</h2>
+        <h2 className="text-[11px] uppercase tracking-widest text-gray-500 mb-3">Signal Quality</h2>
         <div className="border border-white/10 bg-black/30 p-4">
           <div className="text-center space-y-2">
-            <div className="text-[10px] text-on-surface-variant">
+            <div className="text-[11px] text-on-surface-variant">
               No signal quality data in the last {data?.window_minutes ?? 60} min
             </div>
-            <div className="text-[9px] text-gray-600">
+            <div className="text-[11px] text-gray-600">
               Not all sources report signal quality (RSSI, SNR, heading accuracy). 
               <br />Currently available for: ADS-B, AIS, P25.
             </div>
@@ -37,7 +37,7 @@ export function SignalQualityChart({ data }: { data: SignalQualityData | null })
 
   return (
     <section>
-      <h2 className="text-[10px] uppercase tracking-widest text-gray-500 mb-3">
+      <h2 className="text-[11px] uppercase tracking-widest text-gray-500 mb-3">
         Signal Quality
         <span className="ml-2 text-on-surface-variant normal-case tracking-normal font-normal">
           (last {data.window_minutes} min · avg / range per type)
@@ -51,17 +51,17 @@ export function SignalQualityChart({ data }: { data: SignalQualityData | null })
           return (
             <div key={entry.entity_type} className="space-y-1">
               <div className="flex items-baseline justify-between">
-                <span className="font-mono text-[10px] text-on-surface capitalize">
+                <span className="font-mono text-[11px] text-on-surface capitalize">
                   {entry.entity_type.replace(/_/g, ' ')}
                 </span>
                 <div className="flex items-baseline gap-3">
-                  <span className="font-mono text-[9px] text-on-surface-variant">
+                  <span className="font-mono text-[11px] text-on-surface-variant">
                     {entry.min_quality?.toFixed(1)} – {entry.max_quality?.toFixed(1)}
                   </span>
                   <span className="font-mono text-[11px] font-bold" style={{ color }}>
                     {avg.toFixed(1)}
                   </span>
-                  <span className="text-[9px] text-on-surface-variant">
+                  <span className="text-[11px] text-on-surface-variant">
                     n={entry.sample_count.toLocaleString()}
                   </span>
                 </div>
@@ -75,7 +75,7 @@ export function SignalQualityChart({ data }: { data: SignalQualityData | null })
             </div>
           )
         })}
-        <p className="text-[9px] text-on-surface-variant pt-1 border-t border-white/10">
+        <p className="text-[11px] text-on-surface-variant pt-1 border-t border-white/10">
           Signal quality is a normalized 0–100 field. Not all entity types report it.
         </p>
       </div>

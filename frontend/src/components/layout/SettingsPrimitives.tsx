@@ -17,7 +17,7 @@ export function MetricCard({ label, value, unit, icon, warn = false }: {
         {icon}
       </span>
       <div className={`font-mono text-[13px] font-bold leading-tight ${warn ? 'text-red-emergency' : 'text-on-surface'}`}>
-        {value}<span className="text-[9px] text-on-surface-variant ml-0.5">{unit}</span>
+        {value}<span className="text-[11px] text-on-surface-variant ml-0.5">{unit}</span>
       </div>
       <div className="text-on-surface-variant uppercase tracking-wider text-[7px]">{label}</div>
     </div>
@@ -57,7 +57,7 @@ export function ToggleRow({ label, icon, checked, onChange }: {
       <span className={`ms text-[18px] leading-none transition-colors ${checked ? 'text-amber-gold' : 'text-on-surface-variant group-hover:text-on-surface'}`} aria-hidden="true">
         {icon}
       </span>
-      <span className={`flex-1 font-bold text-[10px] tracking-widest uppercase transition-colors ${checked ? 'text-on-surface' : 'text-on-surface-variant group-hover:text-on-surface'}`}>
+      <span className={`flex-1 font-bold text-[11px] tracking-widest uppercase transition-colors ${checked ? 'text-on-surface' : 'text-on-surface-variant group-hover:text-on-surface'}`}>
         {label}
       </span>
       <div className="relative shrink-0">

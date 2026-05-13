@@ -11,7 +11,7 @@ export function AreaSparkline({
   warn?: boolean
 }) {
   if (values.length < 2)
-    return <div className="h-10 opacity-30 text-[9px] text-center pt-3">No data</div>
+    return <div className="h-10 opacity-30 text-[11px] text-center pt-3">No data</div>
   const c = warn ? '#f87171' : color
   const max = Math.max(...values, 0.001)
   const W = 200
@@ -58,7 +58,7 @@ export function MetricCard({
       <div className={`text-xl font-mono font-bold ${warn ? 'text-red-400' : 'text-amber-400'}`}>
         {value !== null ? `${value}${unit}` : '—'}
       </div>
-      <div className="text-[10px] text-gray-500 uppercase tracking-wider">{label}</div>
+      <div className="text-[11px] text-gray-500 uppercase tracking-wider">{label}</div>
       <AreaSparkline values={values} warn={warn} color={color} />
     </div>
   )

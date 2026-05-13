@@ -10,7 +10,7 @@ const SQUAWK_DEFS = [
 export function SquawkCounter({ data }: { data: SquawkAlertData | null }) {
   return (
     <section>
-      <h2 className="text-[10px] uppercase tracking-widest text-gray-500 mb-3">
+      <h2 className="text-[11px] uppercase tracking-widest text-gray-500 mb-3">
         Emergency Squawks
         <span className="ml-2 text-gray-600 normal-case tracking-normal">last {data?.window_hours ?? 24}h</span>
       </h2>
@@ -25,9 +25,9 @@ export function SquawkCounter({ data }: { data: SquawkAlertData | null }) {
                 <span className={`text-2xl font-mono font-bold ${color}`}>
                   {count ?? '—'}
                 </span>
-                <span className={`text-[10px] font-mono font-bold ${color} opacity-70`}>{code}</span>
+                <span className={`text-[11px] font-mono font-bold ${color} opacity-70`}>{code}</span>
               </div>
-              <div className="text-[10px] text-gray-500 uppercase tracking-wider">{label}</div>
+              <div className="text-[11px] text-gray-500 uppercase tracking-wider">{label}</div>
             </div>
           )
         })}

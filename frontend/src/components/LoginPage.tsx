@@ -68,7 +68,7 @@ function Shell({ children }: { children: React.ReactNode }) {
             <span className="text-[22px] font-black tracking-[0.08em] text-white uppercase select-none">
               VERTEX
             </span>
-            <span className="font-mono text-[9px] tracking-[0.25em] text-amber-gold uppercase">
+            <span className="font-mono text-[11px] tracking-[0.25em] text-amber-gold uppercase">
               SITUATIONAL AWARENESS
             </span>
           </div>
@@ -81,10 +81,10 @@ function Shell({ children }: { children: React.ReactNode }) {
 
         {/* Panel footer */}
         <div className="px-8 pb-6 flex items-center justify-between">
-          <span className="font-mono text-[9px] tracking-[0.18em] uppercase text-on-surface-variant">
+          <span className="font-mono text-[11px] tracking-[0.18em] uppercase text-on-surface-variant">
             SECURE CHANNEL
           </span>
-          <span className="flex items-center gap-1.5 font-mono text-[9px] tracking-[0.18em] uppercase text-green-ais">
+          <span className="flex items-center gap-1.5 font-mono text-[11px] tracking-[0.18em] uppercase text-green-ais">
             <span
               className="w-1.5 h-1.5 rounded-full bg-green-ais"
               style={{ boxShadow: '0 0 6px #00C853', animation: 'pulse-dot 1.6s ease-in-out infinite' }}
@@ -100,7 +100,7 @@ function Shell({ children }: { children: React.ReactNode }) {
 
 function FieldError({ msg }: { msg: string }) {
   return msg
-    ? <p className="mt-1.5 font-mono text-[10px] tracking-wider text-red-emergency uppercase">{msg}</p>
+    ? <p className="mt-1.5 font-mono text-[11px] tracking-wider text-red-emergency uppercase">{msg}</p>
     : null
 }
 
@@ -191,7 +191,7 @@ function SetupView({ onDone }: { onDone: () => void }) {
 
   return (
     <Shell>
-      <p className="mb-5 font-mono text-[10px] tracking-wider text-on-surface-variant uppercase leading-relaxed border-l border-amber-gold pl-3">
+      <p className="mb-5 font-mono text-[11px] tracking-wider text-on-surface-variant uppercase leading-relaxed border-l border-amber-gold pl-3">
         No accounts exist yet. Create the admin account to get started.
       </p>
 
@@ -210,7 +210,7 @@ function SetupView({ onDone }: { onDone: () => void }) {
         </div>
 
         {serverError && (
-          <p className="font-mono text-[10px] tracking-wider text-red-emergency uppercase">{serverError}</p>
+          <p className="font-mono text-[11px] tracking-wider text-red-emergency uppercase">{serverError}</p>
         )}
 
         <button
@@ -264,7 +264,7 @@ function LoginView({ onLogin }: { onLogin: () => void }) {
         <Field id="login-password" label="Password" type="password" autoComplete="current-password" value={password} onChange={setPassword} />
 
         {error && (
-          <p className="font-mono text-[10px] tracking-wider text-red-emergency uppercase">{error}</p>
+          <p className="font-mono text-[11px] tracking-wider text-red-emergency uppercase">{error}</p>
         )}
 
         <button

@@ -77,7 +77,7 @@ export function AircraftOverview({ entity, getIdentity, trail = [] }: OverviewPr
             : 'bg-amber-gold/20 border-amber-gold text-amber-gold'
         }`}>
           <span className="ms text-[14px] leading-none">warning</span>
-          <span className="font-mono text-[10px] font-bold tracking-wider">
+          <span className="font-mono text-[11px] font-bold tracking-wider">
             SQUAWK {squawk} — {squawkAlert.label}
           </span>
         </div>
@@ -87,7 +87,7 @@ export function AircraftOverview({ entity, getIdentity, trail = [] }: OverviewPr
         <div className="bg-white/5 border border-white/10 p-2 rounded-sm relative overflow-hidden">
           <div className="flex items-center gap-1.5 mb-1 text-on-surface-variant relative z-10">
             <span className="ms text-[12px]">height</span>
-            <span className="label-caps text-[8px]">Altitude</span>
+            <span className="label-caps text-[11px]">Altitude</span>
           </div>
           <div className="font-mono text-cyan-adsb text-[14px] truncate relative z-10 [text-shadow:0_2px_4px_rgba(0,0,0,0.8),0_0_2px_rgba(0,0,0,1)]">
             {entity.altitude != null ? `${Math.round(entity.altitude).toLocaleString()} ft` : '--'}
@@ -102,7 +102,7 @@ export function AircraftOverview({ entity, getIdentity, trail = [] }: OverviewPr
         <div className="bg-white/5 border border-white/10 p-2 rounded-sm relative overflow-hidden">
           <div className="flex items-center gap-1.5 mb-1 text-on-surface-variant relative z-10">
             <span className="ms text-[12px]">speed</span>
-            <span className="label-caps text-[8px]">Speed</span>
+            <span className="label-caps text-[11px]">Speed</span>
           </div>
           <div className="font-mono text-amber-gold text-[14px] truncate relative z-10 [text-shadow:0_2px_4px_rgba(0,0,0,0.8),0_0_2px_rgba(0,0,0,1)]">
             {entity.speed != null ? `${Math.round(entity.speed)} kts` : '--'}
@@ -117,7 +117,7 @@ export function AircraftOverview({ entity, getIdentity, trail = [] }: OverviewPr
         <div className="bg-white/5 border border-white/10 p-2 rounded-sm">
           <div className="flex items-center gap-1.5 mb-1 text-on-surface-variant">
             <span className="ms text-[12px]">explore</span>
-            <span className="label-caps text-[8px]">Heading</span>
+            <span className="label-caps text-[11px]">Heading</span>
           </div>
           <div className="font-mono text-on-surface text-[12px]">
             {entity.heading != null ? `${Math.round(entity.heading)}°` : '--'}
@@ -127,7 +127,7 @@ export function AircraftOverview({ entity, getIdentity, trail = [] }: OverviewPr
         <div className="bg-white/5 border border-white/10 p-2 rounded-sm">
           <div className="flex items-center gap-1.5 mb-1 text-on-surface-variant">
             <span className="ms text-[12px]">swap_vert</span>
-            <span className="label-caps text-[8px]">Vert Rate</span>
+            <span className="label-caps text-[11px]">Vert Rate</span>
           </div>
           <div className={`font-mono text-[12px] ${vrColor}`}>
             {vr != null ? `${vrArrow} ${Math.abs(Math.round(vr))} ft/m` : '--'}
@@ -137,35 +137,35 @@ export function AircraftOverview({ entity, getIdentity, trail = [] }: OverviewPr
 
       <div className="space-y-3">
         <div>
-          <span className="label-caps text-[9px] text-amber-gold-dim mb-1 block">Identity</span>
+          <span className="label-caps text-[11px] text-amber-gold-dim mb-1 block">Identity</span>
           <div className="space-y-1">
             {squawk && !squawkAlert && (
               <div className="flex justify-between items-baseline gap-2">
-                <span className="text-[9px] text-on-surface-variant">Squawk</span>
-                <span className="font-mono text-[10px] text-on-surface">{squawk}</span>
+                <span className="text-[11px] text-on-surface-variant">Squawk</span>
+                <span className="font-mono text-[11px] text-on-surface">{squawk}</span>
               </div>
             )}
             {identityRows.filter(([, v]) => v != null).map(([label, val]) => (
               <div key={label} className="flex justify-between items-baseline gap-2">
-                <span className="text-[9px] text-on-surface-variant">{label}</span>
-                <span className="font-mono text-[10px] text-on-surface truncate">{val}</span>
+                <span className="text-[11px] text-on-surface-variant">{label}</span>
+                <span className="font-mono text-[11px] text-on-surface truncate">{val}</span>
               </div>
             ))}
           </div>
         </div>
 
         <div>
-          <span className="label-caps text-[9px] text-amber-gold-dim mb-1 block">Routing</span>
+          <span className="label-caps text-[11px] text-amber-gold-dim mb-1 block">Routing</span>
           <div className="space-y-1">
             {routeRows.filter(([, v]) => v != null).map(([label, val]) => (
               <div key={label} className="flex justify-between items-baseline gap-2">
-                <span className="text-[9px] text-on-surface-variant">{label}</span>
-                <span className="font-mono text-[10px] text-on-surface truncate">{val}</span>
+                <span className="text-[11px] text-on-surface-variant">{label}</span>
+                <span className="font-mono text-[11px] text-on-surface truncate">{val}</span>
               </div>
             ))}
             <div className="flex justify-between items-baseline gap-2">
-              <span className="text-[9px] text-on-surface-variant">Distance</span>
-              <span className="font-mono text-[10px] text-on-surface">
+              <span className="text-[11px] text-on-surface-variant">Distance</span>
+              <span className="font-mono text-[11px] text-on-surface">
                 {entity.distance_km != null ? `${entity.distance_km.toFixed(1)} km` : '--'}
               </span>
             </div>
@@ -174,10 +174,10 @@ export function AircraftOverview({ entity, getIdentity, trail = [] }: OverviewPr
         
         <div className="flex justify-between items-center pt-2 border-t border-white/10">
           <div className="flex items-center gap-1 text-on-surface-variant">
-            <span className="ms text-[10px]">schedule</span>
-            <span className="text-[9px] uppercase tracking-wider">Last Seen</span>
+            <span className="ms text-[11px]">schedule</span>
+            <span className="text-[11px] uppercase tracking-wider">Last Seen</span>
           </div>
-          <span className="font-mono text-[10px] text-amber-gold">
+          <span className="font-mono text-[11px] text-amber-gold">
             {entity.last_seen ? new Date(entity.last_seen).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '--'}
           </span>
         </div>

@@ -50,11 +50,11 @@ function FeedCard({ item }: { item: FeedItem }) {
               priority_high
             </span>
           )}
-          <span className={`font-mono text-[9px] uppercase tracking-widest shrink-0 ${isHigh ? 'text-amber-gold' : 'text-on-surface-variant'}`}>
+          <span className={`font-mono text-[11px] uppercase tracking-widest shrink-0 ${isHigh ? 'text-amber-gold' : 'text-on-surface-variant'}`}>
             {item.source}
           </span>
         </div>
-        <span className="font-mono text-[9px] text-on-surface-variant shrink-0">
+        <span className="font-mono text-[11px] text-on-surface-variant shrink-0">
           {formatAge(item.published)}
         </span>
       </div>
@@ -64,7 +64,7 @@ function FeedCard({ item }: { item: FeedItem }) {
       </h4>
 
       {item.summary && (
-        <p className="text-[11px] text-on-surface-variant leading-relaxed line-clamp-2">
+        <p className="text-[12px] text-on-surface-variant leading-relaxed line-clamp-2">
           {item.summary}
         </p>
       )}
@@ -75,7 +75,7 @@ function FeedCard({ item }: { item: FeedItem }) {
             href={item.link}
             target="_blank"
             rel="noreferrer noopener"
-            className="font-mono text-[9px] text-amber-gold-dim hover:text-amber-gold transition-colors uppercase tracking-widest"
+            className="font-mono text-[11px] text-amber-gold-dim hover:text-amber-gold transition-colors uppercase tracking-widest"
             aria-label={`Read more: ${item.title}`}
             onClick={(e) => e.stopPropagation()}
           >
@@ -181,12 +181,12 @@ export function CommunityPanel() {
           Community Feed
         </h2>
         <div className="ml-auto flex items-center gap-3">
-          <span className="font-mono text-[9px] text-on-surface-variant uppercase">
+          <span className="font-mono text-[11px] text-on-surface-variant uppercase">
             {alerts.length} alerts · {news.length} news
           </span>
           <div className="flex items-center gap-1.5">
             <span className="w-1.5 h-1.5 rounded-full bg-green-ais animate-pulse" aria-hidden="true" />
-            <span className="font-mono text-[9px] text-green-ais uppercase">LIVE</span>
+            <span className="font-mono text-[11px] text-green-ais uppercase">LIVE</span>
           </div>
         </div>
       </div>
@@ -215,9 +215,9 @@ export function CommunityPanel() {
                   rel="noreferrer noopener"
                   className="flex flex-col p-3 border border-white/5 bg-white/5 hover:bg-white/10 hover:border-amber-gold/30 transition-all group"
                 >
-                  <span className="font-mono text-[8px] text-amber-gold uppercase tracking-[0.2em] mb-1">{item.source.replace(/_/g, ' ')}</span>
-                  <span className="text-[11px] font-bold text-on-surface group-hover:text-amber-gold transition-colors">{item.title}</span>
-                  {item.summary && <span className="text-[10px] text-on-surface-variant mt-1 line-clamp-1">{item.summary}</span>}
+                  <span className="font-mono text-[11px] text-amber-gold uppercase tracking-[0.2em] mb-1">{item.source.replace(/_/g, ' ')}</span>
+                  <span className="text-[12px] font-bold text-on-surface group-hover:text-amber-gold transition-colors">{item.title}</span>
+                  {item.summary && <span className="text-[11px] text-on-surface-variant mt-1 line-clamp-1">{item.summary}</span>}
                 </a>
               ))}
             </div>

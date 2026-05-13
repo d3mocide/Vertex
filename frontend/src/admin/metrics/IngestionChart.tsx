@@ -18,7 +18,7 @@ export function IngestionChart({ buckets }: { buckets: IngestionBucket[] }) {
   if (buckets.length === 0) {
     return (
       <section>
-        <h2 className="text-[10px] uppercase tracking-widest text-gray-500 mb-3">Ingestion Rate</h2>
+        <h2 className="text-[11px] uppercase tracking-widest text-gray-500 mb-3">Ingestion Rate</h2>
         <div className="border border-white/10 bg-black/30 p-4 text-xs text-gray-500">
           Collecting data — chart available after first observations.
         </div>
@@ -44,7 +44,7 @@ export function IngestionChart({ buckets }: { buckets: IngestionBucket[] }) {
 
   return (
     <section>
-      <h2 className="text-[10px] uppercase tracking-widest text-gray-500 mb-3">Ingestion Rate (60 min)</h2>
+      <h2 className="text-[11px] uppercase tracking-widest text-gray-500 mb-3">Ingestion Rate (60 min)</h2>
       <div className="border border-white/10 bg-black/30 p-3">
         <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: 200 }} preserveAspectRatio="none">
           {types.map((t) => {
@@ -72,7 +72,7 @@ export function IngestionChart({ buckets }: { buckets: IngestionBucket[] }) {
           {types.map((t) => (
             <div key={t} className="flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full" style={{ background: getColor(t) }} />
-              <span className="text-[9px] font-mono text-gray-400 uppercase">{t}</span>
+              <span className="text-[11px] font-mono text-gray-400 uppercase">{t}</span>
             </div>
           ))}
         </div>

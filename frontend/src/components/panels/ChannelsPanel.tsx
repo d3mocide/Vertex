@@ -183,7 +183,7 @@ export function ChannelsPanel({ visibleTalkgroups, managedTalkgroups, playing, o
           <button
             key={tab}
             onClick={() => setChannelTab(tab)}
-            className={`flex-1 px-2 py-2 text-[9px] font-bold tracking-widest uppercase transition-colors focus:outline-none ${channelTab === tab ? 'text-amber-gold border-b-2 border-amber-gold' : 'text-on-surface-variant hover:text-on-surface border-b-2 border-transparent'}`}
+            className={`flex-1 px-2 py-2 text-[11px] font-bold tracking-widest uppercase transition-colors focus:outline-none ${channelTab === tab ? 'text-amber-gold border-b-2 border-amber-gold' : 'text-on-surface-variant hover:text-on-surface border-b-2 border-transparent'}`}
           >
             {tab === 'streams' ? 'STREAMS' : tab === 'talkgroups' ? `TGs (${managedTalkgroups.length})` : `REC (${recordings.length})`}
           </button>
@@ -195,7 +195,7 @@ export function ChannelsPanel({ visibleTalkgroups, managedTalkgroups, playing, o
       {channelTab === 'streams' && (
         <nav className="max-h-64 overflow-y-auto">
           {streams.filter((s) => s.enabled).length === 0 ? (
-            <div className="px-4 py-3 text-[10px] tracking-wide text-on-surface-variant/80 uppercase">
+            <div className="px-4 py-3 text-[11px] tracking-wide text-on-surface-variant/80 uppercase">
               No streams configured
             </div>
           ) : (
@@ -210,8 +210,8 @@ export function ChannelsPanel({ visibleTalkgroups, managedTalkgroups, playing, o
                 >
                   <span className="ms text-[18px] leading-none" aria-hidden="true">radio</span>
                   <div className="flex-1 min-w-0">
-                    <div className="text-[10px] font-bold tracking-widest uppercase truncate">{stream.name}</div>
-                    <div className="text-[9px] text-on-surface-variant/60 truncate">{stream.format.toUpperCase()}</div>
+                    <div className="text-[11px] font-bold tracking-widest uppercase truncate">{stream.name}</div>
+                    <div className="text-[11px] text-on-surface-variant/60 truncate">{stream.format.toUpperCase()}</div>
                   </div>
                   {isSelected && playing && (
                     <span className="w-1.5 h-1.5 rounded-full bg-amber-gold animate-pulse shrink-0" aria-hidden="true" />
@@ -229,7 +229,7 @@ export function ChannelsPanel({ visibleTalkgroups, managedTalkgroups, playing, o
           {/* Unregistered talkgroups from call log */}
           {visibleTalkgroups.filter((r) => !managedTalkgroups.find((t) => t.tgid === r.tgid)).length > 0 && (
             <div>
-              <div className="px-4 pt-2 pb-1 text-[8px] text-on-surface-variant/50 uppercase tracking-widest">
+              <div className="px-4 pt-2 pb-1 text-[11px] text-on-surface-variant/50 uppercase tracking-widest">
                 Seen in last 24h — click to register
               </div>
               {visibleTalkgroups
@@ -244,9 +244,9 @@ export function ChannelsPanel({ visibleTalkgroups, managedTalkgroups, playing, o
                     >
                       <span className="ms text-[14px] leading-none" aria-hidden="true">add_circle</span>
                       <div className="flex-1 min-w-0">
-                        <div className="text-[10px] font-bold uppercase truncate">{ch.label}</div>
+                        <div className="text-[11px] font-bold uppercase truncate">{ch.label}</div>
                       </div>
-                      <div className="font-mono text-[9px] opacity-50">{ch.tgid}</div>
+                      <div className="font-mono text-[11px] opacity-50">{ch.tgid}</div>
                       {isLive && <span className="w-1.5 h-1.5 rounded-full bg-amber-gold animate-pulse shrink-0" />}
                     </button>
                   )
@@ -257,7 +257,7 @@ export function ChannelsPanel({ visibleTalkgroups, managedTalkgroups, playing, o
           {/* Managed talkgroups */}
           {managedTalkgroups.length > 0 && (
             <div>
-              <div className="px-4 pt-2 pb-1 text-[8px] text-on-surface-variant/50 uppercase tracking-widest">Managed</div>
+              <div className="px-4 pt-2 pb-1 text-[11px] text-on-surface-variant/50 uppercase tracking-widest">Managed</div>
               {managedTalkgroups.map((tg) => {
                 const isLive = radio?.tgid === tg.tgid
                 const isEditing = editingTgid === tg.tgid
@@ -269,7 +269,7 @@ export function ChannelsPanel({ visibleTalkgroups, managedTalkgroups, playing, o
                   >
                     {/* Priority selector */}
                     <div className="relative group shrink-0">
-                      <span className={`font-mono text-[8px] border px-1 py-0.5 cursor-pointer select-none ${pColor}`}>
+                      <span className={`font-mono text-[11px] border px-1 py-0.5 cursor-pointer select-none ${pColor}`}>
                         {PRIORITY_LABELS[tg.priority] ?? 'P3'}
                       </span>
                       <div className="absolute bottom-full left-0 mb-1 hidden group-hover:flex flex-col bg-onyx-deep border border-white/10 z-10">
@@ -277,7 +277,7 @@ export function ChannelsPanel({ visibleTalkgroups, managedTalkgroups, playing, o
                           <button
                             key={p}
                             onClick={() => setPriority(tg, p)}
-                            className={`px-2 py-1 text-[8px] font-mono hover:bg-surface-container text-left ${tg.priority === p ? 'text-amber-gold' : 'text-on-surface-variant'}`}
+                            className={`px-2 py-1 text-[11px] font-mono hover:bg-surface-container text-left ${tg.priority === p ? 'text-amber-gold' : 'text-on-surface-variant'}`}
                           >
                             {PRIORITY_LABELS[p]}
                           </button>
@@ -297,18 +297,18 @@ export function ChannelsPanel({ visibleTalkgroups, managedTalkgroups, playing, o
                             if (e.key === 'Enter') commitEdit(tg)
                             if (e.key === 'Escape') setEditingTgid(null)
                           }}
-                          className="w-full bg-onyx-deep border border-amber-gold/60 text-on-surface text-[10px] px-1 py-0.5 focus:outline-none"
+                          className="w-full bg-onyx-deep border border-amber-gold/60 text-on-surface text-[11px] px-1 py-0.5 focus:outline-none"
                         />
                       ) : (
                         <button
                           onClick={() => startEdit(tg)}
-                          className="text-[10px] font-bold uppercase truncate w-full text-left hover:text-amber-gold transition-colors focus:outline-none"
+                          className="text-[11px] font-bold uppercase truncate w-full text-left hover:text-amber-gold transition-colors focus:outline-none"
                           title="Click to rename"
                         >
                           {tg.name}
                         </button>
                       )}
-                      <div className="font-mono text-[8px] text-on-surface-variant/50">{tg.tgid}</div>
+                      <div className="font-mono text-[11px] text-on-surface-variant/50">{tg.tgid}</div>
                     </div>
 
                     {/* Scan toggle */}
@@ -336,7 +336,7 @@ export function ChannelsPanel({ visibleTalkgroups, managedTalkgroups, playing, o
           )}
 
           {visibleTalkgroups.length === 0 && managedTalkgroups.length === 0 && (
-            <div className="px-4 py-3 text-[10px] tracking-wide text-on-surface-variant/80 uppercase">
+            <div className="px-4 py-3 text-[11px] tracking-wide text-on-surface-variant/80 uppercase">
               Awaiting radio activity…
             </div>
           )}
@@ -347,7 +347,7 @@ export function ChannelsPanel({ visibleTalkgroups, managedTalkgroups, playing, o
       {channelTab === 'recordings' && (
         <div className="max-h-80 overflow-y-auto">
           {recordings.length === 0 ? (
-            <div className="px-4 py-3 text-[10px] tracking-wide text-on-surface-variant/80 uppercase">
+            <div className="px-4 py-3 text-[11px] tracking-wide text-on-surface-variant/80 uppercase">
               No recordings — enable P25_AUDIO_ENABLED in .env
             </div>
           ) : (
@@ -367,14 +367,14 @@ export function ChannelsPanel({ visibleTalkgroups, managedTalkgroups, playing, o
                     {isPlaying ? 'pause_circle' : 'play_circle'}
                   </button>
                   <div className="flex-1 min-w-0">
-                    <div className="text-[10px] font-bold uppercase truncate">
+                    <div className="text-[11px] font-bold uppercase truncate">
                       {rec.tag || `TGID ${rec.tgid}`}
                     </div>
-                    <div className="font-mono text-[8px] text-on-surface-variant/60">
+                    <div className="font-mono text-[11px] text-on-surface-variant/60">
                       {formatTs(rec.started_at)} · {formatDuration(rec.duration_s)}
                     </div>
                   </div>
-                  <div className="font-mono text-[8px] text-on-surface-variant/40 shrink-0">{rec.tgid}</div>
+                  <div className="font-mono text-[11px] text-on-surface-variant/40 shrink-0">{rec.tgid}</div>
                 </div>
               )
             })

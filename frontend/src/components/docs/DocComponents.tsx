@@ -19,7 +19,7 @@ export function AtlasIcon({
   const atlas = getAtlasIcons()
   const mapping = atlas.mapping[name]
   
-  if (!mapping) return <span className="text-red-500 text-[10px]">?</span>
+  if (!mapping) return <span className="text-red-500 text-[11px]">?</span>
 
   const scale = size / mapping.width
   
@@ -119,7 +119,7 @@ export function DocCard({ icon, title, description, badge }: { icon: string | Re
             <h3 className="font-bold text-[13px] text-white tracking-tight">{title}</h3>
           </div>
           {badge && (
-            <span className="text-[9px] px-1.5 py-0.5 bg-amber-gold/20 text-amber-gold border border-amber-gold/30 rounded uppercase tracking-widest font-bold">
+            <span className="text-[11px] px-1.5 py-0.5 bg-amber-gold/20 text-amber-gold border border-amber-gold/30 rounded uppercase tracking-widest font-bold">
               {badge}
             </span>
           )}
@@ -174,7 +174,7 @@ export function DocCallout({ title, children, type = 'info' }: { title: string; 
     <div className={`p-4 border-l-2 rounded-r-lg ${colors[type]} my-6 animate-in zoom-in-95 duration-500`}>
       <div className="flex items-center gap-2 mb-2">
         <span className="ms text-[18px]">{icons[type]}</span>
-        <span className="text-[10px] font-black uppercase tracking-[0.2em]">{title}</span>
+        <span className="text-[11px] font-black uppercase tracking-[0.2em]">{title}</span>
       </div>
       <div className="text-[12px] text-on-surface/80 leading-relaxed italic">
         {children}
@@ -195,7 +195,7 @@ export function DocCode({ code }: { code: string }) {
           <div className="w-2 h-2 rounded-full bg-amber-500/30" />
           <div className="w-2 h-2 rounded-full bg-green-500/30" />
         </div>
-        <span className="text-[9px] font-mono text-on-surface-variant/40 uppercase tracking-widest">terminal</span>
+        <span className="text-[11px] font-mono text-on-surface-variant/40 uppercase tracking-widest">terminal</span>
       </div>
       <pre className="p-4 overflow-x-auto">
         <code className="text-[11px] font-mono text-amber-gold/90 leading-relaxed">

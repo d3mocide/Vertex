@@ -54,7 +54,7 @@ function AiTrafficSummary() {
             AI Situational Briefing
           </h3>
         </div>
-        <span className="text-[8px] font-mono text-on-surface-variant uppercase tracking-widest">
+        <span className="text-[11px] font-mono text-on-surface-variant uppercase tracking-widest">
           {summary.ts
             ? new Date(summary.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
             : 'No timestamp'}
@@ -76,7 +76,7 @@ function AiTrafficSummary() {
 
       {summary.model && (
         <div className="mt-3 pt-2 border-t border-amber-gold/10 flex justify-end relative z-10">
-          <span className="text-[8px] font-mono text-amber-gold/40 uppercase">
+          <span className="text-[11px] font-mono text-amber-gold/40 uppercase">
             Analytic Engine: {summary.model}
           </span>
         </div>
@@ -159,7 +159,7 @@ export function IncidentsPanel() {
                   <p className="text-[11px] leading-relaxed line-clamp-3 hover:line-clamp-none cursor-help transition-all">
                     {alert.description}
                   </p>
-                  <div className="mt-3 pt-2 border-t border-current/10 flex justify-between items-center text-[9px] font-mono uppercase">
+                  <div className="mt-3 pt-2 border-t border-current/10 flex justify-between items-center text-[11px] font-mono uppercase">
                     <span>Severity: {alert.severity}</span>
                     <span>Expires: {new Date(alert.expires).toLocaleTimeString()}</span>
                   </div>
@@ -183,10 +183,10 @@ export function IncidentsPanel() {
               return (
                 <article key={`sys-${idx}`} className={`border p-3 flex flex-col gap-2 ${colorClass}`}>
                   <div className="flex justify-between items-start">
-                    <span className="text-[10px] font-mono px-1.5 py-0.5 bg-current/10 uppercase tracking-widest">
+                    <span className="text-[11px] font-mono px-1.5 py-0.5 bg-current/10 uppercase tracking-widest">
                       {ev.event_type}
                     </span>
-                    <span className="text-[9px] font-mono opacity-60">
+                    <span className="text-[11px] font-mono opacity-60">
                       {new Date(ev.ts).toLocaleTimeString()}
                     </span>
                   </div>
@@ -214,13 +214,13 @@ export function IncidentsPanel() {
                   <p className="text-[13px] font-bold text-amber-gold leading-tight">
                     {deriveIncidentTitle(incident)}
                   </p>
-                  <span className="font-mono text-[9px] text-on-surface-variant shrink-0 bg-onyx-black/60 px-1.5 py-0.5 rounded-sm">
+                  <span className="font-mono text-[11px] text-on-surface-variant shrink-0 bg-onyx-black/60 px-1.5 py-0.5 rounded-sm">
                     {incident.pubDate ? new Date(incident.pubDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'N/A'}
                   </span>
                 </div>
 
                 {formatIncidentLocation(incident) && (
-                  <div className="flex items-center gap-1 text-[10px] text-on-surface-variant font-mono">
+                  <div className="flex items-center gap-1 text-[11px] text-on-surface-variant font-mono">
                     <span className="ms text-[14px]" aria-hidden="true">location_on</span>
                     {formatIncidentLocation(incident)}
                   </div>
@@ -233,7 +233,7 @@ export function IncidentsPanel() {
                 )}
 
                 <div className="mt-auto pt-3 flex items-center justify-between border-t border-white/5">
-                  <span className="bg-amber-gold/20 text-amber-gold text-[8px] font-bold px-1.5 py-0.5 uppercase tracking-tighter rounded-sm">
+                  <span className="bg-amber-gold/20 text-amber-gold text-[11px] font-bold px-1.5 py-0.5 uppercase tracking-tighter rounded-sm">
                     High Priority
                   </span>
                   {incident.link && /^https?:\/\//i.test(incident.link) && (
@@ -241,7 +241,7 @@ export function IncidentsPanel() {
                       href={incident.link}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="font-mono text-[9px] uppercase tracking-widest text-amber-gold hover:text-white"
+                      className="font-mono text-[11px] uppercase tracking-widest text-amber-gold hover:text-white"
                     >
                       Report Source
                     </a>
@@ -267,13 +267,13 @@ export function IncidentsPanel() {
                   <p className="text-[12px] font-bold text-on-surface leading-tight">
                     {deriveIncidentTitle(incident)}
                   </p>
-                  <span className="font-mono text-[9px] text-on-surface-variant shrink-0">
+                  <span className="font-mono text-[11px] text-on-surface-variant shrink-0">
                     {incident.pubDate ? new Date(incident.pubDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'N/A'}
                   </span>
                 </div>
                 
                 {incident.description && (
-                  <p className="text-[10px] text-on-surface-variant leading-snug line-clamp-2">
+                  <p className="text-[11px] text-on-surface-variant leading-snug line-clamp-2">
                     {incident.description}
                   </p>
                 )}

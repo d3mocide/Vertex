@@ -89,7 +89,7 @@ export default function AdminUsers() {
       <div className="max-w-5xl space-y-8">
         {/* User table */}
         <section>
-          <h2 className="text-[10px] uppercase tracking-widest text-gray-500 mb-3">Accounts</h2>
+          <h2 className="text-[11px] uppercase tracking-widest text-gray-500 mb-3">Accounts</h2>
           {loading ? (
             <p className="text-xs text-gray-500">Loading…</p>
           ) : error ? (
@@ -99,10 +99,10 @@ export default function AdminUsers() {
               <table className="w-full text-xs">
                 <thead>
                   <tr className="border-b border-white/10 bg-surface-container">
-                    <th className="text-left px-3 py-2 text-[10px] uppercase tracking-wider text-gray-500 font-normal">Username</th>
-                    <th className="text-left px-3 py-2 text-[10px] uppercase tracking-wider text-gray-500 font-normal">Role</th>
-                    <th className="text-left px-3 py-2 text-[10px] uppercase tracking-wider text-gray-500 font-normal">Created</th>
-                    <th className="text-left px-3 py-2 text-[10px] uppercase tracking-wider text-gray-500 font-normal">Last Login</th>
+                    <th className="text-left px-3 py-2 text-[11px] uppercase tracking-wider text-gray-500 font-normal">Username</th>
+                    <th className="text-left px-3 py-2 text-[11px] uppercase tracking-wider text-gray-500 font-normal">Role</th>
+                    <th className="text-left px-3 py-2 text-[11px] uppercase tracking-wider text-gray-500 font-normal">Created</th>
+                    <th className="text-left px-3 py-2 text-[11px] uppercase tracking-wider text-gray-500 font-normal">Last Login</th>
                     <th className="px-3 py-2" />
                   </tr>
                 </thead>
@@ -124,12 +124,12 @@ export default function AdminUsers() {
                           <option value="viewer">viewer</option>
                         </select>
                       </td>
-                      <td className="px-3 py-2 text-gray-500 text-[10px]">{fmt(u.created_at)}</td>
-                      <td className="px-3 py-2 text-gray-500 text-[10px]">{fmt(u.last_login)}</td>
+                      <td className="px-3 py-2 text-gray-500 text-[11px]">{fmt(u.created_at)}</td>
+                      <td className="px-3 py-2 text-gray-500 text-[11px]">{fmt(u.last_login)}</td>
                       <td className="px-3 py-2 text-right">
                         <button
                           onClick={() => deleteUser(u)}
-                          className="text-[10px] text-red-500/60 hover:text-red-400 transition-colors uppercase tracking-wider"
+                          className="text-[11px] text-red-500/60 hover:text-red-400 transition-colors uppercase tracking-wider"
                         >
                           Delete
                         </button>
@@ -151,10 +151,10 @@ export default function AdminUsers() {
 
         {/* Create user form */}
         <section>
-          <h2 className="text-[10px] uppercase tracking-widest text-gray-500 mb-3">Create Account</h2>
+          <h2 className="text-[11px] uppercase tracking-widest text-gray-500 mb-3">Create Account</h2>
           <form onSubmit={createUser} className="border border-white/10 bg-black/30 p-4 space-y-3 max-w-sm">
             <div>
-              <label className="block text-[10px] text-gray-500 mb-1 uppercase tracking-wider">Username</label>
+              <label className="block text-[11px] text-gray-500 mb-1 uppercase tracking-wider">Username</label>
               <input
                 type="text"
                 value={newUsername}
@@ -168,7 +168,7 @@ export default function AdminUsers() {
               />
             </div>
             <div>
-              <label className="block text-[10px] text-gray-500 mb-1 uppercase tracking-wider">Password</label>
+              <label className="block text-[11px] text-gray-500 mb-1 uppercase tracking-wider">Password</label>
               <input
                 type="password"
                 value={newPassword}
@@ -180,7 +180,7 @@ export default function AdminUsers() {
               />
             </div>
             <div>
-              <label className="block text-[10px] text-gray-500 mb-1 uppercase tracking-wider">Role</label>
+              <label className="block text-[11px] text-gray-500 mb-1 uppercase tracking-wider">Role</label>
               <select
                 value={newRole}
                 onChange={(e) => setNewRole(e.target.value as 'admin' | 'viewer')}
@@ -194,7 +194,7 @@ export default function AdminUsers() {
             <button
               type="submit"
               disabled={creating}
-              className="w-full py-1.5 text-[10px] font-bold uppercase tracking-widest border border-amber-gold/40 text-amber-gold hover:bg-amber-gold/10 transition-colors disabled:opacity-50"
+              className="w-full py-1.5 text-[11px] font-bold uppercase tracking-widest border border-amber-gold/40 text-amber-gold hover:bg-amber-gold/10 transition-colors disabled:opacity-50"
             >
               {creating ? 'Creating…' : 'Create User'}
             </button>

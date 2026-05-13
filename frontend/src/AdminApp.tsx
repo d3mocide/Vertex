@@ -22,7 +22,7 @@ export default function AdminApp() {
       <aside className="flex flex-col w-52 shrink-0 border-r border-white/10 bg-black/40">
         <div className="flex items-center gap-2 px-4 py-4 border-b border-white/10">
           <span className="text-amber-gold text-lg font-bold tracking-widest">VERTEX</span>
-          <span className="text-[10px] text-on-surface-variant uppercase tracking-widest mt-1">Admin</span>
+          <span className="text-[11px] text-on-surface-variant uppercase tracking-widest mt-1">Admin</span>
         </div>
 
         <nav className="flex flex-col gap-1 p-2 flex-1">

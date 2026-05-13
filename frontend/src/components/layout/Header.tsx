@@ -27,20 +27,20 @@ function NotificationsDropdown({ events, onClose }: { events: SystemEvent[]; onC
       aria-label="Recent events"
     >
       <div className="flex items-center justify-between px-4 py-2 border-b border-white/10">
-        <span className="font-bold text-[10px] tracking-[0.2em] uppercase text-amber-gold">EVENTS</span>
+        <span className="font-bold text-[11px] tracking-[0.2em] uppercase text-amber-gold">EVENTS</span>
         <button onClick={onClose} className="text-on-surface-variant hover:text-on-surface transition-colors p-0.5 focus:outline-none" aria-label="Close">
           <span className="ms text-[16px]">close</span>
         </button>
       </div>
       <div className="max-h-80 overflow-y-auto">
         {events.length === 0 ? (
-          <div className="px-4 py-4 text-[10px] text-on-surface-variant uppercase tracking-wide">No events yet</div>
+          <div className="px-4 py-4 text-[11px] text-on-surface-variant uppercase tracking-wide">No events yet</div>
         ) : (
           [...events].reverse().map((ev) => (
             <div key={ev.event_id} className="px-4 py-2.5 border-b border-white/5 hover:bg-surface-container transition-colors">
-              <div className={`font-bold text-[10px] tracking-widest uppercase ${severityColor(ev.severity)}`}>{ev.event_type.replace(/_/g, ' ')}</div>
+              <div className={`font-bold text-[11px] tracking-widest uppercase ${severityColor(ev.severity)}`}>{ev.event_type.replace(/_/g, ' ')}</div>
               <div className="text-[11px] text-on-surface mt-0.5">{ev.summary}</div>
-              <div className="font-mono text-[9px] text-on-surface-variant mt-0.5">{new Date(ev.ts).toLocaleTimeString()}</div>
+              <div className="font-mono text-[11px] text-on-surface-variant mt-0.5">{new Date(ev.ts).toLocaleTimeString()}</div>
             </div>
           ))
         )}

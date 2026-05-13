@@ -75,7 +75,7 @@ export function SettingsPanel() {
           <div className="flex items-center gap-2">
             <span className="ms text-[18px] text-amber-gold" aria-hidden="true">settings</span>
             <span className="font-bold text-[11px] tracking-[0.2em] uppercase text-amber-gold">SETTINGS</span>
-            <span className={`px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-widest border ${userRole === 'admin' ? 'border-amber-gold/40 text-amber-gold/70' : 'border-green-ais/40 text-green-ais/70'}`}>
+            <span className={`px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-widest border ${userRole === 'admin' ? 'border-amber-gold/40 text-amber-gold/70' : 'border-green-ais/40 text-green-ais/70'}`}>
               {userRole}
             </span>
           </div>
@@ -97,7 +97,7 @@ export function SettingsPanel() {
             <div className="space-y-3">
               <button
                 onClick={() => { clearToken(); window.location.reload() }}
-                className="flex items-center gap-2 w-full py-2 px-3 border border-red-emergency/30 text-red-emergency/80 hover:bg-red-emergency/10 transition-colors text-[10px] font-bold uppercase tracking-widest"
+                className="flex items-center gap-2 w-full py-2 px-3 border border-red-emergency/30 text-red-emergency/80 hover:bg-red-emergency/10 transition-colors text-[11px] font-bold uppercase tracking-widest"
               >
                 <span className="ms text-[16px] leading-none">logout</span>
                 Sign Out
@@ -110,7 +110,7 @@ export function SettingsPanel() {
             <section>
               <a
                 href="/admin"
-                className="flex items-center justify-between w-full py-2 px-3 border border-amber-gold/30 text-amber-gold/80 hover:bg-amber-gold/10 transition-colors text-[10px] uppercase tracking-widest"
+                className="flex items-center justify-between w-full py-2 px-3 border border-amber-gold/30 text-amber-gold/80 hover:bg-amber-gold/10 transition-colors text-[11px] uppercase tracking-widest"
               >
                 <span>Admin Dashboard</span>
                 <span className="ms text-[14px]">open_in_new</span>
@@ -151,7 +151,7 @@ export function SettingsPanel() {
             <section>
               <h2 className="label-caps mb-3">Radar Opacity</h2>
               <div className="flex items-center gap-3">
-                <span className="font-mono text-[10px] text-on-surface-variant w-8">{Math.round(radarOpacity * 100)}%</span>
+                <span className="font-mono text-[11px] text-on-surface-variant w-8">{Math.round(radarOpacity * 100)}%</span>
                 <div className="relative flex-1 h-1 bg-surface-container-highest rounded-full overflow-hidden">
                   <div
                     className="absolute left-0 top-0 bottom-0 bg-amber-gold"
@@ -181,7 +181,7 @@ export function SettingsPanel() {
             <section>
               <h2 className="label-caps mb-3">Terrain Exaggeration</h2>
               <div className="flex items-center gap-3">
-                <span className="font-mono text-[10px] text-on-surface-variant w-8">{terrainExaggeration.toFixed(1)}×</span>
+                <span className="font-mono text-[11px] text-on-surface-variant w-8">{terrainExaggeration.toFixed(1)}×</span>
                 <div className="relative flex-1 h-1 bg-surface-container-highest rounded-full overflow-hidden">
                   <div
                     className="absolute left-0 top-0 bottom-0 bg-amber-gold"
@@ -209,7 +209,7 @@ export function SettingsPanel() {
               <h2 className="label-caps mb-3">Notifications</h2>
               <div className="space-y-3">
                 {notifPermission === 'denied' ? (
-                  <p className="text-[10px] text-on-surface-variant leading-relaxed">
+                  <p className="text-[11px] text-on-surface-variant leading-relaxed">
                     Notifications blocked by browser. Enable them in browser site settings.
                   </p>
                 ) : (
@@ -221,7 +221,7 @@ export function SettingsPanel() {
                     <span className={`ms text-[18px] leading-none transition-colors ${notifPermission === 'granted' ? 'text-amber-gold' : 'text-on-surface-variant group-hover:text-on-surface'}`} aria-hidden="true">
                       notifications
                     </span>
-                    <span className={`flex-1 font-bold text-[10px] tracking-widest uppercase transition-colors ${notifPermission === 'granted' ? 'text-on-surface' : 'text-on-surface-variant group-hover:text-on-surface'}`}>
+                    <span className={`flex-1 font-bold text-[11px] tracking-widest uppercase transition-colors ${notifPermission === 'granted' ? 'text-on-surface' : 'text-on-surface-variant group-hover:text-on-surface'}`}>
                       {notifPermission === 'granted' ? 'Notifications On' : 'Enable Notifications'}
                     </span>
                     {notifPermission === 'granted' && (
@@ -264,9 +264,9 @@ export function SettingsPanel() {
                 </button>
               </div>
               {!metricsData ? (
-                <p className="text-[10px] text-on-surface-variant">Loading…</p>
+                <p className="text-[11px] text-on-surface-variant">Loading…</p>
               ) : !metricsData.available ? (
-                <p className="text-[10px] text-on-surface-variant">
+                <p className="text-[11px] text-on-surface-variant">
                   No data yet — metrics collect every 10s after startup.
                 </p>
               ) : (
@@ -279,7 +279,7 @@ export function SettingsPanel() {
                   </div>
                   {metricsData.history.length >= 2 && (
                     <div>
-                      <div className="text-[8px] text-on-surface-variant uppercase tracking-widest mb-1">Req/s — last 6 min</div>
+                      <div className="text-[11px] text-on-surface-variant uppercase tracking-widest mb-1">Req/s — last 6 min</div>
                       <Sparkline values={metricsData.history.map((h) => h.req_rate)} />
                     </div>
                   )}

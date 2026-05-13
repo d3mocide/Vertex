@@ -125,7 +125,7 @@ export function AlertRulesSection({ open }: AlertRulesSectionProps) {
             <select
               value={newRuleTrigger}
               onChange={(e) => setNewRuleTrigger(e.target.value as AlertRule['trigger_type'])}
-              className="bg-onyx-deep border border-white/10 text-on-surface text-[10px] px-2 py-1.5 focus:outline-none"
+              className="bg-onyx-deep border border-white/10 text-on-surface text-[11px] px-2 py-1.5 focus:outline-none"
             >
               <option value="severity_threshold">Severity</option>
               <option value="geofence_entry">Geofence Entry</option>
@@ -135,7 +135,7 @@ export function AlertRulesSection({ open }: AlertRulesSectionProps) {
           <select
             value={newRuleAction}
             onChange={(e) => setNewRuleAction(e.target.value as AlertRule['action_type'])}
-            className={`bg-onyx-deep border border-white/10 text-on-surface text-[10px] px-2 py-1.5 focus:outline-none ${newRuleAction === 'sitrep_delivery' ? 'col-span-2' : ''}`}
+            className={`bg-onyx-deep border border-white/10 text-on-surface text-[11px] px-2 py-1.5 focus:outline-none ${newRuleAction === 'sitrep_delivery' ? 'col-span-2' : ''}`}
           >
             <option value="webhook_post">Webhook</option>
             <option value="log">Log Only</option>
@@ -154,25 +154,25 @@ export function AlertRulesSection({ open }: AlertRulesSectionProps) {
         {newRuleAction === 'sitrep_delivery' && (
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className="label-caps text-[8px] block mb-1">Interval (hours)</label>
+              <label className="label-caps text-[11px] block mb-1">Interval (hours)</label>
               <input
                 type="number"
                 min="1"
                 max="168"
                 value={newRuleIntervalHours}
                 onChange={(e) => setNewRuleIntervalHours(e.target.value)}
-                className="w-full bg-onyx-deep border border-white/10 text-on-surface text-[10px] px-2 py-1.5 focus:outline-none focus:border-amber-gold/60 transition-colors"
+                className="w-full bg-onyx-deep border border-white/10 text-on-surface text-[11px] px-2 py-1.5 focus:outline-none focus:border-amber-gold/60 transition-colors"
               />
             </div>
             <div>
-              <label className="label-caps text-[8px] block mb-1">Window (hours)</label>
+              <label className="label-caps text-[11px] block mb-1">Window (hours)</label>
               <input
                 type="number"
                 min="1"
                 max="168"
                 value={newRuleSitrepWindow}
                 onChange={(e) => setNewRuleSitrepWindow(e.target.value)}
-                className="w-full bg-onyx-deep border border-white/10 text-on-surface text-[10px] px-2 py-1.5 focus:outline-none focus:border-amber-gold/60 transition-colors"
+                className="w-full bg-onyx-deep border border-white/10 text-on-surface text-[11px] px-2 py-1.5 focus:outline-none focus:border-amber-gold/60 transition-colors"
               />
             </div>
           </div>
@@ -181,7 +181,7 @@ export function AlertRulesSection({ open }: AlertRulesSectionProps) {
         {/* Advanced suppression controls */}
         <button
           onClick={() => setShowAdvanced((v) => !v)}
-          className="text-[9px] text-on-surface-variant hover:text-amber-gold uppercase tracking-widest transition-colors focus:outline-none flex items-center gap-1"
+          className="text-[11px] text-on-surface-variant hover:text-amber-gold uppercase tracking-widest transition-colors focus:outline-none flex items-center gap-1"
         >
           <span className="ms text-[12px] leading-none">{showAdvanced ? 'expand_less' : 'expand_more'}</span>
           Suppression settings
@@ -189,25 +189,25 @@ export function AlertRulesSection({ open }: AlertRulesSectionProps) {
         {showAdvanced && (
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className="label-caps text-[8px] block mb-1">Cooldown (sec)</label>
+              <label className="label-caps text-[11px] block mb-1">Cooldown (sec)</label>
               <input
                 type="number"
                 min="0"
                 placeholder="0"
                 value={newRuleCooldown}
                 onChange={(e) => setNewRuleCooldown(e.target.value)}
-                className="w-full bg-onyx-deep border border-white/10 text-on-surface text-[10px] px-2 py-1.5 focus:outline-none focus:border-amber-gold/60 transition-colors"
+                className="w-full bg-onyx-deep border border-white/10 text-on-surface text-[11px] px-2 py-1.5 focus:outline-none focus:border-amber-gold/60 transition-colors"
               />
             </div>
             <div>
-              <label className="label-caps text-[8px] block mb-1">Max / hr</label>
+              <label className="label-caps text-[11px] block mb-1">Max / hr</label>
               <input
                 type="number"
                 min="0"
                 placeholder="∞"
                 value={newRuleMaxPerHour}
                 onChange={(e) => setNewRuleMaxPerHour(e.target.value)}
-                className="w-full bg-onyx-deep border border-white/10 text-on-surface text-[10px] px-2 py-1.5 focus:outline-none focus:border-amber-gold/60 transition-colors"
+                className="w-full bg-onyx-deep border border-white/10 text-on-surface text-[11px] px-2 py-1.5 focus:outline-none focus:border-amber-gold/60 transition-colors"
               />
             </div>
           </div>
@@ -215,7 +215,7 @@ export function AlertRulesSection({ open }: AlertRulesSectionProps) {
 
         <button
           onClick={createAlertRule}
-          className="w-full py-1.5 text-[9px] font-bold uppercase tracking-widest border border-amber-gold/40 text-amber-gold hover:bg-amber-gold/10 transition-colors focus:outline-none"
+          className="w-full py-1.5 text-[11px] font-bold uppercase tracking-widest border border-amber-gold/40 text-amber-gold hover:bg-amber-gold/10 transition-colors focus:outline-none"
         >
           Add Rule
         </button>
@@ -223,20 +223,20 @@ export function AlertRulesSection({ open }: AlertRulesSectionProps) {
 
       <div className="mt-3 space-y-2">
         {alertRules.length === 0 ? (
-          <p className="text-[10px] text-on-surface-variant">No alert rules configured.</p>
+          <p className="text-[11px] text-on-surface-variant">No alert rules configured.</p>
         ) : (
           alertRules.map((rule) => (
             <div key={rule.id} className="border border-white/10 bg-onyx-black/30 p-2">
               <div className="flex items-center justify-between gap-2">
-                <span className="text-[10px] text-on-surface font-bold truncate">{rule.name}</span>
+                <span className="text-[11px] text-on-surface font-bold truncate">{rule.name}</span>
                 <button
                   onClick={() => toggleAlertRule(rule.id, rule.enabled)}
-                  className={`text-[8px] uppercase tracking-widest border px-1.5 py-0.5 ${rule.enabled ? 'text-green-ais border-green-ais/40' : 'text-on-surface-variant border-white/20'}`}
+                  className={`text-[11px] uppercase tracking-widest border px-1.5 py-0.5 ${rule.enabled ? 'text-green-ais border-green-ais/40' : 'text-on-surface-variant border-white/20'}`}
                 >
                   {rule.enabled ? 'On' : 'Off'}
                 </button>
               </div>
-              <div className="text-[8px] text-on-surface-variant uppercase tracking-widest mt-1">
+              <div className="text-[11px] text-on-surface-variant uppercase tracking-widest mt-1">
                 {rule.action_type !== 'sitrep_delivery' && <span>{rule.trigger_type.replace(/_/g, ' ')} · </span>}
                 {rule.action_type.replace(/_/g, ' ')}
                 {rule.action_type === 'sitrep_delivery' && rule.action_config.interval_hours != null && (
@@ -251,7 +251,7 @@ export function AlertRulesSection({ open }: AlertRulesSectionProps) {
               </div>
               <button
                 onClick={() => deleteAlertRule(rule.id)}
-                className="mt-1 text-[9px] text-red-emergency hover:text-red-emergency/80 uppercase tracking-widest"
+                className="mt-1 text-[11px] text-red-emergency hover:text-red-emergency/80 uppercase tracking-widest"
               >
                 Delete
               </button>

@@ -51,7 +51,7 @@ type ProbeResult = {
 function StatusPill({ ok }: { ok: boolean }) {
   return (
     <span
-      className={`inline-flex items-center px-2 py-0.5 text-[10px] uppercase tracking-wider rounded border ${
+      className={`inline-flex items-center px-2 py-0.5 text-[11px] uppercase tracking-wider rounded border ${
         ok
           ? 'border-emerald-500/40 text-emerald-300 bg-emerald-500/10'
           : 'border-red-500/40 text-red-300 bg-red-500/10'
@@ -66,7 +66,7 @@ function CheckRow({ check }: { check: CheckResult }) {
   return (
     <div className="flex items-center gap-3 px-3 py-2 border-b border-white/5 last:border-0">
       <div className="w-24 shrink-0 text-[11px] text-gray-300 uppercase tracking-wider">{check.name}</div>
-      <div className="w-16 shrink-0 text-[10px] text-gray-500 uppercase tracking-wider">{check.protocol}</div>
+      <div className="w-16 shrink-0 text-[11px] text-gray-500 uppercase tracking-wider">{check.protocol}</div>
       <StatusPill ok={check.ok} />
       <span className="text-[11px] text-gray-400">{check.status_code ?? '—'}</span>
       <span className="text-[11px] text-gray-500">{check.latency_ms.toFixed(1)} ms</span>
@@ -105,18 +105,18 @@ function SourceStatusBoard({
   return (
     <div className="border border-white/10 bg-black/30 overflow-x-auto">
       <div className="flex items-center justify-between px-3 py-2 border-b border-white/10">
-        <span className="text-[10px] uppercase tracking-widest text-gray-400">Source Status Board</span>
-        <span className="text-[9px] text-gray-600 uppercase tracking-widest font-mono">{sources.length} source{sources.length !== 1 ? 's' : ''}</span>
+        <span className="text-[11px] uppercase tracking-widest text-gray-400">Source Status Board</span>
+        <span className="text-[11px] text-gray-600 uppercase tracking-widest font-mono">{sources.length} source{sources.length !== 1 ? 's' : ''}</span>
       </div>
       <table className="w-full text-xs">
         <thead>
           <tr className="border-b border-white/5">
-            <th className="text-left px-3 py-1.5 text-[9px] uppercase tracking-widest text-gray-500 font-normal w-20">Type</th>
-            <th className="text-left px-3 py-1.5 text-[9px] uppercase tracking-widest text-gray-500 font-normal">Name</th>
-            <th className="text-left px-3 py-1.5 text-[9px] uppercase tracking-widest text-gray-500 font-normal w-20">Status</th>
-            <th className="text-left px-3 py-1.5 text-[9px] uppercase tracking-widest text-gray-500 font-normal w-24">Last Run</th>
-            <th className="text-left px-3 py-1.5 text-[9px] uppercase tracking-widest text-gray-500 font-normal w-24">Next Run</th>
-            <th className="text-left px-3 py-1.5 text-[9px] uppercase tracking-widest text-gray-500 font-normal w-16">Polling</th>
+            <th className="text-left px-3 py-1.5 text-[11px] uppercase tracking-widest text-gray-500 font-normal w-20">Type</th>
+            <th className="text-left px-3 py-1.5 text-[11px] uppercase tracking-widest text-gray-500 font-normal">Name</th>
+            <th className="text-left px-3 py-1.5 text-[11px] uppercase tracking-widest text-gray-500 font-normal w-20">Status</th>
+            <th className="text-left px-3 py-1.5 text-[11px] uppercase tracking-widest text-gray-500 font-normal w-24">Last Run</th>
+            <th className="text-left px-3 py-1.5 text-[11px] uppercase tracking-widest text-gray-500 font-normal w-24">Next Run</th>
+            <th className="text-left px-3 py-1.5 text-[11px] uppercase tracking-widest text-gray-500 font-normal w-16">Polling</th>
           </tr>
         </thead>
         <tbody>
@@ -159,17 +159,17 @@ function SourceStatusBoard({
                   isSelected ? 'bg-amber-gold/5 border-l-2 border-l-amber-gold/40' : 'hover:bg-white/5'
                 }`}
               >
-                <td className="px-3 py-2 font-mono text-[10px] text-gray-400 uppercase">{src.type}</td>
+                <td className="px-3 py-2 font-mono text-[11px] text-gray-400 uppercase">{src.type}</td>
                 <td className="px-3 py-2 text-gray-200 max-w-[180px] truncate">{src.name}</td>
-                <td className={`px-3 py-2 font-mono text-[10px] font-bold ${outcomeColor[outcome]}`}>{outcomeLabel[outcome]}</td>
-                <td className="px-3 py-2 font-mono text-[10px] text-gray-400">
+                <td className={`px-3 py-2 font-mono text-[11px] font-bold ${outcomeColor[outcome]}`}>{outcomeLabel[outcome]}</td>
+                <td className="px-3 py-2 font-mono text-[11px] text-gray-400">
                   {lastRunAge === null ? '—' : lastRunAge < 60 ? `${lastRunAge}s ago` : `${Math.floor(lastRunAge / 60)}m ago`}
                 </td>
-                <td className="px-3 py-2 font-mono text-[10px] text-gray-400">
+                <td className="px-3 py-2 font-mono text-[11px] text-gray-400">
                   {nextRunSecs === null ? '—' : nextRunSecs === 0 ? 'now' : `${nextRunSecs}s`}
                 </td>
                 <td className="px-3 py-2">
-                  <span className={`text-[9px] uppercase tracking-wider font-mono ${
+                  <span className={`text-[11px] uppercase tracking-wider font-mono ${
                     polling ? 'text-emerald-400' : 'text-gray-600'
                   }`}>{polling ? 'on' : 'off'}</span>
                 </td>
@@ -349,7 +349,7 @@ export default function AdminDebug() {
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-3 p-3 border border-white/10 bg-black/30">
           <div className="md:col-span-2">
-            <label className="block text-[10px] uppercase tracking-widest text-gray-500 mb-1">Source</label>
+            <label className="block text-[11px] uppercase tracking-widest text-gray-500 mb-1">Source</label>
             <select
               value={selectedSourceId}
               onChange={(e) => setSelectedSourceId(e.target.value)}
@@ -366,7 +366,7 @@ export default function AdminDebug() {
           </div>
 
           <div>
-            <label className="block text-[10px] uppercase tracking-widest text-gray-500 mb-1">Probe Window</label>
+            <label className="block text-[11px] uppercase tracking-widest text-gray-500 mb-1">Probe Window</label>
             <select
               value={durationSeconds}
               onChange={(e) => setDurationSeconds(Number(e.target.value))}
@@ -384,7 +384,7 @@ export default function AdminDebug() {
             <button
               onClick={runProbe}
               disabled={!canRun}
-              className="w-full py-2 text-[10px] font-bold uppercase tracking-widest border border-amber-gold/40 text-amber-gold hover:bg-amber-gold/10 disabled:opacity-40 transition-colors"
+              className="w-full py-2 text-[11px] font-bold uppercase tracking-widest border border-amber-gold/40 text-amber-gold hover:bg-amber-gold/10 disabled:opacity-40 transition-colors"
             >
               {selectedRunning ? 'Probing…' : 'Run Probe'}
             </button>
@@ -393,14 +393,14 @@ export default function AdminDebug() {
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3 p-3 border border-white/10 bg-black/20">
           <div>
-            <label className="block text-[10px] uppercase tracking-widest text-gray-500 mb-1">Polling Status</label>
+            <label className="block text-[11px] uppercase tracking-widest text-gray-500 mb-1">Polling Status</label>
             <div className="text-xs text-gray-300">
               {selectedPollingEnabled ? 'Enabled' : 'Disabled'}
             </div>
           </div>
 
           <div>
-            <label className="block text-[10px] uppercase tracking-widest text-gray-500 mb-1">Poll Interval</label>
+            <label className="block text-[11px] uppercase tracking-widest text-gray-500 mb-1">Poll Interval</label>
             <select
               value={selectedPollingInterval}
               onChange={(e) => {
@@ -421,7 +421,7 @@ export default function AdminDebug() {
             <button
               onClick={toggleSelectedPolling}
               disabled={!selectedSource}
-              className="w-full py-2 text-[10px] font-bold uppercase tracking-widest border border-white/20 text-gray-100 hover:bg-white/10 disabled:opacity-40 transition-colors"
+              className="w-full py-2 text-[11px] font-bold uppercase tracking-widest border border-white/20 text-gray-100 hover:bg-white/10 disabled:opacity-40 transition-colors"
             >
               {selectedPollingEnabled ? 'Disable Polling' : 'Enable Polling'}
             </button>

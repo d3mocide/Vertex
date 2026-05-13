@@ -130,9 +130,9 @@ function StatCard({ label, value, unit, colorClass }: {
 }) {
   return (
     <div className="p-2.5 border border-white/10 bg-white/5 rounded-sm">
-      <div className="font-mono text-[7px] text-on-surface-variant uppercase tracking-widest mb-1">{label}</div>
+      <div className="font-mono text-[11px] text-on-surface-variant uppercase tracking-widest mb-1">{label}</div>
       <div className={`font-black text-sm ${colorClass} leading-none`}>{value}</div>
-      <div className="font-mono text-[7px] text-on-surface-variant/60 uppercase mt-0.5">{unit}</div>
+      <div className="font-mono text-[11px] text-on-surface-variant/60 uppercase mt-0.5">{unit}</div>
     </div>
   )
 }
@@ -140,8 +140,8 @@ function StatCard({ label, value, unit, colorClass }: {
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-baseline justify-between gap-2 py-0.5">
-      <span className="font-mono text-[8px] text-on-surface-variant uppercase tracking-widest shrink-0">{label}</span>
-      <span className="font-mono text-[9px] text-on-surface truncate text-right">{value}</span>
+      <span className="font-mono text-[11px] text-on-surface-variant uppercase tracking-widest shrink-0">{label}</span>
+      <span className="font-mono text-[11px] text-on-surface truncate text-right">{value}</span>
     </div>
   )
 }
@@ -149,8 +149,8 @@ function InfoRow({ label, value }: { label: string; value: string }) {
 function LiveStat({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <div className="font-mono text-[7px] text-on-surface-variant/60 uppercase tracking-wider leading-none mb-0.5">{label}</div>
-      <div className="font-mono text-[10px] font-bold text-on-surface leading-tight">{value}</div>
+      <div className="font-mono text-[11px] text-on-surface-variant/60 uppercase tracking-wider leading-none mb-0.5">{label}</div>
+      <div className="font-mono text-[11px] font-bold text-on-surface leading-tight">{value}</div>
     </div>
   )
 }
@@ -197,12 +197,12 @@ function AircraftRow({
         </span>
         <div className="flex flex-col min-w-0">
           <div className="flex items-center gap-1.5">
-            <span className={`text-[11px] font-bold truncate transition-colors ${isSelected ? 'text-cyan-adsb' : 'text-on-surface group-hover:text-amber-gold'}`}>
+            <span className={`text-[12px] font-bold truncate transition-colors ${isSelected ? 'text-cyan-adsb' : 'text-on-surface group-hover:text-amber-gold'}`}>
               {callsign}
             </span>
             {isLive && <span className="w-1 h-1 rounded-full bg-green-ais shrink-0" title="Live" />}
           </div>
-          <span className="font-mono text-[8px] text-on-surface-variant uppercase tracking-widest truncate">
+          <span className="font-mono text-[11px] text-on-surface-variant uppercase tracking-widest truncate">
             {icaoType !== '--' ? icaoType : entityId.split(':').pop()?.toUpperCase()}
           </span>
         </div>
@@ -211,18 +211,18 @@ function AircraftRow({
       <div className="flex flex-col items-end gap-0.5 shrink-0 ml-2">
         {isLive ? (
           <>
-            <span className={`font-mono text-[8px] font-bold ${badge.cls}`}>{badge.text}</span>
-            <span className="font-mono text-[8px] text-on-surface-variant">
+            <span className={`font-mono text-[11px] font-bold ${badge.cls}`}>{badge.text}</span>
+            <span className="font-mono text-[11px] text-on-surface-variant">
               {altFt != null ? `${(Math.round(altFt / 100) * 100).toLocaleString()}ft` : '--'}
             </span>
-            <span className="font-mono text-[8px] text-on-surface-variant">
+            <span className="font-mono text-[11px] text-on-surface-variant">
               {spdKts != null ? `${Math.round(spdKts)}kts` : '--'}
             </span>
           </>
         ) : (
           <>
-            <span className="font-mono text-[8px] text-on-surface-variant/60">{fmtTime(lastSeen)}</span>
-            <span className="font-mono text-[7px] text-on-surface-variant/40 uppercase">last seen</span>
+            <span className="font-mono text-[11px] text-on-surface-variant/60">{fmtTime(lastSeen)}</span>
+            <span className="font-mono text-[11px] text-on-surface-variant/40 uppercase">last seen</span>
           </>
         )}
       </div>
@@ -349,7 +349,7 @@ function FlightMiniMap({ trailPoints, entity }: {
       {/* Track point counter */}
       {!isEmpty && (
         <div className="absolute bottom-2 left-2 pointer-events-none">
-          <span className="font-mono text-[7px] text-on-surface-variant/60 uppercase tracking-widest bg-onyx-black/60 px-1.5 py-0.5 rounded-sm">
+          <span className="font-mono text-[11px] text-on-surface-variant/60 uppercase tracking-widest bg-onyx-black/60 px-1.5 py-0.5 rounded-sm">
             {trailPoints.length > 0 ? `${trailPoints.length} pts` : 'live position'}
           </span>
         </div>
@@ -359,7 +359,7 @@ function FlightMiniMap({ trailPoints, entity }: {
       {isEmpty && (
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 text-on-surface-variant/20 pointer-events-none">
           <span className="ms text-3xl">flight_takeoff</span>
-          <span className="text-[8px] font-mono uppercase tracking-widest">Select aircraft for trail</span>
+          <span className="text-[11px] font-mono uppercase tracking-widest">Select aircraft for trail</span>
         </div>
       )}
     </div>
@@ -564,7 +564,7 @@ export function FlightLogPanel() {
               key={w.label}
               type="button"
               onClick={() => setTimeWindow(w.minutes)}
-              className={`font-mono text-[9px] px-2 py-0.5 uppercase tracking-widest transition-colors ${
+              className={`font-mono text-[11px] px-2 py-0.5 uppercase tracking-widest transition-colors ${
                 timeWindow === w.minutes
                   ? 'bg-cyan-adsb text-onyx-black font-bold'
                   : 'text-on-surface-variant hover:text-cyan-adsb border border-white/10 hover:border-cyan-adsb/40'
@@ -580,13 +580,13 @@ export function FlightLogPanel() {
 
         {/* Log update frequency */}
         <div className="flex items-center gap-1">
-          <span className="font-mono text-[8px] text-on-surface-variant uppercase tracking-widest mr-1">Log</span>
+          <span className="font-mono text-[11px] text-on-surface-variant uppercase tracking-widest mr-1">Log</span>
           {UPDATE_INTERVALS.map(u => (
             <button
               key={u.label}
               type="button"
               onClick={() => setUpdateHz(u.ms)}
-              className={`font-mono text-[9px] px-2 py-0.5 uppercase tracking-widest transition-colors ${
+              className={`font-mono text-[11px] px-2 py-0.5 uppercase tracking-widest transition-colors ${
                 updateHz === u.ms
                   ? 'bg-amber-gold text-onyx-black font-bold'
                   : 'text-on-surface-variant hover:text-amber-gold border border-white/10 hover:border-amber-gold/40'
@@ -599,24 +599,24 @@ export function FlightLogPanel() {
 
         <div className="ml-auto flex items-center gap-2">
           {loadingReplay && (
-            <span className="font-mono text-[9px] text-on-surface-variant/60 animate-pulse uppercase">Fetching...</span>
+            <span className="font-mono text-[11px] text-on-surface-variant/60 animate-pulse uppercase">Fetching...</span>
           )}
           <span className="w-1.5 h-1.5 rounded-full bg-cyan-adsb animate-pulse" />
-          <span className="font-mono text-[9px] text-cyan-adsb uppercase tracking-widest">ADS-B</span>
+          <span className="font-mono text-[11px] text-cyan-adsb uppercase tracking-widest">ADS-B</span>
         </div>
       </div>
 
       {/* ── Body: 2×2 grid layout ── */}
       {/*  Top row:    Traffic Summary  |  Selected Aircraft Map              */}
       {/*  Bottom row: Aircraft Log     |  Selected Aircraft Details          */}
-      <div className="flex-1 overflow-hidden min-h-0 grid grid-cols-2 grid-rows-[auto,1fr]">
+      <div className="flex-1 overflow-hidden min-h-0 grid grid-cols-4 grid-rows-[auto,1fr]">
 
         {/* ── Top-left: Traffic Summary ── */}
-        <section className="p-4 border-r border-b border-white/10 overflow-y-auto shrink-0">
+        <section className="col-span-1 p-4 border-r border-b border-white/10 overflow-y-auto shrink-0">
           <h3 className="section-heading mb-3 flex items-center gap-2">
             <span className="ms text-[14px] text-cyan-adsb">analytics</span>
             Traffic Summary
-            <span className="ml-auto font-mono text-[9px] text-on-surface-variant">{twLabel} window</span>
+            <span className="ml-auto font-mono text-[11px] text-on-surface-variant">{twLabel} window</span>
           </h3>
           <div className="grid grid-cols-2 gap-2">
             <StatCard label="Total Observed"  value={String(summaryStats.total)}     unit="aircraft" colorClass="text-cyan-adsb"  />
@@ -633,7 +633,7 @@ export function FlightLogPanel() {
         </section>
 
         {/* ── Top-right: Selected Aircraft Map ── */}
-        <div className="border-b border-white/10 p-4 flex flex-col gap-2 shrink-0">
+        <div className="col-span-3 border-b border-white/10 p-4 flex flex-col gap-2 shrink-0">
           <div className="flex items-center justify-between shrink-0">
             <h3 className="section-heading flex items-center gap-2">
               <span className="ms text-[14px] text-cyan-adsb">map</span>
@@ -660,7 +660,7 @@ export function FlightLogPanel() {
         </div>
 
         {/* ── Bottom-left: Aircraft Log ── */}
-        <div className="border-r border-white/10 flex flex-col overflow-hidden">
+        <div className="col-span-1 border-r border-white/10 flex flex-col overflow-hidden">
 
           {/* Search bar */}
           <div className="px-3 py-2 border-b border-white/10 shrink-0 flex items-center gap-2 bg-white/5">
@@ -670,7 +670,7 @@ export function FlightLogPanel() {
               placeholder="Callsign, type, registration, operator, ICAO…"
               value={search}
               onChange={e => setSearch(e.target.value)}
-              className="flex-1 bg-transparent text-[11px] text-on-surface placeholder-on-surface-variant/50 focus:outline-none"
+              className="flex-1 bg-transparent text-[12px] text-on-surface placeholder-on-surface-variant/50 focus:outline-none"
             />
             {search && (
               <button type="button" onClick={() => setSearch('')} className="text-on-surface-variant hover:text-white transition-colors">
@@ -681,8 +681,8 @@ export function FlightLogPanel() {
 
           {/* Column headers */}
           <div className="px-3 py-1.5 bg-white/5 border-b border-white/5 flex items-center justify-between shrink-0">
-            <span className="font-mono text-[8px] text-on-surface-variant uppercase tracking-widest">Aircraft · Type</span>
-            <span className="font-mono text-[8px] text-on-surface-variant uppercase tracking-widest">Phase · Alt · Spd</span>
+            <span className="font-mono text-[11px] text-on-surface-variant uppercase tracking-widest">Aircraft · Type</span>
+            <span className="font-mono text-[11px] text-on-surface-variant uppercase tracking-widest">Phase · Alt · Spd</span>
           </div>
 
           {/* List body */}
@@ -718,12 +718,12 @@ export function FlightLogPanel() {
 
           {/* Footer */}
           <div className="px-3 py-2 border-t border-white/5 bg-white/5 flex items-center justify-between shrink-0">
-            <span className="font-mono text-[9px] text-on-surface-variant uppercase">
+            <span className="font-mono text-[11px] text-on-surface-variant uppercase">
               {filteredFlights.length} aircraft
               {search ? ` matching "${search}"` : ` in ${twLabel} window`}
             </span>
             {updateHz > 0 && (
-              <span className="font-mono text-[8px] text-amber-gold/60 uppercase">
+              <span className="font-mono text-[11px] text-amber-gold/60 uppercase">
                 {UPDATE_INTERVALS.find(u => u.ms === updateHz)?.label} refresh
               </span>
             )}
@@ -731,7 +731,7 @@ export function FlightLogPanel() {
         </div>
 
         {/* ── Bottom-right: Selected Aircraft Details ── */}
-        <div className="overflow-y-auto">
+        <div className="col-span-3 overflow-y-auto">
           {selectedEntityId && (detailEntity || replayFlights[selectedEntityId]) ? (
             <section className="p-4 space-y-4 pb-8">
               <h3 className="section-heading flex items-center gap-2">
@@ -743,7 +743,7 @@ export function FlightLogPanel() {
               <div className="p-3 border border-cyan-adsb/30 bg-cyan-adsb/5 rounded-sm space-y-1.5">
                 <div className="flex items-start justify-between border-b border-cyan-adsb/10 pb-2 mb-2">
                   <div>
-                    <div className="font-mono text-[8px] text-cyan-adsb/70 uppercase tracking-widest mb-0.5">Callsign</div>
+                    <div className="font-mono text-[11px] text-cyan-adsb/70 uppercase tracking-widest mb-0.5">Callsign</div>
                     <div className="font-black text-lg text-on-surface uppercase leading-none tracking-tight">
                       {getIdent(detailEntity, 'callsign') !== '--'
                         ? getIdent(detailEntity, 'callsign')
@@ -753,8 +753,8 @@ export function FlightLogPanel() {
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="font-mono text-[8px] text-on-surface-variant uppercase tracking-widest mb-0.5">ICAO 24</div>
-                    <div className="font-mono text-[11px] text-on-surface">{selectedEntityId.split(':').pop()?.toUpperCase()}</div>
+                    <div className="font-mono text-[11px] text-on-surface-variant uppercase tracking-widest mb-0.5">ICAO 24</div>
+                    <div className="font-mono text-[12px] text-on-surface">{selectedEntityId.split(':').pop()?.toUpperCase()}</div>
                   </div>
                 </div>
                 <InfoRow label="Registration"  value={getIdent(detailEntity, 'registration')} />
@@ -767,11 +767,11 @@ export function FlightLogPanel() {
               {/* Route */}
               {detailEntity && !!(detailEntity.identity?.['origin'] || detailEntity.identity?.['destination']) && (
                 <div className="p-3 border border-white/10 bg-white/5 rounded-sm">
-                  <div className="font-mono text-[8px] text-on-surface-variant uppercase tracking-widest mb-3">Route</div>
+                  <div className="font-mono text-[11px] text-on-surface-variant uppercase tracking-widest mb-3">Route</div>
                   <div className="flex items-center justify-between gap-2">
                     <div className="text-center flex-1 min-w-0">
                       <div className="font-black text-base text-on-surface">{getIdent(detailEntity, 'origin')}</div>
-                      <div className="font-mono text-[7px] text-on-surface-variant truncate">
+                      <div className="font-mono text-[11px] text-on-surface-variant truncate">
                         {nestedStr(detailEntity, 'origin_info', 'city') || 'Origin'}
                       </div>
                     </div>
@@ -782,7 +782,7 @@ export function FlightLogPanel() {
                     </div>
                     <div className="text-center flex-1 min-w-0">
                       <div className="font-black text-base text-on-surface">{getIdent(detailEntity, 'destination')}</div>
-                      <div className="font-mono text-[7px] text-on-surface-variant truncate">
+                      <div className="font-mono text-[11px] text-on-surface-variant truncate">
                         {nestedStr(detailEntity, 'dest_info', 'city') || 'Destination'}
                       </div>
                     </div>
@@ -794,7 +794,7 @@ export function FlightLogPanel() {
               {detailEntity && (
                 <div className="p-3 border border-white/10 bg-white/5 rounded-sm">
                   <div className="flex items-center gap-2 mb-2">
-                    <div className="font-mono text-[8px] text-on-surface-variant uppercase tracking-widest">Live Position</div>
+                    <div className="font-mono text-[11px] text-on-surface-variant uppercase tracking-widest">Live Position</div>
                     {entities[selectedEntityId] && (
                       <span className="w-1.5 h-1.5 rounded-full bg-green-ais animate-pulse" />
                     )}
@@ -816,7 +816,7 @@ export function FlightLogPanel() {
 
               {/* Flight statistics */}
               <div className="p-3 border border-white/10 bg-white/5 rounded-sm">
-                <div className="font-mono text-[8px] text-on-surface-variant uppercase tracking-widest mb-2 flex items-center gap-2">
+                <div className="font-mono text-[11px] text-on-surface-variant uppercase tracking-widest mb-2 flex items-center gap-2">
                   Flight Statistics
                   <span className="text-amber-gold/60 text-[7px]">({twLabel})</span>
                   {loadingTrail && <span className="ml-auto animate-pulse text-[7px] text-on-surface-variant/50">loading…</span>}
@@ -834,16 +834,16 @@ export function FlightLogPanel() {
                     <div className="mt-3 pt-2 border-t border-white/5 grid grid-cols-2 gap-3">
                       <div>
                         <div className="font-mono text-[7px] text-on-surface-variant/60 uppercase">First Seen</div>
-                        <div className="font-mono text-[8px] text-on-surface mt-0.5">{fmtDateTime(selectedFlightStats.firstSeen)}</div>
+                        <div className="font-mono text-[11px] text-on-surface mt-0.5">{fmtDateTime(selectedFlightStats.firstSeen)}</div>
                       </div>
                       <div>
                         <div className="font-mono text-[7px] text-on-surface-variant/60 uppercase">Last Seen</div>
-                        <div className="font-mono text-[8px] text-on-surface mt-0.5">{fmtDateTime(selectedFlightStats.lastSeen)}</div>
+                        <div className="font-mono text-[11px] text-on-surface mt-0.5">{fmtDateTime(selectedFlightStats.lastSeen)}</div>
                       </div>
                     </div>
                   </>
                 ) : (
-                  <div className="py-3 text-center text-[9px] font-mono text-on-surface-variant/30 uppercase">
+                  <div className="py-3 text-center text-[11px] font-mono text-on-surface-variant/30 uppercase">
                     {loadingTrail ? 'Fetching trail…' : 'No observations in window'}
                   </div>
                 )}
@@ -853,7 +853,7 @@ export function FlightLogPanel() {
           ) : selectedEntityId ? (
             <div className="flex flex-col items-center justify-center gap-2 text-on-surface-variant/30 p-8 h-full">
               <span className="ms text-3xl animate-pulse">radar</span>
-              <span className="text-[10px] uppercase tracking-widest font-mono text-center">Loading aircraft data…</span>
+              <span className="text-[11px] uppercase tracking-widest font-mono text-center">Loading aircraft data…</span>
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center gap-3 text-on-surface-variant/30 p-8 h-full">

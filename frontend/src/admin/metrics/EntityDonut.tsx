@@ -53,7 +53,7 @@ export function EntityDonut({ storage }: { storage: StorageData | null }) {
 
   return (
     <section>
-      <h2 className="text-[10px] uppercase tracking-widest text-gray-500 mb-3">Entity Breakdown</h2>
+      <h2 className="text-[11px] uppercase tracking-widest text-gray-500 mb-3">Entity Breakdown</h2>
       <div className="flex flex-wrap gap-8 items-center">
         {/* Donut */}
         <svg width="160" height="160" viewBox="0 0 160 160">
@@ -86,7 +86,7 @@ export function EntityDonut({ storage }: { storage: StorageData | null }) {
               <div className="text-base font-mono font-bold" style={{ color: getColor(type) }}>
                 {count.toLocaleString()}
               </div>
-              <div className="text-[9px] text-gray-500 uppercase tracking-wider">{type}</div>
+              <div className="text-[11px] text-gray-500 uppercase tracking-wider">{type}</div>
             </div>
           ))}
         </div>

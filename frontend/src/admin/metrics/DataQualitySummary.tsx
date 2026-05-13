@@ -29,7 +29,7 @@ export function DataQualitySummary({ dataQuality, entityFreshness }: Props) {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {/* Overall Status */}
         <div>
-          <div className="text-[10px] uppercase tracking-widest text-gray-500 mb-2">Overall Status</div>
+          <div className="text-[11px] uppercase tracking-widest text-gray-500 mb-2">Overall Status</div>
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 rounded-full" style={{ backgroundColor: statusColor }} />
             <span className="font-mono text-[11px] font-bold" style={{ color: statusColor }}>
@@ -40,33 +40,33 @@ export function DataQualitySummary({ dataQuality, entityFreshness }: Props) {
 
         {/* Data Completeness */}
         <div>
-          <div className="text-[10px] uppercase tracking-widest text-gray-500 mb-2">Avg Completeness</div>
+          <div className="text-[11px] uppercase tracking-widest text-gray-500 mb-2">Avg Completeness</div>
           <div className="font-mono text-[14px] font-bold text-on-surface">
             {avgCompleteness}%
           </div>
-          <div className="text-[9px] text-on-surface-variant mt-1">
+          <div className="text-[11px] text-on-surface-variant mt-1">
             {dataQuality.rows.length} field{dataQuality.rows.length !== 1 ? 's' : ''}
           </div>
         </div>
 
         {/* Freshness Rate */}
         <div>
-          <div className="text-[10px] uppercase tracking-widest text-gray-500 mb-2">Fresh (&lt; 5min)</div>
+          <div className="text-[11px] uppercase tracking-widest text-gray-500 mb-2">Fresh (&lt; 5min)</div>
           <div className="font-mono text-[14px] font-bold" style={{ color: freshnessRate >= 70 ? '#4ADE80' : '#FCD34D' }}>
             {freshnessRate}%
           </div>
-          <div className="text-[9px] text-on-surface-variant mt-1">
+          <div className="text-[11px] text-on-surface-variant mt-1">
             {freshEntities} / {totalEntities}
           </div>
         </div>
 
         {/* Entity Count */}
         <div>
-          <div className="text-[10px] uppercase tracking-widest text-gray-500 mb-2">Total Entities</div>
+          <div className="text-[11px] uppercase tracking-widest text-gray-500 mb-2">Total Entities</div>
           <div className="font-mono text-[14px] font-bold text-on-surface">
             {totalEntities.toLocaleString()}
           </div>
-          <div className="text-[9px] text-on-surface-variant mt-1">
+          <div className="text-[11px] text-on-surface-variant mt-1">
             {entityFreshness.types.length} type{entityFreshness.types.length !== 1 ? 's' : ''}
           </div>
         </div>

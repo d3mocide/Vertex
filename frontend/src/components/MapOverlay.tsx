@@ -305,15 +305,15 @@ export function MapOverlay({ map }: Props) {
                   <span class="material-symbols-outlined text-[16px] ${isAir ? 'text-blue-400' : 'text-teal-400'}">${isAir ? 'flight' : 'sailing'}</span>
                   <span class="font-bold text-white uppercase tracking-wider text-[11px] truncate">${escHtml(t.callsign || t.uid)}</span>
                 </div>
-                <span class="text-[9px] text-slate-500 font-mono">${isAir ? 'ADS-B' : 'AIS'}</span>
+                <span class="text-[11px] text-slate-500 font-mono">${isAir ? 'ADS-B' : 'AIS'}</span>
               </div>
-              <div class="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-[10px] text-slate-400 font-mono">
+              <div class="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-[11px] text-slate-400 font-mono">
                  ${isAir ? `<span>ALT:</span><span class="text-blue-200 text-right">${Math.round(t.altMeters * ALT_M_TO_FT).toLocaleString()} FT</span>` : ''}
                  <span>SPD:</span><span class="text-white text-right">${Math.round(t.speedMs * MS_TO_KT)} KTS</span>
                  <span>HDG:</span><span class="text-white text-right">${Math.round(t.courseTrue).toString().padStart(3, '0')}°</span>
                  ${t.category ? `<span>CAT:</span><span class="text-amber-400 text-right uppercase">${escHtml(t.category)}</span>` : ''}
               </div>
-              <div class="mt-2 pt-1 border-t border-white/5 text-[9px] text-slate-500 flex justify-between uppercase">
+              <div class="mt-2 pt-1 border-t border-white/5 text-[11px] text-slate-500 flex justify-between uppercase">
                 <span>ID: ${escHtml(t.uid.slice(0, 8))}</span>
                 <span>${isAir ? 'Airborne' : 'Underway'}</span>
               </div>
@@ -328,8 +328,8 @@ export function MapOverlay({ map }: Props) {
                  <span class="truncate">${escHtml(cam.name)}</span>
               </div>
               <div class="space-y-1">
-                ${cam.road ? `<div class="text-[10px] text-slate-300 flex items-center gap-1.5"><span class="ms text-[12px] text-slate-500">add_road</span> ${escHtml(cam.road)}</div>` : ''}
-                <div class="text-[10px] text-slate-400 italic flex justify-between">
+                ${cam.road ? `<div class="text-[11px] text-slate-300 flex items-center gap-1.5"><span class="ms text-[12px] text-slate-500">add_road</span> ${escHtml(cam.road)}</div>` : ''}
+                <div class="text-[11px] text-slate-400 italic flex justify-between">
                   <span>${cam.road ? 'Traffic Cam' : escHtml((cam as any).provider || 'Regional Network')}</span>
                   ${cam.dist_km ? `<span>${cam.dist_km.toFixed(1)} km</span>` : ''}
                 </div>
@@ -353,8 +353,8 @@ export function MapOverlay({ map }: Props) {
                  <span class="truncate uppercase">${escHtml(ev.event_type)}</span>
               </div>
               <div class="space-y-1">
-                <div class="text-[10px] text-slate-300">${escHtml(ev.summary)}</div>
-                <div class="text-[10px] text-slate-400 italic flex justify-between mt-1 pt-1 border-t border-slate-700/50">
+                <div class="text-[11px] text-slate-300">${escHtml(ev.summary)}</div>
+                <div class="text-[11px] text-slate-400 italic flex justify-between mt-1 pt-1 border-t border-slate-700/50">
                   <span class="uppercase">${escHtml(ev.severity)}</span>
                   <span>${ageStr}</span>
                 </div>
@@ -369,7 +369,7 @@ export function MapOverlay({ map }: Props) {
                 <span class="material-symbols-outlined text-[16px] text-cyan-400">water</span>
                 <span class="truncate">${escHtml(gauge.name)}</span>
               </div>
-              <div class="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-[10px] text-slate-400 font-mono">
+              <div class="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-[11px] text-slate-400 font-mono">
                 <span>STAGE:</span><span class="text-right text-white uppercase">${escHtml(gauge.stage)}</span>
                 <span>FLOW:</span><span class="text-right text-cyan-200">${gauge.flow_cfs !== null ? `${Math.round(gauge.flow_cfs)} cfs` : 'n/a'}</span>
                 <span>HEIGHT:</span><span class="text-right text-cyan-200">${gauge.height_ft !== null ? `${gauge.height_ft.toFixed(1)} ft` : 'n/a'}</span>
@@ -386,9 +386,9 @@ export function MapOverlay({ map }: Props) {
               </div>
               <div class="flex items-center gap-1.5">
                 <div class="w-1.5 h-1.5 rounded-full ${node.stale ? 'bg-slate-500' : 'bg-green-500 pulse-fast'}"></div>
-                <div class="text-[9px] text-slate-400 font-mono">${node.stale ? 'STALE / OFFLINE' : 'ACTIVE / ONLINE'}</div>
+                <div class="text-[11px] text-slate-400 font-mono">${node.stale ? 'STALE / OFFLINE' : 'ACTIVE / ONLINE'}</div>
               </div>
-              ${node.status ? `<div class="text-[9px] text-slate-500 font-mono mt-1">${escHtml(node.status)}</div>` : ''}
+              ${node.status ? `<div class="text-[11px] text-slate-500 font-mono mt-1">${escHtml(node.status)}</div>` : ''}
             </div>
           `
         } else if (layer.id === 'tinygs-satellite-dot') {
@@ -399,7 +399,7 @@ export function MapOverlay({ map }: Props) {
                 <span class="material-symbols-outlined text-[16px] text-violet-300">satellite_alt</span>
                 <span class="truncate">${escHtml(sat.name)}</span>
               </div>
-              <div class="text-[10px] text-slate-400 font-mono">ALT: ${sat.alt_km !== null ? `${sat.alt_km} km` : 'n/a'}</div>
+              <div class="text-[11px] text-slate-400 font-mono">ALT: ${sat.alt_km !== null ? `${sat.alt_km} km` : 'n/a'}</div>
             </div>
           `
         } else if (layer.id === 'tinygs-station-dot') {
@@ -410,7 +410,7 @@ export function MapOverlay({ map }: Props) {
                 <span class="material-symbols-outlined text-[16px] text-amber-400">sensors</span>
                 <span class="truncate">${escHtml(stn.name)}</span>
               </div>
-              <div class="text-[10px] text-slate-400 font-mono">${stn.online ? 'ONLINE' : 'OFFLINE'}</div>
+              <div class="text-[11px] text-slate-400 font-mono">${stn.online ? 'ONLINE' : 'OFFLINE'}</div>
             </div>
           `
         } else if (layer.id === 'geofence-fill') {
@@ -421,13 +421,13 @@ export function MapOverlay({ map }: Props) {
                 <span class="material-symbols-outlined text-[16px] text-blue-400">verified_user</span>
                 <span>${escHtml(geofence.name)}</span>
               </div>
-              <div class="text-[9px] text-slate-400 font-mono uppercase tracking-tighter">${escHtml(geofence.zone_type)} Zone</div>
+              <div class="text-[11px] text-slate-400 font-mono uppercase tracking-tighter">${escHtml(geofence.zone_type)} Zone</div>
             </div>
           `
         } else if (layer.id.startsWith('custom-')) {
           html = `
             <div class="p-2 bg-slate-900/95 border border-slate-700 rounded-lg shadow-2xl backdrop-blur-md">
-              <div class="text-[10px] text-slate-400 font-mono">Custom layer</div>
+              <div class="text-[11px] text-slate-400 font-mono">Custom layer</div>
             </div>
           `
         }

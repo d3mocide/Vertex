@@ -12,7 +12,7 @@ export function AnnotationController() {
         onClick={() => setOpen(!open)}
         className={`
           relative flex items-center gap-2 px-3 py-2
-          hud-panel border border-amber-gold-muted text-[10px] font-mono uppercase tracking-widest shadow-2xl
+          hud-panel border border-amber-gold-muted text-[11px] font-mono uppercase tracking-widest shadow-2xl
           hover:border-amber-gold/60 transition-colors focus:outline-none
           ${open || annotationDrawMode ? 'text-amber-gold border-amber-gold' : 'text-on-surface-variant'}
         `}

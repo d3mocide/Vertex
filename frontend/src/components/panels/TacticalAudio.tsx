@@ -193,9 +193,9 @@ export function TacticalAudio() {
             <span className="ms text-[18px] text-amber-gold leading-none" aria-hidden="true" style={{ fontVariationSettings: "'FILL' 1" }}>cell_tower</span>
           </div>
           <div className="min-w-0 flex items-center gap-2 sm:gap-2.5">
-            <h2 className="font-bold text-[10px] sm:text-[11px] tracking-tight text-on-surface uppercase truncate">{activeTag}</h2>
+            <h2 className="font-bold text-[11px] sm:text-[11px] tracking-tight text-on-surface uppercase truncate">{activeTag}</h2>
             <div className="hidden sm:block w-px h-3 bg-white/10 shrink-0" />
-            <div className="hidden sm:flex items-center gap-2 font-mono text-[9px] text-on-surface-variant truncate">
+            <div className="hidden sm:flex items-center gap-2 font-mono text-[11px] text-on-surface-variant truncate">
               <span>
                 {selectedTg && selectedTg.tgid !== radio?.tgid
                   ? `TGID ${selectedTg.tgid}`
@@ -213,13 +213,13 @@ export function TacticalAudio() {
             {isActive && (
               <div className="flex items-center gap-1.5 shrink-0">
                 {radio?.priority != null && radio.priority <= 2 && (
-                  <span className={`font-mono text-[8px] border px-1 py-0.5 ${radio.priority === 1 ? 'text-red-emergency border-red-emergency/60 bg-red-emergency/10' : 'text-amber-gold border-amber-gold/60 bg-amber-gold/10'}`}>
+                  <span className={`font-mono text-[11px] border px-1 py-0.5 ${radio.priority === 1 ? 'text-red-emergency border-red-emergency/60 bg-red-emergency/10' : 'text-amber-gold border-amber-gold/60 bg-amber-gold/10'}`}>
                     P{radio.priority}
                   </span>
                 )}
                 <div className="flex items-center gap-1.5 bg-red-emergency/20 border border-red-emergency/30 px-1.5 py-0.5 rounded-full">
                   <span className="w-1 h-1 rounded-full bg-red-emergency animate-pulse" aria-hidden="true" />
-                  <span className="font-mono text-[8px] text-red-emergency uppercase font-bold">LIVE</span>
+                  <span className="font-mono text-[11px] text-red-emergency uppercase font-bold">LIVE</span>
                 </div>
               </div>
             )}
@@ -295,10 +295,10 @@ export function TacticalAudio() {
 
           <button
             onClick={() => setShowChannels(!showChannels)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-amber-gold/30 text-[10px] font-bold tracking-widest uppercase transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-amber-gold ${showChannels ? 'bg-amber-gold text-onyx-black border-amber-gold' : 'text-amber-gold hover:bg-amber-gold/10 hover:border-amber-gold/50'}`}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-amber-gold/30 text-[11px] font-bold tracking-widest uppercase transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-amber-gold ${showChannels ? 'bg-amber-gold text-onyx-black border-amber-gold' : 'text-amber-gold hover:bg-amber-gold/10 hover:border-amber-gold/50'}`}
           >
             <span className="ms text-[14px] leading-none">format_list_bulleted</span>
-            <span className="hidden md:inline text-[9px]">CHANNELS</span>
+            <span className="hidden md:inline text-[11px]">CHANNELS</span>
           </button>
         </div>
       </div>

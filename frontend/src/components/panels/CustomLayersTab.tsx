@@ -164,8 +164,8 @@ export function CustomLayersTab() {
         className={`border-2 border-dashed p-6 flex flex-col items-center justify-center gap-2 cursor-pointer transition-colors ${dragOver ? 'border-amber-gold bg-amber-gold/10 text-amber-gold' : 'border-white/20 hover:border-white/40 text-on-surface-variant'}`}
       >
         <span className="ms text-[32px] leading-none" aria-hidden="true">upload_file</span>
-        <span className="text-[10px] font-bold uppercase tracking-widest">Drop KML, GeoJSON, or JSON</span>
-        <span className="text-[9px] opacity-60">or click to browse</span>
+        <span className="text-[11px] font-bold uppercase tracking-widest">Drop KML, GeoJSON, or JSON</span>
+        <span className="text-[11px] opacity-60">or click to browse</span>
         <input
           ref={fileInputRef}
           type="file"
@@ -178,7 +178,7 @@ export function CustomLayersTab() {
       {/* Import form — shown after file is parsed */}
       {layerImportGeoJson && (
         <div className="border border-amber-gold/30 bg-amber-gold/5 p-3 space-y-2">
-          <span className="label-caps text-[9px] text-amber-gold block">Name this layer</span>
+          <span className="label-caps text-[11px] text-amber-gold block">Name this layer</span>
           <input
             type="text"
             placeholder="Layer name *"
@@ -186,18 +186,18 @@ export function CustomLayersTab() {
             onChange={(e) => setLayerImportName(e.target.value)}
             className="w-full bg-onyx-deep border border-white/10 text-on-surface placeholder-on-surface-variant text-[11px] px-3 py-1.5 focus:outline-none focus:border-amber-gold/60 transition-colors"
           />
-          {layerImportError && <p className="text-[9px] text-red-emergency">{layerImportError}</p>}
+          {layerImportError && <p className="text-[11px] text-red-emergency">{layerImportError}</p>}
           <div className="flex gap-2">
             <button
               onClick={saveCustomLayer}
               disabled={layerSaving || !layerImportName.trim()}
-              className="flex-1 py-1.5 bg-amber-gold/10 border border-amber-gold/60 text-amber-gold text-[10px] font-bold uppercase tracking-widest hover:bg-amber-gold/20 transition-colors focus:outline-none disabled:opacity-50"
+              className="flex-1 py-1.5 bg-amber-gold/10 border border-amber-gold/60 text-amber-gold text-[11px] font-bold uppercase tracking-widest hover:bg-amber-gold/20 transition-colors focus:outline-none disabled:opacity-50"
             >
               {layerSaving ? 'Saving…' : 'Add to Map'}
             </button>
             <button
               onClick={() => { setLayerImportGeoJson(null); setLayerImportName(''); setLayerImportError(null) }}
-              className="px-3 py-1.5 border border-white/10 text-on-surface-variant text-[10px] uppercase tracking-widest hover:border-white/20 transition-colors focus:outline-none"
+              className="px-3 py-1.5 border border-white/10 text-on-surface-variant text-[11px] uppercase tracking-widest hover:border-white/20 transition-colors focus:outline-none"
             >
               Cancel
             </button>
@@ -206,7 +206,7 @@ export function CustomLayersTab() {
       )}
 
       {layerImportError && !layerImportGeoJson && (
-        <p className="text-[10px] text-red-emergency">{layerImportError}</p>
+        <p className="text-[11px] text-red-emergency">{layerImportError}</p>
       )}
 
       {/* Layer list */}
@@ -226,7 +226,7 @@ export function CustomLayersTab() {
               </button>
               <div className="flex-1 min-w-0">
                 <div className="text-[11px] text-on-surface font-bold truncate">{layer.name}</div>
-                <div className="text-[9px] text-on-surface-variant uppercase tracking-widest">
+                <div className="text-[11px] text-on-surface-variant uppercase tracking-widest">
                   {'features' in (layer.geojson as Record<string, unknown>)
                     ? `${((layer.geojson as { features: unknown[] }).features ?? []).length} feature(s)`
                     : 'GeoJSON'}

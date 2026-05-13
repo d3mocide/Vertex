@@ -204,7 +204,7 @@ export function EntityDetail() {
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
-                className={`uppercase tracking-widest text-[9px] font-bold pb-1.5 border-b-2 transition-colors ${
+                className={`uppercase tracking-widest text-[11px] font-bold pb-1.5 border-b-2 transition-colors ${
                   activeTab === tab 
                     ? 'border-amber-gold text-amber-gold' 
                     : 'border-transparent text-on-surface-variant hover:text-on-surface'
@@ -246,13 +246,13 @@ export function EntityDetail() {
                 <>
                   {(batteryLevel != null || nodeSnr != null) && (
                     <div>
-                      <span className="label-caps text-[9px] text-amber-gold-dim mb-2 block">Radio / Power</span>
+                      <span className="label-caps text-[11px] text-amber-gold-dim mb-2 block">Radio / Power</span>
                       <div className="space-y-2">
                         {batteryLevel != null && (
                           <div>
                             <div className="flex justify-between mb-0.5">
-                              <span className="text-[9px] text-on-surface-variant">Battery</span>
-                              <span className="font-mono text-[9px]" style={{ color: batColor }}>
+                              <span className="text-[11px] text-on-surface-variant">Battery</span>
+                              <span className="font-mono text-[11px]" style={{ color: batColor }}>
                                 {batteryLevel}%{voltage != null ? ` · ${voltage.toFixed(2)}V` : ''}
                               </span>
                             </div>
@@ -263,8 +263,8 @@ export function EntityDetail() {
                         )}
                         {nodeSnr != null && (
                           <div className="flex justify-between">
-                            <span className="text-[9px] text-on-surface-variant">Node SNR</span>
-                            <span className="font-mono text-[9px]" style={{
+                            <span className="text-[11px] text-on-surface-variant">Node SNR</span>
+                            <span className="font-mono text-[11px]" style={{
                               color: nodeSnr >= -70 ? '#44dd88' : nodeSnr >= -90 ? '#ffb800' : '#ff5050',
                             }}>
                               {nodeSnr} dBm
@@ -275,18 +275,18 @@ export function EntityDetail() {
                     </div>
                   )}
                   <div>
-                    <span className="label-caps text-[9px] text-amber-gold-dim mb-2 block">Neighbors</span>
+                    <span className="label-caps text-[11px] text-amber-gold-dim mb-2 block">Neighbors</span>
                     {meshNeighbors.length === 0 ? (
-                      <p className="text-[9px] text-on-surface-variant/50 italic">No active links</p>
+                      <p className="text-[11px] text-on-surface-variant/50 italic">No active links</p>
                     ) : (
                       <ul className="space-y-1">
                         {meshNeighbors.map((lnk, i) => {
                           const peerId = lnk.node_a === selectedEntityId ? lnk.node_b : lnk.node_a
                           return (
                             <li key={i} className="flex items-center justify-between gap-2">
-                              <span className="font-mono text-[9px] text-on-surface truncate">{peerId}</span>
+                              <span className="font-mono text-[11px] text-on-surface truncate">{peerId}</span>
                               <span
-                                className="font-mono text-[9px] shrink-0"
+                                className="font-mono text-[11px] shrink-0"
                                 style={{
                                   color: lnk.snr === null ? '#999'
                                     : lnk.snr >= -70 ? '#44dd88'
@@ -313,7 +313,7 @@ export function EntityDetail() {
             {!originWx && !destinationWx ? (
               <div className="text-center p-4">
                 <span className="ms text-[24px] text-on-surface-variant/50 mb-2 block">cloud_off</span>
-                <p className="text-[10px] text-on-surface-variant uppercase tracking-widest">No weather data available</p>
+                <p className="text-[11px] text-on-surface-variant uppercase tracking-widest">No weather data available</p>
               </div>
             ) : (
               <>
@@ -321,9 +321,9 @@ export function EntityDetail() {
                   <div>
                     <div className="flex items-center gap-1.5 mb-2 text-cyan-adsb">
                       <span className="ms text-[14px]">flight_takeoff</span>
-                      <span className="label-caps text-[10px]">Origin METAR ({origin})</span>
+                      <span className="label-caps text-[11px]">Origin METAR ({origin})</span>
                     </div>
-                    <div className="bg-[#0a0a0a] border border-white/10 p-2 font-mono text-[10px] text-[#00ffcc] leading-relaxed whitespace-pre-wrap break-words rounded-sm shadow-inner">
+                    <div className="bg-[#0a0a0a] border border-white/10 p-2 font-mono text-[11px] text-[#00ffcc] leading-relaxed whitespace-pre-wrap break-words rounded-sm shadow-inner">
                       &gt; {originWx}
                     </div>
                   </div>
@@ -333,9 +333,9 @@ export function EntityDetail() {
                   <div>
                     <div className="flex items-center gap-1.5 mb-2 text-amber-gold">
                       <span className="ms text-[14px]">flight_land</span>
-                      <span className="label-caps text-[10px]">Destination METAR ({destination})</span>
+                      <span className="label-caps text-[11px]">Destination METAR ({destination})</span>
                     </div>
-                    <div className="bg-[#0a0a0a] border border-white/10 p-2 font-mono text-[10px] text-[#00ffcc] leading-relaxed whitespace-pre-wrap break-words rounded-sm shadow-inner">
+                    <div className="bg-[#0a0a0a] border border-white/10 p-2 font-mono text-[11px] text-[#00ffcc] leading-relaxed whitespace-pre-wrap break-words rounded-sm shadow-inner">
                       &gt; {destinationWx}
                     </div>
                   </div>
@@ -350,12 +350,12 @@ export function EntityDetail() {
             {/* Source Tags */}
             {entity.tags && entity.tags.length > 0 && (
               <div>
-                <span className="label-caps text-[9px] text-amber-gold-dim mb-2 block">Source Tags</span>
+                <span className="label-caps text-[11px] text-amber-gold-dim mb-2 block">Source Tags</span>
                 <div className="flex flex-wrap gap-1">
                   {entity.tags.map((tag) => (
                     <span
                       key={tag}
-                      className="font-mono text-[9px] uppercase tracking-widest px-1.5 py-0.5 bg-amber-gold-muted/40 text-amber-gold-dim rounded-sm"
+                      className="font-mono text-[11px] uppercase tracking-widest px-1.5 py-0.5 bg-amber-gold-muted/40 text-amber-gold-dim rounded-sm"
                     >
                       {tag}
                     </span>
@@ -366,10 +366,10 @@ export function EntityDetail() {
 
             {/* Mission Tags */}
             <div>
-              <span className="label-caps text-[9px] text-amber-gold-dim mb-2 block">Mission Tags</span>
+              <span className="label-caps text-[11px] text-amber-gold-dim mb-2 block">Mission Tags</span>
               
               {missionTags.length === 0 ? (
-                <p className="text-[9px] text-on-surface-variant/50 italic mb-3">No custom tags assigned</p>
+                <p className="text-[11px] text-on-surface-variant/50 italic mb-3">No custom tags assigned</p>
               ) : (
                 <div className="flex flex-wrap gap-1.5 mb-3">
                   {missionTags.map((t) => (
@@ -379,7 +379,7 @@ export function EntityDetail() {
                       style={{ backgroundColor: `${t.color}15`, border: `1px solid ${t.color}40` }}
                     >
                       <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: t.color }}></span>
-                      <span className="font-mono text-[9px] uppercase tracking-widest" style={{ color: t.color }}>
+                      <span className="font-mono text-[11px] uppercase tracking-widest" style={{ color: t.color }}>
                         {t.tag}
                       </span>
                       <button
@@ -410,7 +410,7 @@ export function EntityDetail() {
                     value={tagInput}
                     onChange={(e) => setTagInput(e.target.value)}
                     onKeyDown={(e) => { if (e.key === 'Enter') handleAddTag() }}
-                    className="flex-1 min-w-0 bg-transparent border-b text-on-surface placeholder-on-surface-variant text-[10px] px-1 focus:outline-none transition-colors"
+                    className="flex-1 min-w-0 bg-transparent border-b text-on-surface placeholder-on-surface-variant text-[11px] px-1 focus:outline-none transition-colors"
                     style={{ borderBottomColor: tagInput.trim() ? tagColor : 'rgba(255,255,255,0.2)' }}
                   />
                   <button

@@ -70,20 +70,20 @@ export function CameraModal() {
           {/* Metadata overlays */}
           <div className="absolute top-4 left-4 flex flex-col gap-1">
             <div className="bg-onyx-black/60 px-2 py-1 rounded-sm border border-white/10">
-               <span className="font-mono text-[10px] text-amber-gold">
+               <span className="font-mono text-[11px] text-amber-gold">
                 LIVE FEED • {selectedCam.dist_km != null ? `${selectedCam.dist_km}km` : 'Range N/A'}
                </span>
             </div>
             {selectedCam.road && (
               <div className="bg-onyx-black/60 px-2 py-1 rounded-sm border border-white/10 w-fit">
-                <span className="font-mono text-[10px] text-on-surface-variant uppercase">{selectedCam.road}</span>
+                <span className="font-mono text-[11px] text-on-surface-variant uppercase">{selectedCam.road}</span>
               </div>
             )}
           </div>
 
           <div className="absolute bottom-4 right-4">
             <div className="bg-onyx-black/40 backdrop-blur-sm px-2 py-1 rounded-sm border border-white/5">
-               <span className="font-mono text-[9px] text-white/40 uppercase">
+               <span className="font-mono text-[11px] text-white/40 uppercase">
                  {ldiMode ? 'Last Daylight Image' : 'Current Conditions'}
                </span>
             </div>
@@ -91,12 +91,12 @@ export function CameraModal() {
         </div>
 
         <div className="p-3 border-t border-amber-gold-muted/30 bg-white/[0.02] flex items-center justify-between">
-           <span className="font-mono text-[9px] text-on-surface-variant uppercase tracking-widest">
+           <span className="font-mono text-[11px] text-on-surface-variant uppercase tracking-widest">
              Source: ODOT TRIPCHECK • ID: {selectedCam.id}
            </span>
            <button
              onClick={closeModal}
-             className="px-6 py-1.5 bg-amber-gold text-onyx-black font-bold text-[10px] uppercase tracking-widest hover:bg-amber-400 transition-all hover:scale-105 active:scale-95"
+             className="px-6 py-1.5 bg-amber-gold text-onyx-black font-bold text-[11px] uppercase tracking-widest hover:bg-amber-400 transition-all hover:scale-105 active:scale-95"
            >
              Acknowledge
            </button>

@@ -35,8 +35,8 @@ function RangeSlider({
   return (
     <div>
       <div className="flex justify-between items-baseline mb-1">
-        <span className="label-caps text-[9px]">{label}</span>
-        <span className="font-mono text-[9px] text-on-surface-variant">
+        <span className="label-caps text-[11px]">{label}</span>
+        <span className="font-mono text-[11px] text-on-surface-variant">
           {value[0].toLocaleString()}–{value[1].toLocaleString()} {unit}
         </span>
       </div>
@@ -164,7 +164,7 @@ export function EntitySearchPanel() {
           placeholder="Callsign / ICAO / MMSI…"
           value={entitySearchQuery}
           onChange={(e) => setEntitySearchQuery(e.target.value)}
-          className="flex-1 bg-transparent text-on-surface placeholder-on-surface-variant text-[11px] focus:outline-none"
+          className="flex-1 bg-transparent text-on-surface placeholder-on-surface-variant text-[12px] focus:outline-none"
           aria-label="Search entities"
         />
         <button
@@ -185,7 +185,7 @@ export function EntitySearchPanel() {
           <div>
             <button
               onClick={() => setTaggedOnly((v) => !v)}
-              className={`flex items-center gap-1.5 px-2 py-1 border text-[9px] uppercase tracking-widest font-bold transition-colors focus:outline-none ${
+              className={`flex items-center gap-1.5 px-2 py-1 border text-[11px] uppercase tracking-widest font-bold transition-colors focus:outline-none ${
                 taggedOnly
                   ? 'text-amber-gold border-amber-gold/60 bg-amber-gold/10'
                   : 'text-on-surface-variant border-white/10 hover:border-white/20'
@@ -198,10 +198,10 @@ export function EntitySearchPanel() {
           </div>
 
           <div className="flex items-center justify-between gap-2">
-            <span className="label-caps text-[9px]">Filter Detail</span>
+            <span className="label-caps text-[11px]">Filter Detail</span>
             <button
               onClick={() => setAdvancedOpen((v) => !v)}
-              className={`flex items-center gap-1 px-2 py-1 border text-[9px] uppercase tracking-widest font-bold transition-colors focus:outline-none ${
+              className={`flex items-center gap-1 px-2 py-1 border text-[11px] uppercase tracking-widest font-bold transition-colors focus:outline-none ${
                 advancedOpen || advancedFiltered
                   ? 'text-amber-gold border-amber-gold/60 bg-amber-gold/10'
                   : 'text-on-surface-variant border-white/10 hover:border-white/20'
@@ -218,7 +218,7 @@ export function EntitySearchPanel() {
           <div>
             <button
               onClick={() => setTrailsVisible(!trailsVisible)}
-              className={`flex items-center gap-1.5 px-2 py-1 border text-[9px] uppercase tracking-widest font-bold transition-colors focus:outline-none ${
+              className={`flex items-center gap-1.5 px-2 py-1 border text-[11px] uppercase tracking-widest font-bold transition-colors focus:outline-none ${
                 trailsVisible
                   ? 'text-amber-gold border-amber-gold/60 bg-amber-gold/10'
                   : 'text-on-surface-variant border-white/10 hover:border-white/20'
@@ -229,7 +229,7 @@ export function EntitySearchPanel() {
               {trailsVisible ? 'History trails on' : 'History trails off'}
             </button>
             {!trailsVisible && (
-              <div className="mt-1 text-[9px] text-on-surface-variant font-mono">
+              <div className="mt-1 text-[11px] text-on-surface-variant font-mono">
                 Selected CoT trails remain visible on click.
               </div>
             )}
@@ -237,13 +237,13 @@ export function EntitySearchPanel() {
 
           {/* Type toggles */}
           <div>
-            <span className="label-caps text-[9px] block mb-2">Entity Types</span>
+            <span className="label-caps text-[11px] block mb-2">Entity Types</span>
             <div className="flex flex-wrap gap-2">
               {(['aircraft', 'vessel', 'aprs', 'fire_incident'] as const).map((t) => (
                 <button
                   key={t}
                   onClick={() => setEntityFilter({ [t]: !entityFilter[t] })}
-                  className={`flex items-center gap-1 px-2 py-1 border text-[9px] uppercase tracking-widest font-bold transition-colors focus:outline-none ${
+                  className={`flex items-center gap-1 px-2 py-1 border text-[11px] uppercase tracking-widest font-bold transition-colors focus:outline-none ${
                     entityFilter[t]
                       ? `${TYPE_COLOR[t]} border-current bg-current/10`
                       : 'text-on-surface-variant border-white/10 hover:border-white/20'
@@ -256,7 +256,7 @@ export function EntitySearchPanel() {
               ))}
               <button
                 onClick={() => setEntityFilter({ mesh_node: !entityFilter.mesh_node })}
-                className={`flex items-center gap-1 px-2 py-1 border text-[9px] uppercase tracking-widest font-bold transition-colors focus:outline-none ${
+                className={`flex items-center gap-1 px-2 py-1 border text-[11px] uppercase tracking-widest font-bold transition-colors focus:outline-none ${
                   entityFilter.mesh_node
                     ? 'text-amber-p25 border-amber-p25/60 bg-amber-p25/10'
                     : 'text-on-surface-variant border-white/10 hover:border-white/20'
@@ -268,7 +268,7 @@ export function EntitySearchPanel() {
               </button>
               <button
                 onClick={() => setEntityFilter({ satellite: !entityFilter.satellite })}
-                className={`flex items-center gap-1 px-2 py-1 border text-[9px] uppercase tracking-widest font-bold transition-colors focus:outline-none ${
+                className={`flex items-center gap-1 px-2 py-1 border text-[11px] uppercase tracking-widest font-bold transition-colors focus:outline-none ${
                   entityFilter.satellite
                     ? 'text-violet-space border-violet-space/60 bg-violet-space/10'
                     : 'text-on-surface-variant border-white/10 hover:border-white/20'
@@ -280,7 +280,7 @@ export function EntitySearchPanel() {
               </button>
               <button
                 onClick={() => setEntityFilter({ tinygs_station: !entityFilter.tinygs_station })}
-                className={`flex items-center gap-1 px-2 py-1 border text-[9px] uppercase tracking-widest font-bold transition-colors focus:outline-none ${
+                className={`flex items-center gap-1 px-2 py-1 border text-[11px] uppercase tracking-widest font-bold transition-colors focus:outline-none ${
                   entityFilter.tinygs_station
                     ? 'text-amber-p25 border-amber-p25/60 bg-amber-p25/10'
                     : 'text-on-surface-variant border-white/10 hover:border-white/20'
@@ -298,11 +298,11 @@ export function EntitySearchPanel() {
               {/* ADS-B source toggles */}
               {entityFilter.aircraft && (
                 <div>
-                  <span className="label-caps text-[9px] block mb-2">ADS-B Sources</span>
+                  <span className="label-caps text-[11px] block mb-2">ADS-B Sources</span>
                   <div className="flex flex-wrap gap-2">
                     <button
                       onClick={() => setEntityFilter({ adsbLocal: !entityFilter.adsbLocal })}
-                      className={`flex items-center gap-1 px-2 py-1 border text-[9px] uppercase tracking-widest font-bold transition-colors focus:outline-none ${
+                      className={`flex items-center gap-1 px-2 py-1 border text-[11px] uppercase tracking-widest font-bold transition-colors focus:outline-none ${
                         entityFilter.adsbLocal
                           ? 'text-cyan-adsb border-cyan-adsb/60 bg-cyan-adsb/10'
                           : 'text-on-surface-variant border-white/10 hover:border-white/20'
@@ -314,7 +314,7 @@ export function EntitySearchPanel() {
                     </button>
                     <button
                       onClick={() => setEntityFilter({ adsbSupplement: !entityFilter.adsbSupplement })}
-                      className={`flex items-center gap-1 px-2 py-1 border text-[9px] uppercase tracking-widest font-bold transition-colors focus:outline-none ${
+                      className={`flex items-center gap-1 px-2 py-1 border text-[11px] uppercase tracking-widest font-bold transition-colors focus:outline-none ${
                         entityFilter.adsbSupplement
                           ? 'text-amber-gold border-amber-gold/60 bg-amber-gold/10'
                           : 'text-on-surface-variant border-white/10 hover:border-white/20'
@@ -349,7 +349,7 @@ export function EntitySearchPanel() {
           {isFiltered && (
             <button
               onClick={resetFilters}
-              className="text-[9px] text-amber-gold hover:text-amber-gold/80 uppercase tracking-widest transition-colors focus:outline-none"
+              className="text-[11px] text-amber-gold hover:text-amber-gold/80 uppercase tracking-widest transition-colors focus:outline-none"
             >
               Reset all filters
             </button>
@@ -362,7 +362,7 @@ export function EntitySearchPanel() {
           {matchedTracks.length === 0 ? (
             <div className="px-3 py-4 flex flex-col items-center gap-1 text-on-surface-variant/50">
               <span className="ms text-[20px]">search_off</span>
-              <span className="text-[9px] uppercase tracking-widest">No matches</span>
+              <span className="text-[11px] uppercase tracking-widest">No matches</span>
             </div>
           ) : (
             matchedTracks.slice(0, 20).map((track) => {
@@ -393,7 +393,7 @@ export function EntitySearchPanel() {
                 >
                   <span className={`ms text-[14px] leading-none shrink-0 ${color}`}>{icon}</span>
                   <div className="flex-1 min-w-0">
-                    <div className="font-bold text-[10px] text-on-surface truncate flex items-center gap-1">
+                    <div className="font-bold text-[11px] text-on-surface truncate flex items-center gap-1">
                       {track.callsign ?? track.uid}
                       {firstTag && (
                         <span
@@ -403,7 +403,7 @@ export function EntitySearchPanel() {
                         />
                       )}
                     </div>
-                    <div className="font-mono text-[9px] text-on-surface-variant">
+                    <div className="font-mono text-[11px] text-on-surface-variant">
                       {track.type === 'air' ? `${altFt.toLocaleString()} ft` : ''}
                       {track.type === 'air' && spdKt > 0 ? ' · ' : ''}
                       {(track.type === 'air' || track.type === 'sea' || track.type === 'ground') && spdKt > 0 ? `${spdKt} kts` : ''}
@@ -419,7 +419,7 @@ export function EntitySearchPanel() {
             })
           )}
           {matchedTracks.length > 20 && (
-            <div className="px-3 py-2 text-[9px] text-on-surface-variant text-center">
+            <div className="px-3 py-2 text-[11px] text-on-surface-variant text-center">
               +{matchedTracks.length - 20} more — refine search
             </div>
           )}
@@ -446,11 +446,11 @@ export function EntitySearchPanel() {
               >
                 <span className={`ms text-[14px] leading-none shrink-0 ${color}`}>{icon}</span>
                 <div className="flex-1 min-w-0">
-                  <div className="font-bold text-[10px] text-on-surface truncate">
+                  <div className="font-bold text-[11px] text-on-surface truncate">
                     {e.display_name ?? e.entity_id}
                   </div>
                   {subtitle && (
-                    <div className="font-mono text-[9px] text-on-surface-variant">{subtitle}</div>
+                    <div className="font-mono text-[11px] text-on-surface-variant">{subtitle}</div>
                   )}
                 </div>
                 {isSelected && (

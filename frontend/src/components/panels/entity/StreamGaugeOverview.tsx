@@ -35,7 +35,7 @@ export function StreamGaugeOverview({ entity, getIdentity }: OverviewProps) {
         <div className="bg-white/5 border border-white/10 p-2 rounded-sm relative overflow-hidden">
           <div className="flex items-center gap-1.5 mb-1 text-on-surface-variant">
             <span className="ms text-[12px]">water</span>
-            <span className="label-caps text-[8px]">Stage Height</span>
+            <span className="label-caps text-[11px]">Stage Height</span>
           </div>
           <div className="font-mono text-sky-400 text-[14px] truncate">
             {heightFt != null ? `${heightFt.toFixed(2)} ft` : '--'}
@@ -45,7 +45,7 @@ export function StreamGaugeOverview({ entity, getIdentity }: OverviewProps) {
         <div className="bg-white/5 border border-white/10 p-2 rounded-sm">
           <div className="flex items-center gap-1.5 mb-1 text-on-surface-variant">
             <span className="ms text-[12px]">water_pump</span>
-            <span className="label-caps text-[8px]">Discharge</span>
+            <span className="label-caps text-[11px]">Discharge</span>
           </div>
           <div className={`font-mono text-[14px] truncate ${flowCfs != null ? 'text-cyan-300' : 'text-on-surface-variant'}`}>
             {flowCfs != null ? formatFlow(flowCfs) : '--'}
@@ -55,29 +55,29 @@ export function StreamGaugeOverview({ entity, getIdentity }: OverviewProps) {
 
       <div className="space-y-3 mt-3">
         <div>
-          <span className="label-caps text-[9px] text-amber-gold-dim mb-1 block">Station</span>
+          <span className="label-caps text-[11px] text-amber-gold-dim mb-1 block">Station</span>
           <div className="space-y-1">
             {siteName && (
               <div className="flex justify-between items-baseline gap-2">
-                <span className="text-[9px] text-on-surface-variant">Name</span>
-                <span className="font-mono text-[10px] text-on-surface truncate" title={siteName}>{siteName}</span>
+                <span className="text-[11px] text-on-surface-variant">Name</span>
+                <span className="font-mono text-[11px] text-on-surface truncate" title={siteName}>{siteName}</span>
               </div>
             )}
             {siteNo && (
               <div className="flex justify-between items-baseline gap-2">
-                <span className="text-[9px] text-on-surface-variant">Site No.</span>
-                <span className="font-mono text-[10px] text-on-surface">{siteNo}</span>
+                <span className="text-[11px] text-on-surface-variant">Site No.</span>
+                <span className="font-mono text-[11px] text-on-surface">{siteNo}</span>
               </div>
             )}
             {stageStr && (
               <div className="flex justify-between items-baseline gap-2">
-                <span className="text-[9px] text-on-surface-variant">Flood Stage</span>
-                <span className={`font-mono text-[10px] ${stageColor(stageStr)}`}>{stageStr}</span>
+                <span className="text-[11px] text-on-surface-variant">Flood Stage</span>
+                <span className={`font-mono text-[11px] ${stageColor(stageStr)}`}>{stageStr}</span>
               </div>
             )}
             <div className="flex justify-between items-baseline gap-2">
-              <span className="text-[9px] text-on-surface-variant">Distance</span>
-              <span className="font-mono text-[10px] text-on-surface">
+              <span className="text-[11px] text-on-surface-variant">Distance</span>
+              <span className="font-mono text-[11px] text-on-surface">
                 {entity.distance_km != null ? `${entity.distance_km.toFixed(1)} km` : '--'}
               </span>
             </div>
@@ -86,10 +86,10 @@ export function StreamGaugeOverview({ entity, getIdentity }: OverviewProps) {
 
         <div className="flex justify-between items-center pt-2 border-t border-white/10">
           <div className="flex items-center gap-1 text-on-surface-variant">
-            <span className="ms text-[10px]">schedule</span>
-            <span className="text-[9px] uppercase tracking-wider">Last Updated</span>
+            <span className="ms text-[11px]">schedule</span>
+            <span className="text-[11px] uppercase tracking-wider">Last Updated</span>
           </div>
-          <span className="font-mono text-[10px] text-amber-gold">
+          <span className="font-mono text-[11px] text-amber-gold">
             {entity.last_seen
               ? new Date(entity.last_seen).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
               : '--'}

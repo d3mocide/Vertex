@@ -10,7 +10,7 @@ export function StorageSummary({ storage, retentionDays }: Props) {
   if (!storage) {
     return (
       <div className="border border-white/10 bg-black/30 p-4 space-y-3">
-        <h3 className="text-[10px] uppercase tracking-widest text-gray-500">Storage Health</h3>
+        <h3 className="text-[11px] uppercase tracking-widest text-gray-500">Storage Health</h3>
         <div className="text-gray-500 text-xs">Loading…</div>
       </div>
     )
@@ -41,7 +41,7 @@ export function StorageSummary({ storage, retentionDays }: Props) {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {/* Overall Status */}
         <div>
-          <div className="text-[10px] uppercase tracking-widest text-gray-500 mb-2">Storage Health</div>
+          <div className="text-[11px] uppercase tracking-widest text-gray-500 mb-2">Storage Health</div>
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 rounded-full" style={{ backgroundColor: statusColor }} />
             <span className="font-mono text-[11px] font-bold" style={{ color: statusColor }}>
@@ -52,33 +52,33 @@ export function StorageSummary({ storage, retentionDays }: Props) {
 
         {/* Days Until Purge */}
         <div>
-          <div className="text-[10px] uppercase tracking-widest text-gray-500 mb-2">Days Until Purge</div>
+          <div className="text-[11px] uppercase tracking-widest text-gray-500 mb-2">Days Until Purge</div>
           <div className="font-mono text-[14px] font-bold" style={{ color: isPoor ? '#FF5252' : isDegraded ? '#FCD34D' : '#4ADE80' }}>
             {daysUntilPurge}d
           </div>
-          <div className="text-[9px] text-on-surface-variant mt-1">
+          <div className="text-[11px] text-on-surface-variant mt-1">
             of {retentionDays}d retention
           </div>
         </div>
 
         {/* Observations */}
         <div>
-          <div className="text-[10px] uppercase tracking-widest text-gray-500 mb-2">Observations</div>
+          <div className="text-[11px] uppercase tracking-widest text-gray-500 mb-2">Observations</div>
           <div className="font-mono text-[14px] font-bold text-on-surface">
             {storage.observation_count.toLocaleString()}
           </div>
-          <div className="text-[9px] text-on-surface-variant mt-1">
+          <div className="text-[11px] text-on-surface-variant mt-1">
             {formatBytes(storage.table_size_bytes)}
           </div>
         </div>
 
         {/* Ingestion Rate */}
         <div>
-          <div className="text-[10px] uppercase tracking-widest text-gray-500 mb-2">Obs / Day</div>
+          <div className="text-[11px] uppercase tracking-widest text-gray-500 mb-2">Obs / Day</div>
           <div className="font-mono text-[14px] font-bold text-on-surface">
             {Math.round(storage.obs_per_day_7d).toLocaleString()}
           </div>
-          <div className="text-[9px] text-on-surface-variant mt-1">
+          <div className="text-[11px] text-on-surface-variant mt-1">
             7d average
           </div>
         </div>

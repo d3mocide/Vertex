@@ -70,10 +70,10 @@ export function GdacsCard() {
         {(redCount > 0 || orangeCount > 0) && (
           <div className="ml-auto flex items-center gap-2">
             {redCount > 0 && (
-              <span className="font-mono text-[9px] text-red-400">{redCount} RED</span>
+              <span className="font-mono text-[11px] text-red-400">{redCount} RED</span>
             )}
             {orangeCount > 0 && (
-              <span className="font-mono text-[9px] text-orange-400">{orangeCount} ORANGE</span>
+              <span className="font-mono text-[11px] text-orange-400">{orangeCount} ORANGE</span>
             )}
           </div>
         )}
@@ -81,7 +81,7 @@ export function GdacsCard() {
 
       <div className="flex items-end justify-between mb-3">
         <div className="flex flex-col">
-          <span className="text-[8px] font-mono text-on-surface-variant uppercase tracking-widest">Last 72 Hours</span>
+          <span className="text-[11px] font-mono text-on-surface-variant uppercase tracking-widest">Last 72 Hours</span>
           <span className="text-[18px] font-black text-on-surface tracking-tight">
             {events.length} event{events.length !== 1 ? 's' : ''}
           </span>
@@ -90,7 +90,7 @@ export function GdacsCard() {
 
       {events.length === 0 ? (
         <div className="border border-white/10 bg-white/[0.02] px-3 py-2">
-          <span className="font-mono text-[9px] text-on-surface-variant uppercase tracking-widest">
+          <span className="font-mono text-[11px] text-on-surface-variant uppercase tracking-widest">
             No significant global alerts
           </span>
         </div>
@@ -107,16 +107,16 @@ export function GdacsCard() {
             return (
               <div key={ev.event_id} className={`border px-3 py-2 ${bg}`}>
                 <div className="flex items-center gap-2">
-                  <span className={`ms text-[12px] leading-none ${color}`} aria-hidden="true">{icon}</span>
-                  <span className="text-[10px] font-bold text-on-surface truncate flex-1">{ev.summary}</span>
-                  <span className={`font-mono text-[9px] ${color} shrink-0`}>{sevText}</span>
+                  <span className={`ms text-[14px] leading-none ${color}`} aria-hidden="true">{icon}</span>
+                  <span className="text-[12px] font-bold text-on-surface truncate flex-1">{ev.summary}</span>
+                  <span className={`font-mono text-[11px] ${color} shrink-0`}>{sevText}</span>
                 </div>
                 <div className="flex items-center justify-between mt-1">
-                  <span className="font-mono text-[8px] text-on-surface-variant uppercase tracking-widest">
+                  <span className="font-mono text-[11px] text-on-surface-variant uppercase tracking-widest">
                     {new Date(ev.ts).toLocaleString()}
                   </span>
                   {d.dist_km != null && (
-                    <span className="font-mono text-[8px] text-sky-400/70 shrink-0">
+                    <span className="font-mono text-[11px] text-sky-400/70 shrink-0">
                       {d.dist_km > 999 ? `${(d.dist_km / 1000).toFixed(1)}k km` : `${Math.round(d.dist_km)} km`}
                     </span>
                   )}

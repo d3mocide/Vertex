@@ -42,7 +42,7 @@ export function HelpPanel() {
             className="flex items-center gap-2 text-amber-gold"
           >
             <span className="ms text-[20px]">{mobileNavOpen ? 'close' : 'menu'}</span>
-            <span className="font-black text-[10px] tracking-[0.2em] uppercase">Docs</span>
+            <span className="font-black text-[11px] tracking-[0.2em] uppercase">Docs</span>
           </button>
           <button onClick={() => setHelpOpen(false)} className="text-on-surface-variant">
             <span className="ms text-[20px]">close</span>
@@ -71,7 +71,7 @@ export function HelpPanel() {
               if (pages.length === 0) return null
               return (
                 <div key={section} className="mb-6 lg:mb-4">
-                  <div className="px-6 py-1.5 text-[10px] font-bold tracking-[0.25em] uppercase text-on-surface-variant/40 mb-1">
+                  <div className="px-6 py-1.5 text-[11px] font-bold tracking-[0.25em] uppercase text-on-surface-variant/40 mb-1">
                     {section}
                   </div>
                   {pages.map(page => (
@@ -98,9 +98,9 @@ export function HelpPanel() {
           {/* Content Header (Desktop) */}
           <div className="hidden lg:flex items-center justify-between px-8 py-4 border-b border-white/5 bg-white/[0.01] shrink-0">
             <div className="flex items-center gap-3">
-              <span className="text-[10px] font-bold tracking-[0.2em] uppercase text-on-surface-variant/40">{activePage.section}</span>
+              <span className="text-[11px] font-bold tracking-[0.2em] uppercase text-on-surface-variant/40">{activePage.section}</span>
               <div className="w-1 h-1 rounded-full bg-amber-gold/30" />
-              <span className="text-[10px] font-bold tracking-[0.2em] uppercase text-amber-gold">{activePage.title}</span>
+              <span className="text-[11px] font-bold tracking-[0.2em] uppercase text-amber-gold">{activePage.title}</span>
             </div>
             <button
               onClick={() => setHelpOpen(false)}

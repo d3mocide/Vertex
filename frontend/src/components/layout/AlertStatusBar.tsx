@@ -66,7 +66,7 @@ export function AlertStatusBar() {
       className={`
         w-full flex items-center gap-3 px-4 shrink-0 transition-all duration-300 text-left
         ${LEVEL_STYLES[level]}
-        ${mode === 'critical' ? 'h-8 text-[11px]' : 'h-6 text-[10px]'}
+        ${mode === 'critical' ? 'h-8 text-[11px]' : 'h-6 text-[11px]'}
       `}
     >
       <span
@@ -88,7 +88,7 @@ export function AlertStatusBar() {
 
       {/* Scrolling ticker in critical mode */}
       {mode === 'critical' && alerts.length > 1 && (
-        <span className="ml-auto font-mono text-[9px] opacity-70 shrink-0">
+        <span className="ml-auto font-mono text-[11px] opacity-70 shrink-0">
           +{alerts.length - 1} MORE
         </span>
       )}

@@ -55,15 +55,15 @@ function IncidentCard({
             {id}
           </span>
         </div>
-        <span className="font-mono text-[10px] text-on-surface-variant">{time}</span>
+        <span className="font-mono text-[11px] text-on-surface-variant">{time}</span>
       </div>
       <p className="text-[12px] text-on-surface leading-tight">{title}</p>
       {location && (
-        <p className="text-[10px] text-on-surface-variant mt-1 leading-tight">{location}</p>
+        <p className="text-[11px] text-on-surface-variant mt-1 leading-tight">{location}</p>
       )}
 
       {expanded && summary && (
-        <p className="text-[10px] text-on-surface-variant leading-relaxed mt-2 whitespace-pre-wrap break-words">
+        <p className="text-[11px] text-on-surface-variant leading-relaxed mt-2 whitespace-pre-wrap break-words">
           {summary}
         </p>
       )}
@@ -73,7 +73,7 @@ function IncidentCard({
           href={link}
           target="_blank"
           rel="noreferrer noopener"
-          className="inline-flex mt-2 font-mono text-[9px] uppercase tracking-widest text-amber-gold hover:text-white"
+          className="inline-flex mt-2 font-mono text-[11px] uppercase tracking-widest text-amber-gold hover:text-white"
           onClick={(e) => e.stopPropagation()}
         >
           Open Incident Source
@@ -88,7 +88,7 @@ function NewsRow({ source, age, title }: { source: string; age: string; title: s
     <div className="flex gap-3">
       <div className="w-0.5 bg-amber-gold shrink-0" aria-hidden="true" />
       <div>
-        <span className="font-mono text-[9px] text-on-surface-variant block mb-1 uppercase tracking-tighter">
+        <span className="font-mono text-[11px] text-on-surface-variant block mb-1 uppercase tracking-tighter">
           {source} • {age}
         </span>
         <p className="text-[11px] text-on-surface hover:text-amber-gold cursor-pointer transition-colors leading-relaxed">
@@ -242,7 +242,7 @@ export function Sidebar() {
               <span className="text-[16px] font-black tracking-[0.05em] text-white uppercase select-none leading-none">
                 VERTEX
               </span>
-              <span className="font-mono text-[9px] tracking-[0.2em] text-amber-gold uppercase leading-none">
+              <span className="font-mono text-[11px] tracking-[0.2em] text-amber-gold uppercase leading-none">
                 SITUATIONAL AWARENESS
               </span>
             </div>
@@ -309,7 +309,7 @@ export function Sidebar() {
 
           <div className="mt-2 w-8 border-t border-white/10" aria-hidden="true" />
 
-          <div className="flex flex-col items-center gap-1.5 text-[9px] font-mono text-on-surface-variant">
+          <div className="flex flex-col items-center gap-1.5 text-[11px] font-mono text-on-surface-variant">
             <button type="button" onClick={() => focusEntityType({ aircraft: true, adsbLocal: true, adsbSupplement: true })} className="text-cyan-adsb hover:text-white transition-colors flex items-center gap-1" title="Show aircraft only"><span className="ms text-[12px]" aria-hidden="true">flight</span><span>{aircraft}</span></button>
             <button type="button" onClick={() => focusEntityType({ vessel: true })} className="text-green-ais hover:text-white transition-colors flex items-center gap-1" title="Show vessels only"><span className="ms text-[12px]" aria-hidden="true">directions_boat</span><span>{vessels}</span></button>
             <button type="button" onClick={() => focusEntityType({ aprs: true })} className="text-violet-space hover:text-white transition-colors flex items-center gap-1" title="Show APRS only"><span className="ms text-[12px]" aria-hidden="true">sensors</span><span>{aprs}</span></button>
@@ -358,7 +358,7 @@ export function Sidebar() {
                 {health.ok ? 'Nominal' : 'Degraded'}
               </span>
               {!health.ok && (
-                <span className="text-[9px] text-red-emergency/80 uppercase font-mono tracking-tight">
+                <span className="text-[11px] text-red-emergency/80 uppercase font-mono tracking-tight">
                   Check service logs
                 </span>
               )}
@@ -366,11 +366,11 @@ export function Sidebar() {
           </div>
 
           <div className="flex items-center gap-3">
-             <span className={`flex items-center text-[10px] font-mono ${activeInc > 0 ? 'text-red-emergency animate-pulse' : 'text-on-surface-variant opacity-20'}`} title="Active Incidents">
+             <span className={`flex items-center text-[11px] font-mono ${activeInc > 0 ? 'text-red-emergency animate-pulse' : 'text-on-surface-variant opacity-20'}`} title="Active Incidents">
                <span className="ms text-[14px] mr-1" aria-hidden="true">warning</span>
                INC {activeInc}
              </span>
-             <span className={`flex items-center text-[10px] font-mono ${wAlerts > 0 ? 'text-amber-gold' : 'text-on-surface-variant opacity-20'}`} title="Weather Alerts">
+             <span className={`flex items-center text-[11px] font-mono ${wAlerts > 0 ? 'text-amber-gold' : 'text-on-surface-variant opacity-20'}`} title="Weather Alerts">
                <span className="ms text-[14px] mr-1" aria-hidden="true">cloud_alert</span>
                {wAlerts}
              </span>
@@ -378,7 +378,7 @@ export function Sidebar() {
         </div>
 
         {/* Entity count strip */}
-        <div className="flex flex-col gap-2.5 text-[10px] font-mono border-t border-white/5 pt-3">
+        <div className="flex flex-col gap-2.5 text-[11px] font-mono border-t border-white/5 pt-3">
           <div className="flex items-center justify-between">
             <div className="flex gap-4">
               <span className="text-cyan-adsb flex items-center" title="Aircraft (ADS-B)">
@@ -468,7 +468,7 @@ export function Sidebar() {
             </button>
 
             {incidents.length > 0 && (
-              <span className="font-mono text-[9px] bg-amber-gold text-onyx-black px-1.5 py-0.5 font-bold">
+              <span className="font-mono text-[11px] bg-amber-gold text-onyx-black px-1.5 py-0.5 font-bold">
                 {incidents.length}
               </span>
             )}
@@ -476,12 +476,12 @@ export function Sidebar() {
 
           {activeInc > (incidentsCollapsed ? compactIncidents.length : incidents.length) && (
             <div className="mb-3 flex items-center justify-between">
-              <span className="text-[10px] text-on-surface-variant">
+              <span className="text-[11px] text-on-surface-variant">
                 Showing {incidentsCollapsed ? compactIncidents.length : incidents.length} of {activeInc} incidents
               </span>
               <button
                 onClick={() => setActiveTab('incidents')}
-                className="font-mono text-[9px] uppercase tracking-widest text-amber-gold hover:text-white"
+                className="font-mono text-[11px] uppercase tracking-widest text-amber-gold hover:text-white"
               >
                 View All
               </button>
@@ -489,7 +489,7 @@ export function Sidebar() {
           )}
 
           {incidents.length === 0 ? (
-            <p className="text-[10px] text-on-surface-variant/60 italic text-center py-2">No active incidents</p>
+            <p className="text-[11px] text-on-surface-variant/60 italic text-center py-2">No active incidents</p>
           ) : incidentsCollapsed ? (
             <div id="sidebar-incidents-list" className="space-y-2" role="list">
               {compactIncidents.map((incident, i) => (
@@ -505,7 +505,7 @@ export function Sidebar() {
                         {deriveIncidentTitle(incident)}
                       </p>
                       <div className="flex items-center gap-1 shrink-0">
-                        <span className="font-mono text-[10px] text-on-surface-variant">
+                        <span className="font-mono text-[11px] text-on-surface-variant">
                           {formatIncidentTime(incident.pubDate ?? '')}
                         </span>
                         <span className="ms text-[13px] text-on-surface-variant" aria-hidden="true">
@@ -515,12 +515,12 @@ export function Sidebar() {
                     </div>
                   </button>
                   {formatIncidentLocation(incident) && (
-                    <p className="text-[10px] text-on-surface-variant mt-1 leading-tight line-clamp-1">
+                    <p className="text-[11px] text-on-surface-variant mt-1 leading-tight line-clamp-1">
                       {formatIncidentLocation(incident)}
                     </p>
                   )}
                   {compactExpandedIndex === i && incident.description && (
-                    <p className="text-[10px] text-on-surface-variant leading-relaxed mt-2 whitespace-pre-wrap break-words">
+                    <p className="text-[11px] text-on-surface-variant leading-relaxed mt-2 whitespace-pre-wrap break-words">
                       {incident.description}
                     </p>
                   )}
@@ -529,7 +529,7 @@ export function Sidebar() {
                       href={incident.link}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex mt-2 font-mono text-[9px] uppercase tracking-widest text-amber-gold hover:text-white"
+                      className="inline-flex mt-2 font-mono text-[11px] uppercase tracking-widest text-amber-gold hover:text-white"
                     >
                       Open Incident Source
                     </a>
@@ -563,7 +563,7 @@ export function Sidebar() {
           </h3>
 
           {newsItems.length === 0 ? (
-            <p className="text-[10px] text-on-surface-variant/60 italic text-center py-2">No feed data yet</p>
+            <p className="text-[11px] text-on-surface-variant/60 italic text-center py-2">No feed data yet</p>
           ) : (
             <div className="space-y-4">
               {newsItems.map((item, i) => (

@@ -137,7 +137,7 @@ export function PlaybackController() {
           onClick={() => setOpen((v) => !v)}
           className={`
             relative flex items-center gap-2 px-3 py-2
-            hud-panel border border-amber-gold-muted text-[10px] font-mono uppercase tracking-widest shadow-2xl
+            hud-panel border border-amber-gold-muted text-[11px] font-mono uppercase tracking-widest shadow-2xl
             hover:border-amber-gold/60 transition-colors focus:outline-none
             ${open ? 'text-amber-gold border-amber-gold' : 'text-on-surface-variant'}
           `}
@@ -153,7 +153,7 @@ export function PlaybackController() {
       {open && !replayMode && (
         <div className="absolute top-full mt-2 left-0 z-[40] w-[calc(100vw-1rem)] sm:w-80 hud-panel p-4 space-y-4 shadow-2xl cursor-default">
           <div className="flex items-center justify-between">
-            <span className="font-bold text-[10px] tracking-[0.2em] uppercase text-amber-gold">Load History</span>
+            <span className="font-bold text-[11px] tracking-[0.2em] uppercase text-amber-gold">Load History</span>
             <button onClick={() => setOpen(false)} className="ms text-[16px] text-on-surface-variant hover:text-on-surface leading-none focus:outline-none">close</button>
           </div>
 
@@ -161,7 +161,7 @@ export function PlaybackController() {
           <div className="flex border border-white/10 divide-x divide-white/10">
             <button
               onClick={() => setUseAbsolute(false)}
-              className={`flex-1 py-1 text-[9px] font-mono uppercase tracking-widest transition-colors focus:outline-none ${
+              className={`flex-1 py-1 text-[11px] font-mono uppercase tracking-widest transition-colors focus:outline-none ${
                 !useAbsolute ? 'bg-amber-gold/10 text-amber-gold' : 'text-on-surface-variant hover:text-on-surface'
               }`}
               aria-pressed={!useAbsolute}
@@ -170,7 +170,7 @@ export function PlaybackController() {
             </button>
             <button
               onClick={() => setUseAbsolute(true)}
-              className={`flex-1 py-1 text-[9px] font-mono uppercase tracking-widest transition-colors focus:outline-none ${
+              className={`flex-1 py-1 text-[11px] font-mono uppercase tracking-widest transition-colors focus:outline-none ${
                 useAbsolute ? 'bg-amber-gold/10 text-amber-gold' : 'text-on-surface-variant hover:text-on-surface'
               }`}
               aria-pressed={useAbsolute}
@@ -182,13 +182,13 @@ export function PlaybackController() {
           {!useAbsolute ? (
             /* Relative window selector */
             <div>
-              <span className="label-caps text-[9px] block mb-2">Time window (ending now)</span>
+              <span className="label-caps text-[11px] block mb-2">Time window (ending now)</span>
               <div className="flex flex-wrap gap-1">
                 {WINDOW_OPTIONS.map((opt) => (
                   <button
                     key={opt.hours}
                     onClick={() => setWindowHours(opt.hours)}
-                    className={`px-2 py-1 border text-[9px] font-mono uppercase tracking-widest transition-colors focus:outline-none ${
+                    className={`px-2 py-1 border text-[11px] font-mono uppercase tracking-widest transition-colors focus:outline-none ${
                       windowHours === opt.hours
                         ? 'border-amber-gold text-amber-gold bg-amber-gold/10'
                         : 'border-white/10 text-on-surface-variant hover:border-white/20'
@@ -204,35 +204,35 @@ export function PlaybackController() {
             /* Absolute date/time range pickers */
             <div className="space-y-2">
               <div className="space-y-1">
-                <label className="label-caps text-[9px] block">Start</label>
+                <label className="label-caps text-[11px] block">Start</label>
                 <input
                   type="datetime-local"
                   value={absStart}
                   onChange={(e) => setAbsStart(e.target.value)}
-                  className="w-full bg-surface-container border border-white/10 text-on-surface font-mono text-[10px] px-2 py-1.5 focus:outline-none focus:border-amber-gold/60"
+                  className="w-full bg-surface-container border border-white/10 text-on-surface font-mono text-[11px] px-2 py-1.5 focus:outline-none focus:border-amber-gold/60"
                 />
               </div>
               <div className="space-y-1">
-                <label className="label-caps text-[9px] block">End</label>
+                <label className="label-caps text-[11px] block">End</label>
                 <input
                   type="datetime-local"
                   value={absEnd}
                   onChange={(e) => setAbsEnd(e.target.value)}
-                  className="w-full bg-surface-container border border-white/10 text-on-surface font-mono text-[10px] px-2 py-1.5 focus:outline-none focus:border-amber-gold/60"
+                  className="w-full bg-surface-container border border-white/10 text-on-surface font-mono text-[11px] px-2 py-1.5 focus:outline-none focus:border-amber-gold/60"
                 />
               </div>
-              <p className="text-[8px] text-on-surface-variant">Max 30-day window</p>
+              <p className="text-[11px] text-on-surface-variant">Max 30-day window</p>
             </div>
           )}
 
           {error && (
-            <p className="text-[10px] text-red-emergency">{error}</p>
+            <p className="text-[11px] text-red-emergency">{error}</p>
           )}
 
           <button
             onClick={loadReplay}
             disabled={loading}
-            className="w-full flex items-center justify-center gap-2 py-2 bg-amber-gold/10 border border-amber-gold/60 text-amber-gold text-[10px] font-bold uppercase tracking-widest hover:bg-amber-gold/20 transition-colors focus:outline-none disabled:opacity-50"
+            className="w-full flex items-center justify-center gap-2 py-2 bg-amber-gold/10 border border-amber-gold/60 text-amber-gold text-[11px] font-bold uppercase tracking-widest hover:bg-amber-gold/20 transition-colors focus:outline-none disabled:opacity-50"
           >
             {loading
               ? <><span className="ms text-[14px] animate-spin leading-none">progress_activity</span> Loading…</>
@@ -249,8 +249,8 @@ export function PlaybackController() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <span className="ms text-[14px] text-amber-gold leading-none">history</span>
-              <span className="font-bold text-[10px] tracking-[0.2em] uppercase text-amber-gold">REPLAY</span>
-              <span className="font-mono text-[9px] text-on-surface-variant">
+              <span className="font-bold text-[11px] tracking-[0.2em] uppercase text-amber-gold">REPLAY</span>
+              <span className="font-mono text-[11px] text-on-surface-variant">
                 {entityCount} entit{entityCount !== 1 ? 'ies' : 'y'}
               </span>
             </div>
@@ -261,7 +261,7 @@ export function PlaybackController() {
                   <button
                     key={s}
                     onClick={() => setReplaySpeed(s)}
-                    className={`px-2 py-0.5 font-mono text-[9px] uppercase transition-colors focus:outline-none ${
+                    className={`px-2 py-0.5 font-mono text-[11px] uppercase transition-colors focus:outline-none ${
                       replaySpeed === s ? 'bg-amber-gold text-onyx-black font-bold' : 'text-on-surface-variant hover:text-on-surface'
                     }`}
                     aria-pressed={replaySpeed === s}
@@ -328,7 +328,7 @@ export function PlaybackController() {
 
           {/* Time display + play/pause */}
           <div className="flex items-center justify-between">
-            <span className="font-mono text-[9px] text-on-surface-variant">
+            <span className="font-mono text-[11px] text-on-surface-variant">
               {fmtDateShort(startMs)} {fmtTime(startMs)}
             </span>
             <div className="flex items-center gap-3">
@@ -357,7 +357,7 @@ export function PlaybackController() {
                 forward_10
               </button>
             </div>
-            <span className="font-mono text-[9px] text-on-surface-variant">
+            <span className="font-mono text-[11px] text-on-surface-variant">
               {fmtDateShort(endMs)} {fmtTime(endMs)}
             </span>
           </div>

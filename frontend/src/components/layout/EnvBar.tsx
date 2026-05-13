@@ -55,7 +55,7 @@ export function EnvBar() {
         <div className="flex items-center gap-1 shrink-0">
           <span className="ms text-[12px] text-amber-gold leading-none" aria-hidden="true">air</span>
           <span className="label-caps">AQI</span>
-          <span className={`font-mono text-[10px] font-bold ${aqiColor(weather.aqi)}`}>
+          <span className={`font-mono text-[11px] font-bold ${aqiColor(weather.aqi)}`}>
             {weather.aqi != null ? weather.aqi : '—'}
           </span>
         </div>
@@ -65,7 +65,7 @@ export function EnvBar() {
         <div className="flex items-center gap-1 shrink-0">
           <span className="ms text-[12px] text-amber-gold leading-none" aria-hidden="true">device_thermostat</span>
           <span className="label-caps">TEMP</span>
-          <span className="font-mono text-[10px] text-on-surface">
+          <span className="font-mono text-[11px] text-on-surface">
             {weather.temp_f != null ? `${Math.round(weather.temp_f)}°F` : '—'}
           </span>
         </div>
@@ -75,7 +75,7 @@ export function EnvBar() {
         <div className="flex items-center gap-1 shrink-0">
           <span className="ms text-[12px] text-amber-gold leading-none" aria-hidden="true">air</span>
           <span className="label-caps">WIND</span>
-          <span className="font-mono text-[10px] text-on-surface">
+          <span className="font-mono text-[11px] text-on-surface">
             {weather.wind_mph != null ? `${Math.round(weather.wind_mph)} MPH` : '—'}
           </span>
         </div>
@@ -87,12 +87,12 @@ export function EnvBar() {
             <span className="ms text-[12px] leading-none" aria-hidden="true" style={{ fontVariationSettings: "'FILL' 1" }}>
               {hasSevere ? 'emergency_home' : 'warning'}
             </span>
-            <span className="font-mono text-[9px] uppercase tracking-widest">NWS ALERT</span>
+            <span className="font-mono text-[11px] uppercase tracking-widest">NWS ALERT</span>
           </div>
         ) : (
           <div className="flex items-center gap-1 text-on-surface-variant shrink-0">
             <span className="ms text-[12px] leading-none" aria-hidden="true">check_circle</span>
-            <span className="font-mono text-[9px] uppercase tracking-widest">NWS OK</span>
+            <span className="font-mono text-[11px] uppercase tracking-widest">NWS OK</span>
           </div>
         )}
 
@@ -107,7 +107,7 @@ export function EnvBar() {
           <span className={`font-mono text-[11px] font-bold ${aqiColor(weather.aqi)}`}>
             {weather.aqi != null ? weather.aqi : '—'}
             {' '}
-            <span className="text-[9px] opacity-80">
+            <span className="text-[11px] opacity-80">
               ({aqiLabel(weather.aqi, weather.aqi_label)})
             </span>
           </span>
@@ -160,7 +160,7 @@ export function EnvBar() {
               {topAlert.event}
             </span>
             {topAlert.expires && (
-              <span className="font-mono text-[9px] opacity-60 ml-1">
+              <span className="font-mono text-[11px] opacity-60 ml-1">
                 UNTIL {new Date(topAlert.expires).toLocaleTimeString('en-US', {
                   hour: '2-digit', minute: '2-digit',
                 })}
@@ -180,7 +180,7 @@ export function EnvBar() {
         <div className="flex items-center gap-2 shrink-0 text-on-surface-variant">
           <span className="ms text-[14px] text-green-ais leading-none" aria-hidden="true">my_location</span>
           <span className="label-caps">REGION CTR:</span>
-          <span className="font-mono text-[10px] text-on-surface">
+          <span className="font-mono text-[11px] text-on-surface">
             {formatCoord(centerLat, 'N', 'S')} {formatCoord(centerLon, 'E', 'W')}
           </span>
         </div>

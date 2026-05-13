@@ -58,19 +58,19 @@ function EventRow({ event }: { event: SystemEvent }) {
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <span
-              className={`inline-flex items-center px-1.5 py-0.5 border text-[9px] font-bold tracking-widest uppercase ${severityColor(event.severity)}`}
+              className={`inline-flex items-center px-1.5 py-0.5 border text-[11px] font-bold tracking-widest uppercase ${severityColor(event.severity)}`}
             >
               {event.event_type.replace(/_/g, ' ')}
             </span>
             {event.entity_id && (
-              <span className="font-mono text-[9px] text-on-surface-variant truncate">
+              <span className="font-mono text-[11px] text-on-surface-variant truncate">
                 {event.entity_id}
               </span>
             )}
           </div>
           <p className="text-[11px] text-on-surface mt-1 leading-snug">{event.summary}</p>
           <div className="flex items-center gap-2 mt-1">
-            <span className="font-mono text-[9px] text-on-surface-variant">
+            <span className="font-mono text-[11px] text-on-surface-variant">
               {new Date(event.ts).toLocaleString()}
             </span>
             {hasDetails && (
@@ -84,7 +84,7 @@ function EventRow({ event }: { event: SystemEvent }) {
 
       {expanded && hasDetails && (
         <div className="px-9 pb-3">
-          <pre className="text-[10px] font-mono text-on-surface-variant bg-onyx-black/40 border border-white/5 p-2 overflow-x-auto whitespace-pre-wrap break-all">
+          <pre className="text-[11px] font-mono text-on-surface-variant bg-onyx-black/40 border border-white/5 p-2 overflow-x-auto whitespace-pre-wrap break-all">
             {JSON.stringify(event.details, null, 2)}
           </pre>
         </div>
@@ -167,8 +167,8 @@ export function EventLogPanel() {
       <div className="flex items-center gap-3">
         <span className="ms text-[20px] text-amber-gold leading-none" aria-hidden="true">history</span>
         <div className="flex-1">
-          <h2 className="font-bold text-[11px] tracking-[0.2em] uppercase text-amber-gold">Event Log</h2>
-          <p className="text-[10px] text-on-surface-variant mt-0.5">
+          <h2 className="font-bold text-[13px] tracking-[0.2em] uppercase text-amber-gold">Event Log</h2>
+          <p className="text-[11px] text-on-surface-variant mt-0.5">
             {systemEvents.length} event{systemEvents.length !== 1 ? 's' : ''} · last 100 retained
           </p>
         </div>
@@ -177,7 +177,7 @@ export function EventLogPanel() {
         <div className="relative">
           <button
             onClick={() => setShowSitrepMenu((v) => !v)}
-            className={`flex items-center gap-1.5 px-2.5 py-1.5 border text-[9px] font-bold uppercase tracking-widest transition-colors focus:outline-none ${
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 border text-[11px] font-bold uppercase tracking-widest transition-colors focus:outline-none ${
               showSitrepMenu
                 ? 'bg-amber-gold text-onyx-black border-amber-gold'
                 : 'border-amber-gold/40 text-amber-gold hover:bg-amber-gold/10'
@@ -190,13 +190,13 @@ export function EventLogPanel() {
           {showSitrepMenu && (
             <div className="absolute right-0 top-full mt-1 w-48 bg-onyx-deep border border-white/10 z-30 shadow-xl">
               <div className="p-3 space-y-2">
-                <div className="text-[9px] text-on-surface-variant uppercase tracking-widest">Time window</div>
+                <div className="text-[11px] text-on-surface-variant uppercase tracking-widest">Time window</div>
                 <div className="flex gap-1">
                   {[6, 12, 24, 48, 72].map((h) => (
                     <button
                       key={h}
                       onClick={() => setSitrepHours(h)}
-                      className={`flex-1 py-1 text-[9px] font-mono border transition-colors focus:outline-none ${
+                      className={`flex-1 py-1 text-[11px] font-mono border transition-colors focus:outline-none ${
                         sitrepHours === h
                           ? 'bg-amber-gold text-onyx-black border-amber-gold'
                           : 'border-white/10 text-on-surface-variant hover:border-white/30'
@@ -207,12 +207,12 @@ export function EventLogPanel() {
                   ))}
                 </div>
                 {sitrepError && (
-                  <p className="text-[9px] text-red-emergency">{sitrepError}</p>
+                  <p className="text-[11px] text-red-emergency">{sitrepError}</p>
                 )}
                 <button
                   onClick={handleExportSitRep}
                   disabled={sitrepExporting}
-                  className="w-full py-1.5 bg-amber-gold/10 border border-amber-gold/60 text-amber-gold text-[10px] font-bold uppercase tracking-widest hover:bg-amber-gold/20 transition-colors focus:outline-none disabled:opacity-50"
+                  className="w-full py-1.5 bg-amber-gold/10 border border-amber-gold/60 text-amber-gold text-[12px] font-bold uppercase tracking-widest hover:bg-amber-gold/20 transition-colors focus:outline-none disabled:opacity-50"
                 >
                   {sitrepExporting ? 'Generating…' : 'Download .md'}
                 </button>
@@ -246,7 +246,7 @@ export function EventLogPanel() {
             <button
               key={s}
               onClick={() => setSeverityFilter(s)}
-              className={`px-3 py-1.5 font-mono text-[9px] uppercase tracking-widest transition-colors focus:outline-none ${
+              className={`px-3 py-1.5 font-mono text-[11px] uppercase tracking-widest transition-colors focus:outline-none ${
                 severityFilter === s
                   ? 'bg-amber-gold text-onyx-black font-bold'
                   : 'text-on-surface-variant hover:text-on-surface'

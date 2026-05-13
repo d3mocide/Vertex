@@ -14,7 +14,7 @@ function Pill({ label, ms, ok }: { label: string; ms: number; ok: boolean }) {
     : ok ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40'
     : 'bg-amber-500/20 text-amber-400 border-amber-500/40'
   return (
-    <div className={`flex items-center gap-1.5 px-2 py-1 border text-[10px] font-mono uppercase tracking-wider ${color}`}>
+    <div className={`flex items-center gap-1.5 px-2 py-1 border text-[11px] font-mono uppercase tracking-wider ${color}`}>
       <span className={`w-1.5 h-1.5 rounded-full ${ms < 0 ? 'bg-red-400' : ok ? 'bg-emerald-400' : 'bg-amber-400'}`} />
       {label}
       {ms >= 0 && <span className="opacity-60">{ms}ms</span>}
@@ -43,15 +43,15 @@ export function HealthBar({ metrics, dbPingMs, redisPingMs, pollerOkCount, polle
 
   return (
     <div className="flex items-center gap-2 flex-wrap">
-      <span className="text-[10px] uppercase tracking-widest text-gray-600 mr-1">System</span>
+      <span className="text-[11px] uppercase tracking-widest text-gray-600 mr-1">System</span>
       <Pill label="PostgreSQL" ms={dbPingMs} ok={dbOk} />
       <Pill label="Redis" ms={redisPingMs} ok={redisOk} />
-      <div className={`flex items-center gap-1.5 px-2 py-1 border text-[10px] font-mono uppercase tracking-wider ${pollerColor}`}>
+      <div className={`flex items-center gap-1.5 px-2 py-1 border text-[11px] font-mono uppercase tracking-wider ${pollerColor}`}>
         <span className={`w-1.5 h-1.5 rounded-full ${pollerDot}`} />
         Pollers {pollerOkCount}/{pollerTotal}
       </div>
       {metrics && (
-        <div className="flex items-center gap-1.5 px-2 py-1 border border-white/10 text-[10px] font-mono uppercase tracking-wider text-gray-400">
+        <div className="flex items-center gap-1.5 px-2 py-1 border border-white/10 text-[11px] font-mono uppercase tracking-wider text-gray-400">
           <span className="material-symbols-outlined text-[12px]">wifi</span>
           {metrics.ws_clients} WS
         </div>

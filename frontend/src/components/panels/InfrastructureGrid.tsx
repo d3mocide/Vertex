@@ -43,7 +43,7 @@ function CctvThumbnail({
           >
             videocam_off
           </span>
-          <span className="font-mono text-[9px] text-on-surface-variant uppercase">
+          <span className="font-mono text-[11px] text-on-surface-variant uppercase">
             No Signal
           </span>
         </div>
@@ -73,12 +73,12 @@ function CctvThumbnail({
       </button>
       {/* Camera label overlay */}
       <div className="absolute bottom-0 left-0 right-0 px-2 py-1 flex items-center justify-between">
-        <span className="font-mono text-[9px] text-amber-gold uppercase truncate mr-1">
+        <span className="font-mono text-[11px] text-amber-gold uppercase truncate mr-1">
           {cam.name}
         </span>
         <div className="flex items-center gap-1.5 shrink-0">
           {cam.dist_km && (
-            <span className="font-mono text-[8px] text-on-surface-variant">
+            <span className="font-mono text-[11px] text-on-surface-variant">
               {cam.dist_km}km
             </span>
           )}
@@ -93,7 +93,7 @@ function CctvThumbnail({
       </div>
       {ldi && cam.ldi_url && (
         <div className="absolute top-1 right-1 bg-amber-gold-muted px-1 py-0.5">
-          <span className="font-mono text-[8px] text-amber-gold uppercase">LDI</span>
+          <span className="font-mono text-[11px] text-amber-gold uppercase">LDI</span>
         </div>
       )}
     </div>
@@ -258,7 +258,7 @@ export function InfrastructureGrid() {
                       key={r}
                       onClick={() => { setRadiusKm(r); setPage(0); }}
                       className={`
-                        px-2 py-0.5 font-mono text-[9px] uppercase transition-colors
+                        px-2 py-0.5 font-mono text-[11px] uppercase transition-colors
                         ${radiusKm === r ? 'bg-amber-gold text-onyx-black font-bold' : 'text-on-surface-variant hover:text-on-surface'}
                       `}
                     >
@@ -282,7 +282,7 @@ export function InfrastructureGrid() {
               </div>
 
               <div className="flex items-center justify-between mt-3">
-                <p className="font-mono text-[9px] text-on-surface-variant uppercase tracking-widest">
+                <p className="font-mono text-[11px] text-on-surface-variant uppercase tracking-widest">
                   {filteredCameras.length} units in range
                 </p>
 
@@ -296,7 +296,7 @@ export function InfrastructureGrid() {
                     >
                       chevron_left
                     </button>
-                    <span className="font-mono text-[9px] text-amber-gold">
+                    <span className="font-mono text-[11px] text-amber-gold">
                       {page + 1} / {totalPages}
                     </span>
                     <button
@@ -362,7 +362,7 @@ export function InfrastructureGrid() {
               <span className="ms text-[16px] leading-none text-amber-gold" aria-hidden="true">report</span>
               Active Incident Feed ({trafficIncidents.length})
             </h3>
-            <span className="font-mono text-[10px] text-on-surface-variant uppercase tracking-widest">
+            <span className="font-mono text-[11px] text-on-surface-variant uppercase tracking-widest">
               ODOT Real-Time Data
             </span>
           </div>
@@ -395,13 +395,13 @@ export function InfrastructureGrid() {
                           {deriveIncidentTitle(incident)}
                         </p>
                       </div>
-                      <span className="font-mono text-[9px] text-on-surface-variant shrink-0 bg-onyx-black/60 px-1.5 py-0.5 rounded-sm">
+                      <span className="font-mono text-[11px] text-on-surface-variant shrink-0 bg-onyx-black/60 px-1.5 py-0.5 rounded-sm">
                         {incident.pubDate ? new Date(incident.pubDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}
                       </span>
                     </div>
 
                     {formatIncidentLocation(incident) && (
-                      <div className="flex items-center gap-1.5 text-[10px] text-amber-gold/80 font-mono">
+                      <div className="flex items-center gap-1.5 text-[11px] text-amber-gold/80 font-mono">
                         <span className="ms text-[14px]" aria-hidden="true">location_on</span>
                         <span className="truncate">{formatIncidentLocation(incident)}</span>
                       </div>
@@ -416,12 +416,12 @@ export function InfrastructureGrid() {
                     <div className="mt-auto pt-2 flex items-center justify-between border-t border-white/5">
                       <div className="flex gap-2">
                         {isMajor && (
-                          <span className="bg-amber-gold/20 text-amber-gold text-[8px] font-bold px-1.5 py-0.5 uppercase tracking-tighter rounded-sm">
+                          <span className="bg-amber-gold/20 text-amber-gold text-[11px] font-bold px-1.5 py-0.5 uppercase tracking-tighter rounded-sm">
                             Significant
                           </span>
                         )}
                         {incident.severity && (
-                          <span className="bg-white/5 text-on-surface-variant text-[8px] font-mono px-1.5 py-0.5 uppercase tracking-tighter rounded-sm">
+                          <span className="bg-white/5 text-on-surface-variant text-[11px] font-mono px-1.5 py-0.5 uppercase tracking-tighter rounded-sm">
                             {incident.severity}
                           </span>
                         )}
@@ -431,7 +431,7 @@ export function InfrastructureGrid() {
                           href={incident.link}
                           target="_blank"
                           rel="noreferrer noopener"
-                          className="font-mono text-[9px] uppercase tracking-widest text-amber-gold hover:text-white"
+                          className="font-mono text-[11px] uppercase tracking-widest text-amber-gold hover:text-white"
                         >
                           Source
                         </a>

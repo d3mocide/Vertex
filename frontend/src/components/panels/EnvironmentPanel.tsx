@@ -67,17 +67,17 @@ export function EnvironmentPanel() {
       <div className="flex items-center justify-between px-6 py-3 border-b border-white/5">
         <div className="flex items-center gap-6">
           <div className="flex flex-col">
-            <span className="text-[8px] font-mono text-on-surface-variant uppercase tracking-[0.2em]">Region Center</span>
-            <span className="text-[10px] font-mono text-on-surface font-bold uppercase tracking-widest">Tualatin, OR · 45.38°N 122.76°W</span>
+            <span className="text-[11px] font-mono text-on-surface-variant uppercase tracking-[0.2em]">Region Center</span>
+            <span className="text-[11px] font-mono text-on-surface font-bold uppercase tracking-widest">Tualatin, OR · 45.38°N 122.76°W</span>
           </div>
           <div className="w-px h-6 bg-white/10" />
           <div className="flex flex-col">
-            <span className="text-[8px] font-mono text-on-surface-variant uppercase tracking-[0.2em]">Last Update</span>
-            <span className="text-[10px] font-mono text-on-surface font-bold uppercase tracking-widest">DATA LIVE</span>
+            <span className="text-[11px] font-mono text-on-surface-variant uppercase tracking-[0.2em]">Last Update</span>
+            <span className="text-[11px] font-mono text-on-surface font-bold uppercase tracking-widest">DATA LIVE</span>
           </div>
         </div>
 
-        <div className="flex items-center gap-4 font-mono text-[9px] text-on-surface-variant uppercase tracking-widest">
+        <div className="flex items-center gap-4 font-mono text-[11px] text-on-surface-variant uppercase tracking-widest">
           <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-green-500/40" /> NWS</span>
           <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-amber-500/40" /> EPA</span>
           <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-blue-500/40" /> LOCAL SENSORS</span>
@@ -99,8 +99,8 @@ export function EnvironmentPanel() {
                     <span className="ms text-[48px] text-green-ais relative" aria-hidden="true" style={{ fontVariationSettings: "'FILL' 1" }}>verified_user</span>
                   </div>
                   <div className="flex flex-col items-center">
-                    <p className="font-mono text-[12px] text-on-surface font-bold uppercase tracking-[0.2em]">Systems Nominal</p>
-                    <p className="font-mono text-[9px] text-on-surface-variant uppercase tracking-widest mt-1">No active weather advisories for this region</p>
+                    <p className="font-mono text-[14px] text-on-surface font-bold uppercase tracking-[0.2em]">Systems Nominal</p>
+                    <p className="font-mono text-[11px] text-on-surface-variant uppercase tracking-widest mt-1">No active weather advisories for this region</p>
                   </div>
                 </div>
               ) : (
@@ -113,7 +113,7 @@ export function EnvironmentPanel() {
 
               {/* Hazard quick cards */}
               <div className="mt-6">
-                <div className="label-caps text-[10px] text-on-surface-variant mb-3 flex items-center gap-2">
+                <div className="label-caps text-[11px] text-on-surface-variant mb-3 flex items-center gap-2">
                   <span className="h-px flex-1 bg-white/5" />
                   HAZARD STATUS INDICATORS
                   <span className="h-px flex-1 bg-white/5" />
@@ -143,8 +143,8 @@ export function EnvironmentPanel() {
                         {h.icon}
                       </span>
                       <div className="flex flex-col">
-                        <span className={`text-[10px] font-black uppercase tracking-tight ${h.active ? 'text-on-surface' : 'text-on-surface-variant/60'}`}>{h.label}</span>
-                        <span className={`font-mono text-[8px] font-bold mt-0.5 tracking-widest ${h.active ? 'text-amber-gold' : 'text-on-surface-variant/30'}`}>{h.active ? 'WATCH ACTIVE' : 'SECURE'}</span>
+                        <span className={`text-[11px] font-black uppercase tracking-tight ${h.active ? 'text-on-surface' : 'text-on-surface-variant/60'}`}>{h.label}</span>
+                        <span className={`font-mono text-[11px] font-bold mt-0.5 tracking-widest ${h.active ? 'text-amber-gold' : 'text-on-surface-variant/30'}`}>{h.active ? 'WATCH ACTIVE' : 'SECURE'}</span>
                       </div>
                     </div>
                   ))}

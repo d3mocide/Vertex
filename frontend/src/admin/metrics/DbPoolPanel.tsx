@@ -11,7 +11,7 @@ function PoolCard({
   return (
     <div className="border border-white/10 bg-black/30 p-3 text-center">
       <div className={`text-xl font-mono font-bold ${colorClass}`}>{value}</div>
-      <div className="text-[9px] text-gray-500 uppercase tracking-wider mt-1">{label}</div>
+      <div className="text-[11px] text-gray-500 uppercase tracking-wider mt-1">{label}</div>
     </div>
   )
 }
@@ -21,7 +21,7 @@ export function DbPoolPanel({ pool }: { pool: DbPoolData | null }) {
   if (pool.error) {
     return (
       <section>
-        <h2 className="text-[10px] uppercase tracking-widest text-gray-500 mb-3">DB Connection Pool</h2>
+        <h2 className="text-[11px] uppercase tracking-widest text-gray-500 mb-3">DB Connection Pool</h2>
         <div className="border border-white/10 bg-black/30 p-4">
           <p className="text-xs text-red-emergency">Pool stats unavailable: {pool.error}</p>
         </div>
@@ -33,7 +33,7 @@ export function DbPoolPanel({ pool }: { pool: DbPoolData | null }) {
 
   return (
     <section className="space-y-3">
-      <h2 className="text-[10px] uppercase tracking-widest text-gray-500">DB Connection Pool</h2>
+      <h2 className="text-[11px] uppercase tracking-widest text-gray-500">DB Connection Pool</h2>
       <div className="border border-white/10 bg-black/30 space-y-4 p-4">
         {/* Pool cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -45,7 +45,7 @@ export function DbPoolPanel({ pool }: { pool: DbPoolData | null }) {
 
         {/* Utilization bar */}
         <div className="flex items-center gap-4">
-          <span className="text-[10px] uppercase tracking-widest text-gray-500 shrink-0">Utilization</span>
+          <span className="text-[11px] uppercase tracking-widest text-gray-500 shrink-0">Utilization</span>
           <div className="flex-1 h-1.5 bg-gray-800">
             <div
               className={`h-full transition-all ${utilizationPercent > 90 ? 'bg-red-emergency' : utilizationPercent > 70 ? 'bg-amber-gold' : 'bg-emerald-300'}`}

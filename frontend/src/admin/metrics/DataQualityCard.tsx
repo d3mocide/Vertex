@@ -21,7 +21,7 @@ export function DataQualityCard({ data }: { data: DataQualityData | null }) {
   if (!data || data.rows.length === 0) {
     return (
       <section>
-        <h2 className="text-[10px] uppercase tracking-widest text-gray-500 mb-3">Data Completeness</h2>
+        <h2 className="text-[11px] uppercase tracking-widest text-gray-500 mb-3">Data Completeness</h2>
         <p className="text-xs text-gray-600">No data.</p>
       </section>
     )
@@ -29,17 +29,17 @@ export function DataQualityCard({ data }: { data: DataQualityData | null }) {
 
   return (
     <section>
-      <h2 className="text-[10px] uppercase tracking-widest text-gray-500 mb-4">Data Completeness</h2>
+      <h2 className="text-[11px] uppercase tracking-widest text-gray-500 mb-4">Data Completeness</h2>
       <div className="border border-white/10 bg-black/30 p-4">
         <div className="space-y-3">
           {data.rows.map((row) => (
             <div key={`${row.entity_type}-${row.field}`} className="space-y-1.5">
               <div className="flex items-baseline justify-between">
                 <div>
-                  <div className="text-[10px] text-on-surface font-mono capitalize">
+                  <div className="text-[11px] text-on-surface font-mono capitalize">
                     {row.entity_type.replace(/_/g, ' ')} — {row.label}
                   </div>
-                  <div className="text-[9px] text-on-surface-variant mt-0.5">
+                  <div className="text-[11px] text-on-surface-variant mt-0.5">
                     {row.field}
                   </div>
                 </div>
@@ -47,7 +47,7 @@ export function DataQualityCard({ data }: { data: DataQualityData | null }) {
                   <span className={`text-[12px] font-mono font-bold ${pctText(row.pct)}`}>
                     {row.pct}%
                   </span>
-                  <span className="text-[9px] text-gray-500 font-mono">
+                  <span className="text-[11px] text-gray-500 font-mono">
                     ({row.present}/{row.total})
                   </span>
                 </div>

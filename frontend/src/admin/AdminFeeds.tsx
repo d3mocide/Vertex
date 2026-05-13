@@ -22,7 +22,7 @@ function ToggleDot({ enabled }: { enabled: boolean }) {
 
 function DeleteBtn({ onClick }: { onClick: () => void }) {
   return (
-    <button onClick={onClick} className="text-[10px] text-red-500/60 hover:text-red-400 transition-colors uppercase tracking-wider">
+    <button onClick={onClick} className="text-[11px] text-red-500/60 hover:text-red-400 transition-colors uppercase tracking-wider">
       Del
     </button>
   )
@@ -32,7 +32,7 @@ function ToggleBtn({ enabled, onClick }: { enabled: boolean; onClick: () => void
   return (
     <button
       onClick={onClick}
-      className={`text-[10px] uppercase tracking-wider transition-colors ${
+      className={`text-[11px] uppercase tracking-wider transition-colors ${
         enabled ? 'text-green-400/70 hover:text-red-400' : 'text-gray-600 hover:text-green-400'
       }`}
     >
@@ -90,9 +90,9 @@ function RadioTab() {
             <ToggleDot enabled={s.enabled} />
             <div className="flex-1 min-w-0">
               <div className="text-xs text-gray-200 truncate">{s.name}</div>
-              <div className="text-[10px] text-gray-500 truncate">{s.url}</div>
+              <div className="text-[11px] text-gray-500 truncate">{s.url}</div>
             </div>
-            <span className="text-[9px] text-gray-600 uppercase">{s.format}</span>
+            <span className="text-[11px] text-gray-600 uppercase">{s.format}</span>
             <ToggleBtn enabled={s.enabled} onClick={() => toggle(s.id)} />
             {s.source === 'user' && <DeleteBtn onClick={() => del(s.id)} />}
           </div>
@@ -107,7 +107,7 @@ function RadioTab() {
           <option value="aac">aac</option>
           <option value="ogg">ogg</option>
         </select>
-        <button type="submit" disabled={saving} className="col-span-3 py-1.5 text-[10px] font-bold uppercase tracking-widest border border-amber-gold/40 text-amber-gold hover:bg-amber-gold/10 transition-colors disabled:opacity-50">
+        <button type="submit" disabled={saving} className="col-span-3 py-1.5 text-[11px] font-bold uppercase tracking-widest border border-amber-gold/40 text-amber-gold hover:bg-amber-gold/10 transition-colors disabled:opacity-50">
           {saving ? 'Adding…' : 'Add Stream'}
         </button>
       </form>
@@ -163,7 +163,7 @@ function NewsTab() {
             <ToggleDot enabled={f.enabled} />
             <div className="flex-1 min-w-0">
               <div className="text-xs text-gray-200 truncate">{f.name}</div>
-              {f.url && <div className="text-[10px] text-gray-500 truncate">{f.url}</div>}
+              {f.url && <div className="text-[11px] text-gray-500 truncate">{f.url}</div>}
             </div>
             <ToggleBtn enabled={f.enabled} onClick={() => toggle(f.id)} />
             {f.source === 'user' && <DeleteBtn onClick={() => del(f.id)} />}
@@ -174,7 +174,7 @@ function NewsTab() {
       <form onSubmit={create} className="grid grid-cols-2 gap-2">
         <input value={name} onChange={(e) => setName(e.target.value)} required placeholder="Feed name" className="bg-black/60 border border-white/10 text-gray-200 text-xs px-2 py-1.5 focus:outline-none focus:border-amber-gold/60" />
         <input value={url} onChange={(e) => setUrl(e.target.value)} required placeholder="RSS URL" className="bg-black/60 border border-white/10 text-gray-200 text-xs px-2 py-1.5 focus:outline-none focus:border-amber-gold/60" />
-        <button type="submit" disabled={saving} className="col-span-2 py-1.5 text-[10px] font-bold uppercase tracking-widest border border-amber-gold/40 text-amber-gold hover:bg-amber-gold/10 transition-colors disabled:opacity-50">
+        <button type="submit" disabled={saving} className="col-span-2 py-1.5 text-[11px] font-bold uppercase tracking-widest border border-amber-gold/40 text-amber-gold hover:bg-amber-gold/10 transition-colors disabled:opacity-50">
           {saving ? 'Adding…' : 'Add Feed'}
         </button>
       </form>
@@ -232,10 +232,10 @@ function PollersTab() {
         {items.map((p) => (
           <div key={p.id} className="flex items-center gap-3 px-3 py-2 border-b border-white/5 last:border-0 hover:bg-white/5">
             <ToggleDot enabled={p.enabled} />
-            <span className="text-[9px] text-amber-400/70 uppercase w-12 shrink-0">{p.type}</span>
+            <span className="text-[11px] text-amber-400/70 uppercase w-12 shrink-0">{p.type}</span>
             <div className="flex-1 min-w-0">
               <div className="text-xs text-gray-200 truncate">{p.name}</div>
-              <div className="text-[10px] text-gray-500 truncate">{p.url}</div>
+              <div className="text-[11px] text-gray-500 truncate">{p.url}</div>
             </div>
             <ToggleBtn enabled={p.enabled} onClick={() => toggle(p.id)} />
             {p.source === 'user' && <DeleteBtn onClick={() => del(p.id)} />}
@@ -249,7 +249,7 @@ function PollersTab() {
         </select>
         <input value={name} onChange={(e) => setName(e.target.value)} required placeholder="Name" className="bg-black/60 border border-white/10 text-gray-200 text-xs px-2 py-1.5 focus:outline-none focus:border-amber-gold/60" />
         <input value={url} onChange={(e) => setUrl(e.target.value)} required placeholder="URL / host" className="bg-black/60 border border-white/10 text-gray-200 text-xs px-2 py-1.5 focus:outline-none focus:border-amber-gold/60" />
-        <button type="submit" disabled={saving} className="col-span-3 py-1.5 text-[10px] font-bold uppercase tracking-widest border border-amber-gold/40 text-amber-gold hover:bg-amber-gold/10 transition-colors disabled:opacity-50">
+        <button type="submit" disabled={saving} className="col-span-3 py-1.5 text-[11px] font-bold uppercase tracking-widest border border-amber-gold/40 text-amber-gold hover:bg-amber-gold/10 transition-colors disabled:opacity-50">
           {saving ? 'Adding…' : 'Add Source'}
         </button>
       </form>
@@ -306,7 +306,7 @@ function ZonesTab() {
           <div key={z.id} className="flex items-center gap-3 px-3 py-2 border-b border-white/5 last:border-0 hover:bg-white/5">
             <ToggleDot enabled={z.enabled} />
             <span className="flex-1 font-mono text-xs text-gray-200">{z.zone_code}</span>
-            <span className="text-[9px] text-gray-600">{z.source}</span>
+            <span className="text-[11px] text-gray-600">{z.source}</span>
             {z.source === 'user' && <DeleteBtn onClick={() => del(z.id)} />}
           </div>
         ))}
@@ -320,7 +320,7 @@ function ZonesTab() {
           placeholder="NWS zone code, e.g. ORZ006"
           className="flex-1 bg-black/60 border border-white/10 text-gray-200 text-xs px-2 py-1.5 focus:outline-none focus:border-amber-gold/60 font-mono uppercase"
         />
-        <button type="submit" disabled={saving} className="px-4 py-1.5 text-[10px] font-bold uppercase tracking-widest border border-amber-gold/40 text-amber-gold hover:bg-amber-gold/10 transition-colors disabled:opacity-50">
+        <button type="submit" disabled={saving} className="px-4 py-1.5 text-[11px] font-bold uppercase tracking-widest border border-amber-gold/40 text-amber-gold hover:bg-amber-gold/10 transition-colors disabled:opacity-50">
           {saving ? '…' : 'Add'}
         </button>
       </form>
@@ -336,7 +336,7 @@ function RegionsTab() {
 
   return (
     <div className="space-y-3">
-      <p className="text-[10px] text-gray-500 uppercase tracking-widest">
+      <p className="text-[11px] text-gray-500 uppercase tracking-widest">
         Regions are defined in <span className="text-gray-400 font-mono">sources.yml</span>. Edit that file to add or modify regions.
       </p>
       <div className="border border-white/10">
@@ -345,12 +345,12 @@ function RegionsTab() {
             <div className="flex items-center gap-3 mb-1">
               <span className={`inline-block w-1.5 h-1.5 rounded-full ${r.enabled ? 'bg-green-400' : 'bg-gray-600'}`} />
               <span className="text-xs font-semibold text-gray-200">{r.name}</span>
-              <span className="font-mono text-[10px] text-gray-500">{r.id}</span>
+              <span className="font-mono text-[11px] text-gray-500">{r.id}</span>
               {!r.enabled && (
-                <span className="text-[9px] uppercase tracking-wider text-gray-600">disabled</span>
+                <span className="text-[11px] uppercase tracking-wider text-gray-600">disabled</span>
               )}
             </div>
-            <div className="ml-4 font-mono text-[10px] text-gray-500 space-y-0.5">
+            <div className="ml-4 font-mono text-[11px] text-gray-500 space-y-0.5">
               <div>
                 Lat {r.bbox.min_lat} → {r.bbox.max_lat} &nbsp;|&nbsp; Lon {r.bbox.min_lon} → {r.bbox.max_lon}
               </div>

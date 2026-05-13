@@ -22,12 +22,12 @@ export function SeismicCard({ events }: { events: SystemEvent[] }) {
 
       <div className="flex items-end justify-between mb-3">
         <div className="flex flex-col">
-          <span className="text-[8px] font-mono text-on-surface-variant uppercase tracking-widest">Last 24 Hours</span>
+          <span className="text-[11px] font-mono text-on-surface-variant uppercase tracking-widest">Last 24 Hours</span>
           <span className="text-[18px] font-black text-on-surface tracking-tight">{events.length} event{events.length === 1 ? '' : 's'}</span>
         </div>
         <div className="flex flex-col items-end">
-          <span className="text-[8px] font-mono text-on-surface-variant uppercase tracking-widest">Strongest</span>
-          <span className="font-mono text-[12px] text-amber-gold font-bold">
+          <span className="text-[11px] font-mono text-on-surface-variant uppercase tracking-widest">Strongest</span>
+          <span className="font-mono text-[14px] text-amber-gold font-bold">
             {strongest != null ? `M${strongest.toFixed(1)}` : 'N/A'}
           </span>
         </div>
@@ -35,7 +35,7 @@ export function SeismicCard({ events }: { events: SystemEvent[] }) {
 
       {events.length === 0 ? (
         <div className="border border-white/10 bg-white/[0.02] px-3 py-2">
-          <span className="font-mono text-[9px] text-on-surface-variant uppercase tracking-widest">
+          <span className="font-mono text-[11px] text-on-surface-variant uppercase tracking-widest">
             No recorded earthquakes in range
           </span>
         </div>
@@ -48,15 +48,15 @@ export function SeismicCard({ events }: { events: SystemEvent[] }) {
             return (
               <div key={ev.event_id} className="border border-white/10 bg-white/[0.02] px-3 py-2">
                 <div className="flex items-center justify-between gap-3">
-                  <span className="text-[10px] font-bold text-on-surface truncate">{place}</span>
-                  <span className="font-mono text-[9px] text-amber-gold shrink-0">{mag != null ? `M${mag.toFixed(1)}` : ev.severity.toUpperCase()}</span>
+                  <span className="text-[12px] font-bold text-on-surface truncate">{place}</span>
+                  <span className="font-mono text-[11px] text-amber-gold shrink-0">{mag != null ? `M${mag.toFixed(1)}` : ev.severity.toUpperCase()}</span>
                 </div>
                 <div className="flex items-center justify-between mt-1">
-                  <div className="font-mono text-[8px] text-on-surface-variant uppercase tracking-widest">
+                  <div className="font-mono text-[11px] text-on-surface-variant uppercase tracking-widest">
                     {new Date(ev.ts).toLocaleString()}
                   </div>
                   {depthKm != null && (
-                    <div className="font-mono text-[8px] text-sky-400/70 shrink-0">
+                    <div className="font-mono text-[11px] text-sky-400/70 shrink-0">
                       ↓ {depthKm.toFixed(0)} km
                     </div>
                   )}

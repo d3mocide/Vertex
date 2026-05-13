@@ -74,13 +74,13 @@ export function PirepCard() {
         <span className="ms text-[14px] leading-none text-sky-400" aria-hidden="true">flight_takeoff</span>
         AVIATION HAZARDS
         {total > 0 && (
-          <span className="ml-auto font-mono text-[9px] text-amber-400">{total} active</span>
+          <span className="ml-auto font-mono text-[11px] text-amber-400">{total} active</span>
         )}
       </div>
 
       {total === 0 ? (
         <div className="border border-white/10 bg-white/[0.02] px-3 py-2">
-          <span className="font-mono text-[9px] text-on-surface-variant uppercase tracking-widest">
+          <span className="font-mono text-[11px] text-on-surface-variant uppercase tracking-widest">
             {data ? 'No active advisories' : 'Awaiting data...'}
           </span>
         </div>
@@ -89,7 +89,7 @@ export function PirepCard() {
           {/* SIGMETs / AIRMETs Group */}
           {(sigmets.length > 0 || airmets.length > 0) && (
             <div>
-              <div className="text-[8px] font-black text-on-surface-variant/40 uppercase tracking-[0.2em] mb-2 flex items-center gap-2">
+              <div className="text-[11px] font-black text-on-surface-variant/40 uppercase tracking-[0.2em] mb-2 flex items-center gap-2">
                 <span className="w-1 h-1 rounded-full bg-red-500/40" />
                 Weather Advisories
               </div>
@@ -99,14 +99,14 @@ export function PirepCard() {
                   return (
                     <div key={`adv-${i}`} className={`group relative border-l-2 ${isSigmet ? 'border-red-500/40 bg-red-500/5' : 'border-amber-500/40 bg-amber-500/5'} pl-3 py-1.5`}>
                       <div className="flex items-center justify-between gap-2">
-                        <span className={`text-[9px] font-black uppercase tracking-wider ${isSigmet ? 'text-red-400' : 'text-amber-400'}`}>
+                        <span className={`text-[11px] font-black uppercase tracking-wider ${isSigmet ? 'text-red-400' : 'text-amber-400'}`}>
                           {s.hazard ?? 'HAZARD'}
                         </span>
-                        <span className="font-mono text-[8px] text-on-surface-variant/40 uppercase">{isSigmet ? 'Sigmet' : 'Airmet'}</span>
+                        <span className="font-mono text-[11px] text-on-surface-variant/40 uppercase">{isSigmet ? 'Sigmet' : 'Airmet'}</span>
                       </div>
                       {s.raw && (
                         <button
-                          className="mt-1 text-[8px] font-mono text-on-surface-variant/60 group-hover:text-on-surface/80 text-left w-full truncate italic"
+                          className="mt-1 text-[11px] font-mono text-on-surface-variant/60 group-hover:text-on-surface/80 text-left w-full truncate italic"
                           onClick={() => setExpanded(expanded === `s${i}` ? null : `s${i}`)}
                         >
                           {expanded === `s${i}` ? s.raw : s.raw.slice(0, 100) + (s.raw.length > 100 ? '…' : '')}
@@ -122,7 +122,7 @@ export function PirepCard() {
           {/* PIREPs Group */}
           {pireps.length > 0 && (
             <div>
-              <div className="text-[8px] font-black text-on-surface-variant/40 uppercase tracking-[0.2em] mb-2 flex items-center gap-2">
+              <div className="text-[11px] font-black text-on-surface-variant/40 uppercase tracking-[0.2em] mb-2 flex items-center gap-2">
                 <span className="w-1 h-1 rounded-full bg-sky-500/40" />
                 Pilot Reports
               </div>
@@ -131,17 +131,17 @@ export function PirepCard() {
                   <div key={`pirep-${i}`} className="flex flex-col border-b border-white/5 pb-1.5 last:border-0">
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2">
-                        <span className="text-[9px] font-black text-on-surface tracking-tighter uppercase">{p.aircraft ?? 'UNK'}</span>
-                        <span className="text-[9px] font-mono text-sky-400/60">FL{p.altitude ?? '??'}</span>
+                        <span className="text-[11px] font-black text-on-surface tracking-tighter uppercase">{p.aircraft ?? 'UNK'}</span>
+                        <span className="text-[11px] font-mono text-sky-400/60">FL{p.altitude ?? '??'}</span>
                       </div>
                       <div className="flex items-center gap-1.5">
                         {p.turbulence && p.turbulence !== 'NONE' && (
-                          <span className={`text-[7px] font-black px-1 rounded-sm bg-white/5 uppercase ${turbColor(p.turbulence)}`}>
+                          <span className={`text-[11px] font-black px-1 rounded-sm bg-white/5 uppercase ${turbColor(p.turbulence)}`}>
                             {p.turbulence}
                           </span>
                         )}
                         {p.icing && p.icing !== 'NONE' && (
-                          <span className="text-[7px] font-black px-1 rounded-sm bg-cyan-400/10 text-cyan-400 uppercase">
+                          <span className="text-[11px] font-black px-1 rounded-sm bg-cyan-400/10 text-cyan-400 uppercase">
                             ICG {p.icing}
                           </span>
                         )}
@@ -149,7 +149,7 @@ export function PirepCard() {
                     </div>
                     {p.raw && (
                       <button
-                        className="mt-0.5 text-[8px] font-mono text-on-surface-variant/40 hover:text-on-surface-variant/80 text-left w-full truncate"
+                        className="mt-0.5 text-[11px] font-mono text-on-surface-variant/40 hover:text-on-surface-variant/80 text-left w-full truncate"
                         onClick={() => setExpanded(expanded === `p${i}` ? null : `p${i}`)}
                       >
                         {expanded === `p${i}` ? p.raw : p.raw.slice(0, 120)}

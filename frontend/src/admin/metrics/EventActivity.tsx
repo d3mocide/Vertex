@@ -25,7 +25,7 @@ export function EventActivity({ storage }: { storage: StorageData | null }) {
 
   return (
     <section>
-      <h2 className="text-[10px] uppercase tracking-widest text-gray-500 mb-3">
+      <h2 className="text-[11px] uppercase tracking-widest text-gray-500 mb-3">
         Event Activity
         <span className="ml-2 font-mono text-amber-400">{storage.event_count.toLocaleString()} total</span>
       </h2>
@@ -40,8 +40,8 @@ export function EventActivity({ storage }: { storage: StorageData | null }) {
                   className="w-2 h-2 rounded-full"
                   style={{ background: sevColor(type.includes('emergency') || type.includes('critical') ? 'critical' : type.includes('warn') ? 'warning' : 'info') }}
                 />
-                <span className="text-[10px] font-mono text-gray-300">{type}</span>
-                <span className="text-[10px] font-mono text-amber-400 font-bold">{count.toLocaleString()}</span>
+                <span className="text-[11px] font-mono text-gray-300">{type}</span>
+                <span className="text-[11px] font-mono text-amber-400 font-bold">{count.toLocaleString()}</span>
               </div>
             ))}
           </div>

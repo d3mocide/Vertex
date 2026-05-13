@@ -11,7 +11,7 @@ export function GeofenceController() {
         onClick={() => setOpen((v) => !v)}
         className={`
           relative flex items-center gap-2 px-3 py-2
-          hud-panel border border-amber-gold-muted text-[10px] font-mono uppercase tracking-widest shadow-2xl
+          hud-panel border border-amber-gold-muted text-[11px] font-mono uppercase tracking-widest shadow-2xl
           hover:border-amber-gold/60 transition-colors focus:outline-none
           ${open ? 'text-amber-gold border-amber-gold' : 'text-on-surface-variant'}
         `}
@@ -28,7 +28,7 @@ export function GeofenceController() {
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <span className="ms text-[16px] text-amber-gold leading-none">pentagon</span>
-              <span className="font-bold text-[10px] tracking-[0.2em] uppercase text-amber-gold">Geofence Editor</span>
+              <span className="font-bold text-[11px] tracking-[0.2em] uppercase text-amber-gold">Geofence Editor</span>
             </div>
             <button 
               onClick={() => setOpen(false)} 

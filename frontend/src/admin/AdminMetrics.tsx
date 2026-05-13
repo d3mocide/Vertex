@@ -211,7 +211,7 @@ export default function AdminMetrics() {
         {currentTab === 'system' && (
           <>
             <section>
-              <h2 className="text-[10px] uppercase tracking-widest text-gray-500 mb-3">System Health Bar</h2>
+              <h2 className="text-[11px] uppercase tracking-widest text-gray-500 mb-3">System Health Bar</h2>
               <HealthBar
                 metrics={metrics}
                 dbPingMs={metrics?.db_ping_ms ?? -1}
@@ -226,7 +226,7 @@ export default function AdminMetrics() {
               <section className="p-4 border border-white/10 bg-surface-container-low">
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   <div>
-                    <div className="text-[10px] uppercase tracking-widest text-gray-500 mb-1">Status</div>
+                    <div className="text-[11px] uppercase tracking-widest text-gray-500 mb-1">Status</div>
                     <div className="flex items-center gap-2">
                       <span className={`w-2 h-2 rounded-full ${
                         metrics.error_pct <= 2 && metrics.p95_ms <= 500 ? 'bg-emerald-400' 
@@ -241,7 +241,7 @@ export default function AdminMetrics() {
                     </div>
                   </div>
                   <div>
-                    <div className="text-[10px] uppercase tracking-widest text-gray-500 mb-1">Uptime</div>
+                    <div className="text-[11px] uppercase tracking-widest text-gray-500 mb-1">Uptime</div>
                     <div className="font-mono text-[11px] text-on-surface">
                       {metrics && 'uptime_seconds' in metrics && metrics.uptime_seconds
                         ? (() => {
@@ -254,11 +254,11 @@ export default function AdminMetrics() {
                     </div>
                   </div>
                   <div>
-                    <div className="text-[10px] uppercase tracking-widest text-gray-500 mb-1">Pollers Stale</div>
+                    <div className="text-[11px] uppercase tracking-widest text-gray-500 mb-1">Pollers Stale</div>
                     <div className="font-mono text-[11px]">{pollers.filter((p) => p.status === 'stale').length} of {pollers.length}</div>
                   </div>
                   <div>
-                    <div className="text-[10px] uppercase tracking-widest text-gray-500 mb-1">Errors</div>
+                    <div className="text-[11px] uppercase tracking-widest text-gray-500 mb-1">Errors</div>
                     <div className={`font-mono text-[11px] ${metrics.error_pct > 5 ? 'text-red-400' : 'text-on-surface'}`}>
                       {metrics.error_pct.toFixed(1)}%
                     </div>

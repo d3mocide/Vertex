@@ -35,7 +35,7 @@ export function MobileNav() {
             >
               {tab.icon}
             </span>
-            <span className="text-[8px] font-bold tracking-widest uppercase">{tab.label}</span>
+            <span className="text-[11px] font-bold tracking-widest uppercase">{tab.label}</span>
             {active && (
               <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-6 h-0.5 bg-amber-gold" aria-hidden="true" />
             )}

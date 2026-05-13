@@ -177,7 +177,7 @@ export default function App() {
       </svg>
       <div className="flex flex-col items-center gap-1">
         <span className="text-[16px] font-black tracking-[0.05em] text-white uppercase select-none">VERTEX</span>
-        <span className="font-mono text-[9px] tracking-[0.2em] text-amber-gold uppercase select-none">SITUATIONAL AWARENESS</span>
+        <span className="font-mono text-[11px] tracking-[0.2em] text-amber-gold uppercase select-none">SITUATIONAL AWARENESS</span>
       </div>
     </div>
   )

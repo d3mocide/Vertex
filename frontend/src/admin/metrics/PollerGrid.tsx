@@ -31,22 +31,22 @@ function PollerCell({ p }: { p: PollerEntry }) {
     <div className={`border ${border} bg-black/30 p-2.5 flex flex-col gap-1.5`}>
       <div className="flex items-center justify-between gap-1">
         <span className="text-[11px] font-mono text-gray-300 truncate">{p.name}</span>
-        <span className={`flex items-center gap-1 text-[9px] uppercase tracking-wider font-bold ${pill}`}>
+        <span className={`flex items-center gap-1 text-[11px] uppercase tracking-wider font-bold ${pill}`}>
           <span className={`w-1.5 h-1.5 rounded-full ${dot}`} />
           {isOk ? 'LIVE' : isStale ? 'STALE' : 'ERR'}
         </span>
       </div>
 
       <div className="flex items-center justify-between gap-1">
-        <span className="text-[9px] text-gray-600 font-mono">
+        <span className="text-[11px] text-gray-600 font-mono">
           {p.ts ? relativeTime(p.staleness_s) : 'no data'}
         </span>
         <div className="flex items-center gap-1.5">
           {obsLabel && (
-            <span className="text-[9px] font-mono text-sky-400/80">{obsLabel}</span>
+            <span className="text-[11px] font-mono text-sky-400/80">{obsLabel}</span>
           )}
           {p.error_count > 0 && (
-            <span className="text-[9px] font-mono text-red-400/70" title={`${p.error_count} consecutive error${p.error_count !== 1 ? 's' : ''}`}>
+            <span className="text-[11px] font-mono text-red-400/70" title={`${p.error_count} consecutive error${p.error_count !== 1 ? 's' : ''}`}>
               ×{p.error_count}
             </span>
           )}
@@ -54,7 +54,7 @@ function PollerCell({ p }: { p: PollerEntry }) {
       </div>
 
       {isError && p.last_error && (
-        <div className="text-[8px] text-red-400/70 truncate" title={p.last_error}>
+        <div className="text-[11px] text-red-400/70 truncate" title={p.last_error}>
           {p.last_error}
         </div>
       )}
@@ -65,7 +65,7 @@ function PollerCell({ p }: { p: PollerEntry }) {
 export function PollerGrid({ pollers }: { pollers: PollerEntry[] }) {
   return (
     <section>
-      <h2 className="text-[10px] uppercase tracking-widest text-gray-500 mb-3">Poller Health</h2>
+      <h2 className="text-[11px] uppercase tracking-widest text-gray-500 mb-3">Poller Health</h2>
       {pollers.length === 0 ? (
         <p className="text-xs text-gray-500">No heartbeats yet — pollers start within 60s.</p>
       ) : (
