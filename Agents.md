@@ -217,6 +217,47 @@ Always prefer an existing pattern over a new one:
 
 ---
 
+## Dependency Security Rules — Mandatory
+
+### Adding Any New Package
+
+Before adding any new npm or Python package to this repo, you **must** do all of the following:
+
+1. **Check the package's reputation** — look at download count, maintainer history, and whether it is actively maintained. Prefer packages with large, established communities over unknown single-maintainer packages.
+2. **Scan for known CVEs** — search the package name on [osv.dev](https://osv.dev) and [socket.dev](https://socket.dev) before installing.
+3. **Audit immediately after installing:**
+   - npm: `cd frontend && npm audit`
+   - Python: `pip-audit -r <requirements_file>`
+4. **Pin to an exact version** — never use ranges (`^`, `~`, `>=`):
+   - npm: exact version string, no caret — e.g. `"vite": "6.4.2"` not `"^6.4.2"`
+   - Python: `==` pin — e.g. `litellm==1.83.14` not `litellm>=1.83`
+5. **Document why the package is needed** in the commit message or PR — if you cannot justify adding it, do not add it.
+
+### Updating Existing Packages
+
+- Never run `npm update`, `pip install -U`, or equivalent without first checking the changelog for the target version range.
+- After any version bump, re-run the full audit (`npm audit` / `pip-audit`) to confirm zero vulnerabilities.
+- Pin to the new exact version — do not widen the constraint.
+
+### Routine Audits
+
+Run both audits as part of any task that touches `package.json`, `backend/requirements.txt`, or `poller/requirements.txt`:
+
+```bash
+# npm
+cd /home/user/Vertex/frontend && npm audit
+
+# Python (backend)
+pip-audit -r /home/user/Vertex/backend/requirements.txt
+
+# Python (poller)
+pip-audit -r /home/user/Vertex/poller/requirements.txt
+```
+
+A clean audit is zero findings in all three. Do not commit if any findings remain unresolved.
+
+---
+
 ## Pitfalls to Avoid
 
 - **Do not add `any` types in TypeScript** — strict mode is on and it will cascade into harder-to-catch bugs.
