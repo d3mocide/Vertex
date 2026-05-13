@@ -227,6 +227,7 @@ class P25Recording(Base):
     ended_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     duration_s: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     file_size_bytes: Mapped[Optional[int]] = mapped_column(nullable=True)
+    transcription: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
 
 class Annotation(Base):

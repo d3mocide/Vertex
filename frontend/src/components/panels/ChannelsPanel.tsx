@@ -48,6 +48,7 @@ type P25Recording = {
   ended_at: string | null
   duration_s: number | null
   file_size_bytes: number | null
+  transcription: string | null
 }
 
 type ChannelTab = 'streams' | 'talkgroups' | 'recordings'
@@ -373,6 +374,11 @@ export function ChannelsPanel({ visibleTalkgroups, managedTalkgroups, playing, o
                     <div className="font-mono text-[11px] text-on-surface-variant/60">
                       {formatTs(rec.started_at)} · {formatDuration(rec.duration_s)}
                     </div>
+                    {rec.transcription && (
+                      <div className="text-[11px] text-on-surface-variant/80 italic mt-0.5 line-clamp-2 leading-snug">
+                        "{rec.transcription}"
+                      </div>
+                    )}
                   </div>
                   <div className="font-mono text-[11px] text-on-surface-variant/40 shrink-0">{rec.tgid}</div>
                 </div>
