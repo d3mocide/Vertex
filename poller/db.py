@@ -2,12 +2,18 @@ import json
 import logging
 import uuid
 import asyncpg
+import time
 from config import settings
 from sanitize import sanitize_payload, sanitize_text
 
 logger = logging.getLogger(__name__)
 
 _pool: asyncpg.Pool | None = None
+
+# Throttle observation INSERT rows — one row per entity per N seconds is sufficient
+# for trail history; writing every BEAST frame floods the DB unnecessarily.
+_OBS_MIN_INTERVAL = 30.0
+_last_obs_ts: dict[str, float] = {}
 
 
 def get_pool() -> asyncpg.Pool:
@@ -81,6 +87,16 @@ async def write_entity_observation(entity: dict, record_observation: bool = True
             if lat is not None and lon is not None:
                 await check_geofences(entity, conn)
             return
+
+        # Rate-limit observation inserts per entity to avoid write storms from
+        # high-frequency sources (BEAST streams entities at 1-2 Hz per aircraft).
+        entity_id_key = entity["entity_id"]
+        now_ts = time.time()
+        if now_ts - _last_obs_ts.get(entity_id_key, 0.0) < _OBS_MIN_INTERVAL:
+            if lat is not None and lon is not None:
+                await check_geofences(entity, conn)
+            return
+        _last_obs_ts[entity_id_key] = now_ts
 
         await conn.execute(
             """

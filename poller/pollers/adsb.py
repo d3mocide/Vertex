@@ -200,6 +200,12 @@ class AdsbPoller(BasePoller):
             self._beast_frames_dropped += 1
 
     async def _process_beast_frames(self):
+        # Limit downstream DB/Redis work to at most once per second per aircraft.
+        # Frames still decode into _unified_entities on every message so in-memory
+        # state is always current; only the publish (Redis + DB + geofence) is gated.
+        _BEAST_PUBLISH_MIN_INTERVAL = 1.0
+        _last_published: dict[str, float] = {}
+
         while True:
             msg, mlat_ticks, signal = await self._beast_queue.get()
             try:
@@ -208,7 +214,10 @@ class AdsbPoller(BasePoller):
                     icao = (entity.get("identity") or {}).get("icao24", "").lower()
                     self._record_source_seen(icao, "beast")
                     self._unified_entities[icao] = entity
-                    await publish_entity(entity)
+                    now = time.time()
+                    if now - _last_published.get(icao, 0.0) >= _BEAST_PUBLISH_MIN_INTERVAL:
+                        _last_published[icao] = now
+                        await publish_entity(entity)
             except Exception as exc:
                 logger.warning("[adsb] frame processing error: %s", exc)
 

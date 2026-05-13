@@ -1,6 +1,7 @@
 import json
 import logging
 import uuid
+import time
 from datetime import datetime, timezone, timedelta
 from sanitize import sanitize_payload, sanitize_text
 
@@ -12,6 +13,11 @@ logger = logging.getLogger(__name__)
 #   entry_emitted: whether geofence_entry has been emitted
 _entity_state: dict[str, dict[int, dict[str, object]]] = {}
 
+# Rate-limit PostGIS ST_Contains queries — run at most once per N seconds per entity.
+# Aircraft update at 1-2 Hz from BEAST; a 30s gate cuts 97% of spatial queries.
+_GEOFENCE_CHECK_INTERVAL = 30.0
+_last_geofence_check: dict[str, float] = {}
+
 
 async def check_geofences(entity: dict, conn) -> None:
     """
@@ -22,6 +28,14 @@ async def check_geofences(entity: dict, conn) -> None:
     lat = entity.get("lat")
     lon = entity.get("lon")
     entity_id = entity["entity_id"]
+
+    if lat is None or lon is None:
+        return
+
+    now_ts = time.time()
+    if now_ts - _last_geofence_check.get(entity_id, 0.0) < _GEOFENCE_CHECK_INTERVAL:
+        return
+    _last_geofence_check[entity_id] = now_ts
 
     current_rows = await conn.fetch(
         """
