@@ -64,7 +64,7 @@ export function AlertStatusBar() {
       aria-live="assertive"
       aria-label="Open advisory details"
       className={`
-        w-full flex items-center gap-3 px-4 shrink-0 transition-all duration-300 text-left
+        w-full flex items-center gap-3 px-4 shrink-0 transition-all duration-300 text-left relative z-20
         ${LEVEL_STYLES[level]}
         ${mode === 'critical' ? 'h-8 text-[11px]' : 'h-6 text-[11px]'}
       `}

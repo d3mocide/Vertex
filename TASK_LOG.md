@@ -5,6 +5,16 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 
 ---
 
+## 2026-05-13 — Fixed advisory banner background rendering on Overview tab
+
+- Diagnosed z-index layering issue: the Map layer (`fixed inset-0 z-0`) at full opacity on the Overview tab was visually obscuring the AlertStatusBar.
+- Added `relative z-20` positioning to `AlertStatusBar` component to ensure it renders above the Map layer (z-0) while remaining below modals (z-50+).
+- Updated `frontend/src/components/layout/AlertStatusBar.tsx`.
+- Validation:
+    - `cd frontend && npm install && npx tsc --noEmit` ✓
+    - `docker compose config --quiet` ✓
+    - Python syntax check on staged files ✓
+
 ## 2026-05-11 — Added per-source polling controls to Admin Debug probes
 
 - Updated `frontend/src/admin/AdminDebug.tsx` to support per-source recurring diagnostics polling.
