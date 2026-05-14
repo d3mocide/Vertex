@@ -5,6 +5,15 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 
 ---
 
+## 2026-05-14 — Fixed summary poller slice error on fire feed
+
+- Root cause: `poller/pollers/summary.py` treated `feed:fire:perimeters` as a list and sliced it (`fires[:10]`), but NIFC poller stores this feed as GeoJSON FeatureCollection object (`{"type": "FeatureCollection", "features": [...]}`).
+- Symptom in poller logs: `[summary] poll error: slice(None, 10, None)` during background refresh.
+- Fix: Updated the summary fire section to read `payload["features"]` when payload is a dict, then build lines from `feature.properties` (`name`, `state`, `acres`) with safe fallbacks.
+- Validation:
+    - `python -m py_compile poller/pollers/summary.py` ✓
+    - `docker compose up -d --build poller` ✓
+
 ## 2026-05-14 — Fixed live radio stream playback via proxy endpoint
 
 - Root cause: TacticalAudio component was attempting to play external stream URLs directly (e.g., `http://192.168.10.20:8000/op25`). Browsers cannot reach private network IPs, and direct playback fails due to CORS and network isolation.
