@@ -64,6 +64,8 @@ export function TacticalAudio() {
       el.load()
       try {
         await el.play()
+        // Snap to live edge — skips past the browser's pre-buffered audio backlog
+        try { el.currentTime = 1e10 } catch { /* stream may not be seekable */ }
         setPlaying(true)
       } catch {
         setPlaying(false)

@@ -3,7 +3,7 @@
 #
 # Replaces the production nginx frontend with the Vite dev server so that
 # source changes hot-reload in the browser without rebuilding the image.
-# The Vite proxy config (vite.config.ts) handles /api, /ws, and /stream/.
+# The Vite proxy config (vite.config.ts) handles /api, /ws, and /health.
 
 services:
   frontend:
@@ -15,7 +15,6 @@ services:
     environment:
       VITE_RADAR_LAYER: ${VITE_RADAR_LAYER:-RTX-N0B-0}
       VITE_OBSERVATION_RANGE_KM: ${VITE_OBSERVATION_RANGE_KM:-50}
-      VITE_RADIO_STREAM_URL: ${VITE_RADIO_STREAM_URL:-/stream/radio.mp3}
       VITE_REGION_LAT: ${REGION_LAT:-45.3842}
       VITE_REGION_LON: ${REGION_LON:--122.7635}
       VITE_TILE_URL: ${VITE_TILE_URL:-}

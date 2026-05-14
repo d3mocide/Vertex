@@ -31,8 +31,9 @@ export const DEFAULT_CENTER: [number, number] = [
 ]
 export const DEFAULT_ZOOM = 10
 
-// Audio stream
-export const STREAM_URL = import.meta.env.VITE_RADIO_STREAM_URL || '/stream/radio.mp3'
+// Audio stream — stream URL is sourced from the radio_streams DB table.
+// This env var is an escape hatch for a default fallback; leave empty if all streams are DB-configured.
+export const STREAM_URL = (import.meta.env.VITE_RADIO_STREAM_URL as string | undefined)?.trim() ?? ''
 
 // Polling intervals (ms)
 export const HEALTH_POLL_MS   = 15_000
