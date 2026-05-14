@@ -281,6 +281,48 @@ async def list_recordings(
             "ended_at":        r.ended_at.isoformat() if r.ended_at else None,
             "duration_s":      r.duration_s,
             "file_size_bytes": r.file_size_bytes,
+            "transcription":   r.transcription,
+        }
+        for r in recordings
+    ]
+
+
+@router.get("/transcripts")
+async def search_transcripts(
+    q: Optional[str] = Query(None, description="Keyword filter (case-insensitive substring)"),
+    tgid: Optional[int] = Query(None),
+    hours: int = Query(24, ge=1, le=168),
+    limit: int = Query(50, ge=1, le=200),
+    db: AsyncSession = Depends(get_db),
+):
+    """Recent P25 call transcriptions, optionally filtered by keyword or TGID."""
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
+    query = (
+        select(P25Recording)
+        .where(
+            P25Recording.transcription.isnot(None),
+            P25Recording.started_at >= cutoff,
+        )
+        .order_by(desc(P25Recording.started_at))
+        .limit(limit)
+    )
+    if tgid is not None:
+        query = query.where(P25Recording.tgid == tgid)
+    result = await db.execute(query)
+    recordings = result.scalars().all()
+
+    if q:
+        q_lower = q.lower()
+        recordings = [r for r in recordings if r.transcription and q_lower in r.transcription.lower()]
+
+    return [
+        {
+            "id":            r.id,
+            "tgid":          r.tgid,
+            "tag":           r.tag,
+            "started_at":    r.started_at.isoformat(),
+            "duration_s":    r.duration_s,
+            "transcription": r.transcription,
         }
         for r in recordings
     ]

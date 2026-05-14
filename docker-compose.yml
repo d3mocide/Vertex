@@ -163,6 +163,37 @@ services:
     networks:
       - internal
 
+  # ── Whisper P25 Transcription ───────────────────────
+  transcription:
+    build:
+      context: ./transcription
+      platforms:
+        - linux/amd64
+        - linux/arm64
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 2g
+          cpus: '2.0'
+        reservations:
+          memory: 512m
+          cpus: '0.5'
+    env_file: ${VERTEX_ENV_FILE:-.env}
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-vertex}:${POSTGRES_PASSWORD:-vertex}@db:5432/${POSTGRES_DB:-vertex}
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - p25_audio:/data/audio          # shared audio dir OP25 writes recordings to
+      - whisper_models:/root/.cache    # persist downloaded model weights across restarts
+    networks:
+      - internal
+
   # ── Offline Tile Server ──────────────────────────────
   # Enable with: docker compose --profile offline up -d
   # Requires mbtiles file(s) in ./tiles/ (e.g. planet.mbtiles from OpenMapTiles)
@@ -192,3 +223,5 @@ networks:
 volumes:
   db_data:
   redis_data:
+  p25_audio:       # P25 call recordings written by OP25; shared with transcription service
+  whisper_models:  # Whisper model weights cache; avoids re-downloading on container restart
