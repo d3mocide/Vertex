@@ -88,55 +88,78 @@ class AISummaryPoller(BasePoller):
     async def _generate(self, r):
         """Read context from Redis, call the LLM, and write the result back."""
         context_parts: list[str] = []
-
-        # 1. Weather
+        # 1. Weather Alerts (NWS/FlashAlert)
         raw = await r.get("feed:weather:alerts")
         if raw:
             alerts = json.loads(raw)
             if alerts:
-                lines = [
-                    f"- {_sanitise(a.get('event', ''))}: {_sanitise(a.get('headline', ''))}"
-                    for a in alerts[:10]
-                ]
-                context_parts.append("Weather Hazards:\n" + "\n".join(lines))
+                lines = [f"- {a.get('event')}: {a.get('headline')}" for a in alerts[:10]]
+                context_parts.append("WEATHER HAZARDS:\n" + "\n".join(lines))
+            else:
+                context_parts.append("WEATHER STATUS: No active NWS advisories or emergency alerts.")
+        else:
+            context_parts.append("WEATHER STATUS: Data feed currently unavailable.")
 
-        # 2. Fire Activity
-        raw = await r.get("feed:fire:incidents")
+        # 2. Fire Activity (NIFC/EONET)
+        raw = await r.get("feed:fire:perimeters")
         if raw:
             fires = json.loads(raw)
             if fires:
                 lines = [
-                    f"- {_sanitise(f.get('name', ''))}: {_sanitise(f.get('location', ''))} ({f.get('size_acres', 0)} acres)"
+                    f"- {f.get('name', 'Wildfire')}: {f.get('location', 'Unknown')} ({f.get('size_acres', 0)} acres)"
                     for f in fires[:10]
                 ]
-                context_parts.append("Wildfire/Fire Activity:\n" + "\n".join(lines))
+                context_parts.append("WILDFIRE ACTIVITY:\n" + "\n".join(lines))
+            else:
+                context_parts.append("FIRE STATUS: No active wildfire perimeters in regional radius.")
+        else:
+            context_parts.append("FIRE STATUS: Data feed currently unavailable.")
 
-        # 3. Traffic
+        # 3. Traffic Impacts (ODOT/Real-time)
         raw = await r.get("feed:traffic:incidents")
         if raw:
             incidents = json.loads(raw)
             if incidents:
-                lines = [
-                    f"- {_sanitise(i.get('title', ''))}: {_sanitise(i.get('description', ''), max_len=250)}"
-                    for i in incidents[:10]
-                ]
-                context_parts.append("Traffic Impacts:\n" + "\n".join(lines))
+                lines = [f"- {i.get('title')}: {i.get('description')[:200]}" for i in incidents[:10]]
+                context_parts.append("TRAFFIC IMPACTS:\n" + "\n".join(lines))
+            else:
+                context_parts.append("TRAFFIC STATUS: No significant incidents reported.")
+        else:
+            context_parts.append("TRAFFIC STATUS: Data feed currently unavailable.")
 
-        # 4. Utilities
-        raw = await r.get("feed:utilities:status")
+        # 4. Utility Status (PGE/Pacificorp)
+        pge_raw = await r.get("feed:utility:pge")
+        ore_raw = await r.get("feed:utility:oregon")
+        util_msg = []
+        if pge_raw:
+            pge = json.loads(pge_raw)
+            if pge.get('affected', 0) > 100:
+                util_msg.append(f"- PGE Outages: {pge.get('affected')} customers affected.")
+        if ore_raw:
+            ore = json.loads(ore_raw)
+            if ore.get('pacificorp_affected', 0) > 100:
+                util_msg.append(f"- Pacificorp Outages: {ore.get('pacificorp_affected')} customers affected.")
+        
+        if util_msg:
+            context_parts.append("UTILITY STATUS:\n" + "\n".join(util_msg))
+        else:
+            context_parts.append("UTILITY STATUS: No major power outages reported (>100 cust).")
+
+        # 5. Priority Intelligence (OSINT Elevated News)
+        raw = await r.get("feed:intel:alerts")
         if raw:
-            util = json.loads(raw)
-            if util.get('pge_affected', 0) > 0 or util.get('pacificorp_affected', 0) > 0:
-                msg = f"- PGE Outages: {util.get('pge_affected')}\n- Pacific Power Outages: {util.get('pacificorp_affected')}"
-                context_parts.append("Utility Status:\n" + msg)
+            intel = json.loads(raw)
+            if intel:
+                lines = [f"- PRIORITY: {n.get('title')} ({n.get('source')})" for n in intel[:5]]
+                context_parts.append("TACTICAL INTEL ALERTS (HIGH PRIORITY):\n" + "\n".join(lines))
 
-        # 5. Regional News
-        raw = await r.get("feed:news")
+        # 6. Regional News
+        raw = await r.get("feed:news:local")
         if raw:
             items = json.loads(raw)
             if items:
-                lines = [f"- {_sanitise(n.get('title', ''))}" for n in items[:10]]
-                context_parts.append("Regional News Headlines:\n" + "\n".join(lines))
+                lines = [f"- {n.get('title')}" for n in items[:15]]
+                context_parts.append("REGIONAL HEADLINES:\n" + "\n".join(lines))
 
         if not context_parts:
             await set_feed("summary:latest", {

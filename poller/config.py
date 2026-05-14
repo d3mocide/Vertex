@@ -191,6 +191,7 @@ class Settings(BaseSettings):
     p25_audio_enabled: bool = False
     p25_audio_dir: str = "/data/audio"
     p25_audio_retention_days: int = 7
+    p25_audio_delay_seconds: float = 0.0
 
     # NWS text products (NWWS-style). Office code for the local forecast office.
     nws_office: str = "PDX"

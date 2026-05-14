@@ -21,7 +21,8 @@ import { TacticalAudio }     from './components/panels/TacticalAudio'
 import { EntityDetail }      from './components/panels/EntityDetail'
 import { InfrastructureGrid } from './components/panels/InfrastructureGrid'
 import { EnvironmentPanel }  from './components/panels/EnvironmentPanel'
-import { CommunityPanel }    from './components/panels/CommunityPanel'
+import { IntelPanel }         from './components/panels/IntelPanel'
+import { elevateNewsToEvent } from './intelProcessor'
 import { EventLogPanel }      from './components/panels/EventLogPanel'
 import { EntitySearchPanel }   from './components/panels/EntitySearchPanel'
 import { PlaybackController }  from './components/panels/PlaybackController'
@@ -40,6 +41,19 @@ function Dashboard() {
   useTrailHydration()
   usePreferences()
   useMeshHistory()
+
+  const { news, appendSystemEvent } = useCivicStore()
+
+  // Background Intelligence Processor
+  // Elevates critical news headlines to system events (Incidents)
+  useEffect(() => {
+    news.forEach(item => {
+      const event = elevateNewsToEvent(item)
+      if (event) {
+        appendSystemEvent(event)
+      }
+    })
+  }, [news, appendSystemEvent])
 
   const { activeTab, mode } = useCivicStore()
   const isCritical = mode === 'critical'
@@ -81,7 +95,7 @@ function Dashboard() {
               <div className="absolute top-24 inset-x-0 bottom-0 z-10 bg-onyx-black/40 backdrop-blur-sm overflow-y-auto">
                 {activeTab === 'infrastructure' && <InfrastructureGrid />}
                 {activeTab === 'environment'    && <EnvironmentPanel   />}
-                {activeTab === 'community'      && <CommunityPanel     />}
+                {activeTab === 'intel'          && <IntelPanel         />}
                 {activeTab === 'events'         && <EventLogPanel      />}
                 {activeTab === 'incidents'      && <IncidentsPanel     />}
                 {activeTab === 'comms'          && <CommsPanel         />}

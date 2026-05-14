@@ -551,20 +551,22 @@ export function FlightLogPanel() {
     <div className="relative w-full h-full z-10 flex flex-col overflow-hidden bg-onyx-black/20 backdrop-blur-md">
 
       {/* ── Header ── */}
-      <div className="px-4 py-2.5 border-b border-amber-gold-muted flex items-center gap-3 shrink-0 flex-wrap gap-y-2">
-        <span className="ms text-[18px] text-cyan-adsb leading-none" style={{ fontVariationSettings: "'FILL' 1" }}>
-          flight
-        </span>
-        <h2 className="font-bold text-sm uppercase tracking-tight text-on-surface">Flight Log</h2>
+      <div className="px-4 py-2.5 border-b border-amber-gold-muted flex items-center gap-3 shrink-0 overflow-x-auto no-scrollbar">
+        <div className="flex items-center gap-3 shrink-0">
+          <span className="ms text-[18px] text-cyan-adsb leading-none" style={{ fontVariationSettings: "'FILL' 1" }}>
+            flight
+          </span>
+          <h2 className="font-bold text-sm uppercase tracking-tight text-on-surface whitespace-nowrap">Flight Log</h2>
+        </div>
 
         {/* Time window */}
-        <div className="flex items-center gap-1 ml-2">
+        <div className="flex items-center gap-1 ml-2 shrink-0">
           {TIME_WINDOWS.map(w => (
             <button
               key={w.label}
               type="button"
               onClick={() => setTimeWindow(w.minutes)}
-              className={`font-mono text-[11px] px-2 py-0.5 uppercase tracking-widest transition-colors ${
+              className={`font-mono text-[11px] px-2 py-0.5 uppercase tracking-widest transition-colors whitespace-nowrap ${
                 timeWindow === w.minutes
                   ? 'bg-cyan-adsb text-onyx-black font-bold'
                   : 'text-on-surface-variant hover:text-cyan-adsb border border-white/10 hover:border-cyan-adsb/40'
@@ -576,17 +578,17 @@ export function FlightLogPanel() {
         </div>
 
         {/* Divider */}
-        <div className="w-px h-4 bg-white/10" />
+        <div className="w-px h-4 bg-white/10 shrink-0" />
 
         {/* Log update frequency */}
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 shrink-0">
           <span className="font-mono text-[11px] text-on-surface-variant uppercase tracking-widest mr-1">Log</span>
           {UPDATE_INTERVALS.map(u => (
             <button
               key={u.label}
               type="button"
               onClick={() => setUpdateHz(u.ms)}
-              className={`font-mono text-[11px] px-2 py-0.5 uppercase tracking-widest transition-colors ${
+              className={`font-mono text-[11px] px-2 py-0.5 uppercase tracking-widest transition-colors whitespace-nowrap ${
                 updateHz === u.ms
                   ? 'bg-amber-gold text-onyx-black font-bold'
                   : 'text-on-surface-variant hover:text-amber-gold border border-white/10 hover:border-amber-gold/40'
@@ -597,28 +599,28 @@ export function FlightLogPanel() {
           ))}
         </div>
 
-        <div className="ml-auto flex items-center gap-2">
+        <div className="ml-auto flex items-center gap-2 shrink-0">
           {loadingReplay && (
-            <span className="font-mono text-[11px] text-on-surface-variant/60 animate-pulse uppercase">Fetching...</span>
+            <span className="font-mono text-[11px] text-on-surface-variant/60 animate-pulse uppercase whitespace-nowrap">Fetching...</span>
           )}
           <span className="w-1.5 h-1.5 rounded-full bg-cyan-adsb animate-pulse" />
-          <span className="font-mono text-[11px] text-cyan-adsb uppercase tracking-widest">ADS-B</span>
+          <span className="font-mono text-[11px] text-cyan-adsb uppercase tracking-widest whitespace-nowrap">ADS-B</span>
         </div>
       </div>
 
-      {/* ── Body: 2×2 grid layout ── */}
-      {/*  Top row:    Traffic Summary  |  Selected Aircraft Map              */}
-      {/*  Bottom row: Aircraft Log     |  Selected Aircraft Details          */}
-      <div className="flex-1 overflow-hidden min-h-0 grid grid-cols-4 grid-rows-[auto,1fr]">
+      {/* ── Body: Responsive layout ── */}
+      {/*  Desktop: 4 columns, fixed height grid  */}
+      {/*  Mobile:  Vertical flex stack, global scroll */}
+      <div className="flex-1 overflow-y-auto lg:overflow-hidden min-h-0 flex flex-col lg:grid lg:grid-cols-4 lg:grid-rows-[auto,1fr]">
 
-        {/* ── Top-left: Traffic Summary ── */}
-        <section className="col-span-1 p-4 border-r border-b border-white/10 overflow-y-auto shrink-0">
+        {/* ── Traffic Summary (Section 1) ── */}
+        <section className="p-4 border-b lg:border-r lg:border-b-0 border-white/10 shrink-0">
           <h3 className="section-heading mb-3 flex items-center gap-2">
             <span className="ms text-[14px] text-cyan-adsb">analytics</span>
             Traffic Summary
             <span className="ml-auto font-mono text-[11px] text-on-surface-variant">{twLabel} window</span>
           </h3>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-2 gap-2">
             <StatCard label="Total Observed"  value={String(summaryStats.total)}     unit="aircraft" colorClass="text-cyan-adsb"  />
             <StatCard label="Currently Live"  value={String(summaryStats.liveCount)} unit="airborne" colorClass="text-green-ais"  />
             <StatCard label="Avg Altitude"
@@ -632,8 +634,8 @@ export function FlightLogPanel() {
           </div>
         </section>
 
-        {/* ── Top-right: Selected Aircraft Map ── */}
-        <div className="col-span-3 border-b border-white/10 p-4 flex flex-col gap-2 shrink-0">
+        {/* ── Selected Aircraft Map (Section 2) ── */}
+        <div className="lg:col-span-3 border-b border-white/10 p-4 flex flex-col gap-2 shrink-0">
           <div className="flex items-center justify-between shrink-0">
             <h3 className="section-heading flex items-center gap-2">
               <span className="ms text-[14px] text-cyan-adsb">map</span>
@@ -656,18 +658,20 @@ export function FlightLogPanel() {
               </button>
             )}
           </div>
-          <FlightMiniMap trailPoints={trailPoints} entity={detailEntity} />
+          <div className="h-56 lg:h-auto lg:flex-1 min-h-[224px]">
+            <FlightMiniMap trailPoints={trailPoints} entity={detailEntity} />
+          </div>
         </div>
 
-        {/* ── Bottom-left: Aircraft Log ── */}
-        <div className="col-span-1 border-r border-white/10 flex flex-col overflow-hidden">
+        {/* ── Aircraft Log (Section 3) ── */}
+        <div className="lg:border-r border-white/10 flex flex-col shrink-0 lg:shrink lg:overflow-hidden min-h-[400px] lg:min-h-0 border-b lg:border-b-0">
 
           {/* Search bar */}
           <div className="px-3 py-2 border-b border-white/10 shrink-0 flex items-center gap-2 bg-white/5">
             <span className="ms text-[14px] text-on-surface-variant">search</span>
             <input
               type="text"
-              placeholder="Callsign, type, registration, operator, ICAO…"
+              placeholder="Search ID, type, etc…"
               value={search}
               onChange={e => setSearch(e.target.value)}
               className="flex-1 bg-transparent text-[12px] text-on-surface placeholder-on-surface-variant/50 focus:outline-none"
@@ -681,16 +685,16 @@ export function FlightLogPanel() {
 
           {/* Column headers */}
           <div className="px-3 py-1.5 bg-white/5 border-b border-white/5 flex items-center justify-between shrink-0">
-            <span className="font-mono text-[11px] text-on-surface-variant uppercase tracking-widest">Aircraft · Type</span>
+            <span className="font-mono text-[11px] text-on-surface-variant uppercase tracking-widest">Aircraft</span>
             <span className="font-mono text-[11px] text-on-surface-variant uppercase tracking-widest">Phase · Alt · Spd</span>
           </div>
 
           {/* List body */}
-          <div className="flex-1 overflow-y-auto">
+          <div className="flex-1 lg:overflow-y-auto">
             {loadingReplay && displayFlights.length === 0 ? (
               <div className="flex flex-col items-center justify-center gap-3 text-on-surface-variant/30 py-16">
                 <span className="ms text-4xl animate-pulse">radar</span>
-                <span className="text-[11px] uppercase tracking-[0.2em] font-mono">Fetching flight data…</span>
+                <span className="text-[11px] uppercase tracking-[0.2em] font-mono">Fetching data…</span>
               </div>
             ) : filteredFlights.length > 0 ? (
               filteredFlights.map(f => (
@@ -707,10 +711,8 @@ export function FlightLogPanel() {
             ) : (
               <div className="flex flex-col items-center justify-center gap-3 text-on-surface-variant/30 py-16">
                 <span className="ms text-4xl">flight_takeoff</span>
-                <span className="text-[11px] uppercase tracking-[0.2em] font-mono text-center">
-                  {search
-                    ? 'No aircraft match your search'
-                    : `No aircraft observed in the last ${twLabel}`}
+                <span className="text-[11px] uppercase tracking-[0.2em] font-mono text-center px-4">
+                  {search ? 'No matches' : 'No activity'}
                 </span>
               </div>
             )}
@@ -719,19 +721,18 @@ export function FlightLogPanel() {
           {/* Footer */}
           <div className="px-3 py-2 border-t border-white/5 bg-white/5 flex items-center justify-between shrink-0">
             <span className="font-mono text-[11px] text-on-surface-variant uppercase">
-              {filteredFlights.length} aircraft
-              {search ? ` matching "${search}"` : ` in ${twLabel} window`}
+              {filteredFlights.length} found
             </span>
             {updateHz > 0 && (
               <span className="font-mono text-[11px] text-amber-gold/60 uppercase">
-                {UPDATE_INTERVALS.find(u => u.ms === updateHz)?.label} refresh
+                {UPDATE_INTERVALS.find(u => u.ms === updateHz)?.label}
               </span>
             )}
           </div>
         </div>
 
-        {/* ── Bottom-right: Selected Aircraft Details ── */}
-        <div className="col-span-3 overflow-y-auto">
+        {/* ── Selected Aircraft Details (Section 4) ── */}
+        <div className="lg:col-span-3 lg:overflow-y-auto">
           {selectedEntityId && (detailEntity || replayFlights[selectedEntityId]) ? (
             <section className="p-4 space-y-4 pb-8">
               <h3 className="section-heading flex items-center gap-2">

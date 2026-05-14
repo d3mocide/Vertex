@@ -42,22 +42,31 @@ function NodeRow({ node, distM }: { node: Entity; distM: number }) {
 
 function TransmissionRow({ event }: { event: SystemEvent }) {
   const isStart = event.event_type === 'p25_call_start'
+  const isTranscript = event.event_type === 'p25_transcript'
+  const transcriptText = event.details?.transcript as string | undefined
+
   return (
-    <div className="flex items-center justify-between p-2 px-3 border-b border-white/5 hover:bg-white/5 transition-colors">
-      <div className="flex items-center gap-3">
-        <span className={`ms text-[14px] ${isStart ? 'text-green-ais' : 'text-on-surface-variant'} opacity-70`}>
-          {isStart ? 'podcasts' : 'stop_circle'}
+    <div className="flex items-start justify-between p-2 px-3 border-b border-white/5 hover:bg-white/5 transition-colors gap-3">
+      <div className="flex items-start gap-3 min-w-0">
+        <span className={`ms text-[14px] mt-0.5 ${isStart ? 'text-green-ais' : isTranscript ? 'text-amber-gold' : 'text-on-surface-variant'} opacity-70`}>
+          {isStart ? 'podcasts' : isTranscript ? 'chat_bubble' : 'stop_circle'}
         </span>
-        <div className="flex flex-col">
-          <span className="text-[11px] font-bold text-on-surface uppercase tracking-tight truncate max-w-[180px]">
+        <div className="flex flex-col min-w-0">
+          <span className="text-[11px] font-bold text-on-surface uppercase tracking-tight truncate">
             {event.summary}
           </span>
-          <span className="font-mono text-[11px] text-on-surface-variant uppercase tracking-widest">
-            {isStart ? 'Call Start' : 'Call End'}
-          </span>
+          {isTranscript && transcriptText ? (
+            <span className="text-[11px] text-on-surface-variant italic leading-snug mt-0.5 line-clamp-2">
+              "{transcriptText}"
+            </span>
+          ) : (
+            <span className="font-mono text-[11px] text-on-surface-variant uppercase tracking-widest">
+              {isStart ? 'Call Start' : 'Call End'}
+            </span>
+          )}
         </div>
       </div>
-      <span className="font-mono text-[11px] text-on-surface-variant">
+      <span className="font-mono text-[11px] text-on-surface-variant shrink-0 whitespace-nowrap mt-0.5">
         {new Date(event.ts).toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })}
       </span>
     </div>
@@ -235,7 +244,9 @@ export function CommsPanel() {
 
   const p25Events = useMemo(() => {
     return systemEvents.filter(ev =>
-      ev.event_type === 'p25_call_start' || ev.event_type === 'p25_call_end'
+      ev.event_type === 'p25_call_start' || 
+      ev.event_type === 'p25_call_end' ||
+      ev.event_type === 'p25_transcript'
     ).reverse().slice(0, 8)
   }, [systemEvents])
 
@@ -257,7 +268,7 @@ export function CommsPanel() {
           forum
         </span>
         <h2 className="font-bold text-sm uppercase tracking-tight text-on-surface">
-          Communications Hub
+          Comms
         </h2>
         <div className="ml-auto flex items-center gap-1.5">
           <span className="w-1.5 h-1.5 rounded-full bg-green-ais animate-pulse" />

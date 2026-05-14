@@ -89,7 +89,7 @@ const interfaceOverview = (
         <DocCard icon="map" title="Safety" description="The main map view where all layers and entities are visible." />
         <DocCard icon="construction" title="Infrastructure" description="Traffic cameras, road sensors, and corridor monitoring." />
         <DocCard icon="thermostat" title="Environment" description="Weather observations, METAR/TAF, and wildfire perimeters." />
-        <DocCard icon="groups" title="Community" description="APRS traffic, Mesh Networking, and community stations." />
+        <DocCard icon="psychology" title="Intel Feed" description="Local government news, FlashAlert newswire, and tactical intelligence resources." />
         <DocCard icon="warning" title="Incidents" description="Real-time traffic incidents and emergency alerts." />
         <DocCard icon="radio" title="Comms" description="Dedicated space for Mesh messages and Radio talkgroups." />
       </DocGrid>

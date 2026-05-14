@@ -62,6 +62,7 @@ class P25AudioRecorder(BasePoller):
             logger.info("[p25_rec] audio recording disabled (P25_AUDIO_ENABLED not set)")
             return
 
+        await self.setup()
         logger.info("[p25_rec] recorder started")
         r = await get_bus()
         pubsub = r.pubsub()
@@ -133,11 +134,22 @@ class P25AudioRecorder(BasePoller):
 
     async def _on_call_end(self, event: dict) -> None:
         if self._recording_task and not self._recording_task.done():
-            self._stop_event.set()
+            if settings.p25_audio_delay_seconds > 0:
+                # Delay stopping to catch the buffered tail of the stream.
+                # If a new call starts during this delay, it will cancel this task correctly.
+                async def _delayed_stop():
+                    await asyncio.sleep(settings.p25_audio_delay_seconds)
+                    self._stop_event.set()
+                asyncio.create_task(_delayed_stop())
+            else:
+                self._stop_event.set()
 
     async def _record(self, call_id: str, tgid: int, tag: str, started_at_iso: str) -> None:
         if not self._stream_url:
             return
+
+        if settings.p25_audio_delay_seconds > 0:
+            await asyncio.sleep(settings.p25_audio_delay_seconds)
 
         date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
         out_dir = Path(settings.p25_audio_dir) / date_str / str(tgid)

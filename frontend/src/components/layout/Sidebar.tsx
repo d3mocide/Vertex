@@ -281,12 +281,12 @@ export function Sidebar() {
           </button>
           <button
             type="button"
-            onClick={() => setActiveTab('community')}
+            onClick={() => setActiveTab('intel')}
             className={`${alerts.length > 0 ? 'text-amber-gold' : 'text-on-surface-variant'} hover:text-amber-gold transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-amber-gold`}
-            aria-label={`Community alerts ${alerts.length}`}
-            title={`Community alerts: ${alerts.length}`}
+            aria-label={`Intel alerts ${alerts.length}`}
+            title={`Intel alerts: ${alerts.length}`}
           >
-            <span className="ms text-[20px]" aria-hidden="true">groups</span>
+            <span className="ms text-[20px]" aria-hidden="true">psychology</span>
           </button>
           <button
             type="button"

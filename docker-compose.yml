@@ -89,6 +89,7 @@ services:
     volumes:
       - ./backend:/app:ro
       - ./config:/config  # read-write: write-back API persists UI changes to sources.yml
+      - p25_audio:/data/audio
 
   poller:
     build:
@@ -129,6 +130,7 @@ services:
     volumes:
       - ./poller:/app:ro
       - ./config:/config:ro  # read-only: config watcher detects changes via mtime
+      - p25_audio:/data/audio
 
   frontend:
     build:

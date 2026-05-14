@@ -7,8 +7,8 @@ const TABS: { id: NavTab; label: string; icon: string }[] = [
   { id: 'incidents',      label: 'Incidents',       icon: 'report'         },
   { id: 'infrastructure', label: 'Infrastructure',  icon: 'traffic'        },
   { id: 'environment',    label: 'Environment',     icon: 'eco'            },
-  { id: 'community',      label: 'Community',       icon: 'groups'         },
-  { id: 'comms',          label: 'Communications',  icon: 'forum'          },
+  { id: 'intel',          label: 'Intel Feed',      icon: 'psychology'     },
+  { id: 'comms',          label: 'Comms',           icon: 'forum'          },
   { id: 'flightlog',      label: 'Flight Log',      icon: 'flight'         },
   { id: 'events',         label: 'Event Log',       icon: 'history'        },
 ]

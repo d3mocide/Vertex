@@ -80,10 +80,12 @@ class NewsPoller(BasePoller):
                     resp.raise_for_status()
                 feed = feedparser.parse(resp.text)
                 for entry in feed.entries[:10]:
+                    title = _clean_text(entry.get("title", ""))
+                    summary = _clean_text(entry.get("summary", "") or entry.get("description", ""))
                     items.append({
                         "source": src["name"],
-                        "title": _clean_text(entry.get("title", "")),
-                        "summary": _clean_text(entry.get("summary", "") or entry.get("description", "")),
+                        "title": title,
+                        "summary": summary,
                         "link": entry.get("link", ""),
                         "published": (
                             entry.get("published") or entry.get("updated")
@@ -95,4 +97,17 @@ class NewsPoller(BasePoller):
             except Exception as exc:
                 logger.warning("[news] %s failed: %s", src["name"], exc)
 
+        # Intelligence Elevation Logic
+        CRITICAL_KEYWORDS = [
+            'earthquake', 'quake', 'tsunami', 'wildfire', 'shooting', 
+            'active shooter', 'evacuation', 'hazmat', 'flood', 'tornado',
+            'casualty', 'explosion', 'blackout', 'derailment', 'outage'
+        ]
+        intel_alerts = []
+        for item in items:
+            text = f"{item['title']} {item['summary']}".lower()
+            if any(k in text for k in CRITICAL_KEYWORDS):
+                intel_alerts.append(item)
+
         await set_feed("news:local", items)
+        await set_feed("intel:alerts", intel_alerts)

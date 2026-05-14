@@ -45,7 +45,7 @@ export function AlertStatusBar() {
 
   const openDetails = () => {
     if (alertItem) {
-      setActiveTab('community')
+      setActiveTab('intel')
       return
     }
     if (weatherAlert) {

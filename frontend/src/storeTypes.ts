@@ -247,7 +247,7 @@ export interface SystemHealth {
 
 // ─── UI State ─────────────────────────────────────────────────────────────────
 export type AppMode  = 'calm' | 'critical'
-export type NavTab   = 'safety' | 'infrastructure' | 'environment' | 'community' | 'events' | 'incidents' | 'comms' | 'flightlog'
+export type NavTab   = 'safety' | 'infrastructure' | 'environment' | 'intel' | 'events' | 'incidents' | 'comms' | 'flightlog'
 export type EntityTypeFilter = {
   aircraft: boolean
   adsbLocal: boolean

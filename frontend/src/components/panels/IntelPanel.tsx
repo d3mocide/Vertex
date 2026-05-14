@@ -87,7 +87,12 @@ function FeedCard({ item }: { item: FeedItem }) {
   )
 }
 
+import { CRITICAL_KEYWORDS } from '../../intelProcessor'
+
 function toFeedItem(item: AlertItem | NewsItem, i: number, isAlert: boolean): FeedItem {
+  const text = `${item.title} ${'summary' in item ? item.summary : ''}`.toLowerCase()
+  const hasKeyword = CRITICAL_KEYWORDS.some(k => text.includes(k))
+
   return {
     key:       `${isAlert ? 'alert' : 'news'}-${i}`,
     source:    item.source,
@@ -95,12 +100,12 @@ function toFeedItem(item: AlertItem | NewsItem, i: number, isAlert: boolean): Fe
     summary:   'summary' in item ? item.summary : undefined,
     link:      item.link,
     published: item.published,
-    priority:  isAlert ? 'high' : 'normal',
+    priority:  (isAlert || hasKeyword) ? 'high' : 'normal',
     category:  item.category,
   }
 }
 
-export function CommunityPanel() {
+export function IntelPanel() {
   const { alerts, news } = useCivicStore()
 
   // Merge and sort by published date descending
@@ -165,7 +170,7 @@ export function CommunityPanel() {
     <div
       className="relative w-full h-full z-10 flex flex-col overflow-hidden"
       role="region"
-      aria-label="Community feed panel"
+      aria-label="Intel feed panel"
     >
 
       {/* Panel header */}
@@ -175,10 +180,10 @@ export function CommunityPanel() {
           aria-hidden="true"
           style={{ fontVariationSettings: "'FILL' 1" }}
         >
-          groups
+          psychology
         </span>
         <h2 className="font-bold text-sm uppercase tracking-tight text-on-surface">
-          Community Feed
+          Intel Feed
         </h2>
         <div className="ml-auto flex items-center gap-3">
           <span className="font-mono text-[11px] text-on-surface-variant uppercase">

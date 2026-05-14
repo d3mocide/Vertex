@@ -68,12 +68,39 @@
       width: 120px;
       height: 120px;
       position: relative;
-      animation: spin 3s linear infinite;
     }
 
-    @keyframes spin {
+    /* ACQUIRE Animation Components */
+    @keyframes acq-tl { 0%{transform:translate(-12px,-12px);opacity:0} 40%{transform:translate(-12px,-12px);opacity:1} 70%,100%{transform:translate(0,0);opacity:1} }
+    @keyframes acq-tr { 0%{transform:translate(12px,-12px);opacity:0} 40%{transform:translate(12px,-12px);opacity:1} 70%,100%{transform:translate(0,0);opacity:1} }
+    @keyframes acq-bl { 0%{transform:translate(-12px,12px);opacity:0} 40%{transform:translate(-12px,12px);opacity:1} 70%,100%{transform:translate(0,0);opacity:1} }
+    @keyframes acq-br { 0%{transform:translate(12px,12px);opacity:0} 40%{transform:translate(12px,12px);opacity:1} 70%,100%{transform:translate(0,0);opacity:1} }
+    @keyframes acq-diamond { 0%,40%{opacity:0;transform:scale(1.2)} 75%{opacity:1;transform:scale(1)} 100%{opacity:1;transform:scale(1)} }
+    @keyframes acq-pip { 0%,75%{opacity:0;transform:scale(0.4)} 90%,100%{opacity:1;transform:scale(1)} }
+
+    /* Secondary Rotation for Inner Diamond */
+    @keyframes spin-inner {
       from { transform: rotate(0deg); }
       to { transform: rotate(360deg); }
+    }
+
+    .a-brk { transform-origin: center; animation: none 1.5s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; }
+    .a-brk.tl { animation-name: acq-tl; }
+    .a-brk.tr { animation-name: acq-tr; }
+    .a-brk.bl { animation-name: acq-bl; }
+    .a-brk.br { animation-name: acq-br; }
+
+    .a-outer {
+      transform-origin: center;
+      transform-box: fill-box;
+      animation: acq-diamond 1.5s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+    }
+
+    .a-inner {
+      transform-origin: 16px 16px;
+      animation: 
+        acq-pip 1.5s cubic-bezier(0.2, 0.8, 0.2, 1) forwards,
+        spin-inner 3s linear infinite 1.5s;
     }
 
     .vertex-mark svg {
@@ -130,13 +157,13 @@
       <div class="vertex-mark">
         <svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'>
           <g fill='none' stroke='#ffffff' stroke-width='1.5' stroke-linecap='square'>
-            <path d='M2 8 V2 H8'/>
-            <path d='M24 2 H30 V8'/>
-            <path d='M30 24 V30 H24'/>
-            <path d='M8 30 H2 V24'/>
+            <path class="a-brk tl" d='M2 8 V2 H8'/>
+            <path class="a-brk tr" d='M24 2 H30 V8'/>
+            <path class="a-brk br" d='M30 24 V30 H24'/>
+            <path class="a-brk bl" d='M8 30 H2 V24'/>
           </g>
-          <polygon points='16,7 25,16 16,25 7,16' fill='none' stroke='#ffffff' stroke-width='2'/>
-          <rect x='14' y='14' width='4' height='4' fill='#FFB800'/>
+          <polygon class="a-outer" points='16,7 25,16 16,25 7,16' fill='none' stroke='#ffffff' stroke-width='2'/>
+          <rect class="a-inner" x='14' y='14' width='4' height='4' fill='#FFB800'/>
         </svg>
       </div>
       <div class="loader-text">
