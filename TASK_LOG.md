@@ -5,6 +5,41 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 
 ---
 
+## 2026-05-14 — Fixed live radio stream playback via proxy endpoint
+
+- Root cause: TacticalAudio component was attempting to play external stream URLs directly (e.g., `http://192.168.10.20:8000/op25`). Browsers cannot reach private network IPs, and direct playback fails due to CORS and network isolation.
+- Solution: Created backend stream proxy endpoint `/api/v1/radio/proxy/{stream_id}` that:
+    - Fetches the external stream URL server-side via `httpx.AsyncClient`
+    - Proxies the audio stream back to the browser as `StreamingResponse`
+    - Handles connection errors gracefully (503 Service Unavailable).
+- Updated `frontend/src/components/panels/TacticalAudio.tsx` to use proxy endpoint instead of raw stream URL: `activeStreamUrl = selectedStream?.id ? ${API_BASE}/radio/proxy/${selectedStream.id} : ''`.
+- Added `/api/v1/radio/proxy` to `_PUBLIC_PREFIXES` in `backend/auth_middleware.py` so stream proxy bypasses auth (audio streams are not sensitive data).
+- Changes:
+    - `backend/routers/radio.py`: Added httpx and StreamingResponse imports; added `proxy_stream(stream_id)` endpoint.
+    - `backend/auth_middleware.py`: Whitelisted `/api/v1/radio/proxy` in public prefixes.
+    - `frontend/src/components/panels/TacticalAudio.tsx`: Changed `activeStreamUrl` construction to use proxy endpoint; removed unused `STREAM_URL` import.
+- Validation:
+    - `cd frontend && npm install && npx tsc --noEmit` ✓
+    - `docker compose config --quiet` ✓
+    - `python -m py_compile backend/routers/radio.py backend/auth_middleware.py` ✓
+    - `docker compose up -d --build backend frontend` ✓
+    - All services healthy (db, redis, backend, poller, frontend, transcription).
+
+## 2026-05-14 — Fixed missing P25 transcripts and recording playback 401s
+
+- Root cause for missing transcripts: transcription watcher scanned only top-level `/data/audio`, but recorder writes nested paths `/data/audio/YYYY-MM-DD/<tgid>/<call_id>.mp3`.
+- Updated `transcription/main.py` watch loop to recurse with `rglob("*")` and process nested audio files.
+- Root cause for console 401 errors on recording playback: browser media requests were not reliably carrying auth, so direct `/file` URL playback still hit middleware.
+- Updated `frontend/src/components/panels/ChannelsPanel.tsx` to fetch recordings with `authHeaders()` and play them from a blob URL instead of a direct protected media URL.
+- Kept `backend/auth_middleware.py` query-token fallback for safe recording-file reads as a compatibility path.
+- Validation:
+    - `cd frontend && npm install && npx tsc --noEmit` ✓
+    - `docker compose config --quiet` ✓
+    - `python -m py_compile backend/auth_middleware.py transcription/main.py` ✓
+    - `docker compose up -d --build backend frontend transcription` ✓
+    - Transcription logs show backfill processing and DB now includes non-null `p25_recordings.transcription` rows.
+    - Backend logs no longer show 401s for `/api/v1/radio/recordings/*/file`.
+
 ## 2026-05-13 — Stabilized geofence state-transition tests under query throttling
 
 - Fixed flaky/failing geofence unit tests caused by shared module throttle state between tests.

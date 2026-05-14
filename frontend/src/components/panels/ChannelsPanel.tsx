@@ -67,6 +67,7 @@ export function ChannelsPanel({ visibleTalkgroups, managedTalkgroups, playing, o
   const [recordings, setRecordings] = useState<P25Recording[]>([])
   const [playingId, setPlayingId] = useState<number | null>(null)
   const audioRef = useRef<HTMLAudioElement>(null)
+  const objectUrlRef = useRef<string | null>(null)
 
   const { streams, selectedId, setSelectedId } = useRadioStreams()
   const radio = useCivicStore((s) => s.radio)
@@ -86,14 +87,35 @@ export function ChannelsPanel({ visibleTalkgroups, managedTalkgroups, playing, o
     return () => { cancelled = true; clearInterval(id) }
   }, [channelTab])
 
-  const playRecording = (rec: P25Recording) => {
+  useEffect(() => {
+    return () => {
+      if (objectUrlRef.current) {
+        URL.revokeObjectURL(objectUrlRef.current)
+        objectUrlRef.current = null
+      }
+    }
+  }, [])
+
+  const playRecording = async (rec: P25Recording) => {
     const el = audioRef.current
     if (!el) return
     if (playingId === rec.id) {
       el.pause()
       setPlayingId(null)
+      if (objectUrlRef.current) {
+        URL.revokeObjectURL(objectUrlRef.current)
+        objectUrlRef.current = null
+      }
     } else {
-      el.src = `${API_BASE}/radio/recordings/${rec.id}/file`
+      if (objectUrlRef.current) {
+        URL.revokeObjectURL(objectUrlRef.current)
+        objectUrlRef.current = null
+      }
+      const res = await fetch(`${API_BASE}/radio/recordings/${rec.id}/file`, { headers: authHeaders() })
+      if (!res.ok) return
+      const blob = await res.blob()
+      objectUrlRef.current = URL.createObjectURL(blob)
+      el.src = objectUrlRef.current
       el.load()
       el.play().catch(() => {})
       setPlayingId(rec.id)

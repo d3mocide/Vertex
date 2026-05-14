@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useCivicStore } from '../../store'
-import { API_BASE, STREAM_URL } from '../../config'
+import { API_BASE } from '../../config'
 import { authHeaders } from '../../auth'
 import { useRadioStreams } from '../../hooks/useRadioStreams'
 import { ChannelsPanel, type TalkgroupLogRow, type ManagedTalkgroup } from './ChannelsPanel'
@@ -32,8 +32,8 @@ export function TacticalAudio() {
   const mode  = useCivicStore((s) => s.mode)
 
   const isActive = radio?.state === 'call'
-  const rawStreamUrl = selectedStream?.url ?? STREAM_URL
-  const activeStreamUrl = /^https?:\/\//i.test(rawStreamUrl) ? rawStreamUrl : ''
+  // Use backend proxy endpoint for all streams (handles private network IPs)
+  const activeStreamUrl = selectedStream?.id ? `${API_BASE}/radio/proxy/${selectedStream.id}` : ''
 
   useEffect(() => {
     const el = audioRef.current

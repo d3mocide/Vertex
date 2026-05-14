@@ -106,10 +106,12 @@ class TranscriptionService:
 
         while True:
             try:
+                # Recorder output is nested by date/TGID; recurse so new files are discovered.
                 candidates = [
                     f
-                    for f in audio_path.iterdir()
-                    if f.suffix.lower() in AUDIO_EXTS
+                    for f in audio_path.rglob("*")
+                    if f.is_file()
+                    and f.suffix.lower() in AUDIO_EXTS
                     and str(f) not in self._processed
                 ]
                 # Process oldest files first so the log stays chronological.
