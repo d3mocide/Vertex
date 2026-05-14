@@ -21,36 +21,56 @@ def decode_token(token: str) -> dict:
         ) from exc
 
 
-def validate_webhook_url(url: str) -> None:
-    """Raise ValueError if url is not a safe, public http/https URL."""
-    try:
-        parsed = urlparse(url)
-    except Exception as exc:
-        raise ValueError(f"Unparseable URL: {exc}") from exc
-
-    if parsed.scheme not in ("http", "https"):
-        raise ValueError("Webhook URL must use http or https")
-
-    hostname = parsed.hostname or ""
+def validate_safe_host(hostname: str) -> None:
+    """Raise ValueError if hostname resolves to a non-public address."""
     if not hostname:
-        raise ValueError("Webhook URL has no hostname")
-
+        raise ValueError("No hostname provided")
     try:
         ip = ipaddress.ip_address(hostname)
         _reject_private_ip(ip)
     except ValueError as exc:
-        if "private" in str(exc) or "loopback" in str(exc) or "link-local" in str(exc):
+        if "non-public address" in str(exc):
             raise
         # Not an IP literal — resolve via DNS and check each address
         try:
             infos = socket.getaddrinfo(hostname, None)
         except OSError as dns_exc:
-            raise ValueError(f"Cannot resolve webhook hostname: {dns_exc}") from dns_exc
+            raise ValueError(f"Cannot resolve hostname: {dns_exc}") from dns_exc
         for info in infos:
             addr = info[4][0]
             _reject_private_ip(ipaddress.ip_address(addr))
 
 
+def validate_safe_url(url: str, allowed_schemes: tuple[str, ...] = ("http", "https")) -> None:
+    """Raise ValueError if url is not a safe, public URL with an allowed scheme."""
+    try:
+        parsed = urlparse(url)
+    except Exception as exc:
+        raise ValueError(f"Unparseable URL: {exc}") from exc
+
+    if parsed.scheme not in allowed_schemes:
+        raise ValueError(f"URL scheme must be one of: {', '.join(allowed_schemes)}")
+
+    hostname = parsed.hostname or ""
+    validate_safe_host(hostname)
+
+
+def validate_webhook_url(url: str) -> None:
+    """Raise ValueError if url is not a safe, public http/https URL."""
+    try:
+        validate_safe_url(url, allowed_schemes=("http", "https"))
+    except ValueError as exc:
+        # Maintain backward compatibility with error messages if possible,
+        # but the new ones are also descriptive.
+        if "scheme" in str(exc):
+            raise ValueError("Webhook URL must use http or https") from exc
+        if "hostname" in str(exc):
+             raise ValueError("Webhook URL has no hostname") from exc
+        if "resolve" in str(exc):
+             raise ValueError(f"Cannot resolve webhook hostname: {str(exc).split(': ', 1)[-1]}") from exc
+        raise
+
+
 def _reject_private_ip(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> None:
     if ip.is_loopback or ip.is_private or ip.is_link_local or ip.is_reserved:
-        raise ValueError(f"Webhook URL resolves to a non-public address: {ip}")
+        raise ValueError(f"URL resolves to a non-public address: {ip}")
