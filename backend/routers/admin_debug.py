@@ -13,6 +13,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from deps import get_db
+from security import validate_safe_url
 
 router = APIRouter(prefix="/admin/debug", tags=["admin"])
 
@@ -292,6 +293,12 @@ async def list_remote_feeds(db: AsyncSession = Depends(get_db)):
 async def probe_remote_feed(body: RemoteFeedProbeRequest, db: AsyncSession = Depends(get_db)):
     source = await _resolve_source(db, body.source_type, body.source_url)
     source_url = str(source.get("url") or "")
+
+    try:
+        validate_safe_url(source_url)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=f"Invalid or unsafe source URL: {exc}")
+
     src = _parse_source(source_url)
     base_url = src["base_url"]
     auth = src.get("auth")
