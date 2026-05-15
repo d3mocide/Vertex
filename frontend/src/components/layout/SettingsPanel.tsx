@@ -21,6 +21,7 @@ export function SettingsPanel() {
     radarReflectivityVisible, setRadarReflectivityVisible,
     nwsAlertsVisible, setNwsAlertsVisible,
     lightningDensityVisible, setLightningDensityVisible,
+    railTracksVisible, setRailTracksVisible,
     gaugesVisible, setGaugesVisible,
     terrainEnabled, setTerrainEnabled,
     terrainExaggeration, setTerrainExaggeration,
@@ -239,6 +240,8 @@ export function SettingsPanel() {
             <div className="space-y-3">
               <ToggleRow label="Aircraft" icon="flight" checked={entityFilter.aircraft} onChange={(v) => setEntityFilter({ aircraft: v })} />
               <ToggleRow label="Vessels" icon="directions_boat" checked={entityFilter.vessel} onChange={(v) => setEntityFilter({ vessel: v })} />
+              <ToggleRow label="Trains" icon="directions_railway" checked={entityFilter.train} onChange={(v) => setEntityFilter({ train: v })} />
+              <ToggleRow label="Rail Tracks" icon="route" checked={railTracksVisible} onChange={setRailTracksVisible} />
               <ToggleRow label="Mesh Nodes" icon="hub" checked={entityFilter.mesh_node} onChange={(v) => setEntityFilter({ mesh_node: v })} />
               <ToggleRow label="APRS" icon="sensors" checked={entityFilter.aprs} onChange={(v) => setEntityFilter({ aprs: v })} />
               <ToggleRow label="Fire Incidents" icon="local_fire_department" checked={entityFilter.fire_incident} onChange={(v) => setEntityFilter({ fire_incident: v })} />

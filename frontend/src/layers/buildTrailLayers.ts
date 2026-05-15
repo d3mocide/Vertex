@@ -86,7 +86,8 @@ export function buildTrailLayers(
   // cast to any to satisfy PathLayerProps which doesn't declare them.
   const predictedPathLayer = new PathLayer<Track>({
     id:             'predicted-path',
-    data:           trackArr.filter(t => t.predictedPath.length > 1),
+    // Trains follow fixed tracks — straight-line prediction is misleading, so exclude them.
+    data:           trackArr.filter(t => t.predictedPath.length > 1 && t.type !== 'rail'),
     getPath:        (t: Track) => [pos([t.lon, t.lat]), ...posA(t.predictedPath)],
     getColor:       (t: Track) => {
       const [r, g, b] = entityColor(t)

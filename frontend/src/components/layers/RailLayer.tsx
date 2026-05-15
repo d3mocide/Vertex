@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import maplibregl from 'maplibre-gl'
 import { API_BASE } from '../../config'
 import { authHeaders } from '../../auth'
+import { useCivicStore } from '../../store'
 
 interface Props {
   map: maplibregl.Map
@@ -11,6 +12,7 @@ const SRC_ID  = 'rail-tracks-src'
 const LINE_ID = 'rail-tracks-line'
 
 export function RailLayer({ map }: Props) {
+  const railTracksVisible = useCivicStore(s => s.railTracksVisible)
   const loadedRef = useRef(false)
 
   useEffect(() => {
@@ -63,6 +65,13 @@ export function RailLayer({ map }: Props) {
       map.once('load', load)
     }
   }, [map])
+
+  // Toggle layer visibility when railTracksVisible changes
+  useEffect(() => {
+    if (!map || typeof map.getLayer !== 'function') return
+    if (!map.getLayer(LINE_ID)) return
+    map.setLayoutProperty(LINE_ID, 'visibility', railTracksVisible ? 'visible' : 'none')
+  }, [map, railTracksVisible])
 
   // Cleanup on unmount
   useEffect(() => {
