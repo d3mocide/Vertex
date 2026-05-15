@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react'
 import maplibregl from 'maplibre-gl'
 import { useCivicStore, Entity } from '../../store'
+import type { AcarsMessage } from '../../storeTypes'
 import { API_BASE, MAP_STYLE, DEFAULT_CENTER } from '../../config'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -151,6 +152,69 @@ function LiveStat({ label, value }: { label: string; value: string }) {
     <div>
       <div className="font-mono text-[11px] text-on-surface-variant/60 uppercase tracking-wider leading-none mb-0.5">{label}</div>
       <div className="font-mono text-[11px] font-bold text-on-surface leading-tight">{value}</div>
+    </div>
+  )
+}
+
+// ACARS label descriptions for the most common label codes
+const ACARS_LABELS: Record<string, string> = {
+  'H1': 'Position/FMS', 'H2': 'Position/FMS', 'SQ': 'Squitter',
+  'Q0': 'ACK', '21': 'ATC', '22': 'ATC', '23': 'ATC',
+  '4T': 'ATIS', '4V': 'ATIS', '4W': 'ATIS', '4X': 'ATIS',
+  '5U': 'Out/Off/On/In', '5V': 'OOOI', '5Z': 'OOOI',
+  '_d': 'Delay', '_e': 'Engine', 'AA': 'Acknowledge',
+}
+
+function acarsLabelName(label: string): string {
+  return ACARS_LABELS[label] ?? label
+}
+
+function AcarsMessageRow({ msg }: { msg: AcarsMessage }) {
+  const [expanded, setExpanded] = useState(false)
+  const hasText = msg.msg_text && msg.msg_text.trim().length > 0
+  const time = msg.ts ? new Date(msg.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '--'
+
+  return (
+    <div className="border-b border-white/5 last:border-b-0">
+      <button
+        type="button"
+        className="w-full flex items-start gap-2 px-3 py-2 hover:bg-white/5 transition-colors text-left"
+        onClick={() => hasText && setExpanded(e => !e)}
+      >
+        <div className="flex flex-col items-center shrink-0 mt-0.5">
+          <span className="font-mono text-[10px] text-cyan-adsb/70 uppercase bg-cyan-adsb/10 px-1 rounded-sm leading-tight">
+            {msg.label || '??'}
+          </span>
+          <span className="font-mono text-[9px] text-on-surface-variant/50 mt-0.5 leading-none">{msg.freq}</span>
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            {msg.flight && (
+              <span className="font-mono text-[11px] font-bold text-amber-gold">{msg.flight}</span>
+            )}
+            <span className="font-mono text-[10px] text-on-surface-variant/60 uppercase">{acarsLabelName(msg.label)}</span>
+            {msg.error > 0 && (
+              <span className="font-mono text-[9px] text-red-400/70 uppercase">err:{msg.error}</span>
+            )}
+          </div>
+          {hasText && !expanded && (
+            <div className="font-mono text-[10px] text-on-surface/60 truncate mt-0.5">{msg.msg_text}</div>
+          )}
+          {expanded && (
+            <pre className="font-mono text-[10px] text-on-surface/80 whitespace-pre-wrap break-all mt-1 bg-white/5 rounded-sm p-1.5">
+              {msg.msg_text}
+            </pre>
+          )}
+        </div>
+        <div className="flex flex-col items-end shrink-0">
+          <span className="font-mono text-[10px] text-on-surface-variant/40">{time}</span>
+          {hasText && (
+            <span className="ms text-[11px] text-on-surface-variant/30 mt-0.5">
+              {expanded ? 'expand_less' : 'expand_more'}
+            </span>
+          )}
+        </div>
+      </button>
     </div>
   )
 }
@@ -368,7 +432,7 @@ function FlightMiniMap({ trailPoints, entity }: {
 
 // ─── Main Panel ───────────────────────────────────────────────────────────────
 export function FlightLogPanel() {
-  const { entities, selectedEntityId, selectEntity } = useCivicStore()
+  const { entities, selectedEntityId, selectEntity, acarsMessages } = useCivicStore()
 
   const [timeWindow,     setTimeWindow]     = useState(60)
   const [search,         setSearch]         = useState('')
@@ -377,6 +441,8 @@ export function FlightLogPanel() {
   const [trailPoints,    setTrailPoints]    = useState<ObsPoint[]>([])
   const [loadingTrail,   setLoadingTrail]   = useState(false)
   const [detailEntity,   setDetailEntity]   = useState<Entity | null>(null)
+  const [acarsHistory,   setAcarsHistory]   = useState<AcarsMessage[]>([])
+  const [loadingAcars,   setLoadingAcars]   = useState(false)
 
   const lastFetchedDetailId = useRef<string | null>(null)
 
@@ -439,6 +505,31 @@ export function FlightLogPanel() {
         .catch(() => {})
     }
   }, [selectedEntityId, entities])
+
+  // ── Fetch ACARS history for the selected aircraft's registration ──────────
+  useEffect(() => {
+    if (!selectedEntityId) { setAcarsHistory([]); return }
+    const reg = detailEntity?.identity?.['registration'] as string | undefined
+    if (!reg) { setAcarsHistory([]); return }
+
+    setLoadingAcars(true)
+    fetch(`${API_BASE}/acars/messages?tail=${encodeURIComponent(reg.toUpperCase())}&limit=50`)
+      .then(r => r.ok ? r.json() : [])
+      .then((data: AcarsMessage[]) => setAcarsHistory(data))
+      .catch(() => setAcarsHistory([]))
+      .finally(() => setLoadingAcars(false))
+  }, [selectedEntityId, detailEntity])
+
+  // ── Merge live ACARS stream into history for the selected registration ─────
+  const selectedRegistration = (detailEntity?.identity?.['registration'] as string | undefined)?.toUpperCase()
+
+  const mergedAcars = useMemo((): AcarsMessage[] => {
+    if (!selectedRegistration) return []
+    const live = acarsMessages.filter(m => m.tail?.toUpperCase() === selectedRegistration)
+    const histIds = new Set(acarsHistory.map(m => m.id).filter(Boolean))
+    const newLive = live.filter(m => !m.id || !histIds.has(m.id))
+    return [...newLive, ...acarsHistory].slice(0, 50)
+  }, [acarsMessages, acarsHistory, selectedRegistration])
 
   // ── Build merged flight list (replay + live store) ─────────────────────────
   const allFlights = useMemo((): FlightEntry[] => {
@@ -846,6 +937,37 @@ export function FlightLogPanel() {
                 ) : (
                   <div className="py-3 text-center text-[11px] font-mono text-on-surface-variant/30 uppercase">
                     {loadingTrail ? 'Fetching trail…' : 'No observations in window'}
+                  </div>
+                )}
+              </div>
+              {/* ACARS messages */}
+              <div className="p-3 border border-white/10 bg-white/5 rounded-sm">
+                <div className="font-mono text-[11px] text-on-surface-variant uppercase tracking-widest mb-2 flex items-center gap-2">
+                  <span className="ms text-[13px] text-cyan-adsb/70">message</span>
+                  ACARS Messages
+                  {selectedRegistration && (
+                    <span className="text-on-surface-variant/40 normal-case tracking-normal">({selectedRegistration})</span>
+                  )}
+                  {loadingAcars && (
+                    <span className="ml-auto animate-pulse text-[9px] text-on-surface-variant/40">loading…</span>
+                  )}
+                  {mergedAcars.length > 0 && !loadingAcars && (
+                    <span className="ml-auto font-mono text-[10px] text-on-surface-variant/40">{mergedAcars.length}</span>
+                  )}
+                </div>
+                {mergedAcars.length > 0 ? (
+                  <div className="border border-white/5 rounded-sm overflow-hidden">
+                    {mergedAcars.map((m, i) => (
+                      <AcarsMessageRow key={m.id ?? `${m.ts}-${i}`} msg={m} />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="py-3 text-center text-[11px] font-mono text-on-surface-variant/30 uppercase">
+                    {!selectedRegistration
+                      ? 'No registration known'
+                      : loadingAcars
+                        ? 'Fetching…'
+                        : 'No ACARS messages'}
                   </div>
                 )}
               </div>

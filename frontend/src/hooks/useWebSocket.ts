@@ -97,6 +97,7 @@ export function useWebSocket() {
     appendMeshMessage,
     updateLinkHistory,
     setMeshStatus,
+    appendAcarsMessage,
   } = useCivicStore()
 
   useEffect(() => {
@@ -273,6 +274,9 @@ export function useWebSocket() {
             break
           case 'mesh_status':
             setMeshStatus(msg.data)
+            break
+          case 'acars_message':
+            appendAcarsMessage(msg.data as Parameters<typeof appendAcarsMessage>[0])
             break
           case 'event':
             appendSystemEvent(msg.data as Parameters<typeof appendSystemEvent>[0])

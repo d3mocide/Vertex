@@ -18,6 +18,7 @@ from pollers.summary import AISummaryPoller
 from pollers.seismic import SeismicPoller
 from pollers.fire import FirePoller
 from pollers.aprs import AprsPoller
+from pollers.acars import AcarsPoller
 from pollers.cot_emitter import CotEmitter
 from pollers.cot_receiver import CotReceiver
 from pollers.p25_recorder import P25AudioRecorder
@@ -83,6 +84,7 @@ async def main():
         StreamGaugePoller(),
         GdacsPoller(),
         NifcPoller(),
+        AcarsPoller(),
     ]
 
     if settings.tinygs_enabled:

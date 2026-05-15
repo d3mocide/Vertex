@@ -41,6 +41,26 @@ async def init_db():
         await conn.execute("ALTER TABLE observations         ALTER COLUMN entity_id TYPE VARCHAR(255)")
         await conn.execute("ALTER TABLE events               ALTER COLUMN entity_id TYPE VARCHAR(255)")
         await conn.execute("ALTER TABLE entity_mission_tags  ALTER COLUMN entity_id TYPE VARCHAR(255)")
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS acars_messages (
+                id          BIGSERIAL    PRIMARY KEY,
+                station_id  TEXT,
+                tail        TEXT,
+                flight      TEXT,
+                freq        TEXT,
+                label       TEXT,
+                msg_num     TEXT,
+                msg_text    TEXT,
+                error       INTEGER      NOT NULL DEFAULT 0,
+                mode        TEXT,
+                ts          TIMESTAMPTZ  NOT NULL,
+                received_at TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+                CONSTRAINT uq_acars_frame UNIQUE (station_id, tail, freq, ts)
+            )
+        """)
+        await conn.execute("CREATE INDEX IF NOT EXISTS ix_acars_tail ON acars_messages (tail, ts DESC)")
+        await conn.execute("CREATE INDEX IF NOT EXISTS ix_acars_flight ON acars_messages (flight, ts DESC)")
+        await conn.execute("CREATE INDEX IF NOT EXISTS ix_acars_ts ON acars_messages (ts DESC)")
     logger.info("DB pool initialized")
 
 
@@ -181,3 +201,33 @@ async def write_event(
             json.dumps(details),
         )
     return event_id
+
+
+async def write_acars_message(msg: dict) -> bool:
+    """Insert one ACARS message; returns True if it was new (not a duplicate)."""
+    if _pool is None:
+        return False
+    try:
+        result = await _pool.fetchval(
+            """
+            INSERT INTO acars_messages
+                (station_id, tail, flight, freq, label, msg_num, msg_text, error, mode, ts)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, to_timestamp($10))
+            ON CONFLICT ON CONSTRAINT uq_acars_frame DO NOTHING
+            RETURNING id
+            """,
+            sanitize_text(msg.get("station_id") or ""),
+            sanitize_text(msg.get("tail") or ""),
+            sanitize_text(msg.get("flight") or ""),
+            sanitize_text(msg.get("freq") or ""),
+            sanitize_text(msg.get("label") or ""),
+            sanitize_text(msg.get("msg_num") or ""),
+            sanitize_text(msg.get("msg_text") or ""),
+            int(msg.get("error") or 0),
+            sanitize_text(msg.get("mode") or ""),
+            float(msg.get("timestamp") or 0),
+        )
+        return result is not None
+    except Exception as exc:
+        logger.warning("[acars] DB write failed: %s", exc)
+        return False
