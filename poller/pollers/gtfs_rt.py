@@ -2,7 +2,6 @@ import asyncio
 import csv
 import io
 import logging
-import os
 import time
 import zipfile
 from dataclasses import dataclass, field as dc_field
@@ -10,7 +9,7 @@ from dataclasses import dataclass, field as dc_field
 import httpx
 
 from bus import publish_entity
-from config_loader import load_sources_config, GtfsRtFeedEntry
+from config import settings
 from .base import BasePoller
 
 logger = logging.getLogger(__name__)
@@ -18,42 +17,73 @@ logger = logging.getLogger(__name__)
 _STATIC_CACHE_TTL = 86_400.0   # 24 hours — route list rarely changes
 _USER_AGENT = "Vertex/1.0 (Situational Awareness Dashboard)"
 
-# GTFS extended route_type codes that represent rail/fixed-guideway
-_RAIL_TYPES = {0, 1, 2, 5, 7, 12, 100, 101, 102, 103, 105, 106, 107, 400, 401, 402}
+
+@dataclass
+class _FeedConfig:
+    name: str
+    label: str
+    static_gtfs_url: str
+    realtime_url: str
+    api_key: str
+    api_key_param: str
+    route_types: list[int]
+    poll_interval: int
 
 
 @dataclass
 class _FeedState:
-    feed: GtfsRtFeedEntry
+    feed: _FeedConfig
     route_map: dict[str, dict] = dc_field(default_factory=dict)
     route_map_ts: float = 0.0
     poll_task: asyncio.Task | None = None
     poll_count: int = 0
 
 
-class GtfsRtPoller(BasePoller):
-    """Generic GTFS-Realtime vehicle-positions poller.
+def _build_feeds() -> list[_FeedConfig]:
+    feeds: list[_FeedConfig] = []
+    if settings.trimet_gtfs_enabled:
+        if not settings.trimet_api_key:
+            logger.warning(
+                "[gtfs_rt] TRIMET_GTFS_ENABLED=true but TRIMET_API_KEY is not set"
+            )
+        route_types = [
+            int(x.strip())
+            for x in settings.trimet_route_types.split(",")
+            if x.strip().isdigit()
+        ]
+        feeds.append(_FeedConfig(
+            name="trimet",
+            label="TriMet Portland Metro",
+            static_gtfs_url=settings.trimet_gtfs_static_url,
+            realtime_url=settings.trimet_gtfs_rt_url,
+            api_key=settings.trimet_api_key,
+            api_key_param="appID",
+            route_types=route_types,
+            poll_interval=settings.trimet_poll_interval,
+        ))
+    return feeds
 
-    Feeds are declared in the ``gtfs_rt`` section of sources.yml.  Each feed
-    runs its own async task at its own poll_interval.  The outer run() loop
-    is used only for config hot-reload and task health checks.
+
+class GtfsRtPoller(BasePoller):
+    """GTFS-Realtime vehicle-positions poller.
+
+    Feeds are configured via environment variables (TRIMET_GTFS_ENABLED, etc.).
+    Each enabled feed runs its own async task.  The outer run() loop handles
+    task health checks.
     """
 
     name = "gtfs_rt"
-    interval = 30  # outer loop: reload config + restart dead tasks
+    interval = 30  # outer loop: restart dead tasks
 
     def __init__(self):
         self._states: dict[str, _FeedState] = {}
-        self._config_ts: float = 0.0
 
     # ── Lifecycle ─────────────────────────────────────────────────────────────
 
     async def setup(self):
-        await self._reload_config()
+        self._start_feeds()
 
     async def poll(self):
-        if time.monotonic() - self._config_ts > 30:
-            await self._reload_config()
         for name, state in list(self._states.items()):
             if state.poll_task is None or state.poll_task.done():
                 if state.poll_task and state.poll_task.done():
@@ -72,57 +102,32 @@ class GtfsRtPoller(BasePoller):
                 except asyncio.CancelledError:
                     pass
 
-    # ── Config ────────────────────────────────────────────────────────────────
+    # ── Feed management ───────────────────────────────────────────────────────
 
-    async def _reload_config(self):
-        config = load_sources_config()
-        current_names = {f.name for f in config.gtfs_rt if f.enabled}
-
-        for name in list(self._states.keys()):
-            if name not in current_names:
-                state = self._states.pop(name)
-                if state.poll_task and not state.poll_task.done():
-                    state.poll_task.cancel()
-                logger.info("[gtfs_rt] removed feed: %s", name)
-
-        for feed in config.gtfs_rt:
-            if not feed.enabled:
-                continue
-            if feed.name not in self._states:
-                state = _FeedState(feed=feed)
-                self._states[feed.name] = state
-                state.poll_task = asyncio.create_task(self._feed_loop(state))
-                logger.info("[gtfs_rt] started feed: %s (%s)", feed.name, feed.label)
-            else:
-                self._states[feed.name].feed = feed  # hot-update config
-
-        self._config_ts = time.monotonic()
-
-        if not self._states:
+    def _start_feeds(self):
+        feeds = _build_feeds()
+        if not feeds:
             logger.info(
-                "[gtfs_rt] no enabled GTFS-RT feeds — add entries under gtfs_rt: in sources.yml"
+                "[gtfs_rt] no GTFS-RT feeds enabled "
+                "(set TRIMET_GTFS_ENABLED=true + TRIMET_API_KEY to enable TriMet)"
             )
+            return
+        for feed in feeds:
+            state = _FeedState(feed=feed)
+            self._states[feed.name] = state
+            state.poll_task = asyncio.create_task(self._feed_loop(state))
+            logger.info("[gtfs_rt] started feed: %s (%s)", feed.name, feed.label)
 
     # ── Per-feed loop ─────────────────────────────────────────────────────────
 
     async def _feed_loop(self, state: _FeedState):
-        feed = state.feed
-
-        if feed.api_key_env:
-            key = os.environ.get(feed.api_key_env, "")
-            if not key:
-                logger.warning(
-                    "[gtfs_rt:%s] env var %s is not set — set it in .env to enable this feed",
-                    feed.name, feed.api_key_env,
-                )
-
         while True:
             try:
                 await self._poll_once(state)
             except asyncio.CancelledError:
                 raise
             except Exception as exc:
-                logger.warning("[gtfs_rt:%s] poll error: %s", feed.name, exc)
+                logger.warning("[gtfs_rt:%s] poll error: %s", state.feed.name, exc)
             await asyncio.sleep(state.feed.poll_interval)
 
     # ── Static GTFS route map ─────────────────────────────────────────────────
@@ -133,10 +138,9 @@ class GtfsRtPoller(BasePoller):
             return state.route_map
 
         feed = state.feed
-        api_key = os.environ.get(feed.api_key_env, "") if feed.api_key_env else ""
         params: dict[str, str] = {}
-        if api_key and feed.api_key_param:
-            params[feed.api_key_param] = api_key
+        if feed.api_key and feed.api_key_param:
+            params[feed.api_key_param] = feed.api_key
 
         try:
             async with httpx.AsyncClient(timeout=90) as client:
@@ -183,10 +187,9 @@ class GtfsRtPoller(BasePoller):
             return
 
         feed = state.feed
-        api_key = os.environ.get(feed.api_key_env, "") if feed.api_key_env else ""
         params: dict[str, str] = {}
-        if api_key and feed.api_key_param:
-            params[feed.api_key_param] = api_key
+        if feed.api_key and feed.api_key_param:
+            params[feed.api_key_param] = feed.api_key
 
         route_map = await self._ensure_route_map(state)
         allowed_types = set(feed.route_types)
@@ -215,47 +218,45 @@ class GtfsRtPoller(BasePoller):
             if not lat or not lon:
                 continue
 
-            route_id = v.trip.route_id if v.HasField("trip") else ""
-            trip_id = v.trip.trip_id if v.HasField("trip") else ""
+            route_id   = v.trip.route_id if v.HasField("trip") else ""
+            trip_id    = v.trip.trip_id  if v.HasField("trip") else ""
             route_info = route_map.get(route_id, {})
             route_type = route_info.get("type", -1)
 
             if route_type not in allowed_types:
                 continue
 
-            vehicle_id = (v.vehicle.id if v.HasField("vehicle") and v.vehicle.id else ent.id) or ent.id
+            vehicle_id    = (v.vehicle.id if v.HasField("vehicle") and v.vehicle.id else ent.id) or ent.id
             vehicle_label = v.vehicle.label if v.HasField("vehicle") else vehicle_id
-            short_name = route_info.get("short_name", "")
-            long_name = route_info.get("long_name", "")
+            short_name    = route_info.get("short_name", "")
+            long_name     = route_info.get("long_name", "")
 
-            # GTFS-RT speed is m/s → convert to knots
             speed_kts = round(float(pos.speed) * 1.94384, 1) if pos.speed else None
-            # bearing is 0–360° true north, matching our heading field
-            heading = float(pos.bearing) if pos.bearing else None
+            heading   = float(pos.bearing) if pos.bearing else None
 
             display_name = f"{short_name} — {vehicle_label}".strip(" —") if short_name else f"Vehicle {vehicle_label}"
 
             entity = {
-                "entity_id": f"gtfs:{feed.name}:{vehicle_id}",
-                "entity_type": "train",
-                "source": f"gtfs_{feed.name}",
+                "entity_id":    f"gtfs:{feed.name}:{vehicle_id}",
+                "entity_type":  "train",
+                "source":       f"gtfs_{feed.name}",
                 "display_name": display_name,
-                "lat": lat,
-                "lon": lon,
-                "heading": heading,
-                "speed": speed_kts,
-                "altitude": None,
-                "status": None,
+                "lat":          lat,
+                "lon":          lon,
+                "heading":      heading,
+                "speed":        speed_kts,
+                "altitude":     None,
+                "status":       None,
                 "identity": {
-                    "vehicle_id": vehicle_id,
-                    "vehicle_label": vehicle_label,
-                    "route_id": route_id,
-                    "route_short_name": short_name,
-                    "route_long_name": long_name,
-                    "route_type": route_type,
-                    "trip_id": trip_id,
-                    "feed": feed.name,
-                    "feed_label": feed.label,
+                    "vehicle_id":        vehicle_id,
+                    "vehicle_label":     vehicle_label,
+                    "route_id":          route_id,
+                    "route_short_name":  short_name,
+                    "route_long_name":   long_name,
+                    "route_type":        route_type,
+                    "trip_id":           trip_id,
+                    "feed":              feed.name,
+                    "feed_label":        feed.label,
                 },
                 "tags": [feed.label, short_name] if short_name else [feed.label],
             }

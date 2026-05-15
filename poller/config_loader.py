@@ -50,25 +50,12 @@ class AlertZonesConfig(BaseModel):
         return list(dict.fromkeys(v))
 
 
-class GtfsRtFeedEntry(BaseModel):
-    name: str
-    label: str = ""
-    static_gtfs_url: str
-    realtime_url: str
-    api_key_env: str = ""
-    api_key_param: str = "appID"
-    route_types: list[int] = [0, 1, 2]
-    poll_interval: int = 15
-    enabled: bool = True
-
-
 class SourcesConfig(BaseModel):
     radio_streams: list[RadioStreamEntry] = []
     news_feeds: list[NewsFeedEntry] = []
     poller_sources: list[PollerSourceEntry] = []
     alert_zones: AlertZonesConfig = AlertZonesConfig()
     alert_feeds: list[AlertFeedEntry] = []
-    gtfs_rt: list[GtfsRtFeedEntry] = []
 
 
 def load_sources_config() -> SourcesConfig:
