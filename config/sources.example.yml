@@ -105,6 +105,16 @@ poller_sources:
     enabled: true
     source: config
 
+  - type: acars            # ACARS — ACARSHub web interface base URL
+    name: "ACARSHub"       #   https://github.com/sdr-enthusiasts/docker-acarshub
+    url: "http://192.168.1.x:8080"
+    # Point at the ACARSHub web UI port (default 8080 on the host).
+    # The poller polls /api/ every 5 s, persists messages to acars_messages,
+    # and streams new arrivals to the frontend via WebSocket.
+    # Messages are displayed per-aircraft in the Flight Log panel.
+    enabled: false
+    source: config
+
 # ---------------------------------------------------------------------------
 # TinyGS — LoRa satellite ground station
 # The poller connects to mqtt.tinygs.com:8883 using your TinyGS MQTT credentials.

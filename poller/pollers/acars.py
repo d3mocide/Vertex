@@ -17,6 +17,7 @@ Redis so the frontend receives it in real time via WebSocket.
 
 import json
 import logging
+import time
 from datetime import datetime, timezone
 
 import httpx
@@ -40,8 +41,10 @@ class AcarsPoller(BasePoller):
     def __init__(self):
         self._urls: list[str] = []
         self._last_ts: dict[str, float] = {}  # base_url → max unix timestamp seen
+        self._startup_ts: float = 0.0          # messages older than this are not published to Redis
 
     async def setup(self):
+        self._startup_ts = time.time()
         rows = await get_pool().fetch(
             "SELECT url FROM poller_sources WHERE type = 'acars' AND enabled = TRUE"
         )
@@ -73,9 +76,10 @@ class AcarsPoller(BasePoller):
             if msg_ts <= last_ts:
                 continue
 
-            # Persist and publish
             is_new = await write_acars_message(raw)
-            if is_new:
+            # Only publish to Redis if the message arrived after poller startup;
+            # pre-existing history is served via the REST API, not the live stream.
+            if is_new and msg_ts >= self._startup_ts:
                 await self._publish(raw)
                 new_count += 1
 
@@ -89,22 +93,19 @@ class AcarsPoller(BasePoller):
             logger.debug("[acars] %s → %d new message(s)", base_url, new_count)
 
     async def _fetch_messages(self, base_url: str) -> list | None:
-        last_ts = self._last_ts.get(base_url, 0.0)
-        params: dict = {}
-        if last_ts == 0.0:
-            # First poll — seed with the last hour to avoid flooding Redis on startup
-            params["lookback_hours"] = 1
-
+        # ACARSHub's /api/ returns a paginated list of recent messages.
+        # No time-based filter parameter is supported; deduplication is handled
+        # by the DB unique constraint and the _last_ts cursor above.
         async with httpx.AsyncClient(timeout=_FETCH_TIMEOUT) as client:
             for path in _API_PATHS:
                 try:
-                    resp = await client.get(f"{base_url}{path}", params=params)
+                    resp = await client.get(f"{base_url}{path}")
                     if resp.status_code == 404:
                         continue
                     resp.raise_for_status()
                     data = resp.json()
                     # ACARSHub returns {"messages": [...], "num_results": N}
-                    # or may return a bare list in some versions
+                    # or a bare list in some versions
                     if isinstance(data, dict):
                         return data.get("messages") or []
                     if isinstance(data, list):

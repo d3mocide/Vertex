@@ -166,8 +166,16 @@ async def purge_observations() -> int:
             "DELETE FROM observations WHERE ts < NOW() - ($1 * INTERVAL '1 day')",
             int(retention_days),
         )
+        acars_result = await conn.execute(
+            "DELETE FROM acars_messages WHERE ts < NOW() - ($1 * INTERVAL '1 day')",
+            int(retention_days),
+        )
     deleted = int(result.split()[-1])
-    logger.info("[db] purged %d old observations (retention: %d days)", deleted, retention_days)
+    acars_deleted = int(acars_result.split()[-1])
+    logger.info(
+        "[db] purged %d old observations, %d old ACARS messages (retention: %d days)",
+        deleted, acars_deleted, retention_days,
+    )
     return deleted
 
 
