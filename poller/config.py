@@ -187,9 +187,9 @@ class Settings(BaseSettings):
     tinygs_enabled: bool = False
 
     # TriMet GTFS-RT — Portland Metro rail (MAX light rail, WES commuter, Portland Streetcar)
-    # Free API key at: https://developer.trimet.org/
+    # Free AppID at: https://developer.trimet.org/
     trimet_gtfs_enabled: bool = False
-    trimet_api_key: str = ""
+    trimet_app_id: str = ""
     trimet_gtfs_static_url: str = "https://developer.trimet.org/schedule/gtfs.zip"
     trimet_gtfs_rt_url: str = "https://developer.trimet.org/ws/gtfs/VehiclePositions"
     # Comma-separated GTFS route type ints: 0=Tram, 1=Light Rail, 2=Rail

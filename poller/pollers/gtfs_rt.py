@@ -42,9 +42,9 @@ class _FeedState:
 def _build_feeds() -> list[_FeedConfig]:
     feeds: list[_FeedConfig] = []
     if settings.trimet_gtfs_enabled:
-        if not settings.trimet_api_key:
+        if not settings.trimet_app_id:
             logger.warning(
-                "[gtfs_rt] TRIMET_GTFS_ENABLED=true but TRIMET_API_KEY is not set"
+                "[gtfs_rt] TRIMET_GTFS_ENABLED=true but TRIMET_APP_ID is not set"
             )
         route_types = [
             int(x.strip())
@@ -56,7 +56,7 @@ def _build_feeds() -> list[_FeedConfig]:
             label="TriMet Portland Metro",
             static_gtfs_url=settings.trimet_gtfs_static_url,
             realtime_url=settings.trimet_gtfs_rt_url,
-            api_key=settings.trimet_api_key,
+            api_key=settings.trimet_app_id,
             api_key_param="appID",
             route_types=route_types,
             poll_interval=settings.trimet_poll_interval,
