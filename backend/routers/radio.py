@@ -17,6 +17,7 @@ from deps import get_db
 from db.session import async_session_factory
 from db.models import Event, RadioStream, Talkgroup, P25Recording
 from redis_bus import get_redis
+from security import validate_safe_url
 
 router = APIRouter(prefix="/radio", tags=["radio"])
 
@@ -376,9 +377,11 @@ async def proxy_stream(
     if not stream or not stream.enabled:
         raise HTTPException(404, "Stream not found or disabled")
 
-    # Validate URL is HTTP(S)
-    if not stream.url.startswith(("http://", "https://")):
-        raise HTTPException(400, "Invalid stream URL")
+    # Validate URL against SSRF
+    try:
+        validate_safe_url(stream.url)
+    except ValueError as e:
+        raise HTTPException(400, f"Invalid or unsafe stream URL: {str(e)}")
 
     client = httpx.AsyncClient(timeout=httpx.Timeout(connect=10.0, read=None, write=10.0, pool=10.0), follow_redirects=True)
     try:
