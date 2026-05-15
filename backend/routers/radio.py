@@ -379,7 +379,7 @@ async def proxy_stream(
     if not stream.url.startswith(("http://", "https://")):
         raise HTTPException(400, "Invalid stream URL")
 
-    client = httpx.AsyncClient(timeout=httpx.Timeout(connect=10.0, read=None), follow_redirects=True)
+    client = httpx.AsyncClient(timeout=httpx.Timeout(connect=10.0, read=None, write=10.0, pool=10.0), follow_redirects=True)
     try:
         req = client.build_request("GET", stream.url)
         resp = await client.send(req, stream=True)
