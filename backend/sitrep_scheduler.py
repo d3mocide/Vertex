@@ -41,7 +41,6 @@ async def _generate_and_deliver(rule: AlertRule) -> None:
 
     # Generate SitRep markdown inline (avoid HTTP round-trip to self)
     from routers.sitrep import generate_sitrep
-    from deps import get_db
     # Use a fresh DB session and Redis directly
     async with async_session_factory() as db:
         redis = get_redis()

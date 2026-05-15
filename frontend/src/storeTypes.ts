@@ -64,6 +64,7 @@ export interface Track {
   type:          'air' | 'sea' | 'ground' | 'hazard' | 'tak' | 'rail'
   callsign?:     string
   category?:     string
+  stationType?:  string
   trail:         TrailPt[]     // raw history, newest last, capped at 150 pts
   smoothedTrail: number[][]    // [[lon,lat],...] after 2× Chaikin
   predictedPath: [number, number][]
@@ -161,6 +162,7 @@ export interface MeshMessage {
   id:               string
   msg_type?:        string
   conversation_key: string
+  channel_name?:    string
   text:             string
   sender_name:      string
   sender_key:       string

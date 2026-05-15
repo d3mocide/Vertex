@@ -47,9 +47,20 @@ function entityIconSize(selectedUid: string | null, track: Track, zoom: number):
   return track.uid === selectedUid ? 40 : 32
 }
 
-const APRS_ICON_COLOR:  [number, number, number, number] = [179, 136, 255, 230]
-const TAK_ICON_COLOR:   [number, number, number, number] = [0, 230, 180, 240]   // teal — friendly ground
+const TAK_ICON_COLOR: [number, number, number, number] = [0, 230, 180, 240]   // teal — friendly ground
 const TRAIN_ICON_COLOR: [number, number, number, number] = [255, 193, 7, 240]   // amber — Amtrak rail
+
+function aprsColor(stationType: string | undefined): [number, number, number, number] {
+  switch (stationType) {
+    case 'emergency':      return [255,  80,  80, 255]
+    case 'weather':        return [100, 200, 255, 230]
+    case 'infrastructure': return [180, 100, 255, 230]
+    case 'aircraft':       return [  0, 230, 255, 230]
+    case 'marine':         return [  0, 120, 255, 230]
+    case 'fixed':          return [100, 180, 100, 200]
+    default:               return [179, 136, 255, 230]  // mobile / unknown
+  }
+}
 
 // ─── buildEntityLayers ────────────────────────────────────────────────────────
 // Returns: [selectionRingLayer, iconLayer, labelLayer]
@@ -114,7 +125,7 @@ export function buildEntityLayers(
     getPosition: (t) => [t.lon, t.lat],
     getAngle:    (t) => -t.courseTrue,
     getColor:    (t) => {
-      if (t.type === 'ground')  return APRS_ICON_COLOR
+      if (t.type === 'ground')  return aprsColor(t.stationType)
       if (t.type === 'tak')     return TAK_ICON_COLOR
       if (t.type === 'hazard')  return FIRE_ICON_COLOR
       if (t.type === 'rail')    return tagColorMap?.[t.uid] ?? TRAIN_ICON_COLOR
@@ -127,12 +138,29 @@ export function buildEntityLayers(
     updateTriggers: {
       getIcon:  zoom,
       getAngle: trackArr.map(t => t.courseTrue),
-      getColor: trackArr.map(t => tagColorMap?.[t.uid]?.join(',') ?? `${t.altMeters + t.speedMs}`),
+      getColor: trackArr.map(t => tagColorMap?.[t.uid]?.join(',') ?? `${t.altMeters + t.speedMs}${t.stationType ?? ''}`),
       getSize:  [selectedUid, zoom],
     },
   })
 
-  // APRS labels: show at z10+ with atlas violet tint
+  // Pulsing red ring for APRS emergency stations.
+  const emergencyAprs = trackArr.filter(t => t.type === 'ground' && t.stationType === 'emergency')
+  const emergencyRingLayer = new ScatterplotLayer<Track>({
+    id:             'aprs-emergency-rings',
+    data:           emergencyAprs,
+    getPosition:    (t) => [t.lon, t.lat],
+    getRadius:      () => 20 + cycle * 30,
+    getFillColor:   () => [255, 80, 80, Math.round(140 * (1 - cycle * cycle))],
+    getLineColor:   () => [255, 80, 80, Math.round(255 * (1 - cycle * cycle))],
+    radiusUnits:    'pixels',
+    stroked:        true,
+    filled:         true,
+    getLineWidth:   2,
+    lineWidthUnits: 'pixels',
+    updateTriggers: { getRadius: cycle, getFillColor: cycle, getLineColor: cycle },
+  })
+
+  // APRS labels: show at z10+, color matches station type
   const aprsLabelLayer = new TextLayer<Track>({
     id: 'aprs-labels',
     data: zoom >= 10 ? trackArr.filter((t) => t.type === 'ground') : [],
@@ -140,11 +168,17 @@ export function buildEntityLayers(
     getText: (t) => t.callsign ?? t.uid,
     getSize: 10,
     sizeUnits: 'pixels',
-    getColor: [179, 136, 255, 220],
+    getColor: (t) => {
+      const [r, g, b] = aprsColor(t.stationType)
+      return [r, g, b, 220]
+    },
     getPixelOffset: [0, 12],
     getTextAnchor: 'middle',
     getAlignmentBaseline: 'top',
     fontFamily: 'monospace',
+    updateTriggers: {
+      getColor: trackArr.map(t => t.stationType ?? ''),
+    },
   })
 
   // TAK client labels: show at z9+ with teal tint
@@ -177,5 +211,5 @@ export function buildEntityLayers(
     fontFamily: 'monospace',
   })
 
-  return [selectionRingLayer, iconLayer, aprsLabelLayer, takLabelLayer, trainLabelLayer]
+  return [selectionRingLayer, emergencyRingLayer, iconLayer, aprsLabelLayer, takLabelLayer, trainLabelLayer]
 }

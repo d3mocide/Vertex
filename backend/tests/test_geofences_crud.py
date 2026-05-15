@@ -14,7 +14,7 @@ import math
 import os
 import sys
 import unittest
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock
 
 _BACKEND_ROOT = os.path.join(os.path.dirname(__file__), "..")
 if _BACKEND_ROOT not in sys.path:

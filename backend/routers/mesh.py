@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS mesh_messages (
     id TEXT PRIMARY KEY,
     msg_type TEXT,
     conversation_key TEXT,
+    channel_name TEXT,
     text TEXT,
     sender_name TEXT,
     sender_key TEXT,
@@ -40,6 +41,11 @@ async def _ensure_mesh_messages_table(db: AsyncSession) -> None:
         if not statement:
             continue
         await db.execute(text(statement))
+    await db.commit()
+
+
+async def _ensure_mesh_messages_columns(db: AsyncSession) -> None:
+    await db.execute(text("ALTER TABLE mesh_messages ADD COLUMN IF NOT EXISTS channel_name TEXT"))
     await db.commit()
 
 
@@ -87,8 +93,13 @@ async def list_mesh_messages(
     db: AsyncSession = Depends(get_db),
 ):
     """Return recent mesh network messages from the database."""
+    try:
+        await _ensure_mesh_messages_columns(db)
+    except Exception:
+        logger.debug("[mesh] unable to ensure optional mesh_messages columns", exc_info=True)
+
     query = text(
-        "SELECT id, msg_type, conversation_key, text, sender_name, sender_key, outgoing, acked, ts as timestamp, source_url "
+        "SELECT id, msg_type, conversation_key, channel_name, text, sender_name, sender_key, outgoing, acked, ts as timestamp, source_url "
         "FROM mesh_messages ORDER BY ts DESC LIMIT :limit"
     ).bindparams(limit=limit)
     try:
