@@ -64,6 +64,7 @@ export interface Track {
   type:          'air' | 'sea' | 'ground' | 'hazard' | 'tak'
   callsign?:     string
   category?:     string
+  stationType?:  string
   trail:         TrailPt[]     // raw history, newest last, capped at 150 pts
   smoothedTrail: number[][]    // [[lon,lat],...] after 2× Chaikin
   predictedPath: [number, number][]
