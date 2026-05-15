@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from config import settings
 from config_writer import add_entry, remove_entry, update_entry
 from deps import get_db
+from db.session import async_session_factory
 from db.models import Event, RadioStream, Talkgroup, P25Recording
 from redis_bus import get_redis
 
@@ -364,14 +365,15 @@ async def get_recording_file(
 @router.get("/proxy/{stream_id}")
 async def proxy_stream(
     stream_id: int,
-    db: AsyncSession = Depends(get_db),
 ):
     """
     Proxy an external radio stream through the backend.
     This allows browsers to access streams on private network IPs.
     """
-    result = await db.execute(select(RadioStream).where(RadioStream.id == stream_id))
-    stream = result.scalar_one_or_none()
+    async with async_session_factory() as db:
+        result = await db.execute(select(RadioStream).where(RadioStream.id == stream_id))
+        stream = result.scalar_one_or_none()
+
     if not stream or not stream.enabled:
         raise HTTPException(404, "Stream not found or disabled")
 
