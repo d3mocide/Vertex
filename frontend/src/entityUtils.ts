@@ -107,6 +107,7 @@ export function entityToTrack(entity: Entity, existing?: Track): Track | null {
     type:         isAir ? 'air' : isSea ? 'sea' : isTak ? 'tak' : isAprs ? 'ground' : 'hazard',
     callsign:     entity.display_name,
     category:     (entity.identity?.category as string | undefined) ?? entity.tags?.[0],
+    stationType:  isAprs ? (entity.identity?.station_type as string | undefined) : undefined,
     trail,
     smoothedTrail,
     predictedPath,

@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react'
 import { useCivicStore, MeshMessage, Entity, SystemEvent, Track, MeshLink } from '../../store'
 import { getDistanceMeters } from '../../layers/geoUtils'
 import { DEFAULT_CENTER } from '../../config'
+import { MeshFleetPanel } from './MeshFleetPanel'
 
 function formatTime(iso: string) {
   if (!iso) return '--:--'
@@ -216,6 +217,8 @@ function SpectralMonitor({ links, history, status }: { links: MeshLink[]; histor
 export function CommsPanel() {
   const { radio, meshMessages, entities, systemEvents, tracks, meshLinks, linkHistory, meshStatus } = useCivicStore()
   const [msgFilter, setMsgFilter] = useState('')
+  const [healthTab, setHealthTab] = useState<'spectral' | 'fleet'>('spectral')
+  const [selectedConv, setSelectedConv] = useState<string>('all')
 
   // Calculate nearest nodes
   const nearestNodes = useMemo(() => {
@@ -250,15 +253,53 @@ export function CommsPanel() {
     ).reverse().slice(0, 8)
   }, [systemEvents])
 
-  const filteredMessages = useMemo(() => {
-    if (!msgFilter) return [...meshMessages].reverse()
+  // Unique conversation keys sorted by most recent message.
+  const conversations = useMemo(() => {
+    const latest = new Map<string, number>()
+    for (const m of meshMessages) {
+      const key = m.conversation_key || 'general'
+      const ts = new Date(m.timestamp || 0).getTime()
+      if (!latest.has(key) || ts > latest.get(key)!) latest.set(key, ts)
+    }
+    return [...latest.entries()].sort((a, b) => b[1] - a[1]).map(([k]) => k)
+  }, [meshMessages])
+
+  // Messages to display: filtered by text search + selected conversation,
+  // then grouped by conversation_key for the "all" view.
+  const messageGroups = useMemo(() => {
     const q = msgFilter.toLowerCase()
-    return meshMessages.filter(m =>
-      (m.text ?? '').toLowerCase().includes(q) ||
-      (m.sender_name ?? '').toLowerCase().includes(q) ||
-      (m.conversation_key ?? '').toLowerCase().includes(q)
-    ).reverse()
-  }, [meshMessages, msgFilter])
+    const base = meshMessages.filter(m => {
+      if (selectedConv !== 'all' && (m.conversation_key || 'general') !== selectedConv) return false
+      if (!q) return true
+      return (
+        (m.text ?? '').toLowerCase().includes(q) ||
+        (m.sender_name ?? '').toLowerCase().includes(q) ||
+        (m.conversation_key ?? '').toLowerCase().includes(q)
+      )
+    })
+
+    if (selectedConv !== 'all') {
+      return [{ key: selectedConv, msgs: [...base].sort((a, b) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime()) }]
+    }
+
+    // Group by conversation, sort groups by most recent message DESC.
+    const groupMap = new Map<string, MeshMessage[]>()
+    for (const m of base) {
+      const key = m.conversation_key || 'general'
+      if (!groupMap.has(key)) groupMap.set(key, [])
+      groupMap.get(key)!.push(m)
+    }
+    return [...groupMap.entries()]
+      .sort((a, b) => {
+        const latestA = Math.max(...a[1].map(m => new Date(m.timestamp || 0).getTime()))
+        const latestB = Math.max(...b[1].map(m => new Date(m.timestamp || 0).getTime()))
+        return latestB - latestA
+      })
+      .map(([key, msgs]) => ({
+        key,
+        msgs: [...msgs].sort((a, b) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime()),
+      }))
+  }, [meshMessages, msgFilter, selectedConv])
 
   return (
     <div className="relative w-full h-full z-10 flex flex-col overflow-hidden bg-onyx-black/20 backdrop-blur-md">
@@ -369,13 +410,32 @@ export function CommsPanel() {
             </div>
           </section>
 
-          {/* Spectral Health / Signal Graphs */}
+          {/* Spectral Health / Fleet Health — tabbed */}
           <section>
-            <h3 className="section-heading mb-3 flex items-center gap-2">
-              <span className="ms text-[14px] text-amber-gold">analytics</span>
-              Spectral Health
-            </h3>
-            <SpectralMonitor links={meshLinks} history={linkHistory} status={meshStatus} />
+            <div className="flex items-center gap-2 mb-3">
+              <span className="ms text-[14px] text-amber-gold">
+                {healthTab === 'spectral' ? 'analytics' : 'inventory_2'}
+              </span>
+              <div className="flex gap-1">
+                {(['spectral', 'fleet'] as const).map(tab => (
+                  <button
+                    key={tab}
+                    onClick={() => setHealthTab(tab)}
+                    className={`font-mono text-[10px] uppercase tracking-widest px-2 py-0.5 rounded-sm transition-colors ${
+                      healthTab === tab
+                        ? 'bg-amber-gold text-onyx-black font-bold'
+                        : 'text-on-surface-variant hover:text-on-surface'
+                    }`}
+                  >
+                    {tab === 'spectral' ? 'Spectral' : 'Fleet'}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {healthTab === 'spectral'
+              ? <SpectralMonitor links={meshLinks} history={linkHistory} status={meshStatus} />
+              : <MeshFleetPanel entities={Object.values(entities)} />
+            }
           </section>
         </div>
 
@@ -387,8 +447,37 @@ export function CommsPanel() {
           </h3>
 
           <div className="flex-1 lg:flex-none lg:h-[800px] flex flex-col border border-white/10 bg-onyx-deep/40 rounded-sm overflow-hidden">
+            {/* Conversation selector */}
+            {conversations.length > 0 && (
+              <div className="flex gap-1.5 p-2 border-b border-white/10 bg-white/5 overflow-x-auto shrink-0 scrollbar-thin">
+                <button
+                  onClick={() => setSelectedConv('all')}
+                  className={`font-mono text-[10px] uppercase tracking-widest px-2.5 py-1 rounded-full whitespace-nowrap shrink-0 transition-colors ${
+                    selectedConv === 'all'
+                      ? 'bg-amber-gold text-onyx-black font-bold'
+                      : 'bg-white/10 text-on-surface-variant hover:bg-white/20'
+                  }`}
+                >
+                  All
+                </button>
+                {conversations.map(conv => (
+                  <button
+                    key={conv}
+                    onClick={() => setSelectedConv(conv)}
+                    className={`font-mono text-[10px] uppercase tracking-widest px-2.5 py-1 rounded-full whitespace-nowrap shrink-0 transition-colors ${
+                      selectedConv === conv
+                        ? 'bg-amber-gold text-onyx-black font-bold'
+                        : 'bg-white/10 text-on-surface-variant hover:bg-white/20'
+                    }`}
+                  >
+                    {conv}
+                  </button>
+                ))}
+              </div>
+            )}
+
             {/* Filter bar */}
-            <div className="p-2 border-b border-white/10 bg-white/5 flex gap-2">
+            <div className="p-2 border-b border-white/10 bg-white/5 flex gap-2 shrink-0">
               <input
                 type="text"
                 placeholder="Filter messages..."
@@ -398,36 +487,48 @@ export function CommsPanel() {
               />
             </div>
 
-            {/* Message Feed */}
+            {/* Message Feed — grouped by conversation */}
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
-              {filteredMessages.length > 0 ? (
-                filteredMessages.map((msg, idx) => (
-                  <div key={msg.id || `${msg.sender_key || 'unknown'}-${msg.timestamp || 'no-ts'}-${idx}`} className={`flex flex-col ${msg.outgoing ? 'items-end' : 'items-start'}`}>
-                    <div className="flex items-center gap-2 mb-1 px-1">
-                      <span className="font-bold text-[11px] text-amber-gold uppercase tracking-tight">
-                        {msg.sender_name || 'Unknown'}
-                      </span>
-                      <span className="font-mono text-[11px] text-on-surface-variant">
-                        {formatTime(msg.timestamp || '')}
-                      </span>
-                      <span className="font-mono text-[11px] text-on-surface-variant/70 uppercase">
-                        {msg.conversation_key || 'public'}
-                      </span>
-                    </div>
-                    <div
-                      className={`
-                        max-w-[85%] px-3 py-2 rounded-lg text-[12px] leading-relaxed
-                        ${msg.outgoing
-                          ? 'bg-amber-gold text-onyx-black rounded-tr-none'
-                          : 'bg-white/10 text-on-surface border border-white/5 rounded-tl-none'}
-                      `}
-                    >
-                      {msg.text || '(empty message)'}
-                      {msg.msg_type === 'direct' && (
-                        <div className={`text-[11px] mt-1 font-mono uppercase opacity-60 ${msg.outgoing ? 'text-onyx-black' : 'text-amber-gold'}`}>
-                          Direct • {msg.acked ? 'Acked' : 'Pending'}
+              {messageGroups.length > 0 ? (
+                messageGroups.map(group => (
+                  <div key={group.key}>
+                    {/* Group header — only shown in "all" view */}
+                    {selectedConv === 'all' && (
+                      <div className="flex items-center gap-2 mb-2 sticky top-0 bg-onyx-deep/80 backdrop-blur-sm py-1 z-10">
+                        <span className="ms text-[12px] text-amber-gold/60">forum</span>
+                        <span className="font-mono text-[10px] text-amber-gold/80 uppercase tracking-widest">{group.key}</span>
+                        <span className="font-mono text-[10px] text-on-surface-variant/50">{group.msgs.length} msg{group.msgs.length !== 1 ? 's' : ''}</span>
+                        <div className="flex-1 h-px bg-white/5" />
+                      </div>
+                    )}
+                    <div className="space-y-4">
+                      {group.msgs.map((msg, idx) => (
+                        <div key={msg.id || `${msg.sender_key || 'unknown'}-${msg.timestamp || 'no-ts'}-${idx}`} className={`flex flex-col ${msg.outgoing ? 'items-end' : 'items-start'}`}>
+                          <div className="flex items-center gap-2 mb-1 px-1">
+                            <span className="font-bold text-[11px] text-amber-gold uppercase tracking-tight">
+                              {msg.sender_name || 'Unknown'}
+                            </span>
+                            <span className="font-mono text-[11px] text-on-surface-variant">
+                              {formatTime(msg.timestamp || '')}
+                            </span>
+                          </div>
+                          <div
+                            className={`
+                              max-w-[85%] px-3 py-2 rounded-lg text-[12px] leading-relaxed
+                              ${msg.outgoing
+                                ? 'bg-amber-gold text-onyx-black rounded-tr-none'
+                                : 'bg-white/10 text-on-surface border border-white/5 rounded-tl-none'}
+                            `}
+                          >
+                            {msg.text || '(empty message)'}
+                            {msg.msg_type === 'direct' && (
+                              <div className={`text-[11px] mt-1 font-mono uppercase opacity-60 ${msg.outgoing ? 'text-onyx-black' : 'text-amber-gold'}`}>
+                                Direct • {msg.acked ? '✓ Acked' : '⏳ Pending'}
+                              </div>
+                            )}
+                          </div>
                         </div>
-                      )}
+                      ))}
                     </div>
                   </div>
                 ))
