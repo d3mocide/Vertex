@@ -16,11 +16,13 @@ import type { TrailPt } from '../storeTypes'
 import { API_BASE } from '../config'
 import { authHeaders } from '../auth'
 
-// Fetch up to this many minutes of history for each aircraft.
+// Aircraft trail settings
 const HISTORY_MINUTES = 120
-// Sub-sample: keep at most this many DB points per aircraft.
-// At 1 Hz that is DB_POINT_CAP seconds of history, evenly distributed.
 const DB_POINT_CAP = 500
+
+// APRS trail settings — slower-moving, lower priority, longer window
+const APRS_HISTORY_MINUTES = 1440  // 24 hours
+const APRS_POINT_CAP = 200
 
 interface ObservationRow {
   ts:        string
@@ -55,7 +57,11 @@ export function useTrailHydration(): void {
 
   // Track which entity IDs we have already fetched (or are fetching).
   const fetchedRef = useRef(new Set<string>())
-  const queueRef = useRef<string[]>([])
+  // Separate queues: aircraft is drained first, aprs after.
+  const aircraftQueueRef = useRef<string[]>([])
+  const aprsQueueRef = useRef<string[]>([])
+  // Maps entity_id → entity_type so processQueue can use correct fetch params.
+  const entityTypesRef = useRef(new Map<string, string>())
   const processingRef = useRef(false)
   const abortRef = useRef<AbortController | null>(null)
 
@@ -67,16 +73,30 @@ export function useTrailHydration(): void {
       if (!currentIds.has(id)) fetchedRef.current.delete(id)
     }
 
-    const newEntities = Object.entries(entities)
-      .filter(([id, e]) => e.entity_type === 'aircraft' && !fetchedRef.current.has(id))
-      .map(([id]) => id)
+    const newAircraft: string[] = []
+    const newAprs: string[] = []
 
-    if (newEntities.length > 0) {
-      newEntities.forEach(id => fetchedRef.current.add(id))
-      queueRef.current.push(...newEntities)
+    for (const [id, e] of Object.entries(entities)) {
+      if (fetchedRef.current.has(id)) continue
+      if (e.entity_type === 'aircraft') newAircraft.push(id)
+      else if (e.entity_type === 'aprs') newAprs.push(id)
     }
 
-    if (queueRef.current.length > 0 && !processingRef.current) {
+    if (newAircraft.length > 0 || newAprs.length > 0) {
+      for (const id of newAircraft) {
+        fetchedRef.current.add(id)
+        entityTypesRef.current.set(id, 'aircraft')
+      }
+      for (const id of newAprs) {
+        fetchedRef.current.add(id)
+        entityTypesRef.current.set(id, 'aprs')
+      }
+      aircraftQueueRef.current.push(...newAircraft)
+      aprsQueueRef.current.push(...newAprs)
+    }
+
+    const hasWork = aircraftQueueRef.current.length > 0 || aprsQueueRef.current.length > 0
+    if (hasWork && !processingRef.current) {
       processQueue()
     }
   }, [entities])
@@ -89,21 +109,30 @@ export function useTrailHydration(): void {
   }, [])
 
   const processQueue = async () => {
-    if (processingRef.current || queueRef.current.length === 0) return
+    const hasWork = () =>
+      aircraftQueueRef.current.length > 0 || aprsQueueRef.current.length > 0
+
+    if (processingRef.current || !hasWork()) return
     processingRef.current = true
 
-    while (queueRef.current.length > 0) {
-      const entityId = queueRef.current.shift()!
-      const url = `${API_BASE}/entities/${encodeURIComponent(entityId)}/trail?minutes=${HISTORY_MINUTES}`
+    while (hasWork()) {
+      // Drain aircraft queue first; fall back to APRS.
+      const entityId = (aircraftQueueRef.current.shift() ?? aprsQueueRef.current.shift())!
+      const entityType = entityTypesRef.current.get(entityId) ?? 'aircraft'
+      const historyMinutes = entityType === 'aprs' ? APRS_HISTORY_MINUTES : HISTORY_MINUTES
+      const pointCap = entityType === 'aprs' ? APRS_POINT_CAP : DB_POINT_CAP
+
+      const url = `${API_BASE}/entities/${encodeURIComponent(entityId)}/trail?minutes=${historyMinutes}`
       const controller = new AbortController()
       abortRef.current = controller
 
       try {
         const res = await fetch(url, { headers: authHeaders(), signal: controller.signal })
         if (res.status === 429) {
-          // Back off and re-queue if rate limited
           console.warn(`[trail] Rate limited (429) for ${entityId}, backing off...`)
-          queueRef.current.unshift(entityId)
+          // Re-queue in the appropriate queue.
+          if (entityType === 'aprs') aprsQueueRef.current.unshift(entityId)
+          else aircraftQueueRef.current.unshift(entityId)
           await new Promise(resolve => setTimeout(resolve, 5000))
           continue
         }
@@ -116,7 +145,7 @@ export function useTrailHydration(): void {
               .filter((p): p is TrailPt => p !== null)
 
             if (pts.length > 0) {
-              const sampled = subsample(pts, DB_POINT_CAP)
+              const sampled = subsample(pts, pointCap)
               historicalTrailCache.set(entityId, sampled)
               refreshEntityTrack(entityId)
             }
