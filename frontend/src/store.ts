@@ -55,6 +55,7 @@ interface CivicStore {
   radarReflectivityVisible: boolean
   nwsAlertsVisible:         boolean
   lightningDensityVisible:  boolean
+  railTracksVisible:        boolean
 
   // Actions — data
   setEntities:      (entities: Entity[]) => void
@@ -105,6 +106,7 @@ interface CivicStore {
   setRadarReflectivityVisible: (v: boolean) => void
   setNwsAlertsVisible:         (v: boolean) => void
   setLightningDensityVisible:  (v: boolean) => void
+  setRailTracksVisible:        (v: boolean) => void
   mobileNavOpen:       boolean
   setMobileNavOpen:    (v: boolean) => void
   settingsOpen:        boolean
@@ -340,6 +342,7 @@ export const useCivicStore = create<CivicStore>()(
   radarReflectivityVisible: false,
   nwsAlertsVisible:         false,
   lightningDensityVisible:  false,
+  railTracksVisible:        true,
   lightningStrikes:    [],
   lightningVisible:    true,
   gaugesVisible:       true,
@@ -358,7 +361,7 @@ export const useCivicStore = create<CivicStore>()(
   mobileNavOpen:    false,
   settingsOpen:     false,
   helpOpen:         false,
-  entityFilter:     { aircraft: true, adsbLocal: true, adsbSupplement: true, vessel: true, mesh_node: true, aprs: true, fire_incident: true, satellite: true, tinygs_station: true },
+  entityFilter:     { aircraft: true, adsbLocal: true, adsbSupplement: true, vessel: true, mesh_node: true, aprs: true, fire_incident: true, satellite: true, tinygs_station: true, train: true },
   entitySearchQuery: '',
   entityAltRange:   ALT_RANGE_DEFAULT,
   entitySpeedRange: SPD_RANGE_DEFAULT,
@@ -443,6 +446,7 @@ export const useCivicStore = create<CivicStore>()(
         tinygs_station: 600_000,   // 10 min — station ping is every ~60 s
         stream_gauge:   600_000,   // 10 min — gauges are polled every 5 min
         tak_client:     300_000,   // 5 min  — TAK SA ping is every 30 s–2 min
+        train:          600_000,   // 10 min — Amtrak polls every 60 s
       }
       for (const [id, e] of Object.entries(next)) {
         const limit = STALE_MS[e.entity_type]
@@ -535,6 +539,7 @@ export const useCivicStore = create<CivicStore>()(
   setRadarReflectivityVisible: (radarReflectivityVisible) => set({ radarReflectivityVisible }),
   setNwsAlertsVisible:         (nwsAlertsVisible)         => set({ nwsAlertsVisible }),
   setLightningDensityVisible:  (lightningDensityVisible)  => set({ lightningDensityVisible }),
+  setRailTracksVisible:        (railTracksVisible)        => set({ railTracksVisible }),
   appendLightningStrikes: (incoming) =>
     set((s) => {
       const now = Date.now()
@@ -637,6 +642,7 @@ export const useCivicStore = create<CivicStore>()(
       radarReflectivityVisible: state.radarReflectivityVisible,
       nwsAlertsVisible:         state.nwsAlertsVisible,
       lightningDensityVisible:  state.lightningDensityVisible,
+      railTracksVisible:        state.railTracksVisible,
       gaugesVisible:      state.gaugesVisible,
       terrainEnabled:     state.terrainEnabled,
       terrainExaggeration: state.terrainExaggeration,

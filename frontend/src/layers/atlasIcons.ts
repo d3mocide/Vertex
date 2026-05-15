@@ -33,7 +33,7 @@ function entry(col: number, row: number) {
 export function createAtlasIcons(): IconAtlasResult {
   const canvas = document.createElement('canvas')
   canvas.width  = CELL * 4   // 256
-  canvas.height = CELL * 3   // 192
+  canvas.height = CELL * 4   // 256 (row 3 added for train)
   const ctx = canvas.getContext('2d')!
 
   const W = '#ffffff'
@@ -286,6 +286,31 @@ export function createAtlasIcons(): IconAtlasResult {
     ctx.fill()
   }
 
+  // ─── Row 3, Col 0 · TRAIN — top-down locomotive silhouette ──────────────────
+  // Nose points up (north); icon rotates with heading like aircraft/vessel.
+  // Profile: pointed nose → wide cab with windshield void → narrow body → tail.
+  {
+    const [ox, oy] = cellOrigin(0, 3)
+    ctx.fillStyle = W
+    // Nose triangle (pointed front)
+    ctx.beginPath()
+    ctx.moveTo(ox + 32, oy + 6)   // nose tip
+    ctx.lineTo(ox + 21, oy + 20)  // left shoulder
+    ctx.lineTo(ox + 43, oy + 20)  // right shoulder
+    ctx.closePath()
+    ctx.fill()
+    // Wide cab section
+    ctx.fillRect(ox + 21, oy + 18, 22, 18)
+    // Punch windshield void
+    ctx.globalCompositeOperation = 'destination-out'
+    ctx.fillRect(ox + 25, oy + 21, 14, 11)
+    ctx.globalCompositeOperation = 'source-over'
+    // Narrow body
+    ctx.fillRect(ox + 26, oy + 34, 12, 22)
+    // Tail coupler bar
+    ctx.fillRect(ox + 23, oy + 54, 18, 4)
+  }
+
   return {
     url:    canvas.toDataURL(),
     width:  canvas.width,
@@ -303,6 +328,7 @@ export function createAtlasIcons(): IconAtlasResult {
       dot:        entry(1, 2),
       halo:       entry(2, 2),
       tak_client: entry(3, 2),
+      train:      entry(0, 3),
     },
   }
 }

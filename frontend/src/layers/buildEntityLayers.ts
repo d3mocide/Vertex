@@ -41,10 +41,14 @@ function entityIconSize(selectedUid: string | null, track: Track, zoom: number):
   if (track.type === 'ground') {
     return track.uid === selectedUid ? 30 : 24
   }
+  if (track.type === 'rail') {
+    return track.uid === selectedUid ? 36 : 28
+  }
   return track.uid === selectedUid ? 40 : 32
 }
 
 const TAK_ICON_COLOR: [number, number, number, number] = [0, 230, 180, 240]   // teal — friendly ground
+const TRAIN_ICON_COLOR: [number, number, number, number] = [255, 193, 7, 240]   // amber — Amtrak rail
 
 function aprsColor(stationType: string | undefined): [number, number, number, number] {
   switch (stationType) {
@@ -100,6 +104,7 @@ export function buildEntityLayers(
     : t.type === 'ground' ? 'aprs'
     : t.type === 'hazard' ? 'fire'
     : t.type === 'tak'    ? 'tak_client'
+    : t.type === 'rail'   ? 'train'
     : 'aircraft'
 
   const iconLayer = new IconLayer<Track>({
@@ -111,8 +116,8 @@ export function buildEntityLayers(
       const icon = baseIcon(t)
       if (zoom >= 9) return icon
       if (zoom >= 6) {
-        // Keep ADSB (air), AIS (sea), and TAK clients as full icons at mid zoom.
-        if (t.type === 'air' || t.type === 'sea' || t.type === 'tak') return icon
+        // Keep ADSB (air), AIS (sea), TAK clients, and trains as full icons at mid zoom.
+        if (t.type === 'air' || t.type === 'sea' || t.type === 'tak' || t.type === 'rail') return icon
         return 'dot'
       }
       return 'dot'
@@ -123,6 +128,7 @@ export function buildEntityLayers(
       if (t.type === 'ground')  return aprsColor(t.stationType)
       if (t.type === 'tak')     return TAK_ICON_COLOR
       if (t.type === 'hazard')  return FIRE_ICON_COLOR
+      if (t.type === 'rail')    return tagColorMap?.[t.uid] ?? TRAIN_ICON_COLOR
       return tagColorMap?.[t.uid] ?? entityColor(t)
     },
     getSize:     (t) => entityIconSize(selectedUid, t, zoom),
@@ -190,5 +196,20 @@ export function buildEntityLayers(
     fontFamily: 'monospace',
   })
 
-  return [selectionRingLayer, emergencyRingLayer, iconLayer, aprsLabelLayer, takLabelLayer]
+  // Train labels: show at z9+ with amber tint
+  const trainLabelLayer = new TextLayer<Track>({
+    id: 'train-labels',
+    data: zoom >= 9 ? trackArr.filter((t) => t.type === 'rail') : [],
+    getPosition: (t) => [t.lon, t.lat],
+    getText: (t) => t.callsign ?? t.uid,
+    getSize: 11,
+    sizeUnits: 'pixels',
+    getColor: TRAIN_ICON_COLOR,
+    getPixelOffset: [0, 16],
+    getTextAnchor: 'middle',
+    getAlignmentBaseline: 'top',
+    fontFamily: 'monospace',
+  })
+
+  return [selectionRingLayer, emergencyRingLayer, iconLayer, aprsLabelLayer, takLabelLayer, trainLabelLayer]
 }
