@@ -10,7 +10,7 @@ from __future__ import annotations
 import os
 import sys
 import unittest
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock
 
 _BACKEND_ROOT = os.path.join(os.path.dirname(__file__), "..")

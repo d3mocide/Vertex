@@ -10,7 +10,6 @@ from __future__ import annotations
 import os
 import sys
 import unittest
-from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock
 
 _BACKEND_ROOT = os.path.join(os.path.dirname(__file__), "..")
@@ -76,7 +75,6 @@ from fastapi import FastAPI  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
 
 # Import db.models AFTER stubs so we get the real SQLAlchemy classes
-import db.models as _models  # noqa: E402
 
 
 def _make_app(mock_db: AsyncMock) -> tuple[FastAPI, TestClient]:
