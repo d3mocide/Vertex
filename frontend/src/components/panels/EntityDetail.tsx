@@ -7,6 +7,7 @@ import { AircraftOverview } from './entity/AircraftOverview'
 import { VesselOverview } from './entity/VesselOverview'
 import { AprsOverview } from './entity/AprsOverview'
 import { StreamGaugeOverview } from './entity/StreamGaugeOverview'
+import { TrainOverview } from './entity/TrainOverview'
 import { GenericOverview } from './entity/GenericOverview'
 
 interface MeshNeighbor {
@@ -19,6 +20,7 @@ interface MeshNeighbor {
 const TYPE_COLORS: Record<string, string> = {
   aircraft:       'text-cyan-adsb',
   vessel:         'text-green-ais',
+  train:          'text-amber-gold',
   mesh_node:      'text-amber-p25',
   satellite:      'text-violet-space',
   tinygs_station: 'text-amber-p25',
@@ -27,6 +29,7 @@ const TYPE_COLORS: Record<string, string> = {
 const TYPE_ICONS: Record<string, string> = {
   aircraft:       'flight',
   vessel:         'directions_boat',
+  train:          'directions_railway',
   mesh_node:      'router',
   satellite:      'satellite_alt',
   tinygs_station: 'satellite',
@@ -226,6 +229,8 @@ export function EntityDetail() {
               <AircraftOverview entity={entity} getIdentity={getIdentity} trail={trail} />
             ) : entity.entity_type === 'vessel' ? (
               <VesselOverview entity={entity} getIdentity={getIdentity} />
+            ) : entity.entity_type === 'train' ? (
+              <TrainOverview entity={entity} getIdentity={getIdentity} />
             ) : entity.entity_type === 'aprs' ? (
               <AprsOverview entity={entity} getIdentity={getIdentity} />
             ) : entity.entity_type === 'stream_gauge' ? (
