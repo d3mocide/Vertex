@@ -27,7 +27,7 @@ from pollers.lightning import LightningPoller
 from pollers.streamgauge import StreamGaugePoller
 from pollers.gdacs import GdacsPoller
 from pollers.nifc import NifcPoller
-from pollers.trains import TrainsPoller
+from pollers.gtfs_rt import GtfsRtPoller
 from bus import close
 from config_loader import load_sources_config
 from config_sync import sync_sources_to_db
@@ -84,7 +84,7 @@ async def main():
         StreamGaugePoller(),
         GdacsPoller(),
         NifcPoller(),
-        TrainsPoller(),
+        GtfsRtPoller(),
     ]
 
     if settings.tinygs_enabled:

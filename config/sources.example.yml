@@ -124,6 +124,42 @@ alert_zones:
   source: config
 
 # ---------------------------------------------------------------------------
+# GTFS-RT feeds — real-time transit vehicle positions (rail only by default).
+# Uses the official GTFS Realtime protocol (no proprietary decryption needed).
+#
+# route_types filter (GTFS spec):
+#   0 = Tram / Streetcar (Portland Streetcar)
+#   1 = Subway / Metro   (MAX Light Rail)
+#   2 = Rail             (WES Commuter Rail, Amtrak intercity)
+# ---------------------------------------------------------------------------
+gtfs_rt:
+  # TriMet (Portland Metro) — MAX light rail, WES commuter rail, Portland Streetcar
+  # Free API key at: https://developer.trimet.org/
+  # Set TRIMET_API_KEY in your .env file.
+  - name: trimet
+    label: "TriMet Portland Metro"
+    static_gtfs_url: "https://developer.trimet.org/schedule/gtfs.zip"
+    realtime_url: "https://developer.trimet.org/ws/gtfs/VehiclePositions"
+    api_key_env: "TRIMET_API_KEY"
+    api_key_param: "appID"
+    route_types: [0, 1, 2]     # Streetcar, MAX, WES
+    poll_interval: 15
+    enabled: true
+
+  # Amtrak — no public GTFS-RT feed available as of 2026.
+  # Add here if/when Amtrak publishes an official GTFS-RT VehiclePositions feed.
+  # Static GTFS schedule (no real-time): https://content.amtrak.com/content/gtfs/GTFS.zip
+  #
+  # - name: amtrak
+  #   label: "Amtrak"
+  #   static_gtfs_url: "https://content.amtrak.com/content/gtfs/GTFS.zip"
+  #   realtime_url: "https://..."
+  #   api_key_env: ""
+  #   route_types: [2]
+  #   poll_interval: 60
+  #   enabled: false
+
+# ---------------------------------------------------------------------------
 # Regions — define one or more geographic bounding boxes for data ingestion.
 # Each region gets its own bbox filter applied to ADS-B and weather pollers.
 # Pollers that support multi-region iterate over all enabled regions.
