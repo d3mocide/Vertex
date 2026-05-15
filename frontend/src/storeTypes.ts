@@ -61,7 +61,7 @@ export interface Track {
   altMeters:     number        // metres MSL (0 for vessels)
   speedMs:       number        // m/s
   courseTrue:    number        // 0–360°, true north
-  type:          'air' | 'sea' | 'ground' | 'hazard' | 'tak'
+  type:          'air' | 'sea' | 'ground' | 'hazard' | 'tak' | 'rail'
   callsign?:     string
   category?:     string
   trail:         TrailPt[]     // raw history, newest last, capped at 150 pts
@@ -258,6 +258,7 @@ export type EntityTypeFilter = {
   fire_incident: boolean
   satellite: boolean
   tinygs_station: boolean
+  train: boolean
 }
 
 // [min, max] — altitude in feet, speed in knots
