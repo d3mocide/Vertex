@@ -67,15 +67,17 @@ export function TacticalAudio() {
       el.src = activeStreamUrl
       el.volume = volume
       el.load()
-      // Snap to live edge once the browser has buffered enough data to seek within
+      // Snap to the live edge once the browser has buffered enough data.
+      // Seek to just before the buffer end (within the buffer) so the browser
+      // doesn't enter a waiting state chasing a position that never arrives.
       el.addEventListener('canplay', function snapToLive() {
-        try { el.currentTime = 1e10 } catch { /* stream may not be seekable */ }
-        el.removeEventListener('canplay', snapToLive)
+        if (el.buffered.length > 0) {
+          try { el.currentTime = Math.max(0, el.buffered.end(el.buffered.length - 1) - 0.5) } catch { /* ignore */ }
+        }
       }, { once: true })
       try {
         await el.play()
         setPlaying(true)
-        startDriftCorrection(el)
       } catch {
         setPlaying(false)
       } finally {
@@ -111,10 +113,13 @@ export function TacticalAudio() {
     }, 30_000)
   }
 
-  // Stall recovery: reload the stream if audio stalls for more than STALL_TIMEOUT_MS
+  // Stall recovery: reload the stream if audio stalls for more than STALL_TIMEOUT_MS.
+  // Also owns drift correction so it isn't killed by cleanup racing the state update.
   useEffect(() => {
     const el = audioRef.current
     if (!el) return
+
+    if (playing) startDriftCorrection(el)
 
     const onError = () => {
       clearStallTimer()
@@ -133,13 +138,15 @@ export function TacticalAudio() {
         audioRef.current.load()
         audioRef.current.src = src
         audioRef.current.load()
+        // Seek within the buffer (not beyond it) to avoid an indefinite waiting state
         audioRef.current.addEventListener('canplay', function snapToLive() {
-          try { audioRef.current!.currentTime = 1e10 } catch { /* ignore */ }
-          audioRef.current?.removeEventListener('canplay', snapToLive)
+          const a = audioRef.current
+          if (a && a.buffered.length > 0) {
+            try { a.currentTime = Math.max(0, a.buffered.end(a.buffered.length - 1) - 0.5) } catch { /* ignore */ }
+          }
         }, { once: true })
         try {
           await audioRef.current.play()
-          startDriftCorrection(audioRef.current)
         } catch {
           setPlaying(false)
         }
