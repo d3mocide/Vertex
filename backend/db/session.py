@@ -51,6 +51,7 @@ async def init_db():
         "ALTER TABLE alert_rules ADD COLUMN IF NOT EXISTS max_per_hour INTEGER",
         "ALTER TABLE alert_rules ADD COLUMN IF NOT EXISTS dedup_key VARCHAR(256)",
         "ALTER TABLE p25_recordings ADD COLUMN IF NOT EXISTS transcription TEXT",
+        "ALTER TABLE mesh_messages ADD COLUMN IF NOT EXISTS channel_name VARCHAR(128)",
     ]
     for migration in migrations:
         try:

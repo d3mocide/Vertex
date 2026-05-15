@@ -162,6 +162,7 @@ export interface MeshMessage {
   id:               string
   msg_type?:        string
   conversation_key: string
+  channel_name?:    string
   text:             string
   sender_name:      string
   sender_key:       string

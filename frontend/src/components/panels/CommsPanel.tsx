@@ -15,6 +15,14 @@ function formatTime(iso: string) {
   }
 }
 
+function prettyConversationLabel(conversationKey: string, channelName?: string): string {
+  const raw = (channelName || conversationKey || 'public').trim()
+  if (!raw) return 'Public'
+  if (/^(public|general)$/i.test(raw)) return 'Public'
+  if (/^[a-f0-9]{12,}$/i.test(raw)) return `Channel ${raw.slice(0, 8)}`
+  return raw
+}
+
 function NodeRow({ node, distM }: { node: Entity; distM: number }) {
   const km = (distM / 1000).toFixed(1)
   const isMesh = node.entity_type === 'mesh_node'
@@ -217,7 +225,7 @@ function SpectralMonitor({ links, history, status }: { links: MeshLink[]; histor
 export function CommsPanel() {
   const { radio, meshMessages, entities, systemEvents, tracks, meshLinks, linkHistory, meshStatus } = useCivicStore()
   const [msgFilter, setMsgFilter] = useState('')
-  const [healthTab, setHealthTab] = useState<'spectral' | 'fleet'>('spectral')
+  const [healthTab, setHealthTab] = useState<'spectral' | 'network'>('spectral')
   const [selectedConv, setSelectedConv] = useState<string>('all')
 
   // Calculate nearest nodes
@@ -253,6 +261,17 @@ export function CommsPanel() {
     ).reverse().slice(0, 8)
   }, [systemEvents])
 
+  const conversationNames = useMemo(() => {
+    const names = new Map<string, string>()
+    for (const m of meshMessages) {
+      const key = m.conversation_key || 'general'
+      const name = m.channel_name?.trim()
+      if (!name) continue
+      names.set(key, name)
+    }
+    return names
+  }, [meshMessages])
+
   // Unique conversation keys sorted by most recent message.
   const conversations = useMemo(() => {
     const latest = new Map<string, number>()
@@ -261,8 +280,13 @@ export function CommsPanel() {
       const ts = new Date(m.timestamp || 0).getTime()
       if (!latest.has(key) || ts > latest.get(key)!) latest.set(key, ts)
     }
-    return [...latest.entries()].sort((a, b) => b[1] - a[1]).map(([k]) => k)
-  }, [meshMessages])
+    return [...latest.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .map(([key]) => ({
+        key,
+        label: prettyConversationLabel(key, conversationNames.get(key)),
+      }))
+  }, [meshMessages, conversationNames])
 
   // Messages to display: filtered by text search + selected conversation,
   // then grouped by conversation_key for the "all" view.
@@ -274,7 +298,8 @@ export function CommsPanel() {
       return (
         (m.text ?? '').toLowerCase().includes(q) ||
         (m.sender_name ?? '').toLowerCase().includes(q) ||
-        (m.conversation_key ?? '').toLowerCase().includes(q)
+        (m.conversation_key ?? '').toLowerCase().includes(q) ||
+        (m.channel_name ?? '').toLowerCase().includes(q)
       )
     })
 
@@ -414,10 +439,10 @@ export function CommsPanel() {
           <section>
             <div className="flex items-center gap-2 mb-3">
               <span className="ms text-[14px] text-amber-gold">
-                {healthTab === 'spectral' ? 'analytics' : 'inventory_2'}
+                {healthTab === 'spectral' ? 'analytics' : 'hub'}
               </span>
               <div className="flex gap-1">
-                {(['spectral', 'fleet'] as const).map(tab => (
+                {(['spectral', 'network'] as const).map(tab => (
                   <button
                     key={tab}
                     onClick={() => setHealthTab(tab)}
@@ -427,7 +452,7 @@ export function CommsPanel() {
                         : 'text-on-surface-variant hover:text-on-surface'
                     }`}
                   >
-                    {tab === 'spectral' ? 'Spectral' : 'Fleet'}
+                    {tab === 'spectral' ? 'Spectral' : 'Network'}
                   </button>
                 ))}
               </div>
@@ -443,7 +468,7 @@ export function CommsPanel() {
         <div className="flex-[2] min-w-0 flex flex-col gap-6">
           <h3 className="section-heading mb-3 flex items-center gap-2">
             <span className="ms text-[14px] text-amber-gold">chat</span>
-            Mesh Network Messaging
+            Network Messaging
           </h3>
 
           <div className="flex-1 lg:flex-none lg:h-[800px] flex flex-col border border-white/10 bg-onyx-deep/40 rounded-sm overflow-hidden">
@@ -462,15 +487,15 @@ export function CommsPanel() {
                 </button>
                 {conversations.map(conv => (
                   <button
-                    key={conv}
-                    onClick={() => setSelectedConv(conv)}
+                    key={conv.key}
+                    onClick={() => setSelectedConv(conv.key)}
                     className={`font-mono text-[10px] uppercase tracking-widest px-2.5 py-1 rounded-full whitespace-nowrap shrink-0 transition-colors ${
-                      selectedConv === conv
+                      selectedConv === conv.key
                         ? 'bg-amber-gold text-onyx-black font-bold'
                         : 'bg-white/10 text-on-surface-variant hover:bg-white/20'
                     }`}
                   >
-                    {conv}
+                    {conv.label}
                   </button>
                 ))}
               </div>
@@ -496,7 +521,9 @@ export function CommsPanel() {
                     {selectedConv === 'all' && (
                       <div className="flex items-center gap-2 mb-2 sticky top-0 bg-onyx-deep/80 backdrop-blur-sm py-1 z-10">
                         <span className="ms text-[12px] text-amber-gold/60">forum</span>
-                        <span className="font-mono text-[10px] text-amber-gold/80 uppercase tracking-widest">{group.key}</span>
+                        <span className="font-mono text-[10px] text-amber-gold/80 uppercase tracking-widest">
+                          {prettyConversationLabel(group.key, conversationNames.get(group.key))}
+                        </span>
                         <span className="font-mono text-[10px] text-on-surface-variant/50">{group.msgs.length} msg{group.msgs.length !== 1 ? 's' : ''}</span>
                         <div className="flex-1 h-px bg-white/5" />
                       </div>
