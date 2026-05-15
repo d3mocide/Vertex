@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useCivicStore } from '../../store'
-import { API_BASE, STREAM_URL } from '../../config'
+import { API_BASE } from '../../config'
 import { authHeaders } from '../../auth'
 import { useRadioStreams } from '../../hooks/useRadioStreams'
 import { ChannelsPanel, type TalkgroupLogRow, type ManagedTalkgroup } from './ChannelsPanel'
@@ -22,15 +22,18 @@ export function TacticalAudio() {
   const [talkgroupLog, setTalkgroupLog] = useState<TalkgroupLogRow[]>([])
   const [managedTalkgroups, setManagedTalkgroups] = useState<ManagedTalkgroup[]>([])
   const [selectedTgIdx, setSelectedTgIdx] = useState<number | null>(null)
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const timerRef    = useRef<ReturnType<typeof setInterval> | null>(null)
+  const driftRef    = useRef<ReturnType<typeof setInterval> | null>(null)
+  const stallRef    = useRef<ReturnType<typeof setTimeout>  | null>(null)
+  const STALL_TIMEOUT_MS = 8_000
 
   const { selectedStream, setSelectedId } = useRadioStreams()
   const radio = useCivicStore((s) => s.radio)
   const mode  = useCivicStore((s) => s.mode)
 
   const isActive = radio?.state === 'call'
-  const rawStreamUrl = selectedStream?.url ?? STREAM_URL
-  const activeStreamUrl = /^https?:\/\//i.test(rawStreamUrl) ? rawStreamUrl : ''
+  // Use backend proxy endpoint for all streams (handles private network IPs)
+  const activeStreamUrl = selectedStream?.id ? `${API_BASE}/radio/proxy/${selectedStream.id}` : ''
 
   useEffect(() => {
     const el = audioRef.current
@@ -56,12 +59,22 @@ export function TacticalAudio() {
     if (playing) {
       el.pause()
       el.src = ''
+      stopDriftCorrection()
+      clearStallTimer()
       setPlaying(false)
     } else {
       setLoading(true)
       el.src = activeStreamUrl
       el.volume = volume
       el.load()
+      // Snap to the live edge once the browser has buffered enough data.
+      // Seek to just before the buffer end (within the buffer) so the browser
+      // doesn't enter a waiting state chasing a position that never arrives.
+      el.addEventListener('canplay', function snapToLive() {
+        if (el.buffered.length > 0) {
+          try { el.currentTime = Math.max(0, el.buffered.end(el.buffered.length - 1) - 0.5) } catch { /* ignore */ }
+        }
+      }, { once: true })
       try {
         await el.play()
         setPlaying(true)
@@ -79,13 +92,82 @@ export function TacticalAudio() {
     if (audioRef.current) audioRef.current.volume = v
   }
 
+  const stopDriftCorrection = () => {
+    if (driftRef.current) { clearInterval(driftRef.current); driftRef.current = null }
+  }
+
+  const clearStallTimer = () => {
+    if (stallRef.current) { clearTimeout(stallRef.current); stallRef.current = null }
+  }
+
+  const startDriftCorrection = (el: HTMLAudioElement) => {
+    stopDriftCorrection()
+    driftRef.current = setInterval(() => {
+      if (!el || el.paused) return
+      if (el.buffered.length > 0) {
+        const liveEdge = el.buffered.end(el.buffered.length - 1)
+        if (liveEdge - el.currentTime > 2) {
+          try { el.currentTime = liveEdge } catch { /* ignore */ }
+        }
+      }
+    }, 30_000)
+  }
+
+  // Stall recovery: reload the stream if audio stalls for more than STALL_TIMEOUT_MS.
+  // Also owns drift correction so it isn't killed by cleanup racing the state update.
   useEffect(() => {
     const el = audioRef.current
     if (!el) return
-    const onError = () => { setPlaying(false); setLoading(false) }
-    el.addEventListener('error', onError)
-    return () => el.removeEventListener('error', onError)
-  }, [])
+
+    if (playing) startDriftCorrection(el)
+
+    const onError = () => {
+      clearStallTimer()
+      stopDriftCorrection()
+      setPlaying(false)
+      setLoading(false)
+    }
+
+    const onStall = () => {
+      if (!playing) return
+      clearStallTimer()
+      stallRef.current = setTimeout(async () => {
+        if (!audioRef.current || !playing) return
+        const src = audioRef.current.src
+        audioRef.current.src = ''
+        audioRef.current.load()
+        audioRef.current.src = src
+        audioRef.current.load()
+        // Seek within the buffer (not beyond it) to avoid an indefinite waiting state
+        audioRef.current.addEventListener('canplay', function snapToLive() {
+          const a = audioRef.current
+          if (a && a.buffered.length > 0) {
+            try { a.currentTime = Math.max(0, a.buffered.end(a.buffered.length - 1) - 0.5) } catch { /* ignore */ }
+          }
+        }, { once: true })
+        try {
+          await audioRef.current.play()
+        } catch {
+          setPlaying(false)
+        }
+      }, STALL_TIMEOUT_MS)
+    }
+
+    const onPlaying = () => clearStallTimer()
+
+    el.addEventListener('error',   onError)
+    el.addEventListener('stalled', onStall)
+    el.addEventListener('waiting', onStall)
+    el.addEventListener('playing', onPlaying)
+    return () => {
+      el.removeEventListener('error',   onError)
+      el.removeEventListener('stalled', onStall)
+      el.removeEventListener('waiting', onStall)
+      el.removeEventListener('playing', onPlaying)
+      clearStallTimer()
+      stopDriftCorrection()
+    }
+  }, [playing]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load call log
   useEffect(() => {

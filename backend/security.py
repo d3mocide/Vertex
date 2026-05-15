@@ -21,6 +21,25 @@ def decode_token(token: str) -> dict:
         ) from exc
 
 
+def validate_safe_url(url: str, allowed_schemes: set[str] | None = None) -> None:
+    """Raise ValueError if url is not a safe, public URL."""
+    if allowed_schemes is None:
+        allowed_schemes = {"http", "https", "ws", "wss", "tcp"}
+    try:
+        parsed = urlparse(url)
+    except Exception as exc:
+        raise ValueError(f"Unparseable URL: {exc}") from exc
+
+    if parsed.scheme not in allowed_schemes:
+        raise ValueError(f"URL scheme must be one of {allowed_schemes}")
+
+    hostname = parsed.hostname or ""
+    if not hostname:
+        raise ValueError("URL has no hostname")
+
+    validate_safe_host(hostname)
+
+
 def validate_safe_host(hostname: str) -> None:
     """Raise ValueError if hostname resolves to a non-public address."""
     if not hostname:
@@ -41,34 +60,9 @@ def validate_safe_host(hostname: str) -> None:
             _reject_private_ip(ipaddress.ip_address(addr))
 
 
-def validate_safe_url(url: str, allowed_schemes: tuple[str, ...] = ("http", "https")) -> None:
-    """Raise ValueError if url is not a safe, public URL with an allowed scheme."""
-    try:
-        parsed = urlparse(url)
-    except Exception as exc:
-        raise ValueError(f"Unparseable URL: {exc}") from exc
-
-    if parsed.scheme not in allowed_schemes:
-        raise ValueError(f"URL scheme must be one of: {', '.join(allowed_schemes)}")
-
-    hostname = parsed.hostname or ""
-    validate_safe_host(hostname)
-
-
 def validate_webhook_url(url: str) -> None:
     """Raise ValueError if url is not a safe, public http/https URL."""
-    try:
-        validate_safe_url(url, allowed_schemes=("http", "https"))
-    except ValueError as exc:
-        # Maintain backward compatibility with error messages if possible,
-        # but the new ones are also descriptive.
-        if "scheme" in str(exc):
-            raise ValueError("Webhook URL must use http or https") from exc
-        if "hostname" in str(exc):
-             raise ValueError("Webhook URL has no hostname") from exc
-        if "resolve" in str(exc):
-             raise ValueError(f"Cannot resolve webhook hostname: {str(exc).split(': ', 1)[-1]}") from exc
-        raise
+    validate_safe_url(url, allowed_schemes={"http", "https"})
 
 
 def _reject_private_ip(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> None:

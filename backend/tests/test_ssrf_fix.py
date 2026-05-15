@@ -1,7 +1,38 @@
+from __future__ import annotations
+
+import os
+import sys
 import unittest
-import asyncio
-from backend.security import validate_safe_url, validate_safe_host
-from backend.routers.admin_debug import _http_get_check, _http_post_check, _probe_ws, _probe_aprs_tcp
+from unittest.mock import MagicMock
+
+_BACKEND_ROOT = os.path.join(os.path.dirname(__file__), "..")
+if _BACKEND_ROOT not in sys.path:
+    sys.path.insert(0, _BACKEND_ROOT)
+
+# ---------------------------------------------------------------------------
+# Stub heavy dependencies before importing router.
+# ---------------------------------------------------------------------------
+for _mod in [
+    "db.session",
+    "redis_bus",
+    "auth_middleware",
+    "rate_limit",
+    "metrics_collector",
+    "webhook_dispatcher",
+    "prometheus_fastapi_instrumentator",
+    "deps",
+]:
+    sys.modules.setdefault(_mod, MagicMock())
+
+_mock_settings = MagicMock()
+_mock_settings.auth_enabled = False
+_mock_settings.auth_secret_key = "test-secret-key-at-least-32-chars!!"
+_mock_config = MagicMock()
+_mock_config.settings = _mock_settings
+sys.modules["config"] = _mock_config
+
+from security import validate_safe_url, validate_safe_host  # noqa: E402
+from routers.admin_debug import _http_get_check, _http_post_check, _probe_ws, _probe_aprs_tcp  # noqa: E402
 
 class TestSSRFValidation(unittest.TestCase):
     def test_validate_safe_url_internal(self):
@@ -18,7 +49,7 @@ class TestSSRFValidation(unittest.TestCase):
             with self.subTest(url=url):
                 with self.assertRaises(ValueError) as cm:
                     if url.startswith("ws"):
-                        validate_safe_url(url, allowed_schemes=("ws", "wss"))
+                        validate_safe_url(url, allowed_schemes={"ws", "wss"})
                     else:
                         validate_safe_url(url)
                 self.assertIn("non-public address", str(cm.exception))
@@ -43,15 +74,19 @@ class TestSSRFValidation(unittest.TestCase):
             "https://google.com",
             "ws://echo.websocket.org",
         ]
-        # These should NOT raise ValueError (assuming they resolve to public IPs)
+        # These should NOT raise ValueError (assuming they resolve to public IPs).
+        # Domain-name entries are skipped if DNS is unavailable in the test environment.
         for url in public_urls:
             with self.subTest(url=url):
                 try:
                     if url.startswith("ws"):
-                        validate_safe_url(url, allowed_schemes=("ws", "wss"))
+                        validate_safe_url(url, allowed_schemes={"ws", "wss"})
                     else:
                         validate_safe_url(url)
                 except ValueError as e:
+                    if "Cannot resolve hostname" in str(e):
+                        # DNS unavailable in this environment — not an SSRF issue.
+                        continue
                     self.fail(f"validate_safe_url raised ValueError for public URL {url}: {e}")
 
 class TestAsyncProbeSSRF(unittest.IsolatedAsyncioTestCase):

@@ -81,41 +81,41 @@ async def generate_sitrep(
     window_label = f"{hours}h" if hours < 24 else f"{hours // 24}d"
 
     lines: list[str] = [
-        f"# VERTEX SITUATION REPORT",
-        f"",
+        "# VERTEX SITUATION REPORT",
+        "",
         f"**Generated:** {ts_fmt}  ",
         f"**Window:** Last {window_label}  ",
-        f"**Classification:** UNCLASSIFIED // FOR OFFICIAL USE ONLY",
-        f"",
-        f"---",
-        f"",
-        f"## 1. AI Situational Summary",
-        f"",
+        "**Classification:** UNCLASSIFIED // FOR OFFICIAL USE ONLY",
+        "",
+        "---",
+        "",
+        "## 1. AI Situational Summary",
+        "",
         f"{ai_summary}",
     ]
     if ai_model:
-        lines.append(f"")
+        lines.append("")
         lines.append(f"*Model: {ai_model}" + (f" · {ai_ts}" if ai_ts else "") + "*")
 
     lines += [
-        f"",
-        f"---",
-        f"",
-        f"## 2. Tracked Entities",
-        f"",
-        f"| Type | Count |",
-        f"|------|-------|",
+        "",
+        "---",
+        "",
+        "## 2. Tracked Entities",
+        "",
+        "| Type | Count |",
+        "|------|-------|",
     ]
     for etype, count in sorted(entity_counts.items(), key=lambda x: -x[1]):
         lines.append(f"| {etype.replace('_', ' ').title()} | {count} |")
     lines.append(f"| **Total** | **{total_entities}** |")
 
     lines += [
-        f"",
-        f"---",
-        f"",
-        f"## 3. Weather Alerts",
-        f"",
+        "",
+        "---",
+        "",
+        "## 3. Weather Alerts",
+        "",
     ]
     if weather_alerts:
         for alert in weather_alerts:
@@ -124,11 +124,11 @@ async def generate_sitrep(
         lines.append("No active weather alerts.")
 
     lines += [
-        f"",
-        f"---",
-        f"",
+        "",
+        "---",
+        "",
         f"## 4. Notable Events ({len(events)} total in window)",
-        f"",
+        "",
     ]
 
     if critical_events:
@@ -162,7 +162,7 @@ async def generate_sitrep(
         "",
         "---",
         "",
-        f"*End of SitRep — Vertex Situational Awareness Platform*",
+        "*End of SitRep — Vertex Situational Awareness Platform*",
     ]
 
     md = "\n".join(lines)

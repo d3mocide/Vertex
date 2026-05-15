@@ -145,7 +145,6 @@ services:
         VITE_RADAR_FALLBACK_LAYER: ${VITE_RADAR_FALLBACK_LAYER:-radar}
         VITE_RADAR_FALLBACK_MAX_ZOOM: ${VITE_RADAR_FALLBACK_MAX_ZOOM:-6}
         VITE_OBSERVATION_RANGE_KM: ${VITE_OBSERVATION_RANGE_KM:-50}
-        VITE_RADIO_STREAM_URL: ${VITE_RADIO_STREAM_URL:-/stream/radio.mp3}
         VITE_TILE_URL: ${VITE_TILE_URL:-}
         VITE_PRESERVE_DRAWING_BUFFER: ${VITE_PRESERVE_DRAWING_BUFFER:-false}
     restart: unless-stopped
@@ -191,7 +190,7 @@ services:
       redis:
         condition: service_healthy
     volumes:
-      - p25_audio:/data/audio          # shared audio dir OP25 writes recordings to
+      - p25_audio:/data/audio          # shared audio dir for P25 call recordings
       - whisper_models:/root/.cache    # persist downloaded model weights across restarts
     networks:
       - internal
@@ -225,5 +224,5 @@ networks:
 volumes:
   db_data:
   redis_data:
-  p25_audio:       # P25 call recordings written by OP25; shared with transcription service
+  p25_audio:       # P25 call recordings; shared with transcription service
   whisper_models:  # Whisper model weights cache; avoids re-downloading on container restart

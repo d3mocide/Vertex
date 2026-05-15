@@ -1,11 +1,12 @@
 import json
-import os
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
+from starlette.background import BackgroundTask
 from pydantic import BaseModel
 from sqlalchemy import select, desc
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -13,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from config import settings
 from config_writer import add_entry, remove_entry, update_entry
 from deps import get_db
+from db.session import async_session_factory
 from db.models import Event, RadioStream, Talkgroup, P25Recording
 from redis_bus import get_redis
 
@@ -353,3 +355,57 @@ async def get_recording_file(
         media_type="audio/mpeg",
         filename=file_path.name,
     )
+
+
+# ---------------------------------------------------------------------------
+# Stream proxy (relay external streams through backend)
+# ---------------------------------------------------------------------------
+
+@router.get("/proxy/{stream_id}")
+async def proxy_stream(
+    stream_id: int,
+):
+    """
+    Proxy an external radio stream through the backend.
+    This allows browsers to access streams on private network IPs.
+    """
+    async with async_session_factory() as db:
+        result = await db.execute(select(RadioStream).where(RadioStream.id == stream_id))
+        stream = result.scalar_one_or_none()
+
+    if not stream or not stream.enabled:
+        raise HTTPException(404, "Stream not found or disabled")
+
+    # Validate URL is HTTP(S)
+    if not stream.url.startswith(("http://", "https://")):
+        raise HTTPException(400, "Invalid stream URL")
+
+    client = httpx.AsyncClient(timeout=httpx.Timeout(connect=10.0, read=None, write=10.0, pool=10.0), follow_redirects=True)
+    try:
+        req = client.build_request("GET", stream.url)
+        resp = await client.send(req, stream=True)
+    except httpx.RequestError as e:
+        await client.aclose()
+        raise HTTPException(503, f"Stream unavailable: {str(e)}")
+
+    if resp.status_code != 200:
+        await resp.aclose()
+        await client.aclose()
+        raise HTTPException(resp.status_code, f"Stream error: {resp.status_code}")
+
+    # Keep upstream response open until downstream client disconnects.
+    async def _iter_stream():
+        try:
+            async for chunk in resp.aiter_bytes():
+                if chunk:
+                    yield chunk
+        finally:
+            await resp.aclose()
+
+    return StreamingResponse(
+        _iter_stream(),
+        media_type=resp.headers.get("content-type", "audio/mpeg"),
+        status_code=200,
+        background=BackgroundTask(client.aclose),
+    )
+

@@ -103,12 +103,17 @@ class AISummaryPoller(BasePoller):
         # 2. Fire Activity (NIFC/EONET)
         raw = await r.get("feed:fire:perimeters")
         if raw:
-            fires = json.loads(raw)
-            if fires:
-                lines = [
-                    f"- {f.get('name', 'Wildfire')}: {f.get('location', 'Unknown')} ({f.get('size_acres', 0)} acres)"
-                    for f in fires[:10]
-                ]
+            payload = json.loads(raw)
+            fires = payload.get("features", []) if isinstance(payload, dict) else (payload or [])
+            if isinstance(fires, list) and fires:
+                lines = []
+                for f in fires[:10]:
+                    props = f.get("properties", {}) if isinstance(f, dict) else {}
+                    name = props.get("name") or "Wildfire"
+                    state = props.get("state") or "Unknown"
+                    acres = props.get("acres")
+                    acres_text = f"{acres} acres" if acres is not None else "acreage unknown"
+                    lines.append(f"- {name}: {state} ({acres_text})")
                 context_parts.append("WILDFIRE ACTIVITY:\n" + "\n".join(lines))
             else:
                 context_parts.append("FIRE STATUS: No active wildfire perimeters in regional radius.")

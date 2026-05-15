@@ -18,10 +18,21 @@ _PUBLIC_PREFIXES = (
     "/api/v1/weather/radar/wms",
     "/api/v1/weather/alerts/wms",
     "/api/v1/weather/lightning/wms",
+    "/api/v1/radio/proxy",  # Stream proxy — accesses private network streams
 )
 _MUTATING_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
+_SAFE_METHODS = frozenset({"GET", "HEAD"})
 _AUTH_PUBLIC_PATHS = frozenset({"/api/v1/auth/login", "/api/v1/auth/token", "/api/v1/auth/setup", "/api/v1/auth/status"})
 _AUTH_WRITE_EXEMPT = frozenset({"/api/v1/auth/token", "/api/v1/auth/setup"})
+
+
+def _allow_query_token_fallback(path: str, method: str) -> bool:
+    """Permit URL token auth only for browser-playable P25 recording files."""
+    return (
+        method in _SAFE_METHODS
+        and path.startswith("/api/v1/radio/recordings/")
+        and path.endswith("/file")
+    )
 
 
 def _hash_api_key(key: str) -> str:
@@ -63,6 +74,8 @@ class AuthMiddleware(BaseHTTPMiddleware):
         else:
             header = request.headers.get("Authorization", "")
             token = header[7:].strip() if header.startswith("Bearer ") else ""
+            if not token and _allow_query_token_fallback(path, request.method):
+                token = request.query_params.get("token", "")
 
         if not token:
             return Response(status_code=401) if is_ws else JSONResponse(

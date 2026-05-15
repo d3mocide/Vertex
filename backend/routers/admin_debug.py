@@ -297,6 +297,12 @@ async def list_remote_feeds(db: AsyncSession = Depends(get_db)):
 async def probe_remote_feed(body: RemoteFeedProbeRequest, db: AsyncSession = Depends(get_db)):
     source = await _resolve_source(db, body.source_type, body.source_url)
     source_url = str(source.get("url") or "")
+
+    try:
+        validate_safe_url(source_url)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=f"Invalid or unsafe source URL: {exc}")
+
     src = _parse_source(source_url)
     base_url = src["base_url"]
     auth = src.get("auth")

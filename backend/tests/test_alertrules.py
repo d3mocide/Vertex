@@ -64,7 +64,6 @@ from routers.alertrules import (  # noqa: E402
     AlertRuleCreate,
     AlertRuleUpdate,
 )
-import db.models as _models  # noqa: E402
 
 
 def _make_app(mock_db: AsyncMock) -> tuple[FastAPI, TestClient]:

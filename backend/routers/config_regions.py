@@ -22,7 +22,8 @@ class RegionOut(BaseModel):
 @router.get("/regions", response_model=list[RegionOut])
 async def get_regions():
     """Return the list of configured monitoring regions."""
-    import yaml, os
+    import yaml
+    import os
     sources_path = os.environ.get("SOURCES_YML", "/config/sources.yml")
     try:
         with open(sources_path) as f:

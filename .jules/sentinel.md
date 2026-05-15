@@ -3,7 +3,7 @@
 **Learning:** `xml.sax.saxutils.escape` by default only escapes `<`, `>`, and `&`. It does NOT escape `"` or `'`. Thus, when used to safely interpolate variables into XML attributes, it is insufficient against a quote-based breakout attack.
 **Prevention:** Always provide the `entities={'"': "&quot;", "'": "&apos;"}` argument when calling `xml.sax.saxutils.escape` for attribute values, or alternatively use `xml.sax.saxutils.quoteattr()`.
 
-## 2026-05-14 - [SSRF in Remote Feed Probe Utility]
-**Vulnerability:** The `admin_debug` router provided functions (`_http_get_check`, `_http_post_check`, `_probe_ws`, `_probe_aprs_tcp`) that accepted arbitrary URLs or hosts from user-provided feed configurations. These functions lacked validation, allowing an attacker with admin access to probe internal services or cloud metadata endpoints via Server-Side Request Forgery (SSRF).
-**Learning:** Reusable diagnostic tools that perform outbound requests must strictly validate destinations against private IP ranges and internal hostnames, even when limited to authenticated administrators.
-**Prevention:** Centralize URL/Host validation logic. Resolve hostnames before connection and check all resulting IP addresses against loopback, private, link-local, and reserved ranges (`ipaddress.IPv4Address.is_private`, etc.). For multi-protocol tools, also validate allowed URL schemes.
+## 2025-05-14 - [SSRF in Admin Debug Endpoint]
+**Vulnerability:** The `/admin/debug/remote-feeds/probe` and `/admin/debug/meshcore/probe` endpoints accepted an arbitrary user-controlled URL (`source_url`) and used it directly in backend HTTP/TCP requests without validation. This created a Server-Side Request Forgery (SSRF) vulnerability.
+**Learning:** Even internal admin debug/probing endpoints need SSRF protection to prevent an authenticated attacker from bypassing firewalls to access internal services (like `http://127.0.0.1:8080/`).
+**Prevention:** Always use centralized SSRF validation (e.g., `validate_safe_url`) to check user-provided URLs against a strict whitelist of schemes and block private/loopback/link-local IP addresses before making any outbound request.
