@@ -5,6 +5,51 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 
 ---
 
+## 2026-05-15 — Added startup diagnostics Make target for backend/frontend health triage
+
+- Added `startup-diagnose` target to `Makefile` to quickly triage startup failures by printing:
+    - `docker compose ps`
+    - backend/frontend container health inspect output
+    - recent backend/frontend/db/redis logs
+- Updated `.PHONY` to include `startup-diagnose`.
+- Attempted local validation with `make help` and `make startup-diagnose`, but host environment currently lacks a `make` binary (`CommandNotFoundException`).
+- The target definition is present and ready to use once `make` is installed or run from an environment that provides GNU Make.
+
+## 2026-05-15 — Fixed intermittent backend unhealthy startup on compose up
+
+- Investigated compose startup failure where `vertex-backend-1` was marked unhealthy and frontend remained `Created` due to dependency gating.
+- Confirmed contributing factors:
+    - backend healthcheck window was too tight for occasional slow startup/recovery sequences,
+    - existing DB volumes could miss `mesh_messages.channel_name`, causing repeated runtime DB errors.
+- Updated `docker-compose.yml` backend healthcheck to reduce false negatives during cold starts/recovery:
+    - `retries` increased from `3` to `8`
+    - added `start_period: 45s`
+- Added startup compatibility migration in `backend/db/session.py`:
+    - `ALTER TABLE mesh_messages ADD COLUMN IF NOT EXISTS channel_name VARCHAR(128)`
+- Validation:
+    - `docker compose config --quiet` ✓
+    - `python -m py_compile backend/db/session.py` ✓
+    - `docker compose up -d backend frontend` ✓
+    - backend health inspect: `status=healthy`, `FailingStreak=0` ✓
+    - backend logs show successful startup and 200 health checks ✓
+
+## 2026-05-15 — Reworked Comms network node ordering and mesh channel naming
+
+- Updated network node panel sorting to deterministic proximity ordering (nearest to configured center target first, with stable fallbacks).
+- Rebranded Comms health tab label from Fleet to Network and updated related empty-state language to match observed-node semantics.
+- Enhanced MeshCore ingest to capture channel display names from RemoteTerm message payloads and `/api/channels` metadata when available.
+- Added optional `channel_name` support end-to-end:
+    - poller message normalization now includes `channel_name`,
+    - poller persistence/upsert writes `channel_name` when schema supports it,
+    - backend mesh messages API now returns `channel_name`.
+- Added schema support for `channel_name` in `db/init/08_mesh_messages.sql` and backend runtime column self-heal via `ALTER TABLE ... ADD COLUMN IF NOT EXISTS`.
+- Added backward-compatible poller DB write fallback for older volumes that do not yet have the `channel_name` column.
+- Updated frontend Comms message filtering and conversation chips/group headers to prefer friendly channel names over raw hashed conversation keys.
+- Validation:
+    - `cd frontend && npm install && npx tsc --noEmit` ✓
+    - `docker compose config --quiet` ✓
+    - `python -m py_compile poller/pollers/meshcore.py backend/routers/mesh.py` ✓
+
 ## 2026-05-14 — Fixed summary poller slice error on fire feed
 
 - Root cause: `poller/pollers/summary.py` treated `feed:fire:perimeters` as a list and sliced it (`fires[:10]`), but NIFC poller stores this feed as GeoJSON FeatureCollection object (`{"type": "FeatureCollection", "features": [...]}`).

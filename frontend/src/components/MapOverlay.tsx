@@ -97,7 +97,7 @@ export function MapOverlay({ map }: Props) {
   const camerasRef        = useRef<TrafficCamera[]>([])
   const selectedCamRef    = useRef<string | null>(null)
   const activeTabRef      = useRef<string>('safety')
-  const entityFilterRef   = useRef<EntityTypeFilter>({ aircraft: true, adsbLocal: true, adsbSupplement: true, vessel: true, mesh_node: true, aprs: true, fire_incident: true, satellite: true, tinygs_station: true })
+  const entityFilterRef   = useRef<EntityTypeFilter>({ aircraft: true, adsbLocal: true, adsbSupplement: true, vessel: true, mesh_node: true, aprs: true, fire_incident: true, satellite: true, tinygs_station: true, train: true })
   const searchQueryRef    = useRef<string>('')
   const altRangeRef       = useRef<RangeFilter>([0, 60_000])
   const speedRangeRef     = useRef<RangeFilter>([0, 600])
@@ -295,17 +295,22 @@ export function MapOverlay({ map }: Props) {
             map.getCanvas().style.cursor = ''
             return
           }
-          const isAir = t.type === 'air'
+          const isAir   = t.type === 'air'
+          const isRail  = t.type === 'rail'
           const ALT_M_TO_FT = 3.28084
           const MS_TO_KT    = 1.94384
+          const tooltipIcon  = isAir ? 'flight' : isRail ? 'directions_railway' : 'sailing'
+          const tooltipColor = isAir ? 'text-blue-400' : isRail ? 'text-amber-400' : 'text-teal-400'
+          const sourceLabel  = isAir ? 'ADS-B' : isRail ? escHtml(t.source.toUpperCase()) : 'AIS'
+          const statusLabel  = isAir ? 'Airborne' : isRail ? 'En Route' : 'Underway'
           html = `
             <div class="p-2 min-w-[160px] bg-slate-900/95 border border-slate-700 rounded-lg shadow-2xl backdrop-blur-md">
               <div class="flex items-center justify-between mb-2 border-b border-slate-700/50 pb-1.5">
                 <div class="flex items-center gap-2">
-                  <span class="material-symbols-outlined text-[16px] ${isAir ? 'text-blue-400' : 'text-teal-400'}">${isAir ? 'flight' : 'sailing'}</span>
+                  <span class="material-symbols-outlined text-[16px] ${tooltipColor}">${tooltipIcon}</span>
                   <span class="font-bold text-white uppercase tracking-wider text-[11px] truncate">${escHtml(t.callsign || t.uid)}</span>
                 </div>
-                <span class="text-[11px] text-slate-500 font-mono">${isAir ? 'ADS-B' : 'AIS'}</span>
+                <span class="text-[11px] text-slate-500 font-mono">${sourceLabel}</span>
               </div>
               <div class="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-[11px] text-slate-400 font-mono">
                  ${isAir ? `<span>ALT:</span><span class="text-blue-200 text-right">${Math.round(t.altMeters * ALT_M_TO_FT).toLocaleString()} FT</span>` : ''}
@@ -315,7 +320,7 @@ export function MapOverlay({ map }: Props) {
               </div>
               <div class="mt-2 pt-1 border-t border-white/5 text-[11px] text-slate-500 flex justify-between uppercase">
                 <span>ID: ${escHtml(t.uid.slice(0, 8))}</span>
-                <span>${isAir ? 'Airborne' : 'Underway'}</span>
+                <span>${statusLabel}</span>
               </div>
             </div>
           `
@@ -536,6 +541,7 @@ export function MapOverlay({ map }: Props) {
           if (track.type === 'sea' && !ef.vessel) continue
           if (track.type === 'ground' && !ef.aprs) continue
           if (track.type === 'hazard' && !ef.fire_incident) continue
+          if (track.type === 'rail' && !ef.train) continue
 
           if (q) {
             const name = (track.callsign ?? uid).toLowerCase()

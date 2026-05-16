@@ -134,6 +134,12 @@ alert_zones:
   source: config
 
 # ---------------------------------------------------------------------------
+# TriMet GTFS-RT (MAX light rail, WES commuter rail, Portland Streetcar)
+# is configured via .env — set TRIMET_GTFS_ENABLED=true and TRIMET_API_KEY.
+# See .env.example for all available options.
+# ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
 # Regions — define one or more geographic bounding boxes for data ingestion.
 # Each region gets its own bbox filter applied to ADS-B and weather pollers.
 # Pollers that support multi-region iterate over all enabled regions.

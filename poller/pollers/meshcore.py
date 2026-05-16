@@ -44,6 +44,7 @@ class MeshCorePoller(BasePoller):
         self._sources: list[dict] = []
         self._local_node_ids: dict[str, str] = {}  # base_url -> entity_id
         self._last_link_update: dict[str, float] = {}  # link_key -> timestamp
+        self._channel_maps: dict[str, dict[str, str]] = {}  # base_url -> {channel_key: display_name}
 
     async def poll(self):
         pass  # streaming + periodic REST — overrides run()
@@ -89,6 +90,10 @@ class MeshCorePoller(BasePoller):
                     logger.debug("[meshcore] upserted %d links from %s", len(neighbors), src["base_url"])
             except Exception as exc:
                 logger.debug("[meshcore] neighbor fetch skipped: %s", exc)
+            try:
+                self._channel_maps[src["base_url"]] = await _fetch_channels(src)
+            except Exception as exc:
+                logger.debug("[meshcore] channel fetch skipped: %s", exc)
             await asyncio.sleep(_CONTACT_POLL_INTERVAL)
 
     async def _ws_loop(self, src: dict):
@@ -154,7 +159,11 @@ class MeshCorePoller(BasePoller):
                 await publish_entity(entity)
 
         elif event_type == "message":
-            message = _normalize_mesh_message(data, base_url)
+            message = _normalize_mesh_message(
+                data,
+                base_url,
+                self._channel_maps.get(base_url),
+            )
 
             # Persist when possible, but never block real-time publication.
             try:
@@ -295,6 +304,49 @@ async def _fetch_neighbors(src: dict) -> list[dict]:
         return []
 
 
+async def _fetch_channels(src: dict) -> dict[str, str]:
+    """Fetch channel metadata from RemoteTerm and return key->display-name map."""
+    url = src["base_url"] + "/api/channels"
+    auth = src.get("auth")
+    httpx_auth = httpx.BasicAuth(*auth) if auth else None
+    try:
+        async with httpx.AsyncClient(auth=httpx_auth, timeout=10) as client:
+            resp = await client.get(url)
+            if resp.status_code == 404:
+                return {}
+            resp.raise_for_status()
+            payload = resp.json()
+    except Exception as exc:
+        logger.debug("[meshcore] channel fetch error: %s", exc)
+        return {}
+
+    items = payload
+    if isinstance(payload, dict):
+        items = payload.get("items", payload.get("channels", payload))
+
+    channel_map: dict[str, str] = {}
+    if isinstance(items, list):
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            key = _coalesce(item.get("key"), item.get("id"), item.get("channel"), item.get("name"))
+            name = _coalesce(item.get("name"), item.get("label"), item.get("display_name"), item.get("title"), key)
+            if key is None or name is None:
+                continue
+            channel_map[str(key)[:128]] = str(name)[:128]
+    elif isinstance(items, dict):
+        for key, value in items.items():
+            if isinstance(value, dict):
+                name = _coalesce(value.get("name"), value.get("label"), value.get("display_name"), key)
+            else:
+                name = value
+            if name is None:
+                continue
+            channel_map[str(key)[:128]] = str(name)[:128]
+
+    return channel_map
+
+
 async def _upsert_mesh_links(source_url: str, neighbors: list[dict]) -> None:
     from db import get_pool
     import datetime
@@ -364,7 +416,7 @@ def _to_bool(value, default: bool = False) -> bool:
     return default
 
 
-def _normalize_mesh_message(data: dict, source_url: str) -> dict:
+def _normalize_mesh_message(data: dict, source_url: str, channel_map: dict[str, str] | None = None) -> dict:
     payload = data.get("payload") if isinstance(data.get("payload"), dict) else {}
     sender = data.get("sender") if isinstance(data.get("sender"), dict) else {}
     conv = data.get("conversation") if isinstance(data.get("conversation"), dict) else {}
@@ -382,16 +434,36 @@ def _normalize_mesh_message(data: dict, source_url: str) -> dict:
         text = ""
     text = str(text)
 
+    conversation_name = _coalesce(
+        data.get("conversation_name"),
+        data.get("conversationName"),
+        data.get("channel_name"),
+        data.get("channelName"),
+        conv.get("name"),
+        conv.get("label"),
+        payload.get("channel_name"),
+        payload.get("channelName"),
+    )
+
     conversation_key = _coalesce(
         data.get("conversation_key"),
         data.get("conversationKey"),
         conv.get("key"),
         conv.get("id"),
+        data.get("channel_id"),
+        data.get("channelId"),
         data.get("channel"),
+        payload.get("channel_id"),
+        payload.get("channel"),
     )
     if conversation_key is None:
         conversation_key = "public"
     conversation_key = str(conversation_key)[:128]
+
+    if conversation_name is None and channel_map:
+        conversation_name = channel_map.get(conversation_key)
+    if conversation_name is not None:
+        conversation_name = str(conversation_name)[:128]
 
     msg_type = _coalesce(
         data.get("type"),
@@ -457,6 +529,7 @@ def _normalize_mesh_message(data: dict, source_url: str) -> dict:
         "id": message_id,
         "msg_type": msg_type,
         "conversation_key": conversation_key,
+        "channel_name": conversation_name,
         "text": text,
         "sender_name": sender_name,
         "sender_key": sender_key,
@@ -479,6 +552,42 @@ async def _save_mesh_message(message: dict):
         ts = datetime.datetime.now(datetime.timezone.utc)
 
     pool = get_pool()
+    try:
+        await pool.execute(
+            """
+            INSERT INTO mesh_messages (id, msg_type, conversation_key, channel_name, text, sender_name, sender_key, outgoing, acked, ts, source_url)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+            ON CONFLICT (id) DO UPDATE SET
+                msg_type = EXCLUDED.msg_type,
+                conversation_key = EXCLUDED.conversation_key,
+                channel_name = EXCLUDED.channel_name,
+                text = EXCLUDED.text,
+                sender_name = EXCLUDED.sender_name,
+                sender_key = EXCLUDED.sender_key,
+                outgoing = EXCLUDED.outgoing,
+                acked = EXCLUDED.acked,
+                ts = EXCLUDED.ts,
+                source_url = EXCLUDED.source_url
+            """,
+            message.get("id"),
+            message.get("msg_type"),
+            message.get("conversation_key"),
+            message.get("channel_name"),
+            message.get("text"),
+            message.get("sender_name"),
+            message.get("sender_key"),
+            message.get("outgoing", False),
+            message.get("acked", False),
+            ts,
+            message.get("source_url")
+        )
+        return
+    except Exception as exc:
+        # Backward-compat: older DB volumes may not have channel_name yet.
+        msg = str(exc).lower()
+        if "channel_name" not in msg or ("does not exist" not in msg and "undefined" not in msg):
+            raise
+
     await pool.execute(
         """
         INSERT INTO mesh_messages (id, msg_type, conversation_key, text, sender_name, sender_key, outgoing, acked, ts, source_url)

@@ -21,7 +21,8 @@ export function entityToTrack(entity: Entity, existing?: Track): Track | null {
   const isAprs = entity.entity_type === 'aprs'
   const isFire = entity.entity_type === 'fire_incident'
   const isTak = entity.entity_type === 'tak_client'
-  if (!isAir && !isSea && !isAprs && !isFire && !isTak) return null
+  const isTrain = entity.entity_type === 'train'
+  if (!isAir && !isSea && !isAprs && !isFire && !isTak && !isTrain) return null
 
   const altMeters  = isAir ? (entity.altitude ?? 0) * ALT_FT_TO_M : 0
   const speedMs    = (entity.speed ?? 0) * SPD_KT_TO_MS
@@ -104,9 +105,10 @@ export function entityToTrack(entity: Entity, existing?: Track): Track | null {
     altMeters,
     speedMs,
     courseTrue,
-    type:         isAir ? 'air' : isSea ? 'sea' : isTak ? 'tak' : isAprs ? 'ground' : 'hazard',
+    type:         isAir ? 'air' : isSea ? 'sea' : isTak ? 'tak' : isAprs ? 'ground' : isTrain ? 'rail' : 'hazard',
     callsign:     entity.display_name,
     category:     (entity.identity?.category as string | undefined) ?? entity.tags?.[0],
+    stationType:  isAprs ? (entity.identity?.station_type as string | undefined) : undefined,
     trail,
     smoothedTrail,
     predictedPath,

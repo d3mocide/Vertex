@@ -5,10 +5,11 @@ import { API_BASE } from '../../config'
 import { authHeaders } from '../../auth'
 
 interface MeshLink {
-  node_a: string
-  node_b: string
-  snr: number | null
+  node_a:       string
+  node_b:       string
+  snr:          number | null
   link_quality: number | null
+  last_seen:    string
 }
 
 const SOURCE_ID = 'mesh-links'
@@ -49,9 +50,9 @@ export function MeshLinksLayer({ map }: Props) {
         type: 'line',
         source: SOURCE_ID,
         paint: {
-          'line-color': ['get', 'color'],
-          'line-width': 2,
-          'line-opacity': 0.8,
+          'line-color':    ['get', 'color'],
+          'line-width':    ['get', 'width'],
+          'line-opacity':  ['get', 'opacity'],
           'line-dasharray': [4, 2],
         },
       })
@@ -73,11 +74,18 @@ export function MeshLinksLayer({ map }: Props) {
     const source = map.getSource(SOURCE_ID) as any
     if (!source) return
 
+    const now = Date.now()
+
     const features = meshLinks.flatMap((link) => {
       const nodeA = entities[link.node_a]
       const nodeB = entities[link.node_b]
       if (!nodeA?.lat || !nodeA?.lon || !nodeB?.lat || !nodeB?.lon) return []
-      
+
+      const ageMinutes = (now - new Date(link.last_seen).getTime()) / 60_000
+      const opacity = ageMinutes < 5 ? 0.9 : ageMinutes < 15 ? 0.6 : ageMinutes < 30 ? 0.35 : 0.15
+      const quality = link.link_quality ?? 0
+      const width = 1.5 + (Math.min(Math.max(quality, 0), 100) / 100) * 2.5
+
       return [{
         type: 'Feature' as const,
         geometry: {
@@ -88,8 +96,10 @@ export function MeshLinksLayer({ map }: Props) {
           ],
         },
         properties: {
-          snr: link.snr,
-          color: snrToColorHex(link.snr),
+          snr:     link.snr,
+          color:   snrToColorHex(link.snr),
+          width,
+          opacity,
         },
       }]
     })

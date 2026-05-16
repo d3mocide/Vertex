@@ -19,6 +19,7 @@ import { useWebSocket }  from '../hooks/useWebSocket'
 import { useRegions }    from '../hooks/useRegions'
 import { RegionLayer }      from './layers/RegionLayer'
 import { MeshLinksLayer }   from './layers/MeshLinksLayer'
+import { RailLayer }        from './layers/RailLayer'
 
 export function Map() {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -101,6 +102,7 @@ export function Map() {
           <AnnotationOverlay     map={map} />
           <RegionLayer           map={map} regions={regions} />
           <MeshLinksLayer        map={map} />
+          <RailLayer             map={map} />
           <MapOverlay            map={map} />
         </>
       )}

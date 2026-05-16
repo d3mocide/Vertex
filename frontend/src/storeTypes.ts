@@ -61,9 +61,10 @@ export interface Track {
   altMeters:     number        // metres MSL (0 for vessels)
   speedMs:       number        // m/s
   courseTrue:    number        // 0–360°, true north
-  type:          'air' | 'sea' | 'ground' | 'hazard' | 'tak'
+  type:          'air' | 'sea' | 'ground' | 'hazard' | 'tak' | 'rail'
   callsign?:     string
   category?:     string
+  stationType?:  string
   trail:         TrailPt[]     // raw history, newest last, capped at 150 pts
   smoothedTrail: number[][]    // [[lon,lat],...] after 2× Chaikin
   predictedPath: [number, number][]
@@ -161,6 +162,7 @@ export interface MeshMessage {
   id:               string
   msg_type?:        string
   conversation_key: string
+  channel_name?:    string
   text:             string
   sender_name:      string
   sender_key:       string
@@ -258,6 +260,7 @@ export type EntityTypeFilter = {
   fire_incident: boolean
   satellite: boolean
   tinygs_station: boolean
+  train: boolean
 }
 
 // [min, max] — altitude in feet, speed in knots

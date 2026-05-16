@@ -1,0 +1,94 @@
+import asyncio
+import logging
+import time
+
+import httpx
+from fastapi import APIRouter, HTTPException
+
+logger = logging.getLogger(__name__)
+router = APIRouter(tags=["rail"])
+
+# Oregon + SW Washington bounding box for OSM rail track queries.
+# Overpass format: south,west,north,east
+_BBOX = "41.9,-124.6,47.0,-116.4"
+_OVERPASS_URL = "https://overpass-api.de/api/interpreter"
+_CACHE_TTL_S = 86_400.0  # 24 hours — rail infrastructure changes infrequently
+
+_cache: dict = {"data": None, "ts": 0.0}
+_fetch_lock = asyncio.Lock()
+
+
+def _build_query() -> str:
+    return (
+        f"[out:json][timeout:90][maxsize:104857600];"
+        f"("
+        f'way["railway"~"^(rail|light_rail)$"]({_BBOX});'
+        f");"
+        f"out geom;"
+    )
+
+
+def _to_geojson(elements: list[dict]) -> dict:
+    features = []
+    for el in elements:
+        if el.get("type") != "way":
+            continue
+        geom = el.get("geometry") or []
+        if len(geom) < 2:
+            continue
+        coords = [[pt["lon"], pt["lat"]] for pt in geom]
+        tags = el.get("tags") or {}
+        features.append({
+            "type": "Feature",
+            "geometry": {"type": "LineString", "coordinates": coords},
+            "properties": {
+                "osm_id": el.get("id"),
+                "railway": tags.get("railway"),
+                "name": tags.get("name") or tags.get("operator"),
+                "maxspeed": tags.get("maxspeed"),
+                "electrified": tags.get("electrified"),
+            },
+        })
+    return {"type": "FeatureCollection", "features": features}
+
+
+async def _fetch() -> dict:
+    query = _build_query()
+    async with httpx.AsyncClient(timeout=120) as client:
+        resp = await client.post(
+            _OVERPASS_URL,
+            content=f"data={query}",
+            headers={
+                "Content-Type": "application/x-www-form-urlencoded",
+                "User-Agent": "Vertex/1.0 (Situational Awareness Dashboard)",
+            },
+        )
+        resp.raise_for_status()
+    data = resp.json()
+    return _to_geojson(data.get("elements", []))
+
+
+@router.get("/rail/tracks")
+async def get_rail_tracks():
+    """OSM rail track geometry as GeoJSON (24-hour cache)."""
+    now = time.monotonic()
+    if _cache["data"] is not None and (now - _cache["ts"]) < _CACHE_TTL_S:
+        return _cache["data"]
+
+    async with _fetch_lock:
+        now = time.monotonic()
+        if _cache["data"] is not None and (now - _cache["ts"]) < _CACHE_TTL_S:
+            return _cache["data"]
+
+        try:
+            geojson = await _fetch()
+        except Exception as exc:
+            logger.error("[rail] Overpass fetch failed: %s", exc)
+            if _cache["data"] is not None:
+                return _cache["data"]
+            raise HTTPException(status_code=503, detail="Rail track data temporarily unavailable")
+
+        _cache["data"] = geojson
+        _cache["ts"] = time.monotonic()
+        logger.info("[rail] fetched %d track segments from Overpass", len(geojson["features"]))
+        return geojson

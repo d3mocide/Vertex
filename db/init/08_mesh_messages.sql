@@ -3,6 +3,7 @@ CREATE TABLE IF NOT EXISTS mesh_messages (
     id               VARCHAR(64)  PRIMARY KEY,
     msg_type         VARCHAR(32),
     conversation_key VARCHAR(128) NOT NULL,
+    channel_name     VARCHAR(128),
     text             TEXT,
     sender_name      VARCHAR(128),
     sender_key       VARCHAR(128),

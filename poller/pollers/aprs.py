@@ -215,6 +215,10 @@ class AprsPoller(BasePoller):
 
                     await publish_entity(entity, ttl=600)
 
+                    if station_type == "emergency":
+                        from aprs_alerts import emit_emergency_alert
+                        await emit_emergency_alert(entity)
+
                 writer.close()
                 await writer.wait_closed()
             except Exception as exc:
