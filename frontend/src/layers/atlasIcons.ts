@@ -286,29 +286,15 @@ export function createAtlasIcons(): IconAtlasResult {
     ctx.fill()
   }
 
-  // ─── Row 3, Col 0 · TRAIN — top-down locomotive silhouette ──────────────────
-  // Nose points up (north); icon rotates with heading like aircraft/vessel.
-  // Profile: pointed nose → wide cab with windshield void → narrow body → tail.
+  // ─── Row 3, Col 0 · TRAIN — pill (rounded rectangle) ────────────────────────
+  // Abstract pill: long axis = direction-of-travel, rotates with GTFS-RT bearing.
+  // Design guide atlas-train: rect x=11 y=6 w=10 h=20 rx=5 ry=5 (32-grid ×2).
   {
     const [ox, oy] = cellOrigin(0, 3)
     ctx.fillStyle = W
-    // Nose triangle (pointed front)
     ctx.beginPath()
-    ctx.moveTo(ox + 32, oy + 6)   // nose tip
-    ctx.lineTo(ox + 21, oy + 20)  // left shoulder
-    ctx.lineTo(ox + 43, oy + 20)  // right shoulder
-    ctx.closePath()
+    ctx.roundRect(ox + 22, oy + 12, 20, 40, 10)
     ctx.fill()
-    // Wide cab section
-    ctx.fillRect(ox + 21, oy + 18, 22, 18)
-    // Punch windshield void
-    ctx.globalCompositeOperation = 'destination-out'
-    ctx.fillRect(ox + 25, oy + 21, 14, 11)
-    ctx.globalCompositeOperation = 'source-over'
-    // Narrow body
-    ctx.fillRect(ox + 26, oy + 34, 12, 22)
-    // Tail coupler bar
-    ctx.fillRect(ox + 23, oy + 54, 18, 4)
   }
 
   return {
