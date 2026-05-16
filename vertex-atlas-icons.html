@@ -46,6 +46,10 @@
     --cat-cam-muted:#4D3800;
     --cat-emerg:#C62828;      /* emergency dispatch */
     --cat-emerg-muted:#4A0000;
+    --cat-tak:#F2F2F2;        /* TAK client — neutral white */
+    --cat-tak-muted:#3A3A3A;
+    --cat-train:#5C6BC0;      /* rail / transit — indigo (distinct from air cyan) */
+    --cat-train-muted:#252A4D;
 
     --gold-glow: 0 0 20px rgba(255,184,0,0.25);
     --gold-sm:   0 0 8px  rgba(255,184,0,0.4);
@@ -282,6 +286,8 @@
   .cat-card[data-cat="fire"] .cat-card-head .name{ color:var(--cat-fire); }
   .cat-card[data-cat="cam"] .cat-card-head .name{ color:var(--cat-cam); }
   .cat-card[data-cat="emerg"] .cat-card-head .name{ color:var(--cat-emerg); }
+  .cat-card[data-cat="tak"] .cat-card-head .name{ color:var(--cat-tak); }
+  .cat-card[data-cat="train"] .cat-card-head .name{ color:var(--cat-train); }
 
   /* The icon glyph */
   .icon-mark{ display:block; }
@@ -296,8 +302,8 @@
       repeating-linear-gradient(90deg, transparent 0 23px, rgba(255,184,0,0.05) 23px 24px),
       var(--surface-container-low);
     display:grid;
-    grid-template-columns:repeat(3,1fr);
-    grid-template-rows:repeat(3,1fr);
+    grid-template-columns:repeat(5,1fr);
+    grid-template-rows:repeat(2,1fr);
     overflow:hidden;
   }
   .atlas-hero-stage .corner{
@@ -314,8 +320,134 @@
     border-right:1px dashed rgba(255,184,0,0.12);
     border-bottom:1px dashed rgba(255,184,0,0.12);
   }
-  .atlas-hero-stage .ah-cell:nth-child(3n){ border-right:none; }
-  .atlas-hero-stage .ah-cell:nth-last-child(-n+3){ border-bottom:none; }
+  .atlas-hero-stage .ah-cell:nth-child(5n){ border-right:none; }
+  .atlas-hero-stage .ah-cell:nth-last-child(-n+5){ border-bottom:none; }
+
+  /* -------- ATLAS SHEET (the 256×256 sprite layout) -------- */
+  .sheet-wrap{
+    display:grid;
+    grid-template-columns:1.6fr 1fr;
+    gap:24px;
+  }
+  .sheet-frame{
+    position:relative;
+    padding:32px 28px 28px 32px;
+    border:1px solid var(--amber-gold-muted);
+    background:
+      radial-gradient(ellipse at center, rgba(255,184,0,0.04), transparent 60%),
+      var(--surface-container-low);
+  }
+  .sheet-ruler{
+    position:absolute;
+    display:flex;justify-content:space-between;align-items:center;
+    font-family:'Roboto Mono',monospace;font-size:9px;
+    color:var(--amber-gold);letter-spacing:0.12em;
+  }
+  .sheet-ruler.col{
+    top:8px; left:32px; right:28px;
+  }
+  .sheet-ruler.row{
+    flex-direction:column;
+    left:8px; top:32px; bottom:28px;
+    align-items:flex-start;
+  }
+  .sheet-canvas{
+    display:grid;
+    grid-template-columns:repeat(4,1fr);
+    grid-template-rows:repeat(4,1fr);
+    aspect-ratio:1;
+    gap:0;
+    background:var(--onyx-black);
+    border:1px dashed var(--amber-gold);
+    outline:1px solid var(--amber-gold-muted);
+  }
+  .sheet-cell{
+    position:relative;
+    display:flex;align-items:center;justify-content:center;
+    border-right:1px dashed rgba(255,184,0,0.18);
+    border-bottom:1px dashed rgba(255,184,0,0.18);
+    color:#fff;
+    background:
+      repeating-linear-gradient(45deg, transparent 0 6px, rgba(255,255,255,0.012) 6px 7px),
+      var(--onyx-black);
+  }
+  .sheet-cell:nth-child(4n){ border-right:none; }
+  .sheet-cell:nth-last-child(-n+4){ border-bottom:none; }
+  .sheet-cell svg{ display:block; }
+  .sheet-cell.util{
+    background:
+      repeating-linear-gradient(45deg, transparent 0 6px, rgba(255,184,0,0.025) 6px 7px),
+      var(--onyx-black);
+  }
+  .sheet-cell.wip{
+    background:
+      repeating-linear-gradient(45deg, transparent 0 6px, rgba(255,184,0,0.06) 6px 7px),
+      var(--onyx-black);
+    outline:1px solid var(--amber-gold);
+    outline-offset:-1px;
+    color:var(--amber-gold);
+  }
+  .sheet-cell.empty{
+    background:
+      repeating-linear-gradient(45deg, rgba(255,255,255,0.025) 0 6px, transparent 6px 7px),
+      var(--onyx-deep);
+  }
+  .sheet-cell .sc-label{
+    position:absolute; left:6px; bottom:4px;
+    font-family:'Roboto Mono',monospace; font-size:8px;
+    letter-spacing:0.1em; color:var(--on-surface-variant);
+    display:flex; flex-direction:column; gap:1px;
+    text-transform:lowercase;
+    pointer-events:none;
+  }
+  .sheet-cell .sc-label i{
+    font-style:normal; color:var(--amber-gold); font-size:7px;
+    letter-spacing:0.15em;
+  }
+  .sheet-cell.wip .sc-label{ color:var(--amber-gold); }
+  .sheet-cell .sc-empty{
+    font-family:'Roboto Mono',monospace; font-size:8px;
+    color:var(--outline-variant); letter-spacing:0.18em;
+  }
+
+  .sheet-side{
+    border:1px solid var(--outline-variant);
+    background:var(--surface-container-low);
+    display:flex;flex-direction:column;
+  }
+  .sheet-side-head{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:10px 14px; border-bottom:1px solid var(--outline-variant);
+    background:var(--onyx-deep);
+  }
+  .sheet-side-body{ padding:18px 18px 12px; }
+  .sheet-side-body p{
+    margin:0 0 12px;
+    font-size:12px;line-height:1.55;color:var(--on-surface-variant);
+  }
+  .sheet-side-body p:last-child{margin-bottom:0}
+  .sheet-side-body b{ color:#fff; font-weight:700; }
+  .sheet-side-body code{
+    font-family:'Roboto Mono',monospace;
+    background:rgba(77,56,0,0.4); color:var(--amber-gold);
+    padding:1px 5px;font-size:11px;
+  }
+  .sheet-side-meta{
+    margin-top:auto;
+    border-top:1px solid var(--amber-gold-muted);
+    padding:14px 18px;
+    display:flex;flex-direction:column;gap:8px;
+  }
+  .sheet-side-meta .row{
+    display:flex;justify-content:space-between;align-items:baseline;
+    font-family:'Roboto Mono',monospace;font-size:10px;
+  }
+  .sheet-side-meta .label-caps{font-size:9px;letter-spacing:0.18em}
+  .sheet-side-meta .val{color:var(--amber-gold)}
+
+  @media (max-width: 1100px){
+    .sheet-wrap{ grid-template-columns:1fr; }
+  }
 
   /* -------- STATE MATRIX -------- */
   .state-matrix{
@@ -367,6 +499,8 @@
   .state-matrix-grid > .cell.hdr.rl[data-cat="lightning"] .rl-name{color:var(--cat-lightning)}
   .state-matrix-grid > .cell.hdr.rl[data-cat="fire"] .rl-name{color:var(--cat-fire)}
   .state-matrix-grid > .cell.hdr.rl[data-cat="cam"] .rl-name{color:var(--cat-cam)}
+  .state-matrix-grid > .cell.hdr.rl[data-cat="tak"] .rl-name{color:var(--cat-tak)}
+  .state-matrix-grid > .cell.hdr.rl[data-cat="train"] .rl-name{color:var(--cat-train)}
 
   .state-matrix-grid .col-tag{
     font-weight:700;color:#fff;font-size:11px;letter-spacing:0.18em;
@@ -447,6 +581,8 @@
   .zoom-row[data-cat="lightning"] .zname{color:var(--cat-lightning)}
   .zoom-row[data-cat="fire"] .zname{color:var(--cat-fire)}
   .zoom-row[data-cat="cam"] .zname{color:var(--cat-cam)}
+  .zoom-row[data-cat="tak"] .zname{color:var(--cat-tak)}
+  .zoom-row[data-cat="train"] .zname{color:var(--cat-train)}
 
   .zoom-row .zglyph{
     flex:1;display:flex;align-items:center;justify-content:flex-end;
@@ -695,43 +831,16 @@
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
   <defs>
 
-    <!-- AIRCRAFT — chevron over delta with heading pip -->
+    <!-- AIRCRAFT — CoT chevron, nose up. Heading via transform rotate. -->
+    <!-- Path mirrors atlasIcons.ts row 0 col 0 (32-grid: nose 16,4 · tips 23,22 / 9,22 · tail notch 16,19) -->
     <symbol id="atlas-air" viewBox="0 0 32 32">
-      <!-- outer chip frame for selection-friendly silhouette -->
-      <g fill="currentColor" stroke="none">
-        <!-- aircraft delta, nose up -->
-        <path d="M16 4 L23 22 L16 19 L9 22 Z"/>
-        <!-- tail fin -->
-        <rect x="15" y="22" width="2" height="5"/>
-      </g>
+      <path d="M16 4 L23 22 L16 19 L9 22 Z" fill="currentColor"/>
     </symbol>
 
-    <!-- AIRCRAFT outline variant -->
-    <symbol id="atlas-air-line" viewBox="0 0 32 32">
-      <g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter" stroke-linecap="square">
-        <path d="M16 4 L23 22 L16 19 L9 22 Z"/>
-        <line x1="16" y1="22" x2="16" y2="27"/>
-      </g>
-    </symbol>
-
-    <!-- VESSEL — hull with mast and waterline -->
+    <!-- VESSEL — shares the CoT chevron with aircraft. Differentiation = color + heading. -->
+    <!-- Path mirrors atlasIcons.ts row 0 col 1 (identical geometry to atlas-air) -->
     <symbol id="atlas-sea" viewBox="0 0 32 32">
-      <g fill="currentColor" stroke="none">
-        <!-- hull -->
-        <path d="M5 18 L27 18 L23 25 L9 25 Z"/>
-        <!-- mast -->
-        <rect x="15" y="6" width="2" height="11"/>
-        <!-- pennant -->
-        <path d="M17 7 L22 9 L17 11 Z"/>
-      </g>
-    </symbol>
-
-    <symbol id="atlas-sea-line" viewBox="0 0 32 32">
-      <g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter" stroke-linecap="square">
-        <path d="M5 18 L27 18 L23 25 L9 25 Z"/>
-        <line x1="16" y1="6" x2="16" y2="18"/>
-        <path d="M16 7 L22 9 L16 11"/>
-      </g>
+      <path d="M16 4 L23 22 L16 19 L9 22 Z" fill="currentColor"/>
     </symbol>
 
     <!-- MESH NODE — hex chip with central core -->
@@ -837,6 +946,21 @@
       </g>
     </symbol>
 
+    <!-- TAK CLIENT — friendly ground individual (a-f-G-U-C-I). Head + torso silhouette. -->
+    <!-- atlasIcons.ts row 2 col 3 — circle head r=8, trapezoidal torso (32-grid scaled from 64px) -->
+    <symbol id="atlas-tak" viewBox="0 0 32 32">
+      <circle cx="16" cy="8" r="4" fill="currentColor"/>
+      <path d="M9 14 L23 14 L20 26 L12 26 Z" fill="currentColor"/>
+    </symbol>
+
+    <!-- TRAIN — abstract PILL (winner of vertex-train-icons exploration v0.3). -->
+    <!-- Pure rounded rectangle on the rail. Authored vertical (long axis = direction-of-travel).
+         Color carries the transit line identity; rotation carries GTFS-RT bearing.
+         Degrades gracefully to a dot at z6. atlasIcons.ts row 3 col 0. -->
+    <symbol id="atlas-train" viewBox="0 0 32 32">
+      <rect x="11" y="6" width="10" height="20" rx="5" ry="5" fill="currentColor"/>
+    </symbol>
+
     <!-- EMERGENCY DISPATCH — exclamation in chevron -->
     <symbol id="atlas-emerg" viewBox="0 0 32 32">
       <g fill="currentColor" stroke="none">
@@ -848,15 +972,28 @@
       </g>
     </symbol>
 
-    <!-- GENERIC RING (zoom mid) -->
+    <!-- RING — atlas slot row 2 col 0 (annulus + center dot, no inherent color) -->
     <symbol id="atlas-ring" viewBox="0 0 32 32">
       <circle cx="16" cy="16" r="9" fill="none" stroke="currentColor" stroke-width="2"/>
       <circle cx="16" cy="16" r="3" fill="currentColor"/>
     </symbol>
 
-    <!-- GENERIC DOT (zoom min) -->
+    <!-- DOT — atlas slot row 2 col 1 (zoom min, solid circle) -->
     <symbol id="atlas-dot" viewBox="0 0 32 32">
-      <circle cx="16" cy="16" r="5" fill="currentColor"/>
+      <circle cx="16" cy="16" r="8" fill="currentColor"/>
+    </symbol>
+
+    <!-- HALO — atlas slot row 2 col 2 (radial glow, used as severity layer) -->
+    <symbol id="atlas-halo" viewBox="0 0 32 32">
+      <defs>
+        <radialGradient id="halo-grad" cx="0.5" cy="0.5" r="0.5">
+          <stop offset="0%"   stop-color="currentColor" stop-opacity="1"/>
+          <stop offset="30%"  stop-color="currentColor" stop-opacity="0.6"/>
+          <stop offset="70%"  stop-color="currentColor" stop-opacity="0.2"/>
+          <stop offset="100%" stop-color="currentColor" stop-opacity="0"/>
+        </radialGradient>
+      </defs>
+      <circle cx="16" cy="16" r="15" fill="url(#halo-grad)"/>
     </symbol>
 
   </defs>
@@ -869,22 +1006,24 @@
     <div>
       <div class="sec-id" style="margin-bottom:18px"><span>// 00 · ATLAS BRIEF</span></div>
       <h1 class="hero-title">
-        Eight categories,<br/>
+        Ten categories,<br/>
         <span class="accent">six states,</span><br/>
-        <span class="stroke">four zoom buckets.</span>
+        <span class="stroke">one 256×256 sheet.</span>
       </h1>
       <p class="hero-lede">
         The Atlas is the icon system that sits on the map — every entity, sensor,
-        and incident in Vertex renders as one of these marks. Each category gets a
-        distinct silhouette so categories are legible without color; color carries
-        severity. Marks degrade through four zoom buckets so a 5,000-entity scene
-        stays readable. Built on the same 32×32 grid as the Scope logo.
+        and incident in Vertex renders from a single <code style="color:var(--amber-gold);font-family:'Roboto Mono',monospace;font-size:13px">256×256</code> sprite sheet.
+        Categories have distinct silhouettes where shape matters; tracked vehicles
+        (<b>aircraft</b> and <b>vessel</b>) share a CoT-style chevron and are
+        differentiated by heading rotation and category color. Color carries
+        severity; <b>halo</b>, <b>ring</b>, and <b>dot</b> are reusable utility
+        slots stamped on top.
       </p>
       <div class="hero-meta">
-        <div class="hero-meta-cell"><span class="label-caps">Categories</span><span class="val">8 · DISTINCT</span></div>
-        <div class="hero-meta-cell"><span class="label-caps">States</span><span class="val">6 · PER CAT</span></div>
-        <div class="hero-meta-cell"><span class="label-caps">Zoom</span><span class="val">4 · BUCKETS</span></div>
-        <div class="hero-meta-cell"><span class="label-caps">Marks</span><span class="val">192 · TOTAL</span></div>
+        <div class="hero-meta-cell"><span class="label-caps">Categories</span><span class="val">10 · ENTITY</span></div>
+        <div class="hero-meta-cell"><span class="label-caps">Utility</span><span class="val">3 · OVERLAY</span></div>
+        <div class="hero-meta-cell"><span class="label-caps">Atlas</span><span class="val">256 × 256 PX</span></div>
+        <div class="hero-meta-cell"><span class="label-caps">Cell</span><span class="val">64 × 64 · 4×4</span></div>
       </div>
     </div>
 
@@ -900,18 +1039,20 @@
       <div class="ah-cell"><svg width="48" height="48" viewBox="0 0 32 32" style="color:var(--cat-lightning)"><use href="#atlas-lightning"/></svg></div>
       <div class="ah-cell"><svg width="48" height="48" viewBox="0 0 32 32" style="color:var(--cat-fire)"><use href="#atlas-fire"/></svg></div>
       <div class="ah-cell"><svg width="48" height="48" viewBox="0 0 32 32" style="color:var(--cat-cam)"><use href="#atlas-cam"/></svg></div>
-      <div class="ah-cell"><svg width="48" height="48" viewBox="0 0 32 32" style="color:var(--cat-emerg)"><use href="#atlas-emerg"/></svg></div>
+      <div class="ah-cell"><svg width="48" height="48" viewBox="0 0 32 32" style="color:#F2F2F2"><use href="#atlas-tak"/></svg></div>
+      <div class="ah-cell"><svg width="48" height="48" viewBox="0 0 32 32" style="color:var(--cat-train);transform:rotate(20deg)"><use href="#atlas-train"/></svg></div>
     </div>
   </section>
 
   <!-- ============ TOC ============ -->
   <nav class="toc" aria-label="Table of contents">
     <a href="#categories"><span class="num">01</span>CATEGORIES</a>
-    <a href="#states"><span class="num">02</span>STATES</a>
-    <a href="#zoom"><span class="num">03</span>ZOOM BUCKETS</a>
-    <a href="#anatomy"><span class="num">04</span>ANATOMY</a>
-    <a href="#context"><span class="num">05</span>MAP CONTEXT</a>
-    <a href="#spec"><span class="num">06</span>SPEC SHEET</a>
+    <a href="#sheet"><span class="num">02</span>ATLAS SHEET</a>
+    <a href="#states"><span class="num">03</span>STATES</a>
+    <a href="#zoom"><span class="num">04</span>ZOOM BUCKETS</a>
+    <a href="#anatomy"><span class="num">05</span>ANATOMY</a>
+    <a href="#context"><span class="num">06</span>MAP CONTEXT</a>
+    <a href="#spec"><span class="num">07</span>SPEC SHEET</a>
   </nav>
 
   <!-- ============ 01 CATEGORIES ============ -->
@@ -919,11 +1060,11 @@
     <div class="sec-head">
       <div>
         <div class="sec-id"><span>// 01 · CATEGORIES</span></div>
-        <h2 class="sec-title">Eight Silhouettes</h2>
+        <h2 class="sec-title">Ten Silhouettes</h2>
       </div>
       <div class="sec-meta">
-        ONE SHAPE PER LAYER<br/>
-        <strong>READS WITHOUT COLOR</strong>
+        DISTINCT SHAPE WHERE POSSIBLE<br/>
+        <strong>AIR + SEA SHARE CHEVRON</strong>
       </div>
     </div>
 
@@ -933,12 +1074,12 @@
       <div class="cat-card" data-cat="air">
         <div class="cat-card-head"><span class="name">AIRCRAFT</span><span class="id">ATL-01 · ADS-B</span></div>
         <div class="cat-card-stage">
-          <svg class="icon-mark" width="64" height="64" viewBox="0 0 32 32" style="color:var(--cat-air)"><use href="#atlas-air"/></svg>
+          <svg class="icon-mark" width="64" height="64" viewBox="0 0 32 32" style="color:var(--cat-air);transform:rotate(45deg)"><use href="#atlas-air"/></svg>
         </div>
         <div class="cat-card-meta">
-          <div>SHAPE<b>DELTA</b></div>
+          <div>SHAPE<b>CHEVRON</b></div>
           <div>HUE<b class="hex">#00BFFF</b></div>
-          <div>BASE<b>22 PX</b></div>
+          <div>ROTATE<b>BY HDG</b></div>
         </div>
       </div>
 
@@ -946,12 +1087,12 @@
       <div class="cat-card" data-cat="sea">
         <div class="cat-card-head"><span class="name">VESSEL</span><span class="id">ATL-02 · AIS</span></div>
         <div class="cat-card-stage">
-          <svg class="icon-mark" width="64" height="64" viewBox="0 0 32 32" style="color:var(--cat-sea)"><use href="#atlas-sea"/></svg>
+          <svg class="icon-mark" width="64" height="64" viewBox="0 0 32 32" style="color:var(--cat-sea);transform:rotate(-30deg)"><use href="#atlas-sea"/></svg>
         </div>
         <div class="cat-card-meta">
-          <div>SHAPE<b>HULL</b></div>
+          <div>SHAPE<b>CHEVRON</b></div>
           <div>HUE<b class="hex">#00C853</b></div>
-          <div>BASE<b>22 PX</b></div>
+          <div>ROTATE<b>BY COG</b></div>
         </div>
       </div>
 
@@ -1033,27 +1174,109 @@
         </div>
       </div>
 
-      <!-- EMERGENCY -->
-      <div class="cat-card" data-cat="emerg">
-        <div class="cat-card-head"><span class="name">EMERGENCY</span><span class="id">ATL-09 · CAD</span></div>
+      <!-- TAK CLIENT -->
+      <div class="cat-card" data-cat="tak">
+        <div class="cat-card-head"><span class="name">TAK CLIENT</span><span class="id">ATL-09 · a-f-G-U-C-I</span></div>
         <div class="cat-card-stage">
-          <svg class="icon-mark" width="64" height="64" viewBox="0 0 32 32" style="color:var(--cat-emerg)"><use href="#atlas-emerg"/></svg>
+          <svg class="icon-mark" width="64" height="64" viewBox="0 0 32 32" style="color:#F2F2F2"><use href="#atlas-tak"/></svg>
         </div>
         <div class="cat-card-meta">
-          <div>SHAPE<b>CHEVRON</b></div>
-          <div>HUE<b class="hex">#C62828</b></div>
-          <div>BASE<b>26 PX</b></div>
+          <div>SHAPE<b>FIGURE</b></div>
+          <div>HUE<b class="hex">#F2F2F2</b></div>
+          <div>BASE<b>20 PX</b></div>
+        </div>
+      </div>
+
+      <!-- TRAIN — finalized as PILL after vertex-train-icons.html exploration -->
+      <div class="cat-card" data-cat="train">
+        <div class="cat-card-head"><span class="name">TRAIN</span><span class="id">ATL-10 · GTFS-RT</span></div>
+        <div class="cat-card-stage">
+          <svg class="icon-mark" width="64" height="64" viewBox="0 0 32 32" style="color:var(--cat-train);transform:rotate(20deg)"><use href="#atlas-train"/></svg>
+        </div>
+        <div class="cat-card-meta">
+          <div>SHAPE<b>PILL</b></div>
+          <div>HUE<b class="hex">#5C6BC0</b></div>
+          <div>ROTATE<b>BY BRG</b></div>
         </div>
       </div>
 
     </div>
   </section>
 
-  <!-- ============ 02 STATES ============ -->
+  <!-- ============ 02 ATLAS SHEET ============ -->
+  <section id="sheet">
+    <div class="sec-head">
+      <div>
+        <div class="sec-id"><span>// 02 · ATLAS SHEET</span></div>
+        <h2 class="sec-title">256 × 256 Sprite</h2>
+      </div>
+      <div class="sec-meta">
+        4 COLS × 4 ROWS · 64 PX CELL<br/>
+        <strong>SOURCE · atlasIcons.ts</strong>
+      </div>
+    </div>
+
+    <div class="sheet-wrap">
+      <div class="sheet-frame">
+        <!-- column rulers -->
+        <div class="sheet-ruler col">
+          <span>0</span><span>64</span><span>128</span><span>192</span><span>256</span>
+        </div>
+        <!-- row rulers -->
+        <div class="sheet-ruler row">
+          <span>0</span><span>64</span><span>128</span><span>192</span><span>256</span>
+        </div>
+
+        <div class="sheet-canvas">
+          <!-- Row 0 -->
+          <div class="sheet-cell" data-r="0" data-c="0"><svg width="48" height="48" viewBox="0 0 32 32"><use href="#atlas-air"/></svg><span class="sc-label">aircraft<i>0,0</i></span></div>
+          <div class="sheet-cell" data-r="0" data-c="1"><svg width="48" height="48" viewBox="0 0 32 32"><use href="#atlas-sea"/></svg><span class="sc-label">vessel<i>1,0</i></span></div>
+          <div class="sheet-cell" data-r="0" data-c="2"><svg width="48" height="48" viewBox="0 0 32 32"><use href="#atlas-mesh"/></svg><span class="sc-label">mesh<i>2,0</i></span></div>
+          <div class="sheet-cell" data-r="0" data-c="3"><svg width="48" height="48" viewBox="0 0 32 32"><use href="#atlas-aprs"/></svg><span class="sc-label">aprs<i>3,0</i></span></div>
+          <!-- Row 1 -->
+          <div class="sheet-cell" data-r="1" data-c="0"><svg width="48" height="48" viewBox="0 0 32 32"><use href="#atlas-stream"/></svg><span class="sc-label">stream<i>0,1</i></span></div>
+          <div class="sheet-cell" data-r="1" data-c="1"><svg width="48" height="48" viewBox="0 0 32 32"><use href="#atlas-lightning"/></svg><span class="sc-label">lightning<i>1,1</i></span></div>
+          <div class="sheet-cell" data-r="1" data-c="2"><svg width="48" height="48" viewBox="0 0 32 32"><use href="#atlas-fire"/></svg><span class="sc-label">fire<i>2,1</i></span></div>
+          <div class="sheet-cell" data-r="1" data-c="3"><svg width="48" height="48" viewBox="0 0 32 32"><use href="#atlas-cam"/></svg><span class="sc-label">camera<i>3,1</i></span></div>
+          <!-- Row 2 · utility -->
+          <div class="sheet-cell util" data-r="2" data-c="0"><svg width="48" height="48" viewBox="0 0 32 32"><use href="#atlas-ring"/></svg><span class="sc-label">ring<i>0,2</i></span></div>
+          <div class="sheet-cell util" data-r="2" data-c="1"><svg width="48" height="48" viewBox="0 0 32 32"><use href="#atlas-dot"/></svg><span class="sc-label">dot<i>1,2</i></span></div>
+          <div class="sheet-cell util" data-r="2" data-c="2"><svg width="48" height="48" viewBox="0 0 32 32"><use href="#atlas-halo"/></svg><span class="sc-label">halo<i>2,2</i></span></div>
+          <div class="sheet-cell" data-r="2" data-c="3"><svg width="48" height="48" viewBox="0 0 32 32"><use href="#atlas-tak"/></svg><span class="sc-label">tak_client<i>3,2</i></span></div>
+          <!-- Row 3 · train -->
+          <div class="sheet-cell" data-r="3" data-c="0"><svg width="48" height="48" viewBox="0 0 32 32"><use href="#atlas-train"/></svg><span class="sc-label">train<i>0,3</i></span></div>
+          <div class="sheet-cell empty" data-r="3" data-c="1"><span class="sc-empty">· empty ·</span></div>
+          <div class="sheet-cell empty" data-r="3" data-c="2"><span class="sc-empty">· empty ·</span></div>
+          <div class="sheet-cell empty" data-r="3" data-c="3"><span class="sc-empty">· empty ·</span></div>
+        </div>
+      </div>
+
+      <aside class="sheet-side">
+        <div class="sheet-side-head">
+          <span class="label-caps" style="color:var(--amber-gold)">// SHEET CONTRACT</span>
+          <span class="mono" style="font-size:9px;color:var(--on-surface-variant);letter-spacing:0.15em">atlasIcons.ts</span>
+        </div>
+        <div class="sheet-side-body">
+          <p>Every sprite is authored monochrome white at <code>64 × 64</code>, drawn into a single offscreen canvas, and consumed by deck.gl <code>IconLayer</code> in <code>mask=true</code> mode.</p>
+          <p>Categories with hard voids — <b>mesh</b>, <b>fire</b>, <b>camera</b> — punch transparency via <code>destination-out</code> so the basemap shows through.</p>
+          <p>The icon's pixel color comes from <code>getIconColor</code> per feature; the sprite contributes <em>alpha only</em>.</p>
+        </div>
+        <div class="sheet-side-meta">
+          <div class="row"><span class="label-caps">CANVAS</span><span class="val">256 × 256</span></div>
+          <div class="row"><span class="label-caps">CELLS</span><span class="val">16 · 13 USED</span></div>
+          <div class="row"><span class="label-caps">ANCHOR</span><span class="val">32, 32 · CENTER</span></div>
+          <div class="row"><span class="label-caps">FORMAT</span><span class="val">canvas.toDataURL</span></div>
+        </div>
+      </aside>
+    </div>
+  </section>
+
+  <!-- ============ 03 STATES ============ -->
+  <!-- ============ 03 STATES ============ -->
   <section id="states">
     <div class="sec-head">
       <div>
-        <div class="sec-id"><span>// 02 · STATES</span></div>
+        <div class="sec-id"><span>// 03 · STATES</span></div>
         <h2 class="sec-title">State Matrix</h2>
       </div>
       <div class="sec-meta">
@@ -1238,57 +1461,101 @@
         </div>
         <div class="cell"><svg width="36" height="36" viewBox="0 0 32 32" style="color:#555;opacity:0.5"><use href="#atlas-cam"/></svg></div>
 
+        <!-- TAK CLIENT row -->
+        <div class="cell hdr rl" data-cat="tak">
+          <div><div class="rl-name">TAK CLIENT</div><div class="rl-sub">a-f-G-U-C-I</div></div>
+        </div>
+        <div class="cell"><svg width="34" height="34" viewBox="0 0 32 32" style="color:var(--cat-tak)"><use href="#atlas-tak"/></svg></div>
+        <div class="cell"><svg width="34" height="34" viewBox="0 0 32 32" style="color:var(--cat-tak);filter:drop-shadow(0 0 4px var(--cat-tak))"><use href="#atlas-tak"/></svg></div>
+        <div class="cell">
+          <span class="sel-brk"><i></i><b></b></span>
+          <svg width="34" height="34" viewBox="0 0 32 32" style="color:var(--cat-tak)"><use href="#atlas-tak"/></svg>
+        </div>
+        <div class="cell" style="color:var(--cat-tak)">
+          <span class="halo halo-active"></span>
+          <svg width="34" height="34" viewBox="0 0 32 32" style="color:var(--cat-tak);filter:drop-shadow(0 0 6px var(--cat-tak))"><use href="#atlas-tak"/></svg>
+        </div>
+        <div class="cell" style="color:var(--cat-emerg)">
+          <span class="halo halo-critical"></span>
+          <svg width="34" height="34" viewBox="0 0 32 32" style="color:var(--cat-emerg);filter:drop-shadow(0 0 6px var(--cat-emerg))"><use href="#atlas-tak"/></svg>
+        </div>
+        <div class="cell"><svg width="34" height="34" viewBox="0 0 32 32" style="color:#555;opacity:0.5"><use href="#atlas-tak"/></svg></div>
+
+        <!-- TRAIN row — PILL, rotates by GTFS-RT bearing -->
+        <div class="cell hdr rl" data-cat="train">
+          <div><div class="rl-name">TRAIN</div><div class="rl-sub">RT-MAX-BLUE · OUTBOUND</div></div>
+        </div>
+        <div class="cell"><svg width="34" height="34" viewBox="0 0 32 32" style="color:var(--cat-train);transform:rotate(20deg)"><use href="#atlas-train"/></svg></div>
+        <div class="cell"><svg width="34" height="34" viewBox="0 0 32 32" style="color:var(--cat-train);transform:rotate(20deg);filter:drop-shadow(0 0 4px var(--cat-train))"><use href="#atlas-train"/></svg></div>
+        <div class="cell">
+          <span class="sel-brk"><i></i><b></b></span>
+          <svg width="34" height="34" viewBox="0 0 32 32" style="color:var(--cat-train);transform:rotate(20deg)"><use href="#atlas-train"/></svg>
+        </div>
+        <div class="cell" style="color:var(--cat-train)">
+          <span class="halo halo-active"></span>
+          <svg width="34" height="34" viewBox="0 0 32 32" style="color:var(--cat-train);transform:rotate(20deg);filter:drop-shadow(0 0 6px var(--cat-train))"><use href="#atlas-train"/></svg>
+        </div>
+        <div class="cell" style="color:var(--cat-emerg)">
+          <span class="halo halo-critical"></span>
+          <svg width="34" height="34" viewBox="0 0 32 32" style="color:var(--cat-emerg);transform:rotate(20deg);filter:drop-shadow(0 0 6px var(--cat-emerg))"><use href="#atlas-train"/></svg>
+        </div>
+        <div class="cell"><svg width="34" height="34" viewBox="0 0 32 32" style="color:#555;opacity:0.5;transform:rotate(20deg)"><use href="#atlas-train"/></svg></div>
+
       </div>
     </div>
   </section>
 
-  <!-- ============ 03 ZOOM BUCKETS ============ -->
+  <!-- ============ 04 ZOOM BUCKETS ============ -->
   <section id="zoom">
     <div class="sec-head">
       <div>
-        <div class="sec-id"><span>// 03 · ZOOM</span></div>
+        <div class="sec-id"><span>// 04 · ZOOM</span></div>
         <h2 class="sec-title">Density &amp; Decay</h2>
       </div>
       <div class="sec-meta">
-        FULL · SIMPLIFIED · RING · DOT<br/>
-        <strong>4 BUCKETS · z 14→6</strong>
+        FULL · RING · DOT · HALO<br/>
+        <strong>UTILITY SLOTS · ROW 2</strong>
       </div>
     </div>
 
     <div class="zoom-grid">
       <!-- FULL -->
       <div class="zoom-col">
-        <div class="zoom-col-head"><span class="ztag">FULL</span><span class="zspec">z14+ · 22-26 PX</span></div>
+        <div class="zoom-col-head"><span class="ztag">FULL</span><span class="zspec">z14+ · 64 PX SPRITE</span></div>
         <div class="zoom-rows">
-          <div class="zoom-row" data-cat="air"><span class="zname">AIR</span><span class="zglyph"><svg width="28" height="28" viewBox="0 0 32 32" style="color:var(--cat-air)"><use href="#atlas-air"/></svg></span></div>
-          <div class="zoom-row" data-cat="sea"><span class="zname">SEA</span><span class="zglyph"><svg width="28" height="28" viewBox="0 0 32 32" style="color:var(--cat-sea)"><use href="#atlas-sea"/></svg></span></div>
+          <div class="zoom-row" data-cat="air"><span class="zname">AIR</span><span class="zglyph"><svg width="28" height="28" viewBox="0 0 32 32" style="color:var(--cat-air);transform:rotate(45deg)"><use href="#atlas-air"/></svg></span></div>
+          <div class="zoom-row" data-cat="sea"><span class="zname">SEA</span><span class="zglyph"><svg width="28" height="28" viewBox="0 0 32 32" style="color:var(--cat-sea);transform:rotate(-20deg)"><use href="#atlas-sea"/></svg></span></div>
           <div class="zoom-row" data-cat="mesh"><span class="zname">MESH</span><span class="zglyph"><svg width="26" height="26" viewBox="0 0 32 32" style="color:var(--cat-mesh)"><use href="#atlas-mesh"/></svg></span></div>
           <div class="zoom-row" data-cat="aprs"><span class="zname">APRS</span><span class="zglyph"><svg width="26" height="26" viewBox="0 0 32 32" style="color:var(--cat-aprs)"><use href="#atlas-aprs"/></svg></span></div>
           <div class="zoom-row" data-cat="stream"><span class="zname">STREAM</span><span class="zglyph"><svg width="28" height="28" viewBox="0 0 32 32" style="color:var(--cat-stream)"><use href="#atlas-stream"/></svg></span></div>
           <div class="zoom-row" data-cat="lightning"><span class="zname">BOLT</span><span class="zglyph"><svg width="24" height="24" viewBox="0 0 32 32" style="color:var(--cat-lightning)"><use href="#atlas-lightning"/></svg></span></div>
           <div class="zoom-row" data-cat="fire"><span class="zname">FIRE</span><span class="zglyph"><svg width="30" height="30" viewBox="0 0 32 32" style="color:var(--cat-fire)"><use href="#atlas-fire"/></svg></span></div>
           <div class="zoom-row" data-cat="cam"><span class="zname">CAM</span><span class="zglyph"><svg width="28" height="28" viewBox="0 0 32 32" style="color:var(--cat-cam)"><use href="#atlas-cam"/></svg></span></div>
+          <div class="zoom-row" data-cat="tak"><span class="zname">TAK</span><span class="zglyph"><svg width="26" height="26" viewBox="0 0 32 32" style="color:var(--cat-tak)"><use href="#atlas-tak"/></svg></span></div>
+          <div class="zoom-row" data-cat="train"><span class="zname">TRAIN</span><span class="zglyph"><svg width="26" height="26" viewBox="0 0 32 32" style="color:var(--cat-train);transform:rotate(20deg)"><use href="#atlas-train"/></svg></span></div>
         </div>
       </div>
 
-      <!-- SIMPLIFIED (line variants) -->
+      <!-- HALO · severity overlay, any zoom -->
       <div class="zoom-col">
-        <div class="zoom-col-head"><span class="ztag">SIMPLIFIED</span><span class="zspec">z11-13 · 16-20 PX</span></div>
+        <div class="zoom-col-head"><span class="ztag">HALO</span><span class="zspec">any z · slot 2,2</span></div>
         <div class="zoom-rows">
-          <div class="zoom-row" data-cat="air"><span class="zname">AIR</span><span class="zglyph"><svg width="20" height="20" viewBox="0 0 32 32" style="color:var(--cat-air)"><use href="#atlas-air-line"/></svg></span></div>
-          <div class="zoom-row" data-cat="sea"><span class="zname">SEA</span><span class="zglyph"><svg width="20" height="20" viewBox="0 0 32 32" style="color:var(--cat-sea)"><use href="#atlas-sea-line"/></svg></span></div>
-          <div class="zoom-row" data-cat="mesh"><span class="zname">MESH</span><span class="zglyph"><svg width="18" height="18" viewBox="0 0 32 32" style="color:var(--cat-mesh)"><use href="#atlas-mesh-line"/></svg></span></div>
-          <div class="zoom-row" data-cat="aprs"><span class="zname">APRS</span><span class="zglyph"><svg width="18" height="18" viewBox="0 0 32 32" style="color:var(--cat-aprs)"><use href="#atlas-aprs"/></svg></span></div>
-          <div class="zoom-row" data-cat="stream"><span class="zname">STREAM</span><span class="zglyph"><svg width="20" height="20" viewBox="0 0 32 32" style="color:var(--cat-stream)"><use href="#atlas-stream"/></svg></span></div>
-          <div class="zoom-row" data-cat="lightning"><span class="zname">BOLT</span><span class="zglyph"><svg width="18" height="18" viewBox="0 0 32 32" style="color:var(--cat-lightning)"><use href="#atlas-lightning-line"/></svg></span></div>
-          <div class="zoom-row" data-cat="fire"><span class="zname">FIRE</span><span class="zglyph"><svg width="22" height="22" viewBox="0 0 32 32" style="color:var(--cat-fire)"><use href="#atlas-fire"/></svg></span></div>
-          <div class="zoom-row" data-cat="cam"><span class="zname">CAM</span><span class="zglyph"><svg width="20" height="20" viewBox="0 0 32 32" style="color:var(--cat-cam)"><use href="#atlas-cam-line"/></svg></span></div>
+          <div class="zoom-row" data-cat="air"><span class="zname">AIR</span><span class="zglyph"><svg width="30" height="30" viewBox="0 0 32 32" style="color:var(--cat-air)"><use href="#atlas-halo"/></svg></span></div>
+          <div class="zoom-row" data-cat="sea"><span class="zname">SEA</span><span class="zglyph"><svg width="30" height="30" viewBox="0 0 32 32" style="color:var(--cat-sea)"><use href="#atlas-halo"/></svg></span></div>
+          <div class="zoom-row" data-cat="mesh"><span class="zname">MESH</span><span class="zglyph"><svg width="30" height="30" viewBox="0 0 32 32" style="color:var(--cat-mesh)"><use href="#atlas-halo"/></svg></span></div>
+          <div class="zoom-row" data-cat="aprs"><span class="zname">APRS</span><span class="zglyph"><svg width="30" height="30" viewBox="0 0 32 32" style="color:var(--cat-aprs)"><use href="#atlas-halo"/></svg></span></div>
+          <div class="zoom-row" data-cat="stream"><span class="zname">STREAM</span><span class="zglyph"><svg width="30" height="30" viewBox="0 0 32 32" style="color:var(--cat-stream)"><use href="#atlas-halo"/></svg></span></div>
+          <div class="zoom-row" data-cat="lightning"><span class="zname">BOLT</span><span class="zglyph"><svg width="30" height="30" viewBox="0 0 32 32" style="color:var(--cat-lightning)"><use href="#atlas-halo"/></svg></span></div>
+          <div class="zoom-row" data-cat="fire"><span class="zname">FIRE</span><span class="zglyph"><svg width="30" height="30" viewBox="0 0 32 32" style="color:var(--cat-emerg)"><use href="#atlas-halo"/></svg></span></div>
+          <div class="zoom-row" data-cat="cam"><span class="zname">CAM</span><span class="zglyph"><svg width="30" height="30" viewBox="0 0 32 32" style="color:var(--cat-cam)"><use href="#atlas-halo"/></svg></span></div>
+          <div class="zoom-row" data-cat="tak"><span class="zname">TAK</span><span class="zglyph"><svg width="30" height="30" viewBox="0 0 32 32" style="color:var(--cat-tak)"><use href="#atlas-halo"/></svg></span></div>
+          <div class="zoom-row" data-cat="train"><span class="zname">TRAIN</span><span class="zglyph"><svg width="30" height="30" viewBox="0 0 32 32" style="color:var(--cat-train)"><use href="#atlas-halo"/></svg></span></div>
         </div>
       </div>
 
       <!-- RING -->
       <div class="zoom-col">
-        <div class="zoom-col-head"><span class="ztag">RING</span><span class="zspec">z8-10 · 12 PX</span></div>
+        <div class="zoom-col-head"><span class="ztag">RING</span><span class="zspec">z10-13 · slot 0,2</span></div>
         <div class="zoom-rows">
           <div class="zoom-row" data-cat="air"><span class="zname">AIR</span><span class="zglyph"><svg width="14" height="14" viewBox="0 0 32 32" style="color:var(--cat-air)"><use href="#atlas-ring"/></svg></span></div>
           <div class="zoom-row" data-cat="sea"><span class="zname">SEA</span><span class="zglyph"><svg width="14" height="14" viewBox="0 0 32 32" style="color:var(--cat-sea)"><use href="#atlas-ring"/></svg></span></div>
@@ -1298,12 +1565,14 @@
           <div class="zoom-row" data-cat="lightning"><span class="zname">BOLT</span><span class="zglyph"><svg width="14" height="14" viewBox="0 0 32 32" style="color:var(--cat-lightning)"><use href="#atlas-ring"/></svg></span></div>
           <div class="zoom-row" data-cat="fire"><span class="zname">FIRE</span><span class="zglyph"><svg width="14" height="14" viewBox="0 0 32 32" style="color:var(--cat-fire)"><use href="#atlas-ring"/></svg></span></div>
           <div class="zoom-row" data-cat="cam"><span class="zname">CAM</span><span class="zglyph"><svg width="14" height="14" viewBox="0 0 32 32" style="color:var(--cat-cam)"><use href="#atlas-ring"/></svg></span></div>
+          <div class="zoom-row" data-cat="tak"><span class="zname">TAK</span><span class="zglyph"><svg width="14" height="14" viewBox="0 0 32 32" style="color:var(--cat-tak)"><use href="#atlas-ring"/></svg></span></div>
+          <div class="zoom-row" data-cat="train"><span class="zname">TRAIN</span><span class="zglyph"><svg width="14" height="14" viewBox="0 0 32 32" style="color:var(--cat-train)"><use href="#atlas-ring"/></svg></span></div>
         </div>
       </div>
 
       <!-- DOT -->
       <div class="zoom-col">
-        <div class="zoom-col-head"><span class="ztag">DOT</span><span class="zspec">z6-7 · 6 PX</span></div>
+        <div class="zoom-col-head"><span class="ztag">DOT</span><span class="zspec">z6-9 · slot 1,2</span></div>
         <div class="zoom-rows">
           <div class="zoom-row" data-cat="air"><span class="zname">AIR</span><span class="zglyph"><svg width="10" height="10" viewBox="0 0 32 32" style="color:var(--cat-air)"><use href="#atlas-dot"/></svg></span></div>
           <div class="zoom-row" data-cat="sea"><span class="zname">SEA</span><span class="zglyph"><svg width="10" height="10" viewBox="0 0 32 32" style="color:var(--cat-sea)"><use href="#atlas-dot"/></svg></span></div>
@@ -1313,16 +1582,18 @@
           <div class="zoom-row" data-cat="lightning"><span class="zname">BOLT</span><span class="zglyph"><svg width="10" height="10" viewBox="0 0 32 32" style="color:var(--cat-lightning)"><use href="#atlas-dot"/></svg></span></div>
           <div class="zoom-row" data-cat="fire"><span class="zname">FIRE</span><span class="zglyph"><svg width="10" height="10" viewBox="0 0 32 32" style="color:var(--cat-fire)"><use href="#atlas-dot"/></svg></span></div>
           <div class="zoom-row" data-cat="cam"><span class="zname">CAM</span><span class="zglyph"><svg width="10" height="10" viewBox="0 0 32 32" style="color:var(--cat-cam)"><use href="#atlas-dot"/></svg></span></div>
+          <div class="zoom-row" data-cat="tak"><span class="zname">TAK</span><span class="zglyph"><svg width="10" height="10" viewBox="0 0 32 32" style="color:var(--cat-tak)"><use href="#atlas-dot"/></svg></span></div>
+          <div class="zoom-row" data-cat="train"><span class="zname">TRAIN</span><span class="zglyph"><svg width="10" height="10" viewBox="0 0 32 32" style="color:var(--cat-train)"><use href="#atlas-dot"/></svg></span></div>
         </div>
       </div>
     </div>
   </section>
 
-  <!-- ============ 04 ANATOMY ============ -->
+  <!-- ============ 05 ANATOMY ============ -->
   <section id="anatomy">
     <div class="sec-head">
       <div>
-        <div class="sec-id"><span>// 04 · ANATOMY</span></div>
+        <div class="sec-id"><span>// 05 · ANATOMY</span></div>
         <h2 class="sec-title">Construction</h2>
       </div>
       <div class="sec-meta">
@@ -1374,22 +1645,22 @@
     </div>
   </section>
 
-  <!-- ============ 05 MAP CONTEXT ============ -->
+  <!-- ============ 06 MAP CONTEXT ============ -->
   <section id="context">
     <div class="sec-head">
       <div>
-        <div class="sec-id"><span>// 05 · CONTEXT</span></div>
+        <div class="sec-id"><span>// 06 · CONTEXT</span></div>
         <h2 class="sec-title">In Situ</h2>
       </div>
       <div class="sec-meta">
         DARK TACTICAL · z11<br/>
-        <strong>MIXED LAYER · 18 ENTITIES</strong>
+        <strong>MIXED LAYER · 23 ENTITIES</strong>
       </div>
     </div>
 
     <div class="map-context">
       <div class="hud-card-head">
-        <span class="label-caps">FIG 05.1 · MAP COMPOSITION · all 8 layers · z11</span>
+        <span class="label-caps">FIG 06.1 · MAP COMPOSITION · all layers · z11</span>
         <span class="mono" style="font-size:10px;color:var(--on-surface-variant);letter-spacing:0.15em">SECTOR · PUGET · 47.62N 122.34W</span>
       </div>
 
@@ -1487,11 +1758,30 @@
           <svg width="22" height="22" viewBox="0 0 32 32" style="color:var(--cat-cam)"><use href="#atlas-cam"/></svg>
         </div>
 
+        <!-- TAK CLIENTS -->
+        <div class="map-marker" style="left:52%;top:58%">
+          <svg width="20" height="20" viewBox="0 0 32 32" style="color:var(--cat-tak)"><use href="#atlas-tak"/></svg>
+        </div>
+        <div class="map-marker" style="left:28%;top:55%">
+          <svg width="20" height="20" viewBox="0 0 32 32" style="color:var(--cat-tak)"><use href="#atlas-tak"/></svg>
+        </div>
+
+        <!-- TRAINS (pills, rotated to track bearing) -->
+        <div class="map-marker" style="left:40%;top:32%">
+          <svg width="22" height="22" viewBox="0 0 32 32" style="color:var(--cat-train);transform:rotate(110deg);filter:drop-shadow(0 0 4px var(--cat-train))"><use href="#atlas-train"/></svg>
+        </div>
+        <div class="map-marker" style="left:56%;top:40%">
+          <svg width="22" height="22" viewBox="0 0 32 32" style="color:var(--cat-train);transform:rotate(60deg);filter:drop-shadow(0 0 4px var(--cat-train))"><use href="#atlas-train"/></svg>
+        </div>
+        <div class="map-marker" style="left:72%;top:55%">
+          <svg width="22" height="22" viewBox="0 0 32 32" style="color:var(--cat-train);transform:rotate(-20deg);filter:drop-shadow(0 0 4px var(--cat-train))"><use href="#atlas-train"/></svg>
+        </div>
+
         <!-- LAYER PANEL -->
         <div class="layer-panel">
           <div class="layer-panel-head">
             <span class="label-caps">// LAYERS</span>
-            <span class="mono" style="font-size:9px;color:var(--on-surface-variant);letter-spacing:0.15em">8 / 8</span>
+            <span class="mono" style="font-size:9px;color:var(--on-surface-variant);letter-spacing:0.15em">10 / 10</span>
           </div>
           <div class="layer-panel-rows">
             <div class="layer-row"><span class="lr-icon"><svg width="14" height="14" viewBox="0 0 32 32" style="color:var(--cat-air)"><use href="#atlas-air"/></svg></span><span class="lr-name">AIRCRAFT</span><span class="lr-count">14</span></div>
@@ -1502,6 +1792,8 @@
             <div class="layer-row"><span class="lr-icon"><svg width="14" height="14" viewBox="0 0 32 32" style="color:var(--cat-lightning)"><use href="#atlas-lightning"/></svg></span><span class="lr-name">LIGHTNING</span><span class="lr-count">12</span></div>
             <div class="layer-row"><span class="lr-icon"><svg width="14" height="14" viewBox="0 0 32 32" style="color:var(--cat-fire)"><use href="#atlas-fire"/></svg></span><span class="lr-name">FIRE</span><span class="lr-count">1</span></div>
             <div class="layer-row"><span class="lr-icon"><svg width="14" height="14" viewBox="0 0 32 32" style="color:var(--cat-cam)"><use href="#atlas-cam"/></svg></span><span class="lr-name">CAMERA</span><span class="lr-count">32</span></div>
+            <div class="layer-row"><span class="lr-icon"><svg width="14" height="14" viewBox="0 0 32 32" style="color:var(--cat-tak)"><use href="#atlas-tak"/></svg></span><span class="lr-name">TAK CLIENT</span><span class="lr-count">7</span></div>
+            <div class="layer-row"><span class="lr-icon"><svg width="14" height="14" viewBox="0 0 32 32" style="color:var(--cat-train)"><use href="#atlas-train"/></svg></span><span class="lr-name">TRAIN</span><span class="lr-count">11</span></div>
           </div>
         </div>
 
@@ -1542,7 +1834,7 @@
     <!-- second mock: zoom-out, dot bucket, dense -->
     <div class="map-context" style="margin-top:24px">
       <div class="hud-card-head">
-        <span class="label-caps">FIG 05.2 · ZOOM-OUT · DOT BUCKET · z6</span>
+        <span class="label-caps">FIG 06.2 · ZOOM-OUT · DOT BUCKET · z6</span>
         <span class="mono" style="font-size:10px;color:var(--on-surface-variant);letter-spacing:0.15em">REGIONAL · 5,200 ENTITIES</span>
       </div>
       <div class="map-canvas" style="height:340px">
@@ -1562,11 +1854,11 @@
 
   </section>
 
-  <!-- ============ 06 SPEC SHEET ============ -->
+  <!-- ============ 07 SPEC SHEET ============ -->
   <section id="spec">
     <div class="sec-head">
       <div>
-        <div class="sec-id"><span>// 06 · SPEC</span></div>
+        <div class="sec-id"><span>// 07 · SPEC</span></div>
         <h2 class="sec-title">Token Reference</h2>
       </div>
       <div class="sec-meta">
@@ -1658,12 +1950,21 @@
       </div>
 
       <div class="spec-row">
-        <div class="glyph"><svg width="32" height="32" viewBox="0 0 32 32" style="color:var(--cat-emerg)"><use href="#atlas-emerg"/></svg></div>
-        <div class="name">EMERGENCY<span class="id">atlas.emerg · ATL-09</span></div>
-        <div class="meta">26<span class="k"> px</span></div>
+        <div class="glyph"><svg width="32" height="32" viewBox="0 0 32 32" style="color:#F2F2F2"><use href="#atlas-tak"/></svg></div>
+        <div class="name">TAK CLIENT<span class="id">atlas.tak_client · ATL-09</span></div>
+        <div class="meta">20<span class="k"> px</span></div>
+        <div class="meta"><span class="swatch" style="background:#F2F2F2"></span><span class="k">#F2F2F2</span></div>
         <div class="meta"><span class="swatch" style="background:var(--cat-emerg)"></span><span class="k">#C62828</span></div>
+        <div class="meta">2.2s · slow</div>
+      </div>
+
+      <div class="spec-row">
+        <div class="glyph"><svg width="32" height="32" viewBox="0 0 32 32" style="color:var(--cat-train);transform:rotate(20deg)"><use href="#atlas-train"/></svg></div>
+        <div class="name">TRAIN<span class="id">atlas.train · ATL-10</span></div>
+        <div class="meta">22<span class="k"> px</span></div>
+        <div class="meta"><span class="swatch" style="background:var(--cat-train)"></span><span class="k">#5C6BC0</span></div>
         <div class="meta"><span class="swatch" style="background:var(--cat-emerg)"></span><span class="k">#C62828</span></div>
-        <div class="meta">1.2s · fast</div>
+        <div class="meta">2.2s · slow</div>
       </div>
     </div>
 
@@ -1671,11 +1972,11 @@
     <div style="border:1px solid var(--amber-gold-muted);background:rgba(77,56,0,0.08);margin-top:24px;padding:18px;display:flex;align-items:flex-start;gap:16px">
       <span style="font-family:'Roboto Mono',monospace;font-size:14px;color:var(--amber-gold);font-weight:700;letter-spacing:0.18em;flex-shrink:0">// NOTE</span>
       <div>
-        <div class="label-caps" style="color:var(--amber-gold);margin-bottom:6px">DECK.GL ATLAS · NEXT STEP</div>
+        <div class="label-caps" style="color:var(--amber-gold);margin-bottom:6px">SHEET CONTRACT · atlasIcons.ts</div>
         <div style="font-family:'Roboto Mono',monospace;font-size:11px;color:var(--on-surface);line-height:1.7">
-          Bake the FULL bucket into a <span style="color:var(--amber-gold)">256×256</span> sprite atlas (8 cats × 4 states · padded 32×32 cells).
-          SIMPLIFIED, RING, and DOT buckets render as primitives via <span style="color:var(--amber-gold)">IconLayer</span> with sizeScale per zoom.
-          Halo + selection bracket render as separate <span style="color:var(--amber-gold)">ScatterplotLayer</span> below the icon.
+          Atlas ships as a single <span style="color:var(--amber-gold)">256×256</span> canvas — 13 of 16 cells used — generated in <span style="color:var(--amber-gold)">atlasIcons.ts</span>.
+          deck.gl <span style="color:var(--amber-gold)">IconLayer</span> consumes it in <span style="color:var(--amber-gold)">mask=true</span> mode; per-feature color comes from <span style="color:var(--amber-gold)">getIconColor</span>, the sprite contributes alpha only.
+          The <span style="color:var(--amber-gold)">ring</span>, <span style="color:var(--amber-gold)">dot</span>, and <span style="color:var(--amber-gold)">halo</span> cells are utility slots reused across categories and zoom levels.
           Once approved, fold this section into <span style="color:var(--amber-gold)">vertex-design-system.html#icons</span> as <em>// 07.B · ATLAS</em>.
         </div>
       </div>
@@ -1684,8 +1985,8 @@
 
   <footer>
     <span><span class="amber">VERTEX</span> · ATLAS ICONS · v0.1</span>
-    <span>9 CATEGORIES · 6 STATES · 4 ZOOM BUCKETS</span>
-    <span>2026 · 05 · 05</span>
+    <span>10 CATEGORIES · 3 UTILITY · 256×256 SPRITE</span>
+    <span>2026 · 05 · 15</span>
   </footer>
 
 </div>
@@ -1704,6 +2005,8 @@
       {c:'#FFE94D',w:5},  // lightning
       {c:'#FF5252',w:1},  // fire
       {c:'#FFB800',w:7},  // cam
+      {c:'#F2F2F2',w:3},  // tak
+      {c:'#5C6BC0',w:5},  // train
     ];
     // Cumulative weight selection
     var total = hues.reduce(function(a,h){return a+h.w},0);
