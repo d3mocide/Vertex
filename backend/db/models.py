@@ -83,6 +83,25 @@ class Event(Base):
     details: Mapped[Optional[dict]] = mapped_column(JSON)
 
 
+class AcarsMessage(Base):
+    __tablename__ = "acars_messages"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    station_id: Mapped[Optional[str]] = mapped_column(Text)
+    tail: Mapped[Optional[str]] = mapped_column(Text, index=True)
+    flight: Mapped[Optional[str]] = mapped_column(Text, index=True)
+    freq: Mapped[Optional[str]] = mapped_column(Text)
+    label: Mapped[Optional[str]] = mapped_column(Text)
+    msg_num: Mapped[Optional[str]] = mapped_column(Text)
+    msg_text: Mapped[Optional[str]] = mapped_column(Text)
+    error: Mapped[int] = mapped_column(default=0)
+    mode: Mapped[Optional[str]] = mapped_column(Text)
+    ts: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    received_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    __table_args__ = (Index("ix_acars_tail", "tail", "ts"),)
+
+
 class Geofence(Base):
     __tablename__ = "geofences"
 

@@ -25,7 +25,7 @@ class NewsFeedEntry(BaseModel):
 
 
 class PollerSourceEntry(BaseModel):
-    type: Literal["adsb", "ais", "p25", "meshcore", "fire", "aprs"]
+    type: Literal["adsb", "ais", "p25", "meshcore", "fire", "aprs", "acars"]
     name: str
     url: str
     enabled: bool = True

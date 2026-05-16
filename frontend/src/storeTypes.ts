@@ -269,6 +269,21 @@ export type RangeFilter = [number, number]
 export const ALT_RANGE_DEFAULT: RangeFilter  = [0, 60_000]
 export const SPD_RANGE_DEFAULT: RangeFilter  = [0, 600]
 
+// ─── ACARS ───────────────────────────────────────────────────────────────────
+export interface AcarsMessage {
+  id?:         number
+  tail:        string
+  flight:      string
+  freq:        string
+  label:       string
+  msg_num:     string
+  msg_text:    string
+  station_id:  string
+  error:       number
+  mode:        string
+  ts:          string
+}
+
 // ─── Replay ───────────────────────────────────────────────────────────────────
 export interface ReplayPoint {
   ts:        string

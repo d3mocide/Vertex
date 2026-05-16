@@ -10,6 +10,7 @@ import type {
   SummaryState, TrailPoint, AirportSnapshot, AppMode, NavTab, EntityTypeFilter,
   RangeFilter, ReplayData, EntityMissionTag, AnnotationItem,
   TrafficFlowSensor, UtilityStatus, OregonStatus, MeshMessage, MeshLink,
+  AcarsMessage,
 } from './storeTypes'
 import { ALT_RANGE_DEFAULT, SPD_RANGE_DEFAULT } from './storeTypes'
 
@@ -178,6 +179,11 @@ interface CivicStore {
   annotationToolbarOpen:   boolean
   setAnnotationToolbarOpen: (v: boolean) => void
 
+  // ACARS messages (rolling buffer, newest-first, capped at 500)
+  acarsMessages:        AcarsMessage[]
+  appendAcarsMessage:   (msg: AcarsMessage) => void
+  setAcarsMessages:     (msgs: AcarsMessage[]) => void
+
   // Lightning strikes (rolling 60-second buffer, fed from Blitzortung via WS)
   lightningStrikes:       LightningStrike[]
   appendLightningStrikes: (strikes: LightningStrike[]) => void
@@ -321,6 +327,7 @@ export const useCivicStore = create<CivicStore>()(
   meshLinks:        [],
   meshStatus:       null,
   linkHistory:      {},
+  acarsMessages:    [],
 
   // Connection
   connected:        false,
@@ -517,6 +524,12 @@ export const useCivicStore = create<CivicStore>()(
     })
     return { linkHistory: next, meshLinks: links }
   }),
+
+  appendAcarsMessage: (msg) =>
+    set((s) => ({
+      acarsMessages: [msg, ...s.acarsMessages].slice(0, 500),
+    })),
+  setAcarsMessages: (msgs) => set({ acarsMessages: msgs }),
 
   // Connection actions
   setConnected: (connected) => set({ connected }),
