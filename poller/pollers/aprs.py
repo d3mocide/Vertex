@@ -196,6 +196,11 @@ class AprsPoller(BasePoller):
                         identity["station_type"] = station_type
                     if parsed["comment"]:
                         identity["comment"] = parsed["comment"]
+                    if station_type == "weather" and parsed["comment"]:
+                        from enrichment.aprs_weather import parse_wx_comment
+                        wx = parse_wx_comment(parsed["comment"])
+                        if wx:
+                            identity["wx"] = wx
 
                     entity: dict = {
                         "entity_id": f"aprs:{callsign}",
