@@ -42,11 +42,13 @@ def validate_safe_url(url: str, allowed_schemes: set[str] | None = None) -> None
 
 def validate_safe_host(hostname: str) -> None:
     """Raise ValueError if hostname resolves to a non-public address."""
+    if not hostname:
+        raise ValueError("No hostname provided")
     try:
         ip = ipaddress.ip_address(hostname)
         _reject_private_ip(ip)
     except ValueError as exc:
-        if "private" in str(exc) or "loopback" in str(exc) or "link-local" in str(exc):
+        if "non-public address" in str(exc):
             raise
         # Not an IP literal — resolve via DNS and check each address
         try:
