@@ -6,6 +6,7 @@ import { DEFAULT_CENTER } from '../../config'
 const TYPE_ICON: Record<string, string> = {
   aircraft:       'flight',
   vessel:         'directions_boat',
+  train:          'directions_railway',
   aprs:           'sensors',
   fire_incident:  'local_fire_department',
   satellite:      'satellite_alt',
@@ -14,6 +15,7 @@ const TYPE_ICON: Record<string, string> = {
 const TYPE_COLOR: Record<string, string> = {
   aircraft:       'text-cyan-adsb',
   vessel:         'text-green-ais',
+  train:          'text-amber-gold',
   aprs:           'text-cyan-adsb',
   fire_incident:  'text-red-emergency',
   satellite:      'text-violet-space',
@@ -98,7 +100,7 @@ export function EntitySearchPanel() {
     entitySpeedRange[1] !== SPD_RANGE_DEFAULT[1] ||
     !trailsVisible ||
     !entityFilter.adsbLocal || !entityFilter.adsbSupplement ||
-    !entityFilter.aircraft || !entityFilter.vessel || !entityFilter.mesh_node ||
+    !entityFilter.aircraft || !entityFilter.vessel || !entityFilter.train || !entityFilter.mesh_node ||
     !entityFilter.aprs || !entityFilter.fire_incident ||
     !entityFilter.satellite || !entityFilter.tinygs_station
   )
@@ -108,7 +110,7 @@ export function EntitySearchPanel() {
     setEntityAltRange(ALT_RANGE_DEFAULT)
     setEntitySpeedRange(SPD_RANGE_DEFAULT)
     setTrailsVisible(true)
-    setEntityFilter({ aircraft: true, adsbLocal: true, adsbSupplement: true, vessel: true, mesh_node: true, aprs: true, fire_incident: true, satellite: true, tinygs_station: true })
+    setEntityFilter({ aircraft: true, adsbLocal: true, adsbSupplement: true, vessel: true, train: true, mesh_node: true, aprs: true, fire_incident: true, satellite: true, tinygs_station: true })
     setTaggedOnly(false)
   }
 
@@ -133,6 +135,7 @@ export function EntitySearchPanel() {
   const matchedTracks = Object.values(tracks).filter((track) => {
     if (track.type === 'air' && !entityFilter.aircraft) return false
     if (track.type === 'sea' && !entityFilter.vessel) return false
+    if (track.type === 'rail' && !entityFilter.train) return false
     if (track.type === 'ground' && !entityFilter.aprs) return false
     if (track.type === 'hazard' && !entityFilter.fire_incident) return false
     if (taggedOnly && !(entityMissionTags[track.uid]?.length > 0)) return false
@@ -255,6 +258,18 @@ export function EntitySearchPanel() {
                 </button>
               ))}
               <button
+                onClick={() => setEntityFilter({ train: !entityFilter.train })}
+                className={`flex items-center gap-1 px-2 py-1 border text-[11px] uppercase tracking-widest font-bold transition-colors focus:outline-none ${
+                  entityFilter.train
+                    ? 'text-amber-gold border-amber-gold/60 bg-amber-gold/10'
+                    : 'text-on-surface-variant border-white/10 hover:border-white/20'
+                }`}
+                aria-pressed={entityFilter.train}
+              >
+                <span className="ms text-[12px] leading-none">directions_railway</span>
+                Train
+              </button>
+              <button
                 onClick={() => setEntityFilter({ mesh_node: !entityFilter.mesh_node })}
                 className={`flex items-center gap-1 px-2 py-1 border text-[11px] uppercase tracking-widest font-bold transition-colors focus:outline-none ${
                   entityFilter.mesh_node
@@ -374,6 +389,8 @@ export function EntitySearchPanel() {
                 ? 'aircraft'
                 : track.type === 'sea'
                 ? 'vessel'
+                : track.type === 'rail'
+                ? 'train'
                 : track.type === 'ground'
                 ? 'aprs'
                 : 'fire_incident'

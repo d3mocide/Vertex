@@ -1,9 +1,12 @@
 import asyncio
+import json
 import logging
 import time
 
 import httpx
 from fastapi import APIRouter, HTTPException
+
+from redis_bus import get_redis
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["rail"])
@@ -12,9 +15,11 @@ router = APIRouter(tags=["rail"])
 # Overpass format: south,west,north,east
 _BBOX = "41.9,-124.6,47.0,-116.4"
 _OVERPASS_URL = "https://overpass-api.de/api/interpreter"
-_CACHE_TTL_S = 86_400.0  # 24 hours — rail infrastructure changes infrequently
+_CACHE_TTL_S = 86_400  # 24 hours — rail infrastructure changes infrequently
+_REDIS_KEY = "cache:rail:tracks"
 
-_cache: dict = {"data": None, "ts": 0.0}
+# In-process fallback so a warm backend doesn't hit Redis on every request
+_mem: dict = {"data": None, "ts": 0.0}
 _fetch_lock = asyncio.Lock()
 
 
@@ -70,25 +75,47 @@ async def _fetch() -> dict:
 
 @router.get("/rail/tracks")
 async def get_rail_tracks():
-    """OSM rail track geometry as GeoJSON (24-hour cache)."""
+    """OSM rail track geometry as GeoJSON (24-hour cache, Redis-backed)."""
     now = time.monotonic()
-    if _cache["data"] is not None and (now - _cache["ts"]) < _CACHE_TTL_S:
-        return _cache["data"]
 
+    # 1. In-process memory hit (avoids Redis round-trip for warm instances)
+    if _mem["data"] is not None and (now - _mem["ts"]) < _CACHE_TTL_S:
+        return _mem["data"]
+
+    # 2. Redis hit (survives backend restarts)
+    try:
+        r = get_redis()
+        cached_raw = await r.get(_REDIS_KEY)
+        if cached_raw:
+            geojson = json.loads(cached_raw)
+            _mem["data"] = geojson
+            _mem["ts"] = now
+            return geojson
+    except Exception as exc:
+        logger.warning("[rail] Redis read failed, will fetch from Overpass: %s", exc)
+
+    # 3. Fetch from Overpass under lock (prevents stampede)
     async with _fetch_lock:
         now = time.monotonic()
-        if _cache["data"] is not None and (now - _cache["ts"]) < _CACHE_TTL_S:
-            return _cache["data"]
+        if _mem["data"] is not None and (now - _mem["ts"]) < _CACHE_TTL_S:
+            return _mem["data"]
 
         try:
             geojson = await _fetch()
         except Exception as exc:
             logger.error("[rail] Overpass fetch failed: %s", exc)
-            if _cache["data"] is not None:
-                return _cache["data"]
+            if _mem["data"] is not None:
+                return _mem["data"]
             raise HTTPException(status_code=503, detail="Rail track data temporarily unavailable")
 
-        _cache["data"] = geojson
-        _cache["ts"] = time.monotonic()
+        _mem["data"] = geojson
+        _mem["ts"] = time.monotonic()
         logger.info("[rail] fetched %d track segments from Overpass", len(geojson["features"]))
+
+        try:
+            r = get_redis()
+            await r.set(_REDIS_KEY, json.dumps(geojson), ex=_CACHE_TTL_S)
+        except Exception as exc:
+            logger.warning("[rail] Redis write failed (cache not persisted): %s", exc)
+
         return geojson

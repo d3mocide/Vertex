@@ -41,7 +41,7 @@ export function RailLayer({ map }: Props) {
               'match',
               ['get', 'railway'],
               'light_rail', '#a78bfa',  // violet for light rail / MAX
-              '#78716c',                // stone-500 for mainline freight/Amtrak
+              '#b45309',                // amber-700 rust for mainline freight/Amtrak
             ],
             'line-width': [
               'interpolate', ['linear'], ['zoom'],
@@ -55,15 +55,23 @@ export function RailLayer({ map }: Props) {
 
         loadedRef.current = true
       } catch {
-        // Overpass API may be slow on first load; fail silently, retry on next mount
+        // Overpass API may be slow on first load; retry will fire via the interval below
       }
     }
 
+    // Initial attempt
     if (map.isStyleLoaded()) {
       load()
     } else {
       map.once('load', load)
     }
+
+    // Retry every 30 s until the backend Overpass cache warms up after a rebuild
+    const retryInterval = setInterval(() => {
+      if (!loadedRef.current) load()
+    }, 30_000)
+
+    return () => clearInterval(retryInterval)
   }, [map])
 
   // Toggle layer visibility when railTracksVisible changes

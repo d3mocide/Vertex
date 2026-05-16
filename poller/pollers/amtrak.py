@@ -1,6 +1,3 @@
-import base64
-import hashlib
-import json
 import logging
 
 import httpx
@@ -10,13 +7,9 @@ from .base import BasePoller
 
 logger = logging.getLogger(__name__)
 
-AMTRAK_URL = "https://maps.amtrak.org/services/MapDataService/trains/getTrainsData"
-
-# Master segment from Amtrak's bundled JavaScript (maps.amtrak.org).
-# If decryption starts failing, grab the updated value by loading the Amtrak
-# map page and searching the JS bundle for the UUID-pattern constant that
-# appears adjacent to the 'p' key construction.
-_MASTER_SEGMENT = "88b6be4c-11ad-4a80-b5a1-de08bbda79b2"
+# Amtraker V3 — public aggregator for Amtrak (and Via Rail) train positions.
+# No API key required. Returns plain JSON; no AES decryption needed.
+AMTRAK_URL = "https://api-v3.amtraker.com/v3/trains"
 
 # Oregon + SW Washington — broad enough to catch trains en route through the state.
 _MIN_LAT, _MAX_LAT = 41.9, 47.0
@@ -43,72 +36,37 @@ def _direction_to_heading(direction: str | None) -> float | None:
     return _COMPASS.get(str(direction).strip().upper())
 
 
-def _decrypt(s_field: str, p_field: str) -> list:
-    """AES-128-CBC decrypt the Amtrak MapDataService payload.
-
-    The Amtrak Maps website performs this same decryption client-side on every
-    page load — this is parsing a public endpoint's response format, not
-    bypassing any authentication or access control.
-    """
-    try:
-        from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
-        from cryptography.hazmat.primitives.padding import PKCS7
-    except ImportError:
-        logger.warning("[amtrak] cryptography package not installed — add it to requirements.txt")
-        return []
-
-    key_text = p_field + _MASTER_SEGMENT[len(p_field):]
-    key = hashlib.md5(key_text.encode()).digest()
-
-    raw = base64.b64decode(s_field)
-    iv, ciphertext = raw[:16], raw[16:]
-
-    cipher = Cipher(algorithms.AES(key), modes.CBC(iv))
-    dec = cipher.decryptor()
-    padded = dec.update(ciphertext) + dec.finalize()
-
-    unpadder = PKCS7(128).unpadder()
-    data = unpadder.update(padded) + unpadder.finalize()
-
-    parsed = json.loads(data.decode("utf-8"))
-    return parsed if isinstance(parsed, list) else parsed.get("features", [])
-
-
 def _in_bbox(lat: float | None, lon: float | None) -> bool:
     if lat is None or lon is None:
         return False
     return _MIN_LAT <= lat <= _MAX_LAT and _MIN_LON <= lon <= _MAX_LON
 
 
-def _normalize(feature: dict) -> dict | None:
-    props = feature.get("properties") or feature
-    geom  = feature.get("geometry") or {}
-    coords = geom.get("coordinates") or []
-
-    if len(coords) >= 2:
-        lon, lat = _safe_float(coords[0]), _safe_float(coords[1])
-    else:
-        lat = _safe_float(props.get("Lat") or props.get("lat"))
-        lon = _safe_float(props.get("Lon") or props.get("lon"))
+def _normalize(train: dict) -> dict | None:
+    """Normalize a single train object from the Amtraker V3 API response."""
+    lat = _safe_float(train.get("lat"))
+    lon = _safe_float(train.get("lon"))
 
     if not _in_bbox(lat, lon):
         return None
 
-    train_num = str(props.get("TrainNum") or props.get("trainNum") or "").strip()
+    train_num  = str(train.get("trainNum") or train.get("trainNumRaw") or "").strip()
     if not train_num:
         return None
 
-    train_name = str(props.get("TrainName") or props.get("trainName") or "").strip()
-    route_name = str(props.get("RouteName") or props.get("routeName") or "").strip()
-    velocity   = _safe_float(props.get("Velocity") or props.get("velocity"))
-    direction  = props.get("Direction") or props.get("direction")
-    orig_code  = str(props.get("OrigCode") or props.get("origCode") or "").strip()
-    dest_code  = str(props.get("DestCode") or props.get("destCode") or "").strip()
-    status     = str(props.get("EventCode") or props.get("eventCode") or "").strip()
-    last_ts    = str(props.get("LastValTS") or props.get("lastValTS") or "").strip()
+    route_name = str(train.get("routeName") or "").strip()
+    velocity   = _safe_float(train.get("velocity"))
+    direction  = train.get("heading")
+    orig_code  = str(train.get("origCode") or "").strip()
+    dest_code  = str(train.get("destCode") or "").strip()
+    orig_name  = str(train.get("origName") or "").strip()
+    dest_name  = str(train.get("destName") or "").strip()
+    status     = str(train.get("eventCode") or "").strip()
+    last_ts    = str(train.get("lastValTS") or "").strip()
 
+    # velocity from Amtraker V3 is in mph; convert to knots for consistency
     speed_kts = round(velocity * 0.868976, 1) if velocity is not None else None
-    display_name = f"{train_name} #{train_num}" if train_name else f"Train #{train_num}"
+    display_name = f"{route_name} #{train_num}" if route_name else f"Train #{train_num}"
 
     return {
         "entity_id":    f"train:amtrak:{train_num}",
@@ -122,12 +80,14 @@ def _normalize(feature: dict) -> dict | None:
         "altitude":     None,
         "status":       status or None,
         "identity": {
-            "train_number": train_num,
-            "train_name":   train_name,
-            "route_name":   route_name,
-            "origin":       orig_code,
-            "destination":  dest_code,
-            "direction":    direction,
+            "train_number":  train_num,
+            "train_name":    route_name,
+            "route_name":    route_name,
+            "origin":        orig_code,
+            "destination":   dest_code,
+            "origin_name":   orig_name,
+            "dest_name":     dest_name,
+            "direction":     direction,
             "last_reported": last_ts,
         },
         "tags": [route_name] if route_name else None,
@@ -136,7 +96,7 @@ def _normalize(feature: dict) -> dict | None:
 
 class AmtrakPoller(BasePoller):
     name = "amtrak"
-    interval = 60  # Amtrak refreshes positions roughly every 60 seconds
+    interval = 60  # Amtraker V3 updates roughly every 60 seconds
 
     _poll_count: int = 0
 
@@ -153,31 +113,22 @@ class AmtrakPoller(BasePoller):
             logger.warning("[amtrak] fetch failed: %s", exc)
             return
 
-        # Response is always the encrypted {"S": ..., "p": ...} envelope.
-        # Fall back to plain GeoJSON in case Amtrak ever standardises the format.
-        if "S" in payload and "p" in payload:
-            try:
-                features = _decrypt(payload["S"], payload["p"])
-            except Exception as exc:
-                logger.warning(
-                    "[amtrak] decryption failed (check _MASTER_SEGMENT constant): %s", exc
-                )
-                return
-        elif "features" in payload:
-            features = payload["features"]
-        elif isinstance(payload, list):
-            features = payload
-        else:
-            logger.warning("[amtrak] unrecognised response format")
+        # Amtraker V3 returns a dict keyed by train number; each value is a list
+        # of train objects (multiple active consists can share a number).
+        if not isinstance(payload, dict):
+            logger.warning("[amtrak] unexpected response type: %s", type(payload).__name__)
             return
 
         published = 0
-        for feat in features:
-            entity = _normalize(feat)
-            if entity is None:
+        for _train_key, trains in payload.items():
+            if not isinstance(trains, list):
                 continue
-            await publish_entity(entity, ttl=600, record_observation=True)
-            published += 1
+            for train in trains:
+                entity = _normalize(train)
+                if entity is None:
+                    continue
+                await publish_entity(entity, ttl=600, record_observation=True)
+                published += 1
 
         self._poll_count += 1
         if self._poll_count <= 3 or self._poll_count % 10 == 0:

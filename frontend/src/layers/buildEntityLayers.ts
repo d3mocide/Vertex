@@ -196,20 +196,5 @@ export function buildEntityLayers(
     fontFamily: 'monospace',
   })
 
-  // Train labels: show at z9+ with amber tint
-  const trainLabelLayer = new TextLayer<Track>({
-    id: 'train-labels',
-    data: zoom >= 9 ? trackArr.filter((t) => t.type === 'rail') : [],
-    getPosition: (t) => [t.lon, t.lat],
-    getText: (t) => t.callsign ?? t.uid,
-    getSize: 11,
-    sizeUnits: 'pixels',
-    getColor: TRAIN_ICON_COLOR,
-    getPixelOffset: [0, 16],
-    getTextAnchor: 'middle',
-    getAlignmentBaseline: 'top',
-    fontFamily: 'monospace',
-  })
-
-  return [selectionRingLayer, emergencyRingLayer, iconLayer, aprsLabelLayer, takLabelLayer, trainLabelLayer]
+  return [selectionRingLayer, emergencyRingLayer, iconLayer, aprsLabelLayer, takLabelLayer]
 }

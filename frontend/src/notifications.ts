@@ -6,6 +6,8 @@ const NOTIFY_SEVERITIES = new Set(['critical', 'high'])
 
 export async function initNotifications(): Promise<void> {
   if (!('serviceWorker' in navigator)) return
+  if (!import.meta.env.PROD) return
+  if (!(window.isSecureContext || location.hostname === 'localhost')) return
   try {
     swReg = await navigator.serviceWorker.register('/sw.js', { scope: '/' })
   } catch {

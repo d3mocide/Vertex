@@ -15,6 +15,7 @@ import { buildLightningLayer } from '../layers/buildLightningLayer'
 import { buildStreamGaugeLayers, type StreamGaugePoint } from '../layers/buildStreamGaugeLayer'
 import { buildMeshNodeLayers, type MeshNodePoint } from '../layers/buildMeshNodeLayer'
 import { buildTinyGSLayers, type TinyGSSatellitePoint, type TinyGSStationPoint } from '../layers/buildTinyGSLayer'
+import { extractRailSegments, snapPointToRail, type RailSegment } from '../layers/railSnap'
 import { applyPVB, type PVBState } from '../layers/pvb'
 import { DEFAULT_CENTER, OBSERVATION_RANGE_KM, API_BASE } from '../config'
 import { authHeaders } from '../auth'
@@ -26,6 +27,15 @@ interface Props {
 
 const ALT_FT_TO_M  = 0.3048
 const SPD_KT_TO_MS = 0.5144
+const TRAIN_SNAP_MAX_M = 1_500
+
+type RailSnapCacheEntry = {
+  lastSeen: string | undefined
+  rawLon: number
+  rawLat: number
+  snappedLon: number
+  snappedLat: number
+}
 
 function lerp(a: number, b: number, t: number) { return a + (b - a) * t }
 
@@ -149,6 +159,8 @@ export function MapOverlay({ map }: Props) {
   const customLayersRef = useRef(customLayers)
   const geofencesRef = useRef<GeofenceItem[]>([])
   const gaugeFallbackRef = useRef<Entity[]>([])
+  const railSegmentsRef = useRef<RailSegment[]>([])
+  const railSnapCacheRef = useRef<Record<string, RailSnapCacheEntry>>({})
   useEffect(() => { annotationsRef.current = annotations }, [annotations])
   useEffect(() => { annotationsVisibleRef.current = annotationsVisible }, [annotationsVisible])
   useEffect(() => { customLayersRef.current = customLayers }, [customLayers])
@@ -194,6 +206,33 @@ export function MapOverlay({ map }: Props) {
     }
     loadGeofences()
     const interval = setInterval(loadGeofences, 30000)
+    return () => {
+      cancelled = true
+      clearInterval(interval)
+    }
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+
+    const loadRailSegments = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/rail/tracks`, { headers: authHeaders() })
+        if (!res.ok || cancelled) return
+        const geojson = await res.json()
+        if (cancelled) return
+        const segments = extractRailSegments(geojson)
+        if (segments.length > 0) railSegmentsRef.current = segments
+      } catch {
+        // best effort
+      }
+    }
+
+    loadRailSegments()
+    const interval = setInterval(() => {
+      if (railSegmentsRef.current.length === 0) loadRailSegments()
+    }, 30_000)
+
     return () => {
       cancelled = true
       clearInterval(interval)
@@ -563,15 +602,58 @@ export function MapOverlay({ map }: Props) {
       // Trail layers receive rawTracks (actual history); only icon positions are smoothed.
       // In replay mode, PVB is bypassed (positions already interpolated).
       const pvbTracks: Record<string, Track> = {}
+      const railSegments = railSegmentsRef.current
+      const railSnapCache = railSnapCacheRef.current
       for (const uid of Object.keys(rawTracks)) {
         const track = rawTracks[uid] as Track
-        if (replayModeRef.current) {
-          pvbTracks[uid] = track
+
+        // Rail snapping is expensive against large OSM segment sets. Cache snap
+        // results per raw report and only recompute when the server position updates.
+        let snappedBase = track
+        if (track.type === 'rail' && railSegments.length > 0) {
+          const cached = railSnapCache[uid]
+          if (
+            cached &&
+            cached.lastSeen === track.lastSeen &&
+            cached.rawLon === track.lon &&
+            cached.rawLat === track.lat
+          ) {
+            snappedBase = (cached.snappedLon === track.lon && cached.snappedLat === track.lat)
+              ? track
+              : { ...track, lon: cached.snappedLon, lat: cached.snappedLat }
+          } else {
+            const snapped = snapPointToRail(track.lon, track.lat, railSegments, TRAIN_SNAP_MAX_M)
+            if (snapped) {
+              railSnapCache[uid] = {
+                lastSeen: track.lastSeen,
+                rawLon: track.lon,
+                rawLat: track.lat,
+                snappedLon: snapped.lon,
+                snappedLat: snapped.lat,
+              }
+              snappedBase = { ...track, lon: snapped.lon, lat: snapped.lat }
+            } else {
+              railSnapCache[uid] = {
+                lastSeen: track.lastSeen,
+                rawLon: track.lon,
+                rawLat: track.lat,
+                snappedLon: track.lon,
+                snappedLat: track.lat,
+              }
+            }
+          }
+        }
+
+        // Rail feeds can have coarse/irregular heading updates; extrapolation causes
+        // visible drift. Keep trains on last reported (snapped) position until the
+        // next real update arrives.
+        if (replayModeRef.current || snappedBase.type === 'rail') {
+          pvbTracks[uid] = snappedBase
         } else {
-          const [lon, lat] = applyPVB(pvb, track, now)
-          pvbTracks[uid] = (lon === track.lon && lat === track.lat)
-            ? track
-            : { ...track, lon, lat }
+          const [lon, lat] = applyPVB(pvb, snappedBase, now)
+          pvbTracks[uid] = (lon === snappedBase.lon && lat === snappedBase.lat)
+            ? snappedBase
+            : { ...snappedBase, lon, lat }
         }
       }
 
@@ -580,6 +662,9 @@ export function MapOverlay({ map }: Props) {
         const allTracks = tracksRef.current
         for (const uid of Object.keys(pvb)) {
           if (!(uid in allTracks)) delete pvb[uid]
+        }
+        for (const uid of Object.keys(railSnapCache)) {
+          if (!(uid in allTracks)) delete railSnapCache[uid]
         }
       }
 

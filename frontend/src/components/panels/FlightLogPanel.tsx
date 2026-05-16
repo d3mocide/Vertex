@@ -3,6 +3,7 @@ import maplibregl from 'maplibre-gl'
 import { useCivicStore, Entity } from '../../store'
 import type { AcarsMessage } from '../../storeTypes'
 import { API_BASE, MAP_STYLE, DEFAULT_CENTER } from '../../config'
+import { authHeaders } from '../../auth'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const TIME_WINDOWS = [
@@ -453,7 +454,8 @@ export function FlightLogPanel() {
       const end   = new Date().toISOString()
       const start = new Date(Date.now() - minutes * 60_000).toISOString()
       const res   = await fetch(
-        `${API_BASE}/observations/replay?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}&entity_type=aircraft`
+        `${API_BASE}/observations/replay?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}&entity_type=aircraft`,
+        { headers: authHeaders() },
       )
       if (!res.ok) return
       const data = await res.json() as {
@@ -483,7 +485,7 @@ export function FlightLogPanel() {
     if (!live && !inLog) { setTrailPoints([]); return }
 
     setLoadingTrail(true)
-    fetch(`${API_BASE}/entities/${encodeURIComponent(selectedEntityId)}/trail?minutes=${timeWindow}`)
+    fetch(`${API_BASE}/entities/${encodeURIComponent(selectedEntityId)}/trail?minutes=${timeWindow}`, { headers: authHeaders() })
       .then(r => r.ok ? r.json() : [])
       .then((data: ObsPoint[]) => setTrailPoints(data))
       .catch(() => setTrailPoints([]))
@@ -499,7 +501,7 @@ export function FlightLogPanel() {
     // Fetch from API for historical entities (guard against duplicate fetches)
     if (lastFetchedDetailId.current !== selectedEntityId) {
       lastFetchedDetailId.current = selectedEntityId
-      fetch(`${API_BASE}/entities/${encodeURIComponent(selectedEntityId)}`)
+      fetch(`${API_BASE}/entities/${encodeURIComponent(selectedEntityId)}`, { headers: authHeaders() })
         .then(r => r.ok ? r.json() : null)
         .then((d: Entity | null) => setDetailEntity(d))
         .catch(() => {})
@@ -513,7 +515,7 @@ export function FlightLogPanel() {
     if (!reg) { setAcarsHistory([]); return }
 
     setLoadingAcars(true)
-    fetch(`${API_BASE}/acars/messages?tail=${encodeURIComponent(reg.toUpperCase())}&limit=50`)
+    fetch(`${API_BASE}/acars/messages?tail=${encodeURIComponent(reg.toUpperCase())}&limit=50`, { headers: authHeaders() })
       .then(r => r.ok ? r.json() : [])
       .then((data: AcarsMessage[]) => setAcarsHistory(data))
       .catch(() => setAcarsHistory([]))

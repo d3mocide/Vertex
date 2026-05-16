@@ -5,6 +5,83 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 
 ---
 
+## 2026-05-15 — Self-hosted fallback sprites for MapLibre missing style images
+
+- Added local sprite assets:
+    - [frontend/public/sprites/circle-11.png](frontend/public/sprites/circle-11.png)
+    - [frontend/public/sprites/wood-pattern.png](frontend/public/sprites/wood-pattern.png)
+- Updated [frontend/src/components/Map.tsx](frontend/src/components/Map.tsx) to prefer loading these self-hosted sprite files for known missing IDs before falling back to generated in-memory images.
+- Kept transparent fallback behavior for unknown missing IDs.
+- Validation:
+    - `cd frontend && npx tsc --noEmit` ✓
+
+## 2026-05-15 — Reduced `circle-11` map sprite warnings via early fallback registration
+
+- Updated [frontend/src/components/Map.tsx](frontend/src/components/Map.tsx) to pre-register known fallback sprite IDs (`circle-11`, `wood-pattern`) on `styledata` and `load`.
+- Kept `styleimagemissing` as a safety net for unknown IDs.
+- This prevents style layers from hitting most missing-image warning paths in the first place.
+- Validation:
+    - `cd frontend && npx tsc --noEmit` ✓
+
+## 2026-05-15 — Fixed dev console MIME error from service worker registration
+
+- Root cause: [frontend/src/notifications.ts](frontend/src/notifications.ts) attempted to register `/sw.js` in development where that URL can resolve to HTML, triggering unsupported MIME type errors.
+- Updated notification initialization to register the service worker only in production (`import.meta.env.PROD`) and secure contexts.
+- This removes the `unsupported MIME type ('text/html')` noise in dev while preserving production notification behavior.
+- Validation:
+    - `cd frontend && npx tsc --noEmit` ✓
+
+## 2026-05-15 — Tuned wood-pattern fallback to subtle green park tint
+
+- Updated [frontend/src/components/Map.tsx](frontend/src/components/Map.tsx) `wood-pattern` fallback from transparent to a low-alpha mottled green texture.
+- Goal: preserve park/wood context from style `fill-pattern` usage without the prior high-contrast striped artifact.
+- Validation:
+    - `cd frontend && npx tsc --noEmit` ✓
+
+## 2026-05-15 — Replaced noisy missing map sprite IDs with deterministic fallbacks
+
+- Updated [frontend/src/components/Map.tsx](frontend/src/components/Map.tsx) `styleimagemissing` handling:
+    - added explicit generated fallback images for `circle-11` and `wood-pattern`,
+    - added one-time warning behavior for unknown missing IDs,
+    - retained transparent 1x1 fallback for unknown sprite IDs.
+- This removes repeated noisy warnings for known style IDs while preserving map render stability.
+- Validation:
+    - `cd frontend && npx tsc --noEmit` ✓
+
+## 2026-05-15 — Disabled rail dead-reckoning to stop Amtrak drift
+
+- Root cause: rail tracks were still passed through PVB dead-reckoning, so missing/coarse heading values could extrapolate trains north/upward between real reports.
+- Updated [frontend/src/components/MapOverlay.tsx](frontend/src/components/MapOverlay.tsx) to bypass PVB for `rail` tracks while keeping replay behavior unchanged.
+- Train movement now updates only from real feed positions (plus rail snapping), preventing self-motion drift.
+- Validation:
+    - `cd frontend && npx tsc --noEmit` ✓
+
+## 2026-05-15 — Optimized train map-matching to remove render-loop lag
+
+- Root cause: train snap-to-rail nearest-segment search was running in the animation tick, causing frame-time spikes.
+- Updated [frontend/src/components/MapOverlay.tsx](frontend/src/components/MapOverlay.tsx) to:
+    - apply rail snapping on raw train reports before PVB,
+    - cache per-train snap results keyed by raw report (`lastSeen`, `lon`, `lat`),
+    - reuse cached snapped coordinates across animation frames,
+    - prune cache entries when tracks are purged.
+- Removed per-frame full rail re-snap pass.
+- Validation:
+    - `cd frontend && npx tsc --noEmit` ✓
+
+## 2026-05-15 — Added bounded rail map-matching for train icon rendering
+
+- Implemented client-side rail snapping utility in [frontend/src/layers/railSnap.ts](frontend/src/layers/railSnap.ts) to:
+    - parse rail GeoJSON into line segments,
+    - compute nearest point on rail segments,
+    - snap only when within a max distance threshold.
+- Updated [frontend/src/components/MapOverlay.tsx](frontend/src/components/MapOverlay.tsx) to:
+    - fetch and cache rail segments from `/rail/tracks`,
+    - apply bounded snapping to `rail` tracks before entity layers render,
+    - keep raw tracks/trails unchanged (visual icon alignment only).
+- Snapping threshold set to `1500 m`; trains outside threshold keep raw positions.
+- Validation:
+    - `cd frontend && npx tsc --noEmit` ✓
+
 ## 2026-05-15 — Added startup diagnostics Make target for backend/frontend health triage
 
 - Added `startup-diagnose` target to `Makefile` to quickly triage startup failures by printing:

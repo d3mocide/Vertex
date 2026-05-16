@@ -36,7 +36,7 @@ export function buildTrailLayers(
     id:             'history-trails',
     data:           trailsVisible
       ? trackArr.filter(t =>
-        t.uid !== selectedUid && (t.smoothedTrail.length >= 2 || t.trail.length >= 2),
+        t.type !== 'rail' && t.uid !== selectedUid && (t.smoothedTrail.length >= 2 || t.trail.length >= 2),
       )
       : [],
     getPath:        trailPath,
@@ -105,7 +105,7 @@ export function buildTrailLayers(
 
   // ── Selected track trail (on top, brighter) ──────────────────────────────
   const sel = selectedUid ? tracks[selectedUid] : undefined
-  const showSelectedTrail = trailsVisible || sel?.type === 'tak'
+  const showSelectedTrail = trailsVisible || sel?.type === 'tak' || sel?.type === 'rail'
   const selectedTrailLayer = new PathLayer<Track>({
     id:             'selected-trail',
     data:           showSelectedTrail && sel && (sel.smoothedTrail.length >= 2 || sel.trail.length >= 2) ? [sel] : [],
