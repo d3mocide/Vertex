@@ -1,6 +1,7 @@
 import asyncio
 import csv
 import io
+import json
 import logging
 import time
 import zipfile
@@ -8,7 +9,7 @@ from dataclasses import dataclass, field as dc_field
 
 import httpx
 
-from bus import publish_entity
+from bus import get_bus, publish_entity
 from config import settings
 from .base import BasePoller
 
@@ -161,6 +162,8 @@ class GtfsRtPoller(BasePoller):
                         "type": int(row.get("route_type", -1)),
                         "short_name": row.get("route_short_name", "").strip(),
                         "long_name": row.get("route_long_name", "").strip(),
+                        "color": row.get("route_color", "").strip(),
+                        "text_color": row.get("route_text_color", "FFFFFF").strip(),
                     }
 
             state.route_map = route_map
@@ -168,10 +171,101 @@ class GtfsRtPoller(BasePoller):
             logger.info(
                 "[gtfs_rt:%s] loaded %d routes from static GTFS", feed.name, len(route_map)
             )
+
+            # Build and cache route shape GeoJSON without blocking vehicle position polling
+            asyncio.create_task(
+                self._build_and_cache_shapes(zf, route_map, set(feed.route_types), feed.name)
+            )
         except Exception as exc:
             logger.warning("[gtfs_rt:%s] static GTFS fetch failed: %s", feed.name, exc)
 
         return state.route_map
+
+    # ── GTFS shape cache builder ───────────────────────────────────────────────
+
+    async def _build_and_cache_shapes(
+        self,
+        zf: zipfile.ZipFile,
+        route_map: dict[str, dict],
+        allowed_types: set[int],
+        feed_name: str,
+    ) -> None:
+        """Parse shapes.txt + trips.txt from the static GTFS zip and write one
+        MultiLineString GeoJSON feature per route to Redis."""
+        try:
+            namelist = zf.namelist()
+
+            # trips.txt: first shape_id seen per route_id wins
+            shape_to_route: dict[str, str] = {}
+            if "trips.txt" in namelist:
+                with zf.open("trips.txt") as f:
+                    for row in csv.DictReader(io.TextIOWrapper(f, "utf-8")):
+                        sid = row.get("shape_id", "").strip()
+                        rid = row.get("route_id", "").strip()
+                        if sid and rid and sid not in shape_to_route:
+                            shape_to_route[sid] = rid
+
+            # shapes.txt: collect (seq, lon, lat) tuples per shape_id
+            shape_pts: dict[str, list[tuple[int, float, float]]] = {}
+            if "shapes.txt" in namelist:
+                with zf.open("shapes.txt") as f:
+                    for row in csv.DictReader(io.TextIOWrapper(f, "utf-8")):
+                        sid = row.get("shape_id", "").strip()
+                        if not sid:
+                            continue
+                        try:
+                            lat = float(row["shape_pt_lat"])
+                            lon = float(row["shape_pt_lon"])
+                            seq = int(row.get("shape_pt_sequence", 0))
+                        except (KeyError, ValueError):
+                            continue
+                        shape_pts.setdefault(sid, []).append((seq, lon, lat))
+
+            # Sort each shape by sequence and flatten to [lon, lat] pairs
+            sorted_shapes: dict[str, list[list[float]]] = {}
+            for sid, pts in shape_pts.items():
+                pts.sort(key=lambda x: x[0])
+                sorted_shapes[sid] = [[lon, lat] for _, lon, lat in pts]
+
+            # Group shapes into one MultiLineString per route (rail types only)
+            route_lines: dict[str, list[list[list[float]]]] = {}
+            for shape_id, route_id in shape_to_route.items():
+                info = route_map.get(route_id)
+                if info is None or info["type"] not in allowed_types:
+                    continue
+                coords = sorted_shapes.get(shape_id)
+                if not coords or len(coords) < 2:
+                    continue
+                route_lines.setdefault(route_id, []).append(coords)
+
+            features = []
+            for route_id, lines in route_lines.items():
+                info = route_map[route_id]
+                raw_color = info.get("color", "").strip()
+                raw_text  = info.get("text_color", "FFFFFF").strip()
+                features.append({
+                    "type": "Feature",
+                    "geometry": {"type": "MultiLineString", "coordinates": lines},
+                    "properties": {
+                        "route_id":         route_id,
+                        "route_short_name": info["short_name"],
+                        "route_long_name":  info["long_name"],
+                        "route_type":       info["type"],
+                        "route_color":      f"#{raw_color}" if raw_color else "#a78bfa",
+                        "route_text_color": f"#{raw_text}"  if raw_text  else "#FFFFFF",
+                    },
+                })
+
+            geojson = {"type": "FeatureCollection", "features": features}
+            redis_key = f"cache:gtfs:{feed_name}:shapes"
+            r = await get_bus()
+            await r.set(redis_key, json.dumps(geojson), ex=int(_STATIC_CACHE_TTL) + 3600)
+            logger.info(
+                "[gtfs_rt:%s] cached %d route shapes to Redis (%s)",
+                feed_name, len(features), redis_key,
+            )
+        except Exception as exc:
+            logger.warning("[gtfs_rt:%s] shape cache build failed: %s", feed_name, exc)
 
     # ── GTFS-RT fetch + parse ─────────────────────────────────────────────────
 

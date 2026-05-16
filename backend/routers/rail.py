@@ -22,6 +22,9 @@ _REDIS_KEY = "cache:rail:tracks"
 _mem: dict = {"data": None, "ts": 0.0}
 _fetch_lock = asyncio.Lock()
 
+# In-process cache for poller-written GTFS route shapes
+_gtfs_mem: dict = {"data": None, "ts": 0.0}
+
 
 def _build_query() -> str:
     return (
@@ -119,3 +122,30 @@ async def get_rail_tracks():
             logger.warning("[rail] Redis write failed (cache not persisted): %s", exc)
 
         return geojson
+
+
+@router.get("/rail/gtfs-shapes")
+async def get_gtfs_shapes():
+    """TriMet GTFS route shapes as GeoJSON (written by poller into Redis, 24-hour TTL).
+
+    Returns an empty FeatureCollection when the poller hasn't populated the cache yet
+    (e.g., TRIMET_GTFS_ENABLED=false or first boot before the static GTFS has been fetched).
+    """
+    redis_key = "cache:gtfs:trimet:shapes"
+    now = time.monotonic()
+
+    if _gtfs_mem["data"] is not None and (now - _gtfs_mem["ts"]) < _CACHE_TTL_S:
+        return _gtfs_mem["data"]
+
+    try:
+        r = get_redis()
+        cached_raw = await r.get(redis_key)
+        if cached_raw:
+            geojson = json.loads(cached_raw)
+            _gtfs_mem["data"] = geojson
+            _gtfs_mem["ts"] = now
+            return geojson
+    except Exception as exc:
+        logger.warning("[rail] Redis GTFS shapes read failed: %s", exc)
+
+    return {"type": "FeatureCollection", "features": []}
