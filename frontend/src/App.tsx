@@ -109,7 +109,7 @@ function Dashboard() {
               <>
                 <EntitySearchPanel />
                 <EntityDetail />
-                <div className="absolute top-28 left-2 lg:left-[280px] flex gap-2 z-30 pointer-events-none *:pointer-events-auto">
+                <div className="absolute top-28 left-2 lg:left-[352px] flex gap-2 z-30 pointer-events-none *:pointer-events-auto">
                   <PlaybackController />
                   <GeofenceController />
                   <AnnotationController />

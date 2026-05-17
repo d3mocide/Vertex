@@ -107,6 +107,34 @@ export function buildEntityLayers(
     : t.type === 'rail'   ? 'train'
     : 'aircraft'
 
+  const iconOutlineLayer = new IconLayer<Track>({
+    id:          'entity-icons-outline',
+    data:        trackArr,
+    iconAtlas:   atlas.url,
+    iconMapping: atlas.mapping,
+    getIcon:     (t) => {
+      const icon = baseIcon(t)
+      if (zoom >= 9) return icon
+      if (zoom >= 6) {
+        if (t.type === 'air' || t.type === 'sea' || t.type === 'tak' || t.type === 'rail') return icon
+        return 'dot'
+      }
+      return 'dot'
+    },
+    getPosition: (t) => [t.lon, t.lat],
+    getAngle:    (t) => -t.courseTrue,
+    getColor:    [15, 23, 42, 220], // Slate-900 with high alpha for contrast
+    getSize:     (t) => entityIconSize(selectedUid, t, zoom) + 2.5,
+    sizeUnits:   'pixels',
+    billboard:   false,
+    pickable:    false, // Only top layer needs to be pickable
+    updateTriggers: {
+      getIcon:  zoom,
+      getAngle: trackArr.map(t => t.courseTrue),
+      getSize:  [selectedUid, zoom],
+    },
+  })
+
   const iconLayer = new IconLayer<Track>({
     id:          'entity-icons',
     data:        trackArr,
@@ -196,5 +224,5 @@ export function buildEntityLayers(
     fontFamily: 'monospace',
   })
 
-  return [selectionRingLayer, emergencyRingLayer, iconLayer, aprsLabelLayer, takLabelLayer]
+  return [selectionRingLayer, emergencyRingLayer, iconOutlineLayer, iconLayer, aprsLabelLayer, takLabelLayer]
 }

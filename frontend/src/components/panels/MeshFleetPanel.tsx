@@ -3,7 +3,7 @@ import type { Entity } from '../../store'
 import { DEFAULT_CENTER } from '../../config'
 import { getDistanceMeters } from '../../layers/geoUtils'
 
-const PAGE_SIZE = 15
+const PAGE_SIZE = 16 // Balanced for 2-column grids
 
 function formatAge(iso: string | undefined): string {
   if (!iso) return '—'
@@ -13,16 +13,18 @@ function formatAge(iso: string | undefined): string {
   return `${Math.floor(ageSec / 3600)}h ago`
 }
 
-function batteryBarColor(level: number): string {
-  if (level >= 60) return 'bg-green-ais'
-  if (level >= 30) return 'bg-amber-gold'
-  return 'bg-red-emergency'
-}
-
 function batteryTextColor(level: number): string {
   if (level >= 60) return 'text-green-ais'
   if (level >= 30) return 'text-amber-gold'
   return 'text-red-emergency'
+}
+
+function getBatteryIcon(level: number): string {
+  if (level >= 80) return 'battery_full'
+  if (level >= 55) return 'battery_6_bar'
+  if (level >= 30) return 'battery_3_bar'
+  if (level >= 15) return 'battery_1_bar'
+  return 'battery_alert'
 }
 
 interface FleetRow {
@@ -56,14 +58,34 @@ function toFleetRow(e: Entity): FleetRow {
 
 export function MeshFleetPanel({ entities }: { entities: Entity[] }) {
   const [page, setPage] = useState(1)
+  const [sortBy, setSortBy] = useState<'recent' | 'distance'>('recent') // Defaults to dynamic recent pings
+  const [filterType, setFilterType] = useState<string>('all') // Filters by Room, Client, Repeater
+
+  // Calculate total unfiltered mesh nodes to handle absolute empty state vs filtered empty state
+  const totalMeshNodes = useMemo(() => {
+    return entities.filter(e => e.entity_type === 'mesh_node').length
+  }, [entities])
 
   const rows = useMemo(() => {
-    return entities
+    let filtered = entities
       .filter(e => e.entity_type === 'mesh_node')
       .map(toFleetRow)
-      // Sort nearest nodes first (relative to configured center target).
-      // Rows with no geolocation sort to the bottom.
-      .sort((a, b) => {
+
+    // Apply Type Filter
+    if (filterType !== 'all') {
+      filtered = filtered.filter(r => r.contactType.toLowerCase() === filterType.toLowerCase())
+    }
+
+    if (sortBy === 'recent') {
+      return filtered.sort((a, b) => {
+        const timeA = a.lastSeen ? new Date(a.lastSeen).getTime() : 0
+        const timeB = b.lastSeen ? new Date(b.lastSeen).getTime() : 0
+        if (timeA !== timeB) return timeB - timeA // Most recently seen first
+        return a.name.localeCompare(b.name)
+      })
+    } else {
+      // Sort nearest nodes first. Rows with no coordinates go to the bottom.
+      return filtered.sort((a, b) => {
         if (a.distance_m === null && b.distance_m === null) {
           if (a.battery === null && b.battery === null) return a.name.localeCompare(b.name)
           if (a.battery === null) return 1
@@ -76,7 +98,8 @@ export function MeshFleetPanel({ entities }: { entities: Entity[] }) {
         if (a.distance_m !== b.distance_m) return a.distance_m - b.distance_m
         return a.name.localeCompare(b.name)
       })
-  }, [entities])
+    }
+  }, [entities, sortBy, filterType])
 
   const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE))
 
@@ -91,71 +114,158 @@ export function MeshFleetPanel({ entities }: { entities: Entity[] }) {
     return rows.slice(start, start + PAGE_SIZE)
   }, [page, rows])
 
-  if (rows.length === 0) {
+  // Absolute empty state (no nodes at all in database)
+  if (totalMeshNodes === 0) {
     return (
       <div className="py-10 border border-dashed border-white/10 rounded-sm flex flex-col items-center justify-center opacity-30">
-        <span className="ms text-3xl mb-2 animate-pulse">router</span>
+        <span className="ms text-3xl mb-2 animate-pulse">hub</span>
         <span className="text-[11px] uppercase font-mono tracking-[0.2em]">No network nodes detected</span>
       </div>
     )
   }
 
   return (
-    <div className="border border-white/10 bg-white/5 overflow-hidden rounded-sm">
-      {/* Column headers */}
-      <div className="bg-white/5 px-3 py-1.5 border-b border-white/5 grid grid-cols-[1fr_72px_32px_52px_56px] gap-2 items-center">
-        <span className="font-mono text-[10px] text-on-surface-variant uppercase tracking-widest">Node</span>
-        <span className="font-mono text-[10px] text-on-surface-variant uppercase tracking-widest text-right">Battery</span>
-        <span className="font-mono text-[10px] text-on-surface-variant uppercase tracking-widest text-center">RF</span>
-        <span className="font-mono text-[10px] text-on-surface-variant uppercase tracking-widest text-right">Type</span>
-        <span className="font-mono text-[10px] text-on-surface-variant uppercase tracking-widest text-right">Seen</span>
+    <div className="flex flex-col gap-3">
+      {/* Premium Sorting & Filtering Toolbar */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/10 pb-3 mb-1">
+        {/* Left Side: Type Filters */}
+        <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none py-0.5">
+          <span className="font-mono text-[10px] text-on-surface-variant uppercase tracking-widest mr-1 shrink-0">
+            Filter:
+          </span>
+          <div className="flex items-center gap-1 border border-white/10 bg-white/5 rounded-full p-0.5 shrink-0">
+            {['all', 'repeater', 'client', 'room'].map(type => (
+              <button
+                key={type}
+                type="button"
+                onClick={() => { setFilterType(type); setPage(1); }}
+                className={`font-mono text-[9px] uppercase tracking-wider px-2.5 py-0.5 rounded-full transition-colors ${
+                  filterType === type
+                    ? 'bg-amber-gold text-onyx-black font-bold'
+                    : 'text-on-surface-variant hover:text-on-surface'
+                }`}
+              >
+                {type === 'all' ? 'All' : `${type}s`}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Right Side: Sort Controls */}
+        <div className="flex items-center gap-1.5 shrink-0 sm:self-end">
+          <span className="font-mono text-[10px] text-on-surface-variant uppercase tracking-widest mr-1 shrink-0">
+            Sort:
+          </span>
+          <div className="flex items-center gap-1 border border-white/10 bg-white/5 rounded-full p-0.5 shrink-0">
+            <button
+              type="button"
+              onClick={() => { setSortBy('recent'); setPage(1); }}
+              className={`font-mono text-[9px] uppercase tracking-wider px-2.5 py-0.5 rounded-full transition-colors ${
+                sortBy === 'recent'
+                  ? 'bg-amber-gold text-onyx-black font-bold'
+                  : 'text-on-surface-variant hover:text-on-surface'
+              }`}
+            >
+              Last Heard
+            </button>
+            <button
+              type="button"
+              onClick={() => { setSortBy('distance'); setPage(1); }}
+              className={`font-mono text-[9px] uppercase tracking-wider px-2.5 py-0.5 rounded-full transition-colors ${
+                sortBy === 'distance'
+                  ? 'bg-amber-gold text-onyx-black font-bold'
+                  : 'text-on-surface-variant hover:text-on-surface'
+              }`}
+            >
+              Nearest
+            </button>
+          </div>
+        </div>
       </div>
 
-      {pageRows.map(row => (
-        <div
-          key={row.entity_id}
-          className="grid grid-cols-[1fr_72px_32px_52px_56px] gap-2 items-center px-3 py-2 border-b border-white/5 hover:bg-white/5 transition-colors last:border-b-0"
-        >
-          {/* Name */}
-          <span className="text-[11px] font-bold text-on-surface truncate">{row.name}</span>
-
-          {/* Battery */}
-          <div>
-            {row.battery !== null ? (
-              <div className="flex flex-col items-end gap-0.5">
-                <span className={`font-mono text-[10px] font-bold leading-none ${batteryTextColor(row.battery)}`}>
-                  {row.battery}%
-                </span>
-                <div className="h-1 w-full bg-white/10 rounded-full overflow-hidden">
-                  <div
-                    className={`h-full rounded-full transition-all duration-700 ${batteryBarColor(row.battery)} ${row.battery < 20 ? 'animate-pulse' : ''}`}
-                    style={{ width: `${row.battery}%` }}
-                  />
-                </div>
-                {row.voltage !== null && (
-                  <span className="font-mono text-[9px] text-on-surface-variant leading-none">{row.voltage.toFixed(1)}V</span>
-                )}
-              </div>
-            ) : (
-              <span className="font-mono text-[11px] text-on-surface-variant/40 block text-right">—</span>
-            )}
-          </div>
-
-          {/* On-radio indicator */}
-          <div className="flex justify-center">
-            <span className={`w-2 h-2 rounded-full ${row.onRadio ? 'bg-green-ais animate-pulse' : 'bg-white/20'}`} />
-          </div>
-
-          {/* Contact type */}
-          <span className="font-mono text-[10px] text-on-surface-variant uppercase text-right truncate">{row.contactType}</span>
-
-          {/* Last seen */}
-          <span className="font-mono text-[10px] text-on-surface-variant text-right">{formatAge(row.lastSeen)}</span>
+      {/* Empty State for Filtered View */}
+      {rows.length === 0 && (
+        <div className="py-12 border border-dashed border-white/10 rounded-sm flex flex-col items-center justify-center opacity-45 bg-onyx-deep/20 mt-2">
+          <span className="ms text-2xl mb-2 text-amber-gold/60">filter_list_off</span>
+          <span className="text-[10px] uppercase font-mono tracking-[0.2em] text-on-surface-variant">
+            No {filterType}s detected matching filter
+          </span>
         </div>
-      ))}
+      )}
 
+      {/* 2-Column Tactical Card Grid */}
+      {rows.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+          {pageRows.map(row => (
+            <div
+              key={row.entity_id}
+              className="flex flex-col border border-white/10 bg-onyx-deep/30 rounded-sm hover:border-amber-gold/30 hover:bg-white/5 transition-all p-3 gap-2"
+            >
+              {/* Header: Node Name, Status, Contact Type */}
+              <div className="flex items-center justify-between gap-2 min-w-0">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span
+                    title={row.onRadio ? 'Active RF Connection' : 'Inactive RF Link'}
+                    className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                      row.onRadio
+                        ? 'bg-green-ais animate-pulse shadow-[0_0_8px_rgba(50,229,144,0.5)]'
+                        : 'bg-white/20'
+                    }`}
+                  />
+                  <span className="text-[11px] font-bold text-on-surface truncate" title={row.name}>
+                    {row.name}
+                  </span>
+                </div>
+                <span className="font-mono text-[9px] px-1.5 py-0.5 border border-white/10 bg-white/5 rounded-full text-on-surface-variant uppercase tracking-wider shrink-0">
+                  {row.contactType}
+                </span>
+              </div>
+
+              {/* Bottom Row: Battery, Distance, Last Seen */}
+              <div className="flex items-center justify-between gap-2 text-[10px] font-mono text-on-surface-variant pt-2 border-t border-white/5">
+                {/* Battery */}
+                <div className="flex items-center gap-1 shrink-0" title={row.voltage !== null ? `${row.voltage.toFixed(2)}V` : ''}>
+                  {row.battery !== null ? (
+                    <>
+                      <span className={`ms text-[14px] ${batteryTextColor(row.battery)}`}>
+                        {getBatteryIcon(row.battery)}
+                      </span>
+                      <span className={`font-bold ${batteryTextColor(row.battery)}`}>
+                        {row.battery}%
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="ms text-[14px] opacity-40">battery_unknown</span>
+                      <span className="opacity-40">—</span>
+                    </>
+                  )}
+                </div>
+
+                {/* Distance */}
+                <div className="flex items-center gap-1 shrink-0">
+                  <span className="ms text-[14px] opacity-60">explore</span>
+                  <span>
+                    {row.distance_m !== null
+                      ? `${(row.distance_m / 1000).toFixed(1)} KM`
+                      : '—'}
+                  </span>
+                </div>
+
+                {/* Last Seen */}
+                <div className="flex items-center gap-1 shrink-0">
+                  <span className="ms text-[14px] opacity-60">schedule</span>
+                  <span>{formatAge(row.lastSeen)}</span>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Pagination Footer */}
       {rows.length > PAGE_SIZE && (
-        <div className="px-3 py-2 border-t border-white/10 bg-white/5 flex items-center justify-between gap-2">
+        <div className="px-3 py-2 border border-white/10 bg-white/5 flex items-center justify-between gap-2 rounded-sm mt-1">
           <span className="font-mono text-[10px] text-on-surface-variant uppercase tracking-widest">
             Showing {(page - 1) * PAGE_SIZE + 1}-{Math.min(page * PAGE_SIZE, rows.length)} of {rows.length}
           </span>
@@ -164,18 +274,18 @@ export function MeshFleetPanel({ entities }: { entities: Entity[] }) {
               type="button"
               onClick={() => setPage(p => Math.max(1, p - 1))}
               disabled={page === 1}
-              className="px-2 py-1 font-mono text-[10px] uppercase tracking-widest border border-white/15 text-on-surface disabled:opacity-30 disabled:cursor-not-allowed hover:border-amber-gold/70"
+              className="px-2.5 py-1 font-mono text-[10px] uppercase tracking-widest border border-white/15 text-on-surface disabled:opacity-30 disabled:cursor-not-allowed hover:border-amber-gold/70 transition-colors"
             >
               Prev
             </button>
-            <span className="font-mono text-[10px] text-on-surface-variant px-1">
+            <span className="font-mono text-[10px] text-on-surface-variant px-1.5">
               {page}/{totalPages}
             </span>
             <button
               type="button"
               onClick={() => setPage(p => Math.min(totalPages, p + 1))}
               disabled={page === totalPages}
-              className="px-2 py-1 font-mono text-[10px] uppercase tracking-widest border border-white/15 text-on-surface disabled:opacity-30 disabled:cursor-not-allowed hover:border-amber-gold/70"
+              className="px-2.5 py-1 font-mono text-[10px] uppercase tracking-widest border border-white/15 text-on-surface disabled:opacity-30 disabled:cursor-not-allowed hover:border-amber-gold/70 transition-colors"
             >
               Next
             </button>

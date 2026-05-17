@@ -5,12 +5,14 @@ import { DEFAULT_CENTER } from '../../config'
 
 const TYPE_ICON: Record<string, string> = {
   aircraft:       'flight',
-  vessel:         'directions_boat',
+  vessel:         'sailing',
   train:          'directions_railway',
   aprs:           'sensors',
   fire_incident:  'local_fire_department',
+  mesh_node:      'hub',
   satellite:      'satellite_alt',
-  tinygs_station: 'satellite',
+  tinygs_station: 'settings_input_antenna',
+  stream_gauge:   'waves',
 }
 const TYPE_COLOR: Record<string, string> = {
   aircraft:       'text-cyan-adsb',
@@ -158,7 +160,7 @@ export function EntitySearchPanel() {
   })
 
   return (
-    <div className="absolute bottom-[5rem] left-2 right-2 lg:bottom-auto lg:top-28 lg:right-auto lg:left-4 z-30 lg:w-64 hud-panel overflow-hidden max-h-[50vh] lg:max-h-none">
+    <div className="absolute bottom-[5rem] left-2 right-2 lg:bottom-auto lg:top-28 lg:right-auto lg:left-4 z-30 lg:w-80 hud-panel overflow-hidden max-h-[50vh] lg:max-h-none">
       {/* Search input */}
       <div className="flex items-center gap-2 px-3 py-2 border-b border-white/5">
         <span className="ms text-[14px] text-on-surface-variant leading-none shrink-0">search</span>

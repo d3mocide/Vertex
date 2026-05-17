@@ -50,12 +50,28 @@ class AlertZonesConfig(BaseModel):
         return list(dict.fromkeys(v))
 
 
+class RegionBbox(BaseModel):
+    min_lat: float
+    max_lat: float
+    min_lon: float
+    max_lon: float
+
+
+class RegionEntry(BaseModel):
+    id: str
+    name: str
+    bbox: RegionBbox
+    enabled: bool = True
+    show_on_map: bool = True
+
+
 class SourcesConfig(BaseModel):
     radio_streams: list[RadioStreamEntry] = []
     news_feeds: list[NewsFeedEntry] = []
     poller_sources: list[PollerSourceEntry] = []
     alert_zones: AlertZonesConfig = AlertZonesConfig()
     alert_feeds: list[AlertFeedEntry] = []
+    regions: list[RegionEntry] = []
 
 
 def load_sources_config() -> SourcesConfig:

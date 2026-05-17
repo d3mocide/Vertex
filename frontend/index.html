@@ -82,16 +82,13 @@
     .a-brk.br { animation-name: acq-br; }
 
     .a-outer {
-      transform-origin: center;
-      transform-box: fill-box;
-      animation: acq-diamond 1.5s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+      transform-origin: 16px 16px;
+      animation: acq-diamond 1.5s cubic-bezier(0.2, 0.8, 0.2, 1) forwards, spin-inner 3s linear infinite 1.5s;
     }
 
     .a-inner {
       transform-origin: 16px 16px;
-      animation: 
-        acq-pip 1.5s cubic-bezier(0.2, 0.8, 0.2, 1) forwards,
-        spin-inner 3s linear infinite 1.5s;
+      animation: acq-pip 1.5s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
     }
 
     .vertex-mark svg {

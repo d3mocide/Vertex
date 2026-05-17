@@ -6,26 +6,22 @@ export interface OverviewProps {
   trail?: { altitude?: number | null; speed?: number | null }[]
 }
 
-/** Render a compact SVG sparkline from a numeric series. */
+/** Render a responsive SVG sparkline from a numeric series. */
 export function Sparkline({ values, color }: { values: number[]; color: string }) {
   if (values.length < 2) return null
   const min = Math.min(...values)
   const max = Math.max(...values)
   const range = max - min || 1
-  const w = 176
   const h = 24
-  const pts = values.map((v, i) => {
-    const x = (i / (values.length - 1)) * w
-    const y = h - ((v - min) / range) * (h - 4) - 2
-    return `${x.toFixed(1)},${y.toFixed(1)}`
-  })
+  
   return (
-    <svg width={w} height={h} aria-hidden="true" className="block">
+    <svg width="100%" height={h} viewBox={`0 0 ${values.length - 1} ${h}`} preserveAspectRatio="none" aria-hidden="true" className="block">
       <polyline
-        points={pts.join(' ')}
+        points={values.map((v, i) => `${i},${h - ((v - min) / range) * (h - 4) - 2}`).join(' ')}
         fill="none"
         stroke={color}
         strokeWidth="1.5"
+        vectorEffect="non-scaling-stroke"
         strokeLinejoin="round"
         strokeLinecap="round"
       />

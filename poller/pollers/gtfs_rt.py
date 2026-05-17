@@ -172,10 +172,15 @@ class GtfsRtPoller(BasePoller):
                 "[gtfs_rt:%s] loaded %d routes from static GTFS", feed.name, len(route_map)
             )
 
-            # Build and cache route shape GeoJSON without blocking vehicle position polling
-            asyncio.create_task(
-                self._build_and_cache_shapes(zf, route_map, set(feed.route_types), feed.name)
-            )
+            # Check if shapes are already cached to avoid redundant heavy parsing on restart
+            redis_key = f"cache:gtfs:{feed.name}:shapes"
+            r = await get_bus()
+            if await r.exists(redis_key):
+                logger.info("[gtfs_rt:%s] shapes already cached in Redis, skipping build", feed.name)
+            else:
+                asyncio.create_task(
+                    self._build_and_cache_shapes(zf, route_map, set(feed.route_types), feed.name)
+                )
         except Exception as exc:
             logger.warning("[gtfs_rt:%s] static GTFS fetch failed: %s", feed.name, exc)
 

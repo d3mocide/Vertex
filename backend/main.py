@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from prometheus_fastapi_instrumentator import Instrumentator
 
 from auth_middleware import AuthMiddleware
@@ -56,6 +57,7 @@ app.add_middleware(
 )
 
 Instrumentator().instrument(app).expose(app)
+app.add_middleware(GZipMiddleware, minimum_size=1000)
 app.add_middleware(AuthMiddleware)
 app.add_middleware(RateLimitMiddleware, calls=600, period=60)
 

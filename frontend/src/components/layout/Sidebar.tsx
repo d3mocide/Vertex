@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useCivicStore, ALT_RANGE_DEFAULT, SPD_RANGE_DEFAULT } from '../../store'
+import { useCivicStore, ALT_RANGE_DEFAULT, SPD_RANGE_DEFAULT, type EntityTypeFilter } from '../../store'
 import { isMajorTrafficIncident } from '../../incidentUtils'
 
 const INCIDENTS_COLLAPSE_KEY = 'vertex.sidebar.incidentsCollapsed'
@@ -111,18 +111,23 @@ export function Sidebar() {
     trafficIncidents,
     lightningStrikes,
     setActiveTab,
+    entityFilter,
     setEntityFilter,
     setEntitySearchQuery,
     setEntityAltRange,
     setEntitySpeedRange,
+    camerasVisible,
     setCamerasVisible,
+    gaugesVisible,
     setGaugesVisible,
+    lightningVisible,
     setLightningVisible,
   } = useCivicStore()
 
   const entityList = Object.values(entities)
   const aircraft     = entityList.filter((e) => e.entity_type === 'aircraft').length
   const vessels      = entityList.filter((e) => e.entity_type === 'vessel').length
+  const trains       = entityList.filter((e) => e.entity_type === 'train').length
   const aprs         = entityList.filter((e) => e.entity_type === 'aprs').length
   const fire         = entityList.filter((e) => e.entity_type === 'fire_incident').length
   const meshNodes    = entityList.filter((e) => e.entity_type === 'mesh_node').length
@@ -185,30 +190,21 @@ export function Sidebar() {
     setEntitySpeedRange(SPD_RANGE_DEFAULT)
   }
 
-  const focusEntityType = (target: {
-    aircraft?: boolean
-    adsbLocal?: boolean
-    adsbSupplement?: boolean
-    vessel?: boolean
-    mesh_node?: boolean
-    aprs?: boolean
-    fire_incident?: boolean
-    satellite?: boolean
-    tinygs_station?: boolean
-  }) => {
+  const toggleEntityType = (key: keyof EntityTypeFilter | 'aircraft_group') => {
     focusSafetyMap()
-    setEntityFilter({
-      aircraft: false,
-      adsbLocal: false,
-      adsbSupplement: false,
-      vessel: false,
-      mesh_node: false,
-      aprs: false,
-      fire_incident: false,
-      satellite: false,
-      tinygs_station: false,
-    })
-    setEntityFilter(target)
+    if (key === 'aircraft_group') {
+      const nextVal = !entityFilter.aircraft
+      setEntityFilter({
+        aircraft: nextVal,
+        adsbLocal: nextVal,
+        adsbSupplement: nextVal,
+      })
+    } else {
+      const targetKey = key as keyof EntityTypeFilter
+      setEntityFilter({
+        [targetKey]: !entityFilter[targetKey],
+      })
+    }
   }
 
   return (
@@ -310,16 +306,115 @@ export function Sidebar() {
           <div className="mt-2 w-8 border-t border-white/10" aria-hidden="true" />
 
           <div className="flex flex-col items-center gap-1.5 text-[11px] font-mono text-on-surface-variant">
-            <button type="button" onClick={() => focusEntityType({ aircraft: true, adsbLocal: true, adsbSupplement: true })} className="text-cyan-adsb hover:text-white transition-colors flex items-center gap-1" title="Show aircraft only"><span className="ms text-[12px]" aria-hidden="true">flight</span><span>{aircraft}</span></button>
-            <button type="button" onClick={() => focusEntityType({ vessel: true })} className="text-green-ais hover:text-white transition-colors flex items-center gap-1" title="Show vessels only"><span className="ms text-[12px]" aria-hidden="true">directions_boat</span><span>{vessels}</span></button>
-            <button type="button" onClick={() => focusEntityType({ aprs: true })} className="text-violet-space hover:text-white transition-colors flex items-center gap-1" title="Show APRS only"><span className="ms text-[12px]" aria-hidden="true">sensors</span><span>{aprs}</span></button>
-            <button type="button" onClick={() => focusEntityType({ fire_incident: true })} className="text-red-emergency hover:text-white transition-colors flex items-center gap-1" title="Show fire incidents only"><span className="ms text-[12px]" aria-hidden="true">local_fire_department</span><span>{fire}</span></button>
-            <button type="button" onClick={() => focusEntityType({ mesh_node: true })} className="text-amber-p25 hover:text-white transition-colors flex items-center gap-1" title="Show mesh nodes only"><span className="ms text-[12px]" aria-hidden="true">router</span><span>{meshNodes}</span></button>
-            <button type="button" onClick={() => { focusSafetyMap(); setGaugesVisible(true) }} className="text-cyan-adsb hover:text-white transition-colors flex items-center gap-1" title="Focus stream gauges"><span className="ms text-[12px]" aria-hidden="true">water</span><span>{streamGauges}</span></button>
-            <button type="button" onClick={() => { focusSafetyMap(); setLightningVisible(true) }} className="text-amber-gold hover:text-white transition-colors flex items-center gap-1" title="Focus lightning"><span className="ms text-[12px]" aria-hidden="true">electric_bolt</span><span>{lightningCount}</span></button>
-            <button type="button" onClick={() => focusEntityType({ satellite: true })} className="text-violet-space hover:text-white transition-colors flex items-center gap-1" title="Show satellites only"><span className="ms text-[12px]" aria-hidden="true">satellite_alt</span><span>{satellites}</span></button>
-            <button type="button" onClick={() => focusEntityType({ tinygs_station: true })} className="text-amber-p25 hover:text-white transition-colors flex items-center gap-1" title="Show TinyGS stations only"><span className="ms text-[12px]" aria-hidden="true">satellite</span><span>{tinygsStations}</span></button>
-            <button type="button" onClick={() => { focusSafetyMap(); setCamerasVisible(true) }} className="text-amber-gold hover:text-white transition-colors flex items-center gap-1" title="Focus traffic cameras"><span className="ms text-[12px]" aria-hidden="true">videocam</span><span>{cams}</span></button>
+            <button
+              type="button"
+              onClick={() => toggleEntityType('aircraft_group')}
+              className={`text-cyan-adsb hover:text-white transition-all flex items-center gap-1 focus:outline-none ${entityFilter.aircraft ? 'opacity-100' : 'opacity-40'}`}
+              title="Toggle aircraft layer"
+            >
+              <span className="ms text-[12px]" aria-hidden="true">flight</span>
+              <span>{aircraft}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => toggleEntityType('vessel')}
+              className={`text-green-ais hover:text-white transition-all flex items-center gap-1 focus:outline-none ${entityFilter.vessel ? 'opacity-100' : 'opacity-40'}`}
+              title="Toggle vessels layer"
+            >
+              <span className="ms text-[12px]" aria-hidden="true">sailing</span>
+              <span>{vessels}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => toggleEntityType('train')}
+              className={`text-amber-gold hover:text-white transition-all flex items-center gap-1 focus:outline-none ${entityFilter.train ? 'opacity-100' : 'opacity-40'}`}
+              title="Toggle trains layer"
+            >
+              <span className="ms text-[12px]" aria-hidden="true">directions_railway</span>
+              <span>{trains}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => toggleEntityType('aprs')}
+              className={`text-violet-space hover:text-white transition-all flex items-center gap-1 focus:outline-none ${entityFilter.aprs ? 'opacity-100' : 'opacity-40'}`}
+              title="Toggle APRS layer"
+            >
+              <span className="ms text-[12px]" aria-hidden="true">sensors</span>
+              <span>{aprs}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => toggleEntityType('fire_incident')}
+              className={`text-red-emergency hover:text-white transition-all flex items-center gap-1 focus:outline-none ${entityFilter.fire_incident ? 'opacity-100' : 'opacity-40'}`}
+              title="Toggle hazards layer"
+            >
+              <span className="ms text-[12px]" aria-hidden="true">local_fire_department</span>
+              <span>{fire}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => toggleEntityType('mesh_node')}
+              className={`text-amber-p25 hover:text-white transition-all flex items-center gap-1 focus:outline-none ${entityFilter.mesh_node ? 'opacity-100' : 'opacity-40'}`}
+              title="Toggle mesh nodes layer"
+            >
+              <span className="ms text-[12px]" aria-hidden="true">hub</span>
+              <span>{meshNodes}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => { focusSafetyMap(); setGaugesVisible(!gaugesVisible) }}
+              className={`text-cyan-adsb hover:text-white transition-all flex items-center gap-1 focus:outline-none ${gaugesVisible ? 'opacity-100' : 'opacity-40'}`}
+              title="Toggle stream gauges layer"
+            >
+              <span className="ms text-[12px]" aria-hidden="true">waves</span>
+              <span>{streamGauges}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => { focusSafetyMap(); setLightningVisible(!lightningVisible) }}
+              className={`text-amber-gold hover:text-white transition-all flex items-center gap-1 focus:outline-none ${lightningVisible ? 'opacity-100' : 'opacity-40'}`}
+              title="Toggle lightning layer"
+            >
+              <span className="ms text-[12px]" aria-hidden="true">electric_bolt</span>
+              <span>{lightningCount}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => toggleEntityType('satellite')}
+              className={`text-violet-space hover:text-white transition-all flex items-center gap-1 focus:outline-none ${entityFilter.satellite ? 'opacity-100' : 'opacity-40'}`}
+              title="Toggle satellites layer"
+            >
+              <span className="ms text-[12px]" aria-hidden="true">satellite_alt</span>
+              <span>{satellites}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => toggleEntityType('tinygs_station')}
+              className={`text-amber-p25 hover:text-white transition-all flex items-center gap-1 focus:outline-none ${entityFilter.tinygs_station ? 'opacity-100' : 'opacity-40'}`}
+              title="Toggle TinyGS stations layer"
+            >
+              <span className="ms text-[12px]" aria-hidden="true">settings_input_antenna</span>
+              <span>{tinygsStations}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => { focusSafetyMap(); setCamerasVisible(!camerasVisible) }}
+              className={`text-amber-gold hover:text-white transition-all flex items-center gap-1 focus:outline-none ${camerasVisible ? 'opacity-100' : 'opacity-40'}`}
+              title="Toggle traffic cameras layer"
+            >
+              <span className="ms text-[12px]" aria-hidden="true">videocam</span>
+              <span>{cams}</span>
+            </button>
           </div>
 
           <div className="mt-auto mb-1">
@@ -378,65 +473,106 @@ export function Sidebar() {
         </div>
 
         {/* Entity count strip */}
-        <div className="flex flex-col gap-2.5 text-[11px] font-mono border-t border-white/5 pt-3">
-          <div className="flex items-center justify-between">
-            <div className="flex gap-4">
-              <span className="text-cyan-adsb flex items-center" title="Aircraft (ADS-B)">
-                <span className="ms text-[14px] mr-1" aria-hidden="true">flight</span>
-                {aircraft}
-              </span>
-              <span className="text-green-ais flex items-center" title="Vessels (AIS)">
-                <span className="ms text-[14px] mr-1" aria-hidden="true">directions_boat</span>
-                {vessels}
-              </span>
-            </div>
-            <div className="flex gap-4">
-              <span className="text-amber-gold flex items-center" title="Traffic Cameras">
-                <span className="ms text-[14px] mr-1" aria-hidden="true">videocam</span>
-                {cams}
-              </span>
-              <span className="text-amber-p25 flex items-center" title="Mesh Nodes">
-                <span className="ms text-[14px] mr-1" aria-hidden="true">router</span>
-                {meshNodes}
-              </span>
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between">
-            <div className="flex gap-4">
-              <span className="text-violet-space flex items-center" title="APRS">
-                <span className="ms text-[14px] mr-1" aria-hidden="true">sensors</span>
-                {aprs}
-              </span>
-              <span className="text-red-emergency flex items-center" title="Fire incidents">
-                <span className="ms text-[14px] mr-1" aria-hidden="true">local_fire_department</span>
-                {fire}
-              </span>
-            </div>
-            <div className="flex gap-4">
-              <span className="text-cyan-adsb flex items-center" title="Stream gauges">
-                <span className="ms text-[14px] mr-1" aria-hidden="true">water</span>
-                {streamGauges}
-              </span>
-              <span className="text-amber-gold flex items-center" title="Lightning strikes">
-                <span className="ms text-[14px] mr-1" aria-hidden="true">electric_bolt</span>
-                {lightningCount}
-              </span>
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between">
-            <div className="flex gap-4">
-              <span className="text-violet-space flex items-center" title="Satellites">
-                <span className="ms text-[14px] mr-1" aria-hidden="true">satellite_alt</span>
-                {satellites}
-              </span>
-              <span className="text-amber-p25 flex items-center" title="TinyGS stations">
-                <span className="ms text-[14px] mr-1" aria-hidden="true">satellite</span>
-                {tinygsStations}
-              </span>
-            </div>
-          </div>
+        <div className="grid grid-cols-2 gap-x-4 gap-y-2.5 text-[11px] font-mono border-t border-white/5 pt-3">
+          <button
+            type="button"
+            onClick={() => toggleEntityType('aircraft_group')}
+            className={`text-cyan-adsb hover:text-white transition-all flex items-center text-left focus:outline-none ${entityFilter.aircraft ? 'opacity-100' : 'opacity-40'}`}
+            title="Toggle aircraft layer"
+          >
+            <span className="ms text-[14px] mr-1.5 shrink-0" aria-hidden="true">flight</span>
+            Aircraft: {aircraft}
+          </button>
+          <button
+            type="button"
+            onClick={() => toggleEntityType('vessel')}
+            className={`text-green-ais hover:text-white transition-all flex items-center text-left focus:outline-none ${entityFilter.vessel ? 'opacity-100' : 'opacity-40'}`}
+            title="Toggle vessels layer"
+          >
+            <span className="ms text-[14px] mr-1.5 shrink-0" aria-hidden="true">sailing</span>
+            Vessels: {vessels}
+          </button>
+          <button
+            type="button"
+            onClick={() => toggleEntityType('train')}
+            className={`text-amber-gold hover:text-white transition-all flex items-center text-left focus:outline-none ${entityFilter.train ? 'opacity-100' : 'opacity-40'}`}
+            title="Toggle trains layer"
+          >
+            <span className="ms text-[14px] mr-1.5 shrink-0" aria-hidden="true">directions_railway</span>
+            Trains: {trains}
+          </button>
+          <button
+            type="button"
+            onClick={() => toggleEntityType('aprs')}
+            className={`text-violet-space hover:text-white transition-all flex items-center text-left focus:outline-none ${entityFilter.aprs ? 'opacity-100' : 'opacity-40'}`}
+            title="Toggle APRS layer"
+          >
+            <span className="ms text-[14px] mr-1.5 shrink-0" aria-hidden="true">sensors</span>
+            APRS: {aprs}
+          </button>
+          <button
+            type="button"
+            onClick={() => toggleEntityType('fire_incident')}
+            className={`text-red-emergency hover:text-white transition-all flex items-center text-left focus:outline-none ${entityFilter.fire_incident ? 'opacity-100' : 'opacity-40'}`}
+            title="Toggle hazards layer"
+          >
+            <span className="ms text-[14px] mr-1.5 shrink-0" aria-hidden="true">local_fire_department</span>
+            Hazards: {fire}
+          </button>
+          <button
+            type="button"
+            onClick={() => toggleEntityType('mesh_node')}
+            className={`text-amber-p25 hover:text-white transition-all flex items-center text-left focus:outline-none ${entityFilter.mesh_node ? 'opacity-100' : 'opacity-40'}`}
+            title="Toggle mesh nodes layer"
+          >
+            <span className="ms text-[14px] mr-1.5 shrink-0" aria-hidden="true">hub</span>
+            Mesh Nodes: {meshNodes}
+          </button>
+          <button
+            type="button"
+            onClick={() => { focusSafetyMap(); setGaugesVisible(!gaugesVisible) }}
+            className={`text-cyan-adsb hover:text-white transition-all flex items-center text-left focus:outline-none ${gaugesVisible ? 'opacity-100' : 'opacity-40'}`}
+            title="Toggle stream gauges layer"
+          >
+            <span className="ms text-[14px] mr-1.5 shrink-0" aria-hidden="true">waves</span>
+            Gauges: {streamGauges}
+          </button>
+          <button
+            type="button"
+            onClick={() => { focusSafetyMap(); setLightningVisible(!lightningVisible) }}
+            className={`text-amber-gold hover:text-white transition-all flex items-center text-left focus:outline-none ${lightningVisible ? 'opacity-100' : 'opacity-40'}`}
+            title="Toggle lightning layer"
+          >
+            <span className="ms text-[14px] mr-1.5 shrink-0" aria-hidden="true">electric_bolt</span>
+            Lightning: {lightningCount}
+          </button>
+          <button
+            type="button"
+            onClick={() => toggleEntityType('satellite')}
+            className={`text-violet-space hover:text-white transition-all flex items-center text-left focus:outline-none ${entityFilter.satellite ? 'opacity-100' : 'opacity-40'}`}
+            title="Toggle satellites layer"
+          >
+            <span className="ms text-[14px] mr-1.5 shrink-0" aria-hidden="true">satellite_alt</span>
+            Satellites: {satellites}
+          </button>
+          <button
+            type="button"
+            onClick={() => toggleEntityType('tinygs_station')}
+            className={`text-amber-p25 hover:text-white transition-all flex items-center text-left focus:outline-none ${entityFilter.tinygs_station ? 'opacity-100' : 'opacity-40'}`}
+            title="Toggle TinyGS stations layer"
+          >
+            <span className="ms text-[14px] mr-1.5 shrink-0" aria-hidden="true">settings_input_antenna</span>
+            TinyGS: {tinygsStations}
+          </button>
+          <button
+            type="button"
+            onClick={() => { focusSafetyMap(); setCamerasVisible(!camerasVisible) }}
+            className={`text-amber-gold hover:text-white transition-all flex items-center text-left col-span-2 focus:outline-none mt-0.5 ${camerasVisible ? 'opacity-100' : 'opacity-40'}`}
+            title="Toggle traffic cameras layer"
+          >
+            <span className="ms text-[14px] mr-1.5 shrink-0" aria-hidden="true">videocam</span>
+            Traffic Cameras: {cams}
+          </button>
         </div>
       </div>
 

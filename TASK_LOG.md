@@ -5,6 +5,78 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 
 ---
 
+## 2026-05-17 — Split-Scroll Layout Refactoring & Padding Fixes
+
+- **Global Filter & Icon System Overhaul**:
+    - **Interactive Toggles & Active Indicators**: Redesigned all 11 quick-filter buttons inside [Sidebar.tsx](file:///home/zbrain/Projects/Vertex/frontend/src/components/layout/Sidebar.tsx) (in both collapsed and expanded sidebar views) to **toggle** their respective map layers on and off independently, preserving the states of other active layers (exactly like settings panel checkboxes). Added gorgeous active-state styling: buttons are at full `opacity-100` when the corresponding map layer is enabled, and transition to a subtle `opacity-40` when toggled off.
+    - **Interactive 2-Column Grid**: Upgraded the static multi-row entity count spans in the expanded sidebar ([Sidebar.tsx](file:///home/zbrain/Projects/Vertex/frontend/src/components/layout/Sidebar.tsx)) into a premium, interactive **2-column grid of buttons** (with Cameras spanning the bottom row).
+    - **Surfaced Train Layer**: Integrated the missing **Trains** data feed (`directions_railway` icon) into both the collapsed sidebar count list and the expanded 2-column interactive grid, adding full-fidelity train count tracking.
+    - **TinyGS Station Icon Fix**: Replaced the confusing deprecated `'satellite'` icon (which rendered as a photo/landscape frame) with a clean, high-fidelity dish antenna icon (`'settings_input_antenna'`) in the search panel, detail card, and sidebar.
+    - **Unified Vessel, Mesh & Gauge Icons**: Standardized all Vessel icons to `'sailing'`, Mesh node icons to `'hub'`, and Stream Gauge icons to `'waves'` across all components ([Sidebar.tsx](file:///home/zbrain/Projects/Vertex/frontend/src/components/layout/Sidebar.tsx), [SettingsPanel.tsx](file:///home/zbrain/Projects/Vertex/frontend/src/components/layout/SettingsPanel.tsx), [CommsPanel.tsx](file:///home/zbrain/Projects/Vertex/frontend/src/components/panels/CommsPanel.tsx), [MeshFleetPanel.tsx](file:///home/zbrain/Projects/Vertex/frontend/src/components/panels/MeshFleetPanel.tsx), and [EntitySearchPanel.tsx](file:///home/zbrain/Projects/Vertex/frontend/src/components/panels/EntitySearchPanel.tsx)).
+- **Tabbed Activity & Operation Center (Right Panel Overhaul)**:
+    - Designed and implemented a tactical, high-fidelity horizontal **Tab Switcher** for the Comms Page's Right Panel to house **Mesh Chat**, **Mesh Fleet**, and **P25 Radio Log** as independent full-height workspaces.
+    - Repositioned the **Recent P25 Activity log** from the Left Panel into its own dedicated **P25 Radio Log tab** on the right, expanding the telemetry capacity from 8 to **30 events** for a rich command-history feed.
+    - Overhauled layout scaling so that active workspaces (like Mesh Chat's scroll feed and Mesh Fleet's 2-column grid of 101 nodes) dynamically stretch to occupy the complete available viewport height, eliminating outer scrolling.
+    - **Overlay Clearance Polish**: Stretched the right panel outer cards completely to the bottom margin by keeping the outer padding small (`lg:pb-6`), and beautifully added offset paddings (`pb-24 lg:pb-28`) directly inside the scrollable message feeds, nodes lists, and radio log viewports. Content scrolls completely past the Tactical Audio bar without any visual gaps at the bottom of the dashboard layout.
+- **Safety Tab Controller Bar Realignment**:
+    - Relocated the absolute-positioned map controller buttons (`PlaybackController`, `GeofenceController`, `AnnotationController`) to the right (`lg:left-[352px]` instead of `lg:left-[280px]`) on the Safety Tab.
+    - **Result**: Establishes a perfect symmetrical `16px` padding gap between the right border of the `EntitySearchPanel` and the left border of the controllers, ensuring 100% visibility of the `REPLAY`, `ZONES`, and `ANNOTATE` actions with no UI occlusion or dropdown conflict.
+- **OP25 & APRS Spectral Health Monitors**:
+    - Standardized all cards in the **Spectral Health** dashboard to share the identical premium dark card layout (`border-white/10 bg-white/5` with smooth `hover:bg-white/10` transition states), successfully replacing the high-contrast gold highlight style on the **Local Station** card to achieve cohesive visual integration.
+    - Updated all card header icons (**OP25 Trunked Link**, **APRS Gateway**, **Mesh Monitor**, and **P2P Link**) to consistently use `text-amber-gold` to solidify a cohesive branding and tactical interface aesthetic.
+    - Integrated first-class **OP25 Trunked Link** and **APRS Gateway** monitors into the [SpectralMonitor](file:///home/zbrain/Projects/Vertex/frontend/src/components/panels/CommsPanel.tsx) section.
+    - Designed a dynamic **OP25 Receiver Link card** that monitors live WebSocket state updates (`radio` store state). When active, it displays:
+        - Connection status with pulse animations and glow indicators.
+        - The exact active tuning frequency in MHz (e.g. `852.1250 MHz`).
+        - The current decrypter/decoder state: Scanning, Encrypted, or Active Call (displaying the specific `TGID` and channel `tag` under transmission).
+        - Active scan priority levels.
+    - Designed an **APRS Gateway card** that scans the entity database to detect online RF IGate/tracker stations. It displays:
+        - Gateway state (Active Rx vs Standby based on recent packet decodes in the last 12 hours).
+        - Total decoded station count.
+        - The callsign and formatted age (`formatAge`) of the most recently heard station.
+- **2-Column Tactical Card Grid Layout, Filters & Sorting Toolbar**:
+    - Refactored [MeshFleetPanel.tsx](file:///home/zbrain/Projects/Vertex/frontend/src/components/panels/MeshFleetPanel.tsx) to replace the plain single-column table layout with a modern, high-density, **2-column grid layout** (`grid grid-cols-1 md:grid-cols-2 gap-2.5`).
+    - Implemented a premium, responsive **tactical filter and sorting toolbar** at the top of the panel:
+        - **Type Filters**: Toggle between **All**, **Repeaters**, **Clients**, and **Rooms** to isolate specific categories of mesh hardware or destinations instantly. Restructures pagination and resets view to page 1 on switch.
+        - **Sort Options**: Switch between **Last Heard** (Default; dynamic check-in sequence) and **Nearest** (proximity search relative to configured operations center).
+    - Designed highly resilient **Filtered Empty States** (`filter_list_off` icon with styled placeholder container) that keep the control toolbar visible when no nodes match active filters, avoiding dead-ends and allowing easy fallback to unfiltered lists.
+    - Designed sleek, instrumentation-style node cards featuring color-coded battery percentages, dynamic battery state icons (using Google Material Symbols), live connection status indicators, and contact type tags.
+    - Sourced and surfaced the calculated geo-distance data (`explore` distance in KM) next to each node, adding a highly valuable spatial awareness metric to the panel.
+    - Updated `PAGE_SIZE` to `16` to guarantee a perfectly balanced double-row grid under all pagination states.
+- **Mesh Nodes Stale-Purging Fix**:
+    - Identified a client-side purging bug where `purgeStaleEntities` in [store.ts](file:///home/zbrain/Projects/Vertex/frontend/src/store.ts) was aggressively purging mesh nodes seen more than 1 hour ago (`STALE_MS.mesh_node = 3_600_000`).
+    - This mismatch caused the list of 101 mesh nodes (some seen up to 125 hours ago, representing semi-permanent infrastructure) to load on initial WebSocket connection snapshot and then snap back/disappear 10 seconds later, leaving only 12 active nodes and hiding the pagination footer.
+    - Fixed by increasing `STALE_MS.mesh_node` from 1 hour to 7 days (`604_800_000` ms) to align with the backend's persistent nature for mesh infrastructure, ensuring the entire fleet of 101 nodes and the page layout remain persistent and stable.
+- **UI Layout & Density**:
+    - Relocated [MeshFleetPanel.tsx](file:///home/zbrain/Projects/Vertex/frontend/src/components/panels/MeshFleetPanel.tsx) (the Mesh Nodes panel) from the Left Column tabbed interface to the Right Column directly below the Network Messaging chat interface in [CommsPanel.tsx](file:///home/zbrain/Projects/Vertex/frontend/src/components/panels/CommsPanel.tsx).
+    - Refactored the Left Column to solely focus on Spectral Health, eliminating the tabs, simplifying the header actions, and removing the unused `healthTab` state.
+    - Updated the Right Column to have a smooth scroll wrapper (`lg:overflow-y-auto custom-scrollbar`) on desktop with a height of `lg:h-full` and padding-bottom `pb-28 lg:pb-36` to ensure both the chat interface and the Mesh Network Nodes list are visible, perfectly scrollable, and clear the [TacticalAudio](file:///home/zbrain/Projects/Vertex/frontend/src/components/panels/TacticalAudio.tsx) player bar.
+    - Fixed the Chat container's height to a stable `h-[450px] lg:h-[500px]` to maintain independent messaging scrolls inside the larger scrolling pane.
+    - Refactored [CommsPanel.tsx](file:///home/zbrain/Projects/Vertex/frontend/src/components/panels/CommsPanel.tsx) to use the split-scrolling pane architecture inspired by the Flight Log dashboard.
+    - Set the Left Column (RF & Signal monitors) to be independently scrollable on desktop (`lg:overflow-y-auto lg:h-full`) with a fixed width of `420px`.
+    - Made the Right Column (Mesh Chat Box) dynamically expand to fill the full viewport height (`flex-1 lg:h-full`) and set a responsive `min-h-[450px]` on mobile to prevent collapsing.
+    - Eliminated the nested scrollbar UX anti-pattern on desktop by removing the hardcoded `800px` height restriction on the chat container.
+    - Applied the `pb-28 lg:pb-36` bottom padding standard to both columns to ensure content clears the absolute-positioned [TacticalAudio](file:///home/zbrain/Projects/Vertex/frontend/src/components/panels/TacticalAudio.tsx) playbar.
+    - Increased bottom scroll padding on the Selected Aircraft Info Panel in [FlightLogPanel.tsx](file:///home/zbrain/Projects/Vertex/frontend/src/components/panels/FlightLogPanel.tsx) (`pb-28 lg:pb-36` instead of `pb-24`) to ensure bottom-most contents (such as ACARS messages) remain fully readable and unobstructed by the playbar.
+
+## 2026-05-16 — Tactical Dashboard Unification & Fire Perimeter Reliability
+
+- **UI Layout & Density**:
+    - Expanded `EntityDetail` and `EntitySearchPanel` to `w-80` (320px) to accommodate long incident names and detailed metadata.
+    - Refactored `Sparkline` component to use a responsive SVG `viewBox` for fluid rendering in expanded panels.
+- **Iconography & Synchronization**:
+    - Standardized Material Symbols across Search, Detail, and Map Tooltip panels (Stream Gauges: `waves`, Mesh: `hub`, APRS: `sensors`, Maritime: `sailing`).
+    - Unified header background colors in `EntityDetail` to match Map Layer tints for better cross-panel recognition.
+- **Data Layer Reliability**:
+    - Fixed Fire Perimeter layer loading by implementing an **Aggressive Hybrid Sync** (broad spatial search + targeted name search).
+    - Switched NIFC source to the **Year-To-Date** ArcGIS service for improved reliability.
+    - Increased perimeter visibility with 35% fill opacity and a 2.5px glowing border.
+    - Resolved `NameError` in GTFS-RT poller (`feed_name` vs `feed.name`) and fixed `get_bus` import issues in NIFC poller.
+- **Validation**:
+    - Poller logs confirm `14 perimeters synced` using the new hybrid logic.
+    - `cd frontend && npx tsc --noEmit` ✓
+
+
 ## 2026-05-15 — Self-hosted fallback sprites for MapLibre missing style images
 
 - Added local sprite assets:

@@ -3,7 +3,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Query
 from pydantic import BaseModel
-from sqlalchemy import select, desc
+from sqlalchemy import select, desc, distinct
 
 from db.session import async_session_factory
 from db.models import AcarsMessage
@@ -56,3 +56,18 @@ async def get_acars_messages(
         result = await session.execute(stmt)
         rows = result.scalars().all()
     return [_to_response(r) for r in rows]
+
+
+@router.get("/tails", response_model=list[str])
+async def get_acars_tails():
+    """Return the distinct tail/registration marks that have ACARS messages.
+
+    Used by the Flight Log panel to badge aircraft rows that have ACARS history
+    without fetching the full message list for every aircraft in the log.
+    """
+    async with async_session_factory() as session:
+        result = await session.execute(
+            select(distinct(AcarsMessage.tail)).where(AcarsMessage.tail.isnot(None))
+        )
+        tails = [row[0].upper() for row in result.all() if row[0]]
+    return tails

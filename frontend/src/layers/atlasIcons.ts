@@ -293,7 +293,8 @@ export function createAtlasIcons(): IconAtlasResult {
     const [ox, oy] = cellOrigin(0, 3)
     ctx.fillStyle = W
     ctx.beginPath()
-    ctx.roundRect(ox + 22, oy + 12, 20, 40, 10)
+    // x=24 y=10 w=16 h=44 rx=8 (smoother pill shape)
+    ctx.roundRect(ox + 24, oy + 10, 16, 44, 8)
     ctx.fill()
   }
 

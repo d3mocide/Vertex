@@ -239,7 +239,7 @@ export function SettingsPanel() {
             <h2 className="label-caps mb-3">Entity Types</h2>
             <div className="space-y-3">
               <ToggleRow label="Aircraft" icon="flight" checked={entityFilter.aircraft} onChange={(v) => setEntityFilter({ aircraft: v })} />
-              <ToggleRow label="Vessels" icon="directions_boat" checked={entityFilter.vessel} onChange={(v) => setEntityFilter({ vessel: v })} />
+              <ToggleRow label="Vessels" icon="sailing" checked={entityFilter.vessel} onChange={(v) => setEntityFilter({ vessel: v })} />
               <ToggleRow label="Trains" icon="directions_railway" checked={entityFilter.train} onChange={(v) => setEntityFilter({ train: v })} />
               <ToggleRow label="Rail Tracks" icon="route" checked={railTracksVisible} onChange={setRailTracksVisible} />
               <ToggleRow label="Mesh Nodes" icon="hub" checked={entityFilter.mesh_node} onChange={(v) => setEntityFilter({ mesh_node: v })} />

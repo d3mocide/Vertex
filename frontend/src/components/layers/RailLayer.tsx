@@ -74,8 +74,8 @@ export function RailLayer({ map }: Props) {
           layout: { 'line-join': 'round', 'line-cap': 'round' },
           paint: {
             'line-color': ['get', 'route_color'],
-            'line-width': ['interpolate', ['linear'], ['zoom'], 6, 2, 10, 3.5, 14, 6],
-            'line-opacity': 0.9,
+            'line-width': ['interpolate', ['linear'], ['zoom'], 6, 1.2, 10, 2.2, 14, 4],
+            'line-opacity': 0.8,
           },
         })
         gtfsLoadedRef.current = true
@@ -90,10 +90,10 @@ export function RailLayer({ map }: Props) {
       map.once('load', loadAll)
     }
 
-    // Retry every 30 s until both sources are loaded (Overpass and poller cache warm-up)
+    // Retry every 5 s until both sources are loaded (Overpass and poller cache warm-up)
     const retryInterval = setInterval(() => {
       if (!osmLoadedRef.current || !gtfsLoadedRef.current) loadAll()
-    }, 30_000)
+    }, 5_000)
 
     return () => clearInterval(retryInterval)
   }, [map])

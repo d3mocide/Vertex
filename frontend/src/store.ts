@@ -448,7 +448,7 @@ export const useCivicStore = create<CivicStore>()(
       const STALE_MS: Record<string, number> = {
         aircraft:       120_000,   // 2 min  — Matches backend stale cutoff
         vessel:         600_000,   // 10 min — AIS updates are infrequent
-        mesh_node:    3_600_000,   // 1 hour — nodes are semi-static
+        mesh_node:    604_800_000, // 7 days — mesh nodes are semi-permanent infrastructure
         satellite:    1_800_000,   // 30 min — matches poller TTL
         tinygs_station: 600_000,   // 10 min — station ping is every ~60 s
         stream_gauge:   600_000,   // 10 min — gauges are polled every 5 min

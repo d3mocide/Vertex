@@ -334,14 +334,36 @@ export function MapOverlay({ map }: Props) {
             map.getCanvas().style.cursor = ''
             return
           }
-          const isAir   = t.type === 'air'
-          const isRail  = t.type === 'rail'
+          const isAir    = t.type === 'air'
+          const isRail   = t.type === 'rail'
+          const isGround = t.type === 'ground'
+          const isHazard = t.type === 'hazard'
           const ALT_M_TO_FT = 3.28084
           const MS_TO_KT    = 1.94384
-          const tooltipIcon  = isAir ? 'flight' : isRail ? 'directions_railway' : 'sailing'
-          const tooltipColor = isAir ? 'text-blue-400' : isRail ? 'text-amber-400' : 'text-teal-400'
-          const sourceLabel  = isAir ? 'ADS-B' : isRail ? escHtml(t.source.toUpperCase()) : 'AIS'
-          const statusLabel  = isAir ? 'Airborne' : isRail ? 'En Route' : 'Underway'
+
+          const tooltipIcon = isAir ? 'flight' 
+            : isRail ? 'directions_railway' 
+            : isGround ? 'sensors' 
+            : isHazard ? 'local_fire_department' 
+            : 'sailing'
+
+          const tooltipColor = isAir ? 'text-blue-400' 
+            : isRail ? 'text-amber-400' 
+            : isGround ? 'text-cyan-400' 
+            : isHazard ? 'text-red-400' 
+            : 'text-teal-400'
+
+          const sourceLabel = isAir ? 'ADS-B' 
+            : isRail ? escHtml(t.source.toUpperCase()) 
+            : isGround ? 'APRS' 
+            : isHazard ? 'INTEL' 
+            : 'AIS'
+
+          const statusLabel = isAir ? 'Airborne' 
+            : isRail ? 'En Route' 
+            : isGround ? 'Station' 
+            : isHazard ? 'Active' 
+            : 'Underway'
           html = `
             <div class="p-2 min-w-[160px] bg-slate-900/95 border border-slate-700 rounded-lg shadow-2xl backdrop-blur-md">
               <div class="flex items-center justify-between mb-2 border-b border-slate-700/50 pb-1.5">
@@ -410,7 +432,7 @@ export function MapOverlay({ map }: Props) {
           html = `
             <div class="p-2 min-w-[210px] bg-slate-900/95 border border-slate-700 rounded-lg shadow-2xl backdrop-blur-md">
               <div class="flex items-center gap-2 text-[11px] font-bold text-white mb-1.5">
-                <span class="material-symbols-outlined text-[16px] text-cyan-400">water</span>
+                <span class="material-symbols-outlined text-[16px] text-cyan-400">waves</span>
                 <span class="truncate">${escHtml(gauge.name)}</span>
               </div>
               <div class="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-[11px] text-slate-400 font-mono">
@@ -425,7 +447,7 @@ export function MapOverlay({ map }: Props) {
           html = `
             <div class="p-2 bg-slate-900/95 border border-slate-700 rounded-lg shadow-2xl backdrop-blur-md">
               <div class="flex items-center gap-2 text-[11px] font-bold text-white mb-1">
-                <span class="material-symbols-outlined text-[16px] ${node.stale ? 'text-slate-500' : 'text-green-500'}">router</span>
+                <span class="material-symbols-outlined text-[16px] ${node.stale ? 'text-slate-500' : 'text-green-500'}">hub</span>
                 <span>${escHtml(node.name)}</span>
               </div>
               <div class="flex items-center gap-1.5">

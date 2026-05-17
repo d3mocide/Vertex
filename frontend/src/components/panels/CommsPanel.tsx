@@ -31,7 +31,7 @@ function NodeRow({ node, distM }: { node: Entity; distM: number }) {
     <div className="flex items-center justify-between p-1.5 px-3 hover:bg-white/10 transition-colors group">
       <div className="flex items-center gap-2.5">
         <span className={`ms text-[14px] ${isMesh ? 'text-amber-p25' : 'text-violet-space'} opacity-80`}>
-          {isMesh ? 'router' : 'sensors'}
+          {isMesh ? 'hub' : 'sensors'}
         </span>
         <div className="flex flex-col -space-y-0.5">
           <span className="text-[11px] font-bold text-on-surface group-hover:text-amber-gold transition-colors truncate max-w-[120px]">
@@ -151,24 +151,170 @@ function SignalMeter({ label, value, max, colorClass, history }: { label: string
   )
 }
 
+function formatAge(iso: string | undefined): string {
+  if (!iso) return '—'
+  const ageSec = (Date.now() - new Date(iso).getTime()) / 1000
+  if (ageSec < 120) return 'just now'
+  if (ageSec < 3600) return `${Math.floor(ageSec / 60)}m ago`
+  return `${Math.floor(ageSec / 3600)}h ago`
+}
+
 function SpectralMonitor({ links, history, status }: { links: MeshLink[]; history: Record<string, { snr: number[], quality: number[] }>; status: any }) {
-  // Take top 3 links by SNR
-  const topLinks = [...links].sort((a, b) => (b.snr || 0) - (a.snr || 0)).slice(0, 3)
+  const { radio, entities } = useCivicStore()
+
+  // Calculate top 3 links by SNR
+  const topLinks = useMemo(() => {
+    return [...links].sort((a, b) => (b.snr || 0) - (a.snr || 0)).slice(0, 3)
+  }, [links])
+
+  // OP25 Connection State
+  const op25Online = useMemo(() => {
+    if (!radio.updated) return false
+    const elapsed = Date.now() - new Date(radio.updated).getTime()
+    return elapsed < 10000 // Connected if updated in the last 10 seconds
+  }, [radio.updated])
+
+  // APRS Nodes State
+  const aprsStations = useMemo(() => {
+    return Object.values(entities).filter(e => e.entity_type === 'aprs')
+  }, [entities])
+
+  const mostRecentAprs = useMemo(() => {
+    if (aprsStations.length === 0) return null
+    return [...aprsStations].sort((a, b) => {
+      const timeA = a.last_seen ? new Date(a.last_seen).getTime() : 0
+      const timeB = b.last_seen ? new Date(b.last_seen).getTime() : 0
+      return timeB - timeA
+    })[0]
+  }, [aprsStations])
+
+  const aprsActive = useMemo(() => {
+    if (!mostRecentAprs?.last_seen) return false
+    const elapsed = Date.now() - new Date(mostRecentAprs.last_seen).getTime()
+    return elapsed < 3600000 * 12 // Active if heard within last 12 hours
+  }, [mostRecentAprs])
 
   return (
     <div className="grid grid-cols-1 gap-4 mt-2">
-      {/* Local Device Card (Always show if status exists) */}
+      {/* ── OP25 Receiver Monitor ── */}
+      <div className="p-3 border border-white/10 bg-white/5 rounded-sm flex flex-col gap-3 transition-colors hover:bg-white/10 group">
+        <div className="flex items-center justify-between border-b border-white/5 pb-2">
+          <div className="flex items-center gap-2">
+            <span className="ms text-[14px] text-amber-gold">
+              radio
+            </span>
+            <span className="font-bold text-[11px] text-on-surface uppercase truncate">
+              OP25 Trunked Link
+            </span>
+          </div>
+          <div className="flex items-center gap-1.5 shrink-0">
+            <span className={`w-1.5 h-1.5 rounded-full ${op25Online ? 'bg-green-ais animate-pulse shadow-[0_0_8px_rgba(50,229,144,0.5)]' : 'bg-red-emergency'}`} />
+            <span className="text-[11px] font-mono text-on-surface-variant uppercase">
+              {op25Online ? 'Connected' : 'Offline'}
+            </span>
+          </div>
+        </div>
+
+        <div className="space-y-3 font-mono text-[10px]">
+          {op25Online ? (
+            <>
+              {radio.freq_hz != null && (
+                <div className="flex justify-between items-center px-1">
+                  <span className="text-on-surface-variant uppercase">Freq</span>
+                  <span className="text-[11px] font-bold text-on-surface">
+                    {(radio.freq_hz / 1_000_000).toFixed(4)} MHz
+                  </span>
+                </div>
+              )}
+              <div className="flex justify-between items-start gap-2 px-1">
+                <span className="text-on-surface-variant uppercase shrink-0">State</span>
+                <span className="text-right text-[11px] font-bold text-amber-gold uppercase truncate max-w-[170px]" title={radio.state === 'call' && radio.tgid ? `TGID ${radio.tgid} (${radio.tag || ''})` : ''}>
+                  {radio.state === 'call' && radio.tgid
+                    ? `Call: TGID ${radio.tgid} (${radio.tag || 'Unknown'})`
+                    : radio.state === 'encrypted'
+                      ? 'Encrypted Voice'
+                      : 'Scanning Channels'}
+                </span>
+              </div>
+              {radio.state === 'call' && radio.priority != null && (
+                <div className="flex justify-between items-center px-1">
+                  <span className="text-on-surface-variant uppercase">Scan Priority</span>
+                  <span className="text-[11px] font-bold text-green-ais">
+                    LEVEL {radio.priority}
+                  </span>
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="py-1 px-1 text-on-surface-variant/40 uppercase tracking-wider text-[9px] italic">
+              Waiting for tuner metadata...
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── APRS Receiver Monitor ── */}
+      <div className="p-3 border border-white/10 bg-white/5 rounded-sm flex flex-col gap-3 transition-colors hover:bg-white/10 group">
+        <div className="flex items-center justify-between border-b border-white/5 pb-2">
+          <div className="flex items-center gap-2">
+            <span className="ms text-[14px] text-amber-gold">
+              sensors
+            </span>
+            <span className="font-bold text-[11px] text-on-surface uppercase truncate">
+              APRS Gateway
+            </span>
+          </div>
+          <div className="flex items-center gap-1.5 shrink-0">
+            <span className={`w-1.5 h-1.5 rounded-full ${aprsActive ? 'bg-cyan-ais animate-pulse shadow-[0_0_8px_rgba(0,229,255,0.5)]' : 'bg-white/20'}`} />
+            <span className="text-[11px] font-mono text-on-surface-variant uppercase">
+              {aprsActive ? 'Rx Active' : 'Standby'}
+            </span>
+          </div>
+        </div>
+
+        <div className="space-y-3 font-mono text-[10px]">
+          <div className="flex justify-between items-center px-1">
+            <span className="text-on-surface-variant uppercase">IGate Stations</span>
+            <span className="text-[11px] font-bold text-on-surface">
+              {aprsStations.length} Decoded
+            </span>
+          </div>
+
+          {mostRecentAprs ? (
+            <>
+              <div className="flex justify-between items-start gap-2 px-1">
+                <span className="text-on-surface-variant uppercase shrink-0">Last Station</span>
+                <span className="text-right text-[11px] font-bold text-cyan-ais truncate max-w-[150px]" title={mostRecentAprs.display_name}>
+                  {mostRecentAprs.display_name || mostRecentAprs.entity_id.split(':').pop()}
+                </span>
+              </div>
+              <div className="flex justify-between items-center px-1">
+                <span className="text-on-surface-variant uppercase">Last Contact</span>
+                <span className="text-[11px] font-bold text-on-surface">
+                  {formatAge(mostRecentAprs.last_seen)}
+                </span>
+              </div>
+            </>
+          ) : (
+            <div className="py-1 px-1 text-on-surface-variant/40 uppercase tracking-wider text-[9px] italic">
+              No APRS packets decoded...
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── Local Device Card ── */}
       {status && (
-        <div className="p-3 border border-amber-gold/30 bg-amber-gold/5 rounded-sm flex flex-col gap-3 group">
-          <div className="flex items-center justify-between border-b border-amber-gold/10 pb-2">
+        <div className="p-3 border border-white/10 bg-white/5 rounded-sm flex flex-col gap-3 transition-colors hover:bg-white/10 group">
+          <div className="flex items-center justify-between border-b border-white/5 pb-2">
             <div className="flex items-center gap-2">
-              <span className="ms text-[14px] text-amber-gold">router</span>
+              <span className="ms text-[14px] text-amber-gold">hub</span>
               <span className="font-bold text-[11px] text-on-surface uppercase truncate">
-                Local Station
+                Mesh Monitor
               </span>
             </div>
             <div className="flex items-center gap-1.5">
-              <span className={`w-1.5 h-1.5 rounded-full ${status.connected ? 'bg-green-ais animate-pulse' : 'bg-red-emergency'}`} />
+              <span className={`w-1.5 h-1.5 rounded-full ${status.connected ? 'bg-green-ais animate-pulse shadow-[0_0_8px_rgba(50,229,144,0.5)]' : 'bg-red-emergency'}`} />
               <span className="text-[11px] font-mono text-on-surface-variant uppercase">{status.connected ? 'Online' : 'Offline'}</span>
             </div>
           </div>
@@ -189,6 +335,7 @@ function SpectralMonitor({ links, history, status }: { links: MeshLink[]; histor
         </div>
       )}
 
+      {/* ── Top P2P Mesh Links ── */}
       {topLinks.map((link, i) => {
         const key = `${link.node_a}-${link.node_b}`
         const h = history[key] || { snr: [link.snr || 0], quality: [link.link_quality || 0] }
@@ -197,8 +344,8 @@ function SpectralMonitor({ links, history, status }: { links: MeshLink[]; histor
           <div key={`${link.node_a}-${link.node_b}-${i}`} className="p-3 border border-white/10 bg-white/5 rounded-sm flex flex-col gap-3 hover:bg-white/10 transition-colors group">
             <div className="flex items-center justify-between border-b border-white/5 pb-2">
               <div className="flex items-center gap-2">
-                <span className="ms text-[14px] text-amber-gold opacity-70 group-hover:scale-110 transition-transform">hub</span>
-                <span className="font-bold text-[11px] text-on-surface uppercase truncate max-w-[100px]">
+                <span className="ms text-[14px] text-amber-gold group-hover:scale-110 transition-transform">hub</span>
+                <span className="font-bold text-[11px] text-on-surface uppercase truncate max-w-[150px]">
                   {link.node_b.split(':').pop()}
                 </span>
               </div>
@@ -212,10 +359,10 @@ function SpectralMonitor({ links, history, status }: { links: MeshLink[]; histor
         )
       })}
 
-      {topLinks.length === 0 && !status?.connected && (
+      {topLinks.length === 0 && !status?.connected && !op25Online && !aprsActive && (
         <div className="col-span-3 py-10 border border-dashed border-white/10 rounded-sm flex flex-col items-center justify-center opacity-30">
           <span className="ms text-3xl mb-2 animate-pulse">signal_cellular_connected_no_internet_4_bar</span>
-          <span className="text-[11px] uppercase font-mono tracking-[0.2em]">Searching for active mesh links...</span>
+          <span className="text-[11px] uppercase font-mono tracking-[0.2em]">Searching for active RF links...</span>
         </div>
       )}
     </div>
@@ -225,8 +372,8 @@ function SpectralMonitor({ links, history, status }: { links: MeshLink[]; histor
 export function CommsPanel() {
   const { radio, meshMessages, entities, systemEvents, tracks, meshLinks, linkHistory, meshStatus } = useCivicStore()
   const [msgFilter, setMsgFilter] = useState('')
-  const [healthTab, setHealthTab] = useState<'spectral' | 'network'>('spectral')
   const [selectedConv, setSelectedConv] = useState<string>('all')
+  const [activeTab, setActiveTab] = useState<'chat' | 'fleet' | 'p25'>('chat')
 
   // Calculate nearest nodes
   const nearestNodes = useMemo(() => {
@@ -255,10 +402,18 @@ export function CommsPanel() {
 
   const p25Events = useMemo(() => {
     return systemEvents.filter(ev =>
-      ev.event_type === 'p25_call_start' || 
+      ev.event_type === 'p25_call_start' ||
       ev.event_type === 'p25_call_end' ||
       ev.event_type === 'p25_transcript'
     ).reverse().slice(0, 8)
+  }, [systemEvents])
+
+  const p25EventsLog = useMemo(() => {
+    return systemEvents.filter(ev =>
+      ev.event_type === 'p25_call_start' ||
+      ev.event_type === 'p25_call_end' ||
+      ev.event_type === 'p25_transcript'
+    ).reverse().slice(0, 30)
   }, [systemEvents])
 
   const conversationNames = useMemo(() => {
@@ -341,18 +496,17 @@ export function CommsPanel() {
           <span className="font-mono text-[11px] text-green-ais uppercase tracking-widest">ACTIVE</span>
         </div>
       </div>
-      {/* Scrollable body */}
-      <div className="flex-1 overflow-y-auto min-h-0 pb-24">
-        <div className="flex flex-col lg:flex-row gap-6 lg:gap-10 p-2 sm:p-4 lg:p-6 items-stretch lg:items-start">
-          {/* Left Column: Radio & Topology */}
-          <div className="flex-1 min-w-0 lg:max-w-md space-y-6">
+      {/* ── Body: Split pane layout ── */}
+      <div className="flex-1 min-h-0 flex flex-col lg:flex-row overflow-y-auto lg:overflow-hidden bg-onyx-black/5">
+        {/* ── Left Column: Radio & Topology ── */}
+        <div className="w-full lg:w-[420px] shrink-0 flex flex-col border-b lg:border-b-0 lg:border-r border-white/10 bg-onyx-black/10 lg:h-full lg:overflow-y-auto p-4 lg:p-6 gap-6 pb-28 lg:pb-36 custom-scrollbar">
           {/* RF Communications Card */}
           <section>
             <h3 className="section-heading mb-3 flex items-center gap-2">
               <span className="ms text-[14px] text-amber-gold">radio</span>
               RF Monitoring
             </h3>
-            <div className="p-4 border border-amber-gold/30 bg-amber-gold/5 glass-panel mb-4">
+            <div className="p-4 border border-amber-gold/30 bg-amber-gold/5 glass-panel">
               {radio.state === 'call' || radio.state === 'encrypted' ? (
                 <div className="space-y-3">
                   <div className="flex justify-between items-start">
@@ -388,23 +542,6 @@ export function CommsPanel() {
                 </div>
               )}
             </div>
-
-            {/* Transmission Log */}
-            <div className="border border-white/10 bg-white/5 overflow-hidden">
-              <div className="bg-white/5 px-3 py-1.5 border-b border-white/5 flex justify-between items-center">
-                <span className="font-mono text-[11px] text-on-surface-variant uppercase tracking-widest">
-                  Recent P25 Activity
-                </span>
-                <span className="w-1.5 h-1.5 rounded-full bg-amber-gold animate-pulse" />
-              </div>
-              <div className="max-h-48 overflow-y-auto">
-                {p25Events.length > 0 ? (
-                  p25Events.map(ev => <TransmissionRow key={ev.event_id} event={ev} />)
-                ) : (
-                  <div className="py-6 text-center text-[11px] uppercase font-mono opacity-30">No recent transmissions</div>
-                )}
-              </div>
-            </div>
           </section>
 
           {/* Topology / Proximity */}
@@ -435,141 +572,197 @@ export function CommsPanel() {
             </div>
           </section>
 
-          {/* Spectral Health / Fleet Health — tabbed */}
+          {/* Spectral Health */}
           <section>
-            <div className="flex items-center gap-2 mb-3">
-              <span className="ms text-[14px] text-amber-gold">
-                {healthTab === 'spectral' ? 'analytics' : 'hub'}
-              </span>
-              <div className="flex gap-1">
-                {(['spectral', 'network'] as const).map(tab => (
-                  <button
-                    key={tab}
-                    onClick={() => setHealthTab(tab)}
-                    className={`font-mono text-[10px] uppercase tracking-widest px-2 py-0.5 rounded-sm transition-colors ${
-                      healthTab === tab
-                        ? 'bg-amber-gold text-onyx-black font-bold'
-                        : 'text-on-surface-variant hover:text-on-surface'
-                    }`}
-                  >
-                    {tab === 'spectral' ? 'Spectral' : 'Network'}
-                  </button>
-                ))}
-              </div>
-            </div>
-            {healthTab === 'spectral'
-              ? <SpectralMonitor links={meshLinks} history={linkHistory} status={meshStatus} />
-              : <MeshFleetPanel entities={Object.values(entities)} />
-            }
+            <h3 className="section-heading mb-3 flex items-center gap-2">
+              <span className="ms text-[14px] text-amber-gold">analytics</span>
+              Spectral Health
+            </h3>
+            <SpectralMonitor links={meshLinks} history={linkHistory} status={meshStatus} />
           </section>
         </div>
 
-        {/* Right Column: Mesh Chat */}
-        <div className="flex-[2] min-w-0 flex flex-col gap-6">
-          <h3 className="section-heading mb-3 flex items-center gap-2">
-            <span className="ms text-[14px] text-amber-gold">chat</span>
-            Network Messaging
-          </h3>
+        {/* ── Right Column: Tabbed View (Mesh Messages, Mesh Fleet, P25 Radio Log) ── */}
+        <div className="flex-1 min-w-0 flex flex-col lg:h-full p-4 lg:p-6 gap-6 pb-28 lg:pb-6">
+          {/* ── Tab Switcher Header ── */}
+          <div className="flex border border-white/10 bg-white/5 rounded-sm p-1 gap-1 shrink-0 select-none">
+            <button
+              onClick={() => setActiveTab('chat')}
+              className={`flex-1 py-2 px-3 rounded-sm font-mono text-[11px] font-bold uppercase tracking-widest flex items-center justify-center gap-2 transition-all ${activeTab === 'chat'
+                ? 'bg-amber-gold text-onyx-black shadow-[0_0_8px_rgba(255,184,0,0.3)]'
+                : 'text-on-surface-variant hover:text-on-surface hover:bg-white/5'
+                }`}
+            >
+              <span className="ms text-[14px]">chat</span>
+              Mesh Chat
+            </button>
+            <button
+              onClick={() => setActiveTab('fleet')}
+              className={`flex-1 py-2 px-3 rounded-sm font-mono text-[11px] font-bold uppercase tracking-widest flex items-center justify-center gap-2 transition-all ${activeTab === 'fleet'
+                ? 'bg-amber-gold text-onyx-black shadow-[0_0_8px_rgba(255,184,0,0.3)]'
+                : 'text-on-surface-variant hover:text-on-surface hover:bg-white/5'
+                }`}
+            >
+              <span className="ms text-[14px]">hub</span>
+              Mesh Network
+            </button>
+            <button
+              onClick={() => setActiveTab('p25')}
+              className={`flex-1 py-2 px-3 rounded-sm font-mono text-[11px] font-bold uppercase tracking-widest flex items-center justify-center gap-2 transition-all ${activeTab === 'p25'
+                ? 'bg-amber-gold text-onyx-black shadow-[0_0_8px_rgba(255,184,0,0.3)]'
+                : 'text-on-surface-variant hover:text-on-surface hover:bg-white/5'
+                }`}
+            >
+              <span className="ms text-[14px]">radio</span>
+              P25 Call Log
+            </button>
+          </div>
 
-          <div className="flex-1 lg:flex-none lg:h-[800px] flex flex-col border border-white/10 bg-onyx-deep/40 rounded-sm overflow-hidden">
-            {/* Conversation selector */}
-            {conversations.length > 0 && (
-              <div className="flex gap-1.5 p-2 border-b border-white/10 bg-white/5 overflow-x-auto shrink-0 scrollbar-thin">
-                <button
-                  onClick={() => setSelectedConv('all')}
-                  className={`font-mono text-[10px] uppercase tracking-widest px-2.5 py-1 rounded-full whitespace-nowrap shrink-0 transition-colors ${
-                    selectedConv === 'all'
-                      ? 'bg-amber-gold text-onyx-black font-bold'
-                      : 'bg-white/10 text-on-surface-variant hover:bg-white/20'
-                  }`}
-                >
-                  All
-                </button>
-                {conversations.map(conv => (
-                  <button
-                    key={conv.key}
-                    onClick={() => setSelectedConv(conv.key)}
-                    className={`font-mono text-[10px] uppercase tracking-widest px-2.5 py-1 rounded-full whitespace-nowrap shrink-0 transition-colors ${
-                      selectedConv === conv.key
+          {/* ── Active Tab Contents ── */}
+          {activeTab === 'chat' && (
+            <div className="flex flex-col gap-3 flex-1 min-h-0">
+              <h3 className="section-heading flex items-center gap-2 shrink-0">
+                <span className="ms text-[14px] text-amber-gold">chat</span>
+                Mesh Network Messaging
+              </h3>
+
+              <div className="flex-1 flex flex-col border border-white/10 bg-onyx-deep/40 rounded-sm overflow-hidden min-h-0">
+                {/* Conversation selector */}
+                {conversations.length > 0 && (
+                  <div className="flex gap-1.5 p-2 border-b border-white/10 bg-white/5 overflow-x-auto shrink-0 scrollbar-thin">
+                    <button
+                      onClick={() => setSelectedConv('all')}
+                      className={`font-mono text-[10px] uppercase tracking-widest px-2.5 py-1 rounded-full whitespace-nowrap shrink-0 transition-colors ${selectedConv === 'all'
                         ? 'bg-amber-gold text-onyx-black font-bold'
                         : 'bg-white/10 text-on-surface-variant hover:bg-white/20'
-                    }`}
-                  >
-                    {conv.label}
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {/* Filter bar */}
-            <div className="p-2 border-b border-white/10 bg-white/5 flex gap-2 shrink-0">
-              <input
-                type="text"
-                placeholder="Filter messages..."
-                value={msgFilter}
-                onChange={e => setMsgFilter(e.target.value)}
-                className="flex-1 bg-onyx-black/40 border border-white/10 px-3 py-1 text-[12px] text-on-surface placeholder-on-surface-variant focus:outline-none focus:border-amber-gold/50 transition-colors"
-              />
-            </div>
-
-            {/* Message Feed — grouped by conversation */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
-              {messageGroups.length > 0 ? (
-                messageGroups.map(group => (
-                  <div key={group.key}>
-                    {/* Group header — only shown in "all" view */}
-                    {selectedConv === 'all' && (
-                      <div className="flex items-center gap-2 mb-2 sticky top-0 bg-onyx-deep/80 backdrop-blur-sm py-1 z-10">
-                        <span className="ms text-[12px] text-amber-gold/60">forum</span>
-                        <span className="font-mono text-[10px] text-amber-gold/80 uppercase tracking-widest">
-                          {prettyConversationLabel(group.key, conversationNames.get(group.key))}
-                        </span>
-                        <span className="font-mono text-[10px] text-on-surface-variant/50">{group.msgs.length} msg{group.msgs.length !== 1 ? 's' : ''}</span>
-                        <div className="flex-1 h-px bg-white/5" />
-                      </div>
-                    )}
-                    <div className="space-y-4">
-                      {group.msgs.map((msg, idx) => (
-                        <div key={msg.id || `${msg.sender_key || 'unknown'}-${msg.timestamp || 'no-ts'}-${idx}`} className={`flex flex-col ${msg.outgoing ? 'items-end' : 'items-start'}`}>
-                          <div className="flex items-center gap-2 mb-1 px-1">
-                            <span className="font-bold text-[11px] text-amber-gold uppercase tracking-tight">
-                              {msg.sender_name || 'Unknown'}
-                            </span>
-                            <span className="font-mono text-[11px] text-on-surface-variant">
-                              {formatTime(msg.timestamp || '')}
-                            </span>
-                          </div>
-                          <div
-                            className={`
-                              max-w-[85%] px-3 py-2 rounded-lg text-[12px] leading-relaxed
-                              ${msg.outgoing
-                                ? 'bg-amber-gold text-onyx-black rounded-tr-none'
-                                : 'bg-white/10 text-on-surface border border-white/5 rounded-tl-none'}
-                            `}
-                          >
-                            {msg.text || '(empty message)'}
-                            {msg.msg_type === 'direct' && (
-                              <div className={`text-[11px] mt-1 font-mono uppercase opacity-60 ${msg.outgoing ? 'text-onyx-black' : 'text-amber-gold'}`}>
-                                Direct • {msg.acked ? '✓ Acked' : '⏳ Pending'}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
+                        }`}
+                    >
+                      All
+                    </button>
+                    {conversations.map(conv => (
+                      <button
+                        key={conv.key}
+                        onClick={() => setSelectedConv(conv.key)}
+                        className={`font-mono text-[10px] uppercase tracking-widest px-2.5 py-1 rounded-full whitespace-nowrap shrink-0 transition-colors ${selectedConv === conv.key
+                          ? 'bg-amber-gold text-onyx-black font-bold'
+                          : 'bg-white/10 text-on-surface-variant hover:bg-white/20'
+                          }`}
+                      >
+                        {conv.label}
+                      </button>
+                    ))}
                   </div>
-                ))
-              ) : (
-                <div className="h-full flex flex-col items-center justify-center text-on-surface-variant/30 py-12">
-                  <span className="ms text-4xl mb-3">forum</span>
-                  <span className="text-[11px] uppercase tracking-[0.2em]">No mesh traffic detected</span>
+                )}
+
+                {/* Filter bar */}
+                <div className="p-2 border-b border-white/10 bg-white/5 flex gap-2 shrink-0">
+                  <input
+                    type="text"
+                    placeholder="Filter messages..."
+                    value={msgFilter}
+                    onChange={e => setMsgFilter(e.target.value)}
+                    className="flex-1 bg-onyx-black/40 border border-white/10 px-3 py-1 text-[12px] text-on-surface placeholder-on-surface-variant focus:outline-none focus:border-amber-gold/50 transition-colors"
+                  />
                 </div>
-              )}
+
+                {/* Message Feed — grouped by conversation */}
+                <div className="flex-1 overflow-y-auto p-4 pb-24 lg:pb-28 space-y-4 custom-scrollbar">
+                  {messageGroups.length > 0 ? (
+                    messageGroups.map(group => (
+                      <div key={group.key}>
+                        {/* Group header — only shown in "all" view */}
+                        {selectedConv === 'all' && (
+                          <div className="flex items-center gap-2 mb-2 sticky top-0 bg-onyx-deep/80 backdrop-blur-sm py-1 z-10">
+                            <span className="ms text-[12px] text-amber-gold/60">forum</span>
+                            <span className="font-mono text-[10px] text-amber-gold/80 uppercase tracking-widest">
+                              {prettyConversationLabel(group.key, conversationNames.get(group.key))}
+                            </span>
+                            <span className="font-mono text-[10px] text-on-surface-variant/50">{group.msgs.length} msg{group.msgs.length !== 1 ? 's' : ''}</span>
+                            <div className="flex-1 h-px bg-white/5" />
+                          </div>
+                        )}
+                        <div className="space-y-4">
+                          {group.msgs.map((msg, idx) => (
+                            <div key={msg.id || `${msg.sender_key || 'unknown'}-${msg.timestamp || 'no-ts'}-${idx}`} className={`flex flex-col ${msg.outgoing ? 'items-end' : 'items-start'}`}>
+                              <div className="flex items-center gap-2 mb-1 px-1">
+                                <span className="font-bold text-[11px] text-amber-gold uppercase tracking-tight">
+                                  {msg.sender_name || 'Unknown'}
+                                </span>
+                                <span className="font-mono text-[11px] text-on-surface-variant">
+                                  {formatTime(msg.timestamp || '')}
+                                </span>
+                              </div>
+                              <div
+                                className={`
+                                max-w-[85%] px-3 py-2 rounded-lg text-[12px] leading-relaxed
+                                ${msg.outgoing
+                                    ? 'bg-amber-gold text-onyx-black rounded-tr-none'
+                                    : 'bg-white/10 text-on-surface border border-white/5 rounded-tl-none'}
+                              `}
+                              >
+                                {msg.text || '(empty message)'}
+                                {msg.msg_type === 'direct' && (
+                                  <div className={`text-[11px] mt-1 font-mono uppercase opacity-60 ${msg.outgoing ? 'text-onyx-black' : 'text-amber-gold'}`}>
+                                    Direct • {msg.acked ? '✓ Acked' : '⏳ Pending'}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="h-full flex flex-col items-center justify-center text-on-surface-variant/30 py-12">
+                      <span className="ms text-4xl mb-3">forum</span>
+                      <span className="text-[11px] uppercase tracking-[0.2em]">No mesh traffic detected</span>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
-          </div>
+          )}
+
+          {activeTab === 'fleet' && (
+            <div className="flex flex-col gap-3 flex-1 min-h-0">
+              <h3 className="section-heading flex items-center gap-2 shrink-0">
+                <span className="ms text-[14px] text-amber-gold">hub</span>
+                Mesh Network Nodes
+              </h3>
+              <div className="flex-1 min-h-0 overflow-y-auto pb-24 lg:pb-28 custom-scrollbar">
+                <MeshFleetPanel entities={Object.values(entities)} />
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'p25' && (
+            <div className="flex flex-col gap-3 flex-1 min-h-0">
+              <h3 className="section-heading flex items-center gap-2 shrink-0">
+                <span className="ms text-[14px] text-amber-gold">radio</span>
+                P25 Digital Transmission Log
+              </h3>
+              <div className="flex-1 min-h-0 border border-white/10 bg-onyx-deep/40 rounded-sm overflow-hidden flex flex-col">
+                <div className="bg-white/5 px-4 py-2.5 border-b border-white/10 flex justify-between items-center shrink-0">
+                  <span className="font-mono text-[11px] text-on-surface-variant uppercase tracking-widest">
+                    Recent Voice & Metadata Feed (30 Events)
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-gold animate-pulse" />
+                    <span className="font-mono text-[10px] text-amber-gold uppercase tracking-wider">Tuned</span>
+                  </span>
+                </div>
+                <div className="flex-1 overflow-y-auto p-2 pb-24 lg:pb-28 space-y-1.5 custom-scrollbar">
+                  {p25EventsLog.length > 0 ? (
+                    p25EventsLog.map(ev => <TransmissionRow key={ev.event_id} event={ev} />)
+                  ) : (
+                    <div className="py-12 text-center text-[11px] uppercase font-mono opacity-30">No recent transmissions</div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
-  </div>
-)
+  )
 }

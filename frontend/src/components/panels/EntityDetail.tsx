@@ -24,15 +24,22 @@ const TYPE_COLORS: Record<string, string> = {
   mesh_node:      'text-amber-p25',
   satellite:      'text-violet-space',
   tinygs_station: 'text-amber-p25',
+  aprs:           'text-cyan-adsb',
+  fire_incident:  'text-red-emergency',
+  hazard:         'text-red-emergency',
 }
 
 const TYPE_ICONS: Record<string, string> = {
   aircraft:       'flight',
-  vessel:         'directions_boat',
+  vessel:         'sailing',
   train:          'directions_railway',
-  mesh_node:      'router',
+  aprs:           'sensors',
+  hazard:         'local_fire_department',
+  fire_incident:  'local_fire_department',
+  mesh_node:      'hub',
   satellite:      'satellite_alt',
-  tinygs_station: 'satellite',
+  tinygs_station: 'settings_input_antenna',
+  stream_gauge:   'waves',
 }
 
 const TAG_PRESETS = ['#FF4444', '#FF8800', '#FFB800', '#44DD88', '#00BBFF', '#AA44FF', '#FF44AA']
@@ -171,7 +178,7 @@ export function EntityDetail() {
 
   return (
     <aside
-      className="absolute top-24 lg:top-28 left-0 lg:left-auto right-0 lg:right-4 hud-panel w-full lg:w-64 z-[60] flex flex-col max-h-[55vh] lg:max-h-[calc(100vh-8rem)]"
+      className="absolute top-24 lg:top-28 left-0 lg:left-auto right-0 lg:right-4 hud-panel w-full lg:w-80 z-[60] flex flex-col max-h-[55vh] lg:max-h-[calc(100vh-8rem)]"
       aria-label={`Entity detail: ${entity.display_name ?? entity.entity_id}`}
       role="complementary"
     >

@@ -13,6 +13,7 @@ const LYR_LINE   = 'fire-perimeters-line'
 export function FirePerimeterLayer({ map }: Props) {
   const firePerimetersVisible = useCivicStore((s) => s.firePerimetersVisible)
   const loadedRef = useRef(false)
+  const lastFetchRef = useRef(0)
 
   useEffect(() => {
     if (!map || typeof map.getLayer !== 'function') return
@@ -30,7 +31,7 @@ export function FirePerimeterLayer({ map }: Props) {
         source: SRC_PERIMS,
         paint: {
           'fill-color': '#ff6600',
-          'fill-opacity': 0.18,
+          'fill-opacity': 0.35,
         },
       })
 
@@ -40,23 +41,27 @@ export function FirePerimeterLayer({ map }: Props) {
         source: SRC_PERIMS,
         paint: {
           'line-color': '#ff4400',
-          'line-width': 1.5,
-          'line-opacity': 0.8,
+          'line-width': 2.5,
+          'line-opacity': 1.0,
+          'line-blur': 1,
         },
       })
     }
 
-    // Load data once when first made visible
-    if (firePerimetersVisible && !loadedRef.current) {
-      loadedRef.current = true
-      fetch(`${API_BASE}/weather/fire/perimeters`, { headers: authHeaders() })
-        .then((r) => r.ok ? r.json() : null)
-        .then((geojson) => {
-          if (!geojson) return
-          const src = map.getSource(SRC_PERIMS) as maplibregl.GeoJSONSource | undefined
-          src?.setData(geojson)
-        })
-        .catch(() => { /* keep empty */ })
+    // Load data when made visible (with a small cooldown to avoid hammering)
+    if (firePerimetersVisible) {
+      const now = Date.now()
+      if (now - lastFetchRef.current > 60000) {
+        lastFetchRef.current = now
+        fetch(`${API_BASE}/weather/fire/perimeters`, { headers: authHeaders() })
+          .then((r) => r.ok ? r.json() : null)
+          .then((geojson) => {
+            if (!geojson || !geojson.features) return
+            const src = map.getSource(SRC_PERIMS) as maplibregl.GeoJSONSource | undefined
+            src?.setData(geojson)
+          })
+          .catch(() => { /* ignore */ })
+      }
     }
 
     const vis = firePerimetersVisible ? 'visible' : 'none'
