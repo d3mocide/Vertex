@@ -253,7 +253,7 @@ export function TacticalAudio() {
 
   return (
     <aside
-      className={`absolute bottom-5 lg:bottom-6 left-1/2 -translate-x-1/2 z-20 flex flex-col justify-end items-end w-[1040px] max-w-[98vw] pointer-events-none transition-all duration-300 ${isCritical ? 'scale-105 origin-bottom' : 'scale-100 origin-bottom'}`}
+      className={`absolute bottom-5 lg:bottom-6 left-1/2 -translate-x-1/2 z-40 flex flex-col justify-end items-end w-[1040px] max-w-[98vw] pointer-events-none transition-all duration-300 ${isCritical ? 'scale-105 origin-bottom' : 'scale-100 origin-bottom'}`}
       aria-label="Tactical audio console"
     >
       {/* Pop-up Channels Panel */}
