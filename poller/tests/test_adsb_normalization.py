@@ -95,6 +95,16 @@ class TestNormalizeOpensky:
         assert result is not None
         assert result["identity"]["squawk"] == "1200"
 
+    def test_units_normalized(self):
+        result = normalize_opensky(self._state())
+        assert result is not None
+        # altitude: 10000.0 m -> 32808.4 ft
+        assert abs(result["altitude"] - 32808.39) < 1.0
+        # speed: 250.0 m/s -> 485.96 kts
+        assert abs(result["speed"] - 485.96) < 1.0
+        # vertical_rate: 0.0 m/s -> 0.0 fpm
+        assert result["vertical_rate"] == 0.0
+
 
 # ── normalize_tar1090 ────────────────────────────────────────────────────────
 

@@ -5,6 +5,46 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 
 ---
 
+## 2026-05-19 — Dynamic Bounding Box Filtering for Amtrak Poller
+
+- **Amtrak Spatial Ingestion Refactoring**:
+  - Removed the hard-coded Oregon/SW Washington bounding box constraints in `amtrak.py`.
+  - Implemented dynamic bounding box validation against all active, enabled regions (`settings.regions` via `load_regions()`) inside the Amtrak `_in_bbox()` check.
+  - Generalised poller log reporting from `Oregon/PNW` to `configured region(s)`.
+  - Fully resolves coordinate ingestion limits so operators in any custom region (e.g. Northeast Corridor, California, Midwest) can track Amtrak trains seamlessly.
+- **Unit Test Coverage**:
+  - Created a comprehensive test suite `test_amtrak_normalization.py` covering train normalization, mph-to-knots calculations, direction-to-heading compass maps, and spatial bbox containment checks against multiple simulated active regions.
+- **Validation**:
+  - Successfully verified all 88 python backend/poller tests pass.
+  - Verified syntax of changed modules with `py_compile`.
+  - Verified frontend TypeScript type-checking compiling cleanly with zero errors.
+  - Validated Docker compose config syntax checker.
+
+## 2026-05-19 — OpenSky Unit Normalization & Mesh Node Staleness Clock Correction
+
+- **Telemetry Unit Normalization**:
+  - Implemented automatic metric-to-aviation unit conversions in the OpenSky normalizer (`normalize_opensky` inside [aircraft.py](file:///c:/Projects/Vertex/poller/normalizers/aircraft.py)).
+  - Corrected raw meters (`state[7]`) to standard altitude in feet (`meters / 0.3048`).
+  - Corrected raw m/s (`state[9]`) to standard ground speed in knots (`m_s / 0.514444`).
+  - Corrected raw m/s (`state[11]`) to standard vertical rate in feet per minute (`m_s / 0.3048 * 60`).
+  - Added unit conversion test coverage `test_units_normalized` inside [test_adsb_normalization.py](file:///c:/Projects/Vertex/poller/tests/test_adsb_normalization.py).
+- **Mesh Node Staleness Clock Alignment**:
+  - Corrected a timing domain mismatch in the frontend's MapOverlay rendering loop ([MapOverlay.tsx](file:///c:/Projects/Vertex/frontend/src/components/MapOverlay.tsx)) where page-uptime timestamp (`now` from `performance.now()`) was passed to `buildMeshNodeLayers()`.
+  - Replaced it with the correct epoch Unix millisecond timestamp (`nowMs` from `Date.now()`), allowing accurate comparisons with the `last_seen` timestamp parsed from the database. Mesh nodes now correctly fade to gray as stale when they have not checked in for >10 minutes.
+- **Validation**:
+  - Successfully verified all 84 python backend/poller tests pass.
+  - Successfully verified the complete frontend typescript compiles without errors (`npx tsc --noEmit`).
+  - Validated Docker compose config syntax checker.
+
+## 2026-05-19 — Cursor-on-Target (CoT) Emitter Optimization & Rubberbanding Resolution
+
+- **Cursor-on-Target Emitter Code Audit & Fixes**:
+    - **Resolved Track UID Collisions**: Updated mapping logic in `_build_cot()` to correctly identify normalized target fields using `entity_id` and `id` (resolving a bug where `entity.get('id')` was incorrectly called, producing `VERTEX-unknown` for all targets). Distinct targets now map to unique CoT IDs, completely resolving severe WinTAK/ATAK jumping/rubberbanding.
+    - **Eliminated Jitter & Out-of-Order Latency**: Replaced real-time timestamping with sensor-provided `last_seen` timestamps. This allows ATAK to recognize chronologically correct sequences and auto-discard older delayed packets (e.g. OpenSky supplement sweeps) without rubberbanding the track backward.
+    - **Corrected Aircraft Altitude & HAE Scaling**: Implemented accurate conversions for aircraft metrics by reading standard `altitude` (in feet) and converting to HAE meters (`float(alt_ft) * 0.3048`) for CoT point datagrams. Non-aircraft sources fallback correctly to `altitude_m` or metric values.
+    - **Corrected Velocity & Speed Scaling**: Implemented knots-to-meters/second speed conversion (`float(speed_kts) * 0.514444`) for aircraft and vessel entities to comply with the standard `track.speed` metric.
+    - **Unit Test Coverage**: Added comprehensive test cases in [test_cot_emitter.py](file:///c:/Projects/Vertex/poller/tests/test_cot_emitter.py) verifying UID resolution, altitude scaling, speed conversions, and timestamping calculations.
+
 ## 2026-05-17 — Split-Scroll Layout Refactoring & Padding Fixes
 
 - **Global Filter & Icon System Overhaul**:

@@ -12,6 +12,16 @@ def normalize_opensky(state: list) -> Optional[dict]:
     icao = state[0].lower()
     ts_epoch = state[3] or state[4]
     ts = datetime.fromtimestamp(ts_epoch, tz=timezone.utc).isoformat() if ts_epoch else _now()
+
+    raw_alt = state[7]
+    altitude = raw_alt / 0.3048 if raw_alt is not None else None
+
+    raw_speed = state[9]
+    speed = raw_speed / 0.514444 if raw_speed is not None else None
+
+    raw_vr = state[11]
+    vertical_rate = raw_vr / 0.3048 * 60 if raw_vr is not None else None
+
     return {
         "entity_id": f"aircraft:{icao}",
         "entity_type": "aircraft",
@@ -25,10 +35,10 @@ def normalize_opensky(state: list) -> Optional[dict]:
         },
         "lat": state[6],
         "lon": state[5],
-        "altitude": state[7],
+        "altitude": altitude,
         "heading": state[10],
-        "speed": state[9],
-        "vertical_rate": state[11],
+        "speed": speed,
+        "vertical_rate": vertical_rate,
         "status": "on_ground" if state[8] else "airborne",
         "last_seen": ts,
         "tags": ["aircraft"],

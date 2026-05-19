@@ -703,7 +703,7 @@ export function MapOverlay({ map }: Props) {
           ...buildMeshNodeLayers(
             Object.values(entitiesRef.current),
             entityFilterRef.current.mesh_node,
-            now,
+            nowMs,
             zoom,
           ),
           ...(() => {

@@ -61,7 +61,10 @@ def _build_cot(entity: dict[str, Any]) -> str | None:
     if lat is None or lon is None:
         return None
 
-    raw_uid = f"VERTEX-{entity.get('id', 'unknown')}"
+    # Fix UID collision bug (prefer entity_id or id)
+    entity_id = entity.get("entity_id") or entity.get("id") or "unknown"
+    raw_uid = f"VERTEX-{entity_id}"
+    
     cot_type = _COT_TYPES.get(entity.get("entity_type", ""), _COT_DEFAULT)
     raw_callsign = (
         entity.get("callsign")
@@ -69,8 +72,27 @@ def _build_cot(entity: dict[str, Any]) -> str | None:
         or entity.get("mmsi")
         or raw_uid
     )
-    alt_m = float(entity.get("alt_m") or entity.get("altitude_m") or 0.0)
-    speed_ms = float(entity.get("speed_ms") or 0.0)
+
+    # Fix Altitude HAE scaling (convert feet to meters for aircraft)
+    alt_m = 0.0
+    if entity.get("entity_type") == "aircraft":
+        alt_ft = entity.get("altitude")
+        if alt_ft is not None:
+            alt_m = float(alt_ft) * 0.3048
+    else:
+        alt_val = entity.get("altitude_m") or entity.get("alt_m") or entity.get("altitude") or 0.0
+        alt_m = float(alt_val)
+
+    # Fix Speed scaling (convert knots to m/s for aircraft and vessels)
+    speed_ms = 0.0
+    if entity.get("entity_type") in ("aircraft", "vessel"):
+        speed_kts = entity.get("speed")
+        if speed_kts is not None:
+            speed_ms = float(speed_kts) * 0.514444
+    else:
+        speed_val = entity.get("speed_ms") or entity.get("speed") or 0.0
+        speed_ms = float(speed_val)
+
     heading = float(entity.get("heading") or 0.0)
 
     uid = _xe(raw_uid)
@@ -78,13 +100,22 @@ def _build_cot(entity: dict[str, Any]) -> str | None:
     callsign = _xe(raw_callsign)
     remarks = _xe(entity.get("entity_type", ""))
 
-    now = datetime.now(timezone.utc)
-    stale = now + timedelta(seconds=settings.cot_stale_seconds)
+    # Fix timestamp jitter / rubberbanding (use last_seen sensor time if available)
+    last_seen_str = entity.get("last_seen")
+    if last_seen_str:
+        try:
+            event_time = datetime.fromisoformat(last_seen_str.replace("Z", "+00:00"))
+        except (ValueError, TypeError):
+            event_time = datetime.now(timezone.utc)
+    else:
+        event_time = datetime.now(timezone.utc)
+
+    stale = event_time + timedelta(seconds=settings.cot_stale_seconds)
 
     return (
         '<?xml version="1.0" encoding="UTF-8"?>'
         f'<event version="2.0" uid="{uid}" type="{cot_type_s}"'
-        f' time="{_ts(now)}" start="{_ts(now)}" stale="{_ts(stale)}" how="m-g">'
+        f' time="{_ts(event_time)}" start="{_ts(event_time)}" stale="{_ts(stale)}" how="m-g">'
         f'<point lat="{lat:.6f}" lon="{lon:.6f}" hae="{alt_m:.1f}"'
         f' ce="9999999.0" le="9999999.0"/>'
         "<detail>"

@@ -11,9 +11,7 @@ logger = logging.getLogger(__name__)
 # No API key required. Returns plain JSON; no AES decryption needed.
 AMTRAK_URL = "https://api-v3.amtraker.com/v3/trains"
 
-# Oregon + SW Washington — broad enough to catch trains en route through the state.
-_MIN_LAT, _MAX_LAT = 41.9, 47.0
-_MIN_LON, _MAX_LON = -124.6, -116.4
+# Amtraker coordinates are dynamically checked against configured regions.
 
 _COMPASS = {
     "N": 0, "NNE": 22.5, "NE": 45, "ENE": 67.5,
@@ -39,7 +37,13 @@ def _direction_to_heading(direction: str | None) -> float | None:
 def _in_bbox(lat: float | None, lon: float | None) -> bool:
     if lat is None or lon is None:
         return False
-    return _MIN_LAT <= lat <= _MAX_LAT and _MIN_LON <= lon <= _MAX_LON
+    from config import load_regions
+    regions = load_regions()
+    for region in regions:
+        b = region.bbox
+        if b.min_lat <= lat <= b.max_lat and b.min_lon <= lon <= b.max_lon:
+            return True
+    return False
 
 
 def _normalize(train: dict) -> dict | None:
@@ -133,5 +137,5 @@ class AmtrakPoller(BasePoller):
         self._poll_count += 1
         if self._poll_count <= 3 or self._poll_count % 10 == 0:
             logger.info(
-                "[amtrak] poll #%d: %d trains in Oregon/PNW", self._poll_count, published
+                "[amtrak] poll #%d: %d trains in configured region(s)", self._poll_count, published
             )
