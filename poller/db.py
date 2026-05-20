@@ -61,6 +61,52 @@ async def init_db():
         await conn.execute("CREATE INDEX IF NOT EXISTS ix_acars_tail ON acars_messages (tail, ts DESC)")
         await conn.execute("CREATE INDEX IF NOT EXISTS ix_acars_flight ON acars_messages (flight, ts DESC)")
         await conn.execute("CREATE INDEX IF NOT EXISTS ix_acars_ts ON acars_messages (ts DESC)")
+        await conn.execute("""
+            WITH ranked AS (
+                SELECT id,
+                       ROW_NUMBER() OVER (
+                           PARTITION BY station_id, tail, freq, ts
+                           ORDER BY id
+                       ) AS row_num
+                FROM acars_messages
+            )
+            DELETE FROM acars_messages AS messages
+            USING ranked
+            WHERE messages.id = ranked.id
+              AND ranked.row_num > 1
+        """)
+        await conn.execute(
+            "CREATE UNIQUE INDEX IF NOT EXISTS ix_acars_frame_dedupe ON acars_messages (station_id, tail, freq, ts)"
+        )
+        await conn.execute("""
+            DO $$
+            BEGIN
+                IF EXISTS (
+                    SELECT 1
+                    FROM pg_class
+                    WHERE relname = 'uq_acars_frame'
+                      AND relkind = 'i'
+                ) AND NOT EXISTS (
+                    SELECT 1
+                    FROM pg_constraint
+                    WHERE conname = 'uq_acars_frame'
+                      AND conrelid = 'acars_messages'::regclass
+                ) THEN
+                    DROP INDEX uq_acars_frame;
+                END IF;
+
+                IF NOT EXISTS (
+                    SELECT 1
+                    FROM pg_constraint
+                    WHERE conname = 'uq_acars_frame'
+                      AND conrelid = 'acars_messages'::regclass
+                ) THEN
+                    ALTER TABLE acars_messages
+                        ADD CONSTRAINT uq_acars_frame
+                        UNIQUE USING INDEX ix_acars_frame_dedupe;
+                END IF;
+            END $$
+        """)
     logger.info("DB pool initialized")
 
 
@@ -221,7 +267,7 @@ async def write_acars_message(msg: dict) -> bool:
             INSERT INTO acars_messages
                 (station_id, tail, flight, freq, label, msg_num, msg_text, error, mode, ts)
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, to_timestamp($10))
-            ON CONFLICT ON CONSTRAINT uq_acars_frame DO NOTHING
+            ON CONFLICT (station_id, tail, freq, ts) DO NOTHING
             RETURNING id
             """,
             sanitize_text(msg.get("station_id") or ""),

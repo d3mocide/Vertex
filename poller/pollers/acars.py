@@ -40,10 +40,11 @@ from .base import BasePoller
 logger = logging.getLogger(__name__)
 
 _CONNECT_TIMEOUT   = 10
-_PING_INTERVAL     = 20       # seconds between EIO pings we send
 _MAX_BATCH         = 500      # max messages processed per batch event
 _RECONNECT_DELAY   = 15       # seconds before reconnecting on error
 _SEARCH_PAGE_SIZE  = 100      # messages to request per query_search page
+_WS_PING_INTERVAL  = 15       # websocket keepalive for idle proxies / upstreams
+_WS_PING_TIMEOUT   = 15
 
 
 
@@ -117,7 +118,8 @@ class AcarsPoller(BasePoller):
         async with websockets.connect(
             uri,
             open_timeout=_CONNECT_TIMEOUT,
-            ping_interval=None,   # we handle pings manually
+            ping_interval=_WS_PING_INTERVAL,
+            ping_timeout=_WS_PING_TIMEOUT,
             max_size=10 * 1024 * 1024,
         ) as ws:
             # ── Engine.IO handshake ───────────────────────────────────────────
@@ -126,6 +128,7 @@ class AcarsPoller(BasePoller):
                 raise ValueError(f"Unexpected EIO handshake: {hs_raw[:80]}")
             hs = json.loads(hs_raw[1:])
             ping_interval = hs.get("pingInterval", 25000) / 1000
+            ping_timeout = hs.get("pingTimeout", 20000) / 1000
 
             # ── Socket.IO connect to default namespace ────────────────────────
             await ws.send("40")
@@ -144,21 +147,23 @@ class AcarsPoller(BasePoller):
             await self._request_search_page(ws, 0)
 
             # ── Main receive loop ─────────────────────────────────────────────
-            last_ping = time.monotonic()
+            last_server_ping = time.monotonic()
             while True:
-                now = time.monotonic()
-                if now - last_ping >= ping_interval - 1:
-                    await ws.send("2")   # EIO ping
-                    last_ping = now
-
                 try:
                     raw = await asyncio.wait_for(ws.recv(), timeout=1.0)
                 except asyncio.TimeoutError:
+                    if (time.monotonic() - last_server_ping) > (ping_interval + ping_timeout + 1):
+                        raise TimeoutError(
+                            f"Engine.IO heartbeat timeout after {ping_interval + ping_timeout:.0f}s"
+                        )
                     continue
 
-                # Respond immediately to server-initiated pings to avoid 1005 close
+                # Engine.IO v4 heartbeat is server-driven: server sends ping (2),
+                # client must answer with pong (3). Sending unsolicited client pings
+                # can cause periodic disconnects on strict Socket.IO servers.
                 if raw == "2":
                     await ws.send("3")
+                    last_server_ping = time.monotonic()
                     continue
 
                 await self._handle_frame(ws, base_url, raw)

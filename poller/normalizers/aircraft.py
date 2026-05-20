@@ -2,6 +2,9 @@ from datetime import datetime, timezone
 from typing import Optional
 
 
+OPENSKY_POSITION_STALE_SECONDS = 30
+
+
 def normalize_opensky(state: list) -> Optional[dict]:
     # OpenSky states array:
     # [icao24, callsign, origin_country, time_position, last_contact,
@@ -12,6 +15,8 @@ def normalize_opensky(state: list) -> Optional[dict]:
     icao = state[0].lower()
     ts_epoch = state[3] or state[4]
     ts = datetime.fromtimestamp(ts_epoch, tz=timezone.utc).isoformat() if ts_epoch else _now()
+    now_epoch = datetime.now(timezone.utc).timestamp()
+    position_stale = ts_epoch is None or (now_epoch - float(ts_epoch)) > OPENSKY_POSITION_STALE_SECONDS
 
     raw_alt = state[7]
     altitude = raw_alt / 0.3048 if raw_alt is not None else None
@@ -35,6 +40,7 @@ def normalize_opensky(state: list) -> Optional[dict]:
         },
         "lat": state[6],
         "lon": state[5],
+        "position_stale": position_stale,
         "altitude": altitude,
         "heading": state[10],
         "speed": speed,

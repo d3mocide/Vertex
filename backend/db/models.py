@@ -99,7 +99,10 @@ class AcarsMessage(Base):
     ts: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
     received_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
-    __table_args__ = (Index("ix_acars_tail", "tail", "ts"),)
+    __table_args__ = (
+        UniqueConstraint("station_id", "tail", "freq", "ts", name="uq_acars_frame"),
+        Index("ix_acars_tail", "tail", "ts"),
+    )
 
 
 class Geofence(Base):

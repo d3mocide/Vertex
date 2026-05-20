@@ -52,6 +52,50 @@ async def init_db():
         "ALTER TABLE alert_rules ADD COLUMN IF NOT EXISTS dedup_key VARCHAR(256)",
         "ALTER TABLE p25_recordings ADD COLUMN IF NOT EXISTS transcription TEXT",
         "ALTER TABLE mesh_messages ADD COLUMN IF NOT EXISTS channel_name VARCHAR(128)",
+        """
+        WITH ranked AS (
+            SELECT id,
+                   ROW_NUMBER() OVER (
+                       PARTITION BY station_id, tail, freq, ts
+                       ORDER BY id
+                   ) AS row_num
+            FROM acars_messages
+        )
+        DELETE FROM acars_messages AS messages
+        USING ranked
+        WHERE messages.id = ranked.id
+          AND ranked.row_num > 1
+        """,
+        "CREATE UNIQUE INDEX IF NOT EXISTS ix_acars_frame_dedupe ON acars_messages (station_id, tail, freq, ts)",
+                """
+                DO $$
+                BEGIN
+                        IF EXISTS (
+                                SELECT 1
+                                FROM pg_class
+                                WHERE relname = 'uq_acars_frame'
+                                    AND relkind = 'i'
+                        ) AND NOT EXISTS (
+                                SELECT 1
+                                FROM pg_constraint
+                                WHERE conname = 'uq_acars_frame'
+                                    AND conrelid = 'acars_messages'::regclass
+                        ) THEN
+                                DROP INDEX uq_acars_frame;
+                        END IF;
+
+                        IF NOT EXISTS (
+                                SELECT 1
+                                FROM pg_constraint
+                                WHERE conname = 'uq_acars_frame'
+                                    AND conrelid = 'acars_messages'::regclass
+                        ) THEN
+                                ALTER TABLE acars_messages
+                                        ADD CONSTRAINT uq_acars_frame
+                                        UNIQUE USING INDEX ix_acars_frame_dedupe;
+                        END IF;
+                END $$
+                """,
     ]
     for migration in migrations:
         try:

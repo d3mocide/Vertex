@@ -63,7 +63,7 @@ export function buildTrailLayers(
       if (gapM > 5 && gapM < MAX_GAP_BRIDGE_M) {
         gapData.push({
           from:  last,
-          to:    [t.lon, t.lat, t.altMeters],
+          to:    [t.lon, t.lat],
           color: entityColor(t),
         })
       }

@@ -5,6 +5,61 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 
 ---
 
+## 2026-05-20 — ACARSHub WebSocket 1005 Reconnect Loop Fix
+
+- **ACARS transport keepalive alignment**:
+    - Updated [poller/pollers/acars.py](poller/pollers/acars.py) to stop sending client-driven Engine.IO heartbeat pings and to rely on the Engine.IO v4 server-driven ping/pong flow.
+    - Added websocket-level keepalive (`ping_interval=15`, `ping_timeout=15`) to the ACARSHub connection so idle upstream/proxy links do not silently close the session with code 1005.
+- **Validation**:
+    - Verified Python syntax for [poller/pollers/acars.py](poller/pollers/acars.py) with `python -m py_compile`.
+    - Restarted the poller service and verified recent logs no longer show the periodic `[acars] ... session error: received 1005 ... reconnecting in 15s` loop.
+
+## 2026-05-20 — Stale OpenSky Projection & Predicted Path Clamp
+
+- **OpenSky stale-state propagation**:
+    - Updated [poller/normalizers/aircraft.py](poller/normalizers/aircraft.py) to set `position_stale` for OpenSky aircraft when the source position timestamp is older than 30 seconds.
+    - This prevents sparse/delayed OpenSky reports from being treated like fresh local ADS-B positions.
+- **Frontend stale-path suppression**:
+    - Updated [frontend/src/entityUtils.ts](frontend/src/entityUtils.ts) to stop generating predicted paths for stale tracks.
+    - Combined with existing PVB behavior, stale OpenSky targets now stop projecting forward instead of appearing to fly indefinitely along a stale heading.
+- **Validation**:
+    - Verified Python syntax for [poller/normalizers/aircraft.py](poller/normalizers/aircraft.py) with `python -m py_compile`.
+    - Verified the frontend compiles cleanly with `cd frontend && npx tsc --noEmit`.
+    - Targeted pytest for [poller/tests/test_adsb_normalization.py](poller/tests/test_adsb_normalization.py) could not be run because `pytest` is not installed in the active Python environment.
+
+## 2026-05-20 — Trail Bridge Altitude Parallax Fix
+
+- **Trail rendering plane consistency**:
+    - Updated [frontend/src/layers/buildTrailLayers.ts](frontend/src/layers/buildTrailLayers.ts) so the short trail gap bridge is rendered on the same flat map plane as the icon and historical trail, using `[lon, lat]` instead of `[lon, lat, altMeters]`.
+    - This removes camera-parallax drift where the bridge could appear to slide or detach while panning the map left/right, especially under pitch or terrain.
+- **Validation**:
+    - Verified the frontend compiles cleanly with `cd frontend && npx tsc --noEmit`.
+
+## 2026-05-20 — BEAST Trail Endpoint Alignment During PVB Dead-Reckoning
+
+- **Map overlay trail/icon alignment**:
+    - Updated [frontend/src/components/MapOverlay.tsx](frontend/src/components/MapOverlay.tsx) so `buildTrailLayers()` receives the same render-time track positions used by `buildEntityLayers()`.
+    - The trail history itself remains raw, but the live trail-adjacent endpoint now follows the PVB-adjusted icon position instead of the last raw server coordinate.
+    - This fixes the visual disconnect where local BEAST aircraft in reception dead zones could keep a dead-reckoned icon position while the purple trail bridge remained anchored to the older raw point.
+- **Validation**:
+    - Verified the frontend compiles cleanly with `cd frontend && npx tsc --noEmit`.
+
+## 2026-05-20 — ACARS Dedup Constraint Repair & Poller Recovery
+
+- **ACARS write-path hardening**:
+    - Updated [poller/db.py](poller/db.py) to use `ON CONFLICT (station_id, tail, freq, ts) DO NOTHING` instead of relying on a named constraint lookup, so inserts work against both named and inferred unique targets.
+- **Schema ownership alignment**:
+    - Added the missing ACARS dedupe uniqueness contract to [backend/db/models.py](backend/db/models.py) with `UniqueConstraint("station_id", "tail", "freq", "ts", name="uq_acars_frame")`, preventing fresh schemas created via SQLAlchemy from drifting from the SQL init scripts.
+    - Added compatibility migrations in [backend/db/session.py](backend/db/session.py) and startup repair logic in [poller/db.py](poller/db.py) to prune duplicate ACARS frames, create `ix_acars_frame_dedupe`, drop a legacy stray `uq_acars_frame` index when present without a matching constraint, and attach the real `uq_acars_frame` unique constraint idempotently.
+- **Live recovery**:
+    - Applied the dedupe/index/constraint repair to the running Postgres instance.
+    - Restarted backend and poller containers after the schema repair.
+    - Resolved the poller crash loop caused by a legacy `uq_acars_frame` index name colliding with constraint creation.
+- **Validation**:
+    - Verified Python syntax for [backend/db/models.py](backend/db/models.py), [backend/db/session.py](backend/db/session.py), and [poller/db.py](poller/db.py) with `python -m py_compile`.
+    - Verified the live database now contains the ACARS dedupe constraint and index.
+    - Verified `backend` is healthy, `poller` is up, and fresh poller logs show ACARS source connection without new `[acars] DB write failed` warnings.
+
 ## 2026-05-20 — Live Map Render Target Dropouts & Gaps Resolution (Zustand Caching & OpenSky Cadence)
 
 - **Zustand Aircraft Snapshot Caching & Merge Logic**:

@@ -621,7 +621,9 @@ export function MapOverlay({ map }: Props) {
 
       // Project each track forward from both the last server report and the last
       // visual position, then blend between them (Projective Velocity Blending).
-      // Trail layers receive rawTracks (actual history); only icon positions are smoothed.
+      // Trail history stays raw on the Track object; the render-time lon/lat used by
+      // trail-adjacent layers should match the icon position so stale BEAST tracks
+      // do not visually detach from their own trail endpoint.
       // In replay mode, PVB is bypassed (positions already interpolated).
       const pvbTracks: Record<string, Track> = {}
       const railSegments = railSegmentsRef.current
@@ -712,7 +714,7 @@ export function MapOverlay({ map }: Props) {
             const source = wsGauges.length > 0 ? wsGauges : fallback
             return buildStreamGaugeLayers(source, gaugesVisibleRef.current, zoom)
           })(),
-          ...buildTrailLayers(rawTracks, sel, trailsVisibleRef.current),
+          ...buildTrailLayers(pvbTracks, sel, trailsVisibleRef.current),
           ...buildEntityLayers(pvbTracks, sel, cycleRef.current, zoom, missionTagsRef.current),
           ...buildEventLayers(systemEventsRef.current, nowMs),
           ...(lightningVisibleRef.current

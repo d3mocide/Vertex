@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import os
 import sys
+from datetime import datetime, timezone
 
 _POLLER_ROOT = os.path.join(os.path.dirname(__file__), "..")
 if _POLLER_ROOT not in sys.path:
@@ -104,6 +105,18 @@ class TestNormalizeOpensky:
         assert abs(result["speed"] - 485.96) < 1.0
         # vertical_rate: 0.0 m/s -> 0.0 fpm
         assert result["vertical_rate"] == 0.0
+
+    def test_marks_old_opensky_position_stale(self):
+        old_ts = int(datetime.now(timezone.utc).timestamp()) - 120
+        result = normalize_opensky(self._state({3: old_ts, 4: old_ts}))
+        assert result is not None
+        assert result["position_stale"] is True
+
+    def test_marks_fresh_opensky_position_not_stale(self):
+        fresh_ts = int(datetime.now(timezone.utc).timestamp()) - 5
+        result = normalize_opensky(self._state({3: fresh_ts, 4: fresh_ts}))
+        assert result is not None
+        assert result["position_stale"] is False
 
 
 # ── normalize_tar1090 ────────────────────────────────────────────────────────
