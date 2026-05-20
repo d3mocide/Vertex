@@ -412,13 +412,20 @@ export const useCivicStore = create<CivicStore>()(
         }
       }
 
-      // Preserve OpenSky-supplemented aircraft that are not part of the local
-      // snapshot payload. Local snapshot IDs overwrite these below when present.
+      // Preserve existing aircraft (both local and opensky) that are not in the incoming list,
+      // provided they have not gone stale based on their last_seen.
       for (const [id, entity] of Object.entries(s.entities)) {
-        if (entity.entity_type === 'aircraft' && entity.source === 'opensky') {
-          nextEntities[id] = entity
-          const track = s.tracks[id]
-          if (track && track.type === 'air') nextTracks[id] = track
+        if (entity.entity_type === 'aircraft') {
+          const isOpensky = (entity.source ?? '').toLowerCase() === 'opensky'
+          const limit = isOpensky ? 600_000 : 120_000
+          if (entity.last_seen) {
+            const age = Date.now() - new Date(entity.last_seen).getTime()
+            if (age <= limit) {
+              nextEntities[id] = entity
+              const track = s.tracks[id]
+              if (track && track.type === 'air') nextTracks[id] = track
+            }
+          }
         }
       }
 
@@ -456,7 +463,10 @@ export const useCivicStore = create<CivicStore>()(
         train:          600_000,   // 10 min — Amtrak polls every 60 s
       }
       for (const [id, e] of Object.entries(next)) {
-        const limit = STALE_MS[e.entity_type]
+        let limit = STALE_MS[e.entity_type]
+        if (e.entity_type === 'aircraft' && (e.source ?? '').toLowerCase() === 'opensky') {
+          limit = 600_000 // 10 min threshold for OpenSky (polls every 4 min)
+        }
         if (limit && e.last_seen) {
           const age = now - new Date(e.last_seen).getTime()
           if (age > limit) {

@@ -5,6 +5,17 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 
 ---
 
+## 2026-05-20 — Live Map Render Target Dropouts & Gaps Resolution (Zustand Caching & OpenSky Cadence)
+
+- **Zustand Aircraft Snapshot Caching & Merge Logic**:
+  - Refactored `setAircraftSnapshot()` in [store.ts](file:///c:/Projects/Vertex/frontend/src/store.ts) to preserve existing aircraft entities (both local BEAST and OpenSky) that are absent from the incoming snapshot, as long as they are not stale based on their source-specific thresholds. This solves the issue of high-frequency local ADSB targets disappearing or stuttering between transient 5-second snapshot updates.
+- **Source-Specific Aircraft Staleness Limit**:
+  - Refactored `purgeStaleEntities()` in [store.ts](file:///c:/Projects/Vertex/frontend/src/store.ts) to apply a custom 10-minute (`600_000` ms) threshold specifically for `opensky` aircraft to match their 4-minute polling interval.
+  - Kept the standard 2-minute (`120_000` ms) limit for local aircraft and fallback configurations. This completely resolves the OpenSky target populate-clear-repopulate loop.
+- **Validation**:
+  - Successfully verified the complete frontend typescript compiles with zero errors (`npx tsc --noEmit`).
+  - Validated Docker Compose configuration syntax.
+
 ## 2026-05-20 — CoT Timestamp Split Refactoring (OpenSky & BEAST Feed Stability)
 
 - **Cursor-on-Target Time Semantics Separation**:
