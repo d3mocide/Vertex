@@ -77,10 +77,23 @@ def test_build_cot_speed_scaling():
 
 
 def test_build_cot_timestamps():
-    # Use last_seen if available
-    e = {"lat": 45.0, "lon": -122.0, "last_seen": "2026-05-19T20:00:00Z"}
-    xml = _build_cot(e)
-    assert 'time="2026-05-19T20:00:00.00Z"' in xml
-    assert 'start="2026-05-19T20:00:00.00Z"' in xml
-    # Stale should be 300 seconds (5 mins) later
-    assert 'stale="2026-05-19T20:05:00.00Z"' in xml
+    from unittest.mock import patch
+    from datetime import datetime, timezone
+
+    fixed_now = datetime(2026, 5, 20, 12, 0, 0, tzinfo=timezone.utc)
+
+    with patch("pollers.cot_emitter.datetime") as mock_datetime:
+        mock_datetime.now.return_value = fixed_now
+        mock_datetime.fromisoformat.side_effect = datetime.fromisoformat
+
+        # Use last_seen if available
+        e = {"lat": 45.0, "lon": -122.0, "last_seen": "2026-05-19T20:00:00Z"}
+        xml = _build_cot(e)
+
+        # 'time' should be derived from last_seen
+        assert 'time="2026-05-19T20:00:00.00Z"' in xml
+        # 'start' and 'stale' should be derived from the current time (mocked as fixed_now)
+        assert 'start="2026-05-20T12:00:00.00Z"' in xml
+        # settings.cot_stale_seconds is mocked to 300 (5 mins) in this test environment
+        assert 'stale="2026-05-20T12:05:00.00Z"' in xml
+

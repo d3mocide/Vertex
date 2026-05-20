@@ -100,22 +100,24 @@ def _build_cot(entity: dict[str, Any]) -> str | None:
     callsign = _xe(raw_callsign)
     remarks = _xe(entity.get("entity_type", ""))
 
+    now = datetime.now(timezone.utc)
+
     # Fix timestamp jitter / rubberbanding (use last_seen sensor time if available)
     last_seen_str = entity.get("last_seen")
     if last_seen_str:
         try:
             event_time = datetime.fromisoformat(last_seen_str.replace("Z", "+00:00"))
         except (ValueError, TypeError):
-            event_time = datetime.now(timezone.utc)
+            event_time = now
     else:
-        event_time = datetime.now(timezone.utc)
+        event_time = now
 
-    stale = event_time + timedelta(seconds=settings.cot_stale_seconds)
+    stale = now + timedelta(seconds=settings.cot_stale_seconds)
 
     return (
         '<?xml version="1.0" encoding="UTF-8"?>'
         f'<event version="2.0" uid="{uid}" type="{cot_type_s}"'
-        f' time="{_ts(event_time)}" start="{_ts(event_time)}" stale="{_ts(stale)}" how="m-g">'
+        f' time="{_ts(event_time)}" start="{_ts(now)}" stale="{_ts(stale)}" how="m-g">'
         f'<point lat="{lat:.6f}" lon="{lon:.6f}" hae="{alt_m:.1f}"'
         f' ce="9999999.0" le="9999999.0"/>'
         "<detail>"

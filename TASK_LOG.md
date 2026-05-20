@@ -5,6 +5,20 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 
 ---
 
+## 2026-05-20 — CoT Timestamp Split Refactoring (OpenSky & BEAST Feed Stability)
+
+- **Cursor-on-Target Time Semantics Separation**:
+  - Refactored `_build_cot()` inside [cot_emitter.py](file:///c:/Projects/Vertex/poller/pollers/cot_emitter.py) to separate data-point sensor measurements from message validity windows.
+  - Set the XML `time` attribute to use the sensor's `last_seen` timestamp (`event_time`), ensuring proper chronological sorting inside WinTAK/ATAK and resolving track jumping/rubberbanding.
+  - Anchored XML `start` and `stale` attributes to the emitter execution time (`now` and `now + cot_stale_seconds`), ensuring slower-polling OpenSky targets do not immediately timeout on the TAK map, and high-frequency BEAST targets do not drop due to minor network latency or clock skew.
+- **Robust Unit Testing**:
+  - Updated `test_build_cot_timestamps` in [test_cot_emitter.py](file:///c:/Projects/Vertex/poller/tests/test_cot_emitter.py) to use `unittest.mock.patch` for mocking system time (`datetime`), verifying precise CoT XML generation without system-clock dependency.
+- **Validation**:
+  - Verified 100% of python poller/backend tests pass (88/88 passing tests).
+  - Verified syntax of modified python scripts with `py_compile`.
+  - Verified complete frontend typescript compiles with zero errors via `npx tsc --noEmit`.
+  - Validated Docker compose YAML structure.
+
 ## 2026-05-19 — Dynamic Bounding Box Filtering for Amtrak Poller
 
 - **Amtrak Spatial Ingestion Refactoring**:
