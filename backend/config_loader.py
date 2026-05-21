@@ -32,6 +32,18 @@ class PollerSourceEntry(BaseModel):
     source: Literal["config", "user"] = "config"
 
 
+class MqttSourceEntry(BaseModel):
+    name: str
+    normalizer: Literal["tinygs", "rtl_433", "meshtastic", "ais"]
+    broker: str = "mosquitto"
+    port: int = 1883
+    topic: str
+    qos: int = 0
+    auth_enabled: bool = False
+    enabled: bool = True
+    source: Literal["config", "user"] = "config"
+
+
 class AlertZonesConfig(BaseModel):
     nws_zones: list[str] = []
     source: Literal["config", "user"] = "config"
@@ -47,6 +59,7 @@ class SourcesConfig(BaseModel):
     news_feeds: list[NewsFeedEntry] = []
     poller_sources: list[PollerSourceEntry] = []
     alert_zones: AlertZonesConfig = AlertZonesConfig()
+    mqtt_sources: list[MqttSourceEntry] = []
 
 
 def load_sources_config() -> SourcesConfig:

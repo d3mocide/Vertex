@@ -285,3 +285,40 @@ async def write_acars_message(msg: dict) -> bool:
     except Exception as exc:
         logger.warning("[acars] DB write failed: %s", exc)
         return False
+
+
+async def write_mesh_message(msg: dict) -> None:
+    """Upsert a mesh message from Meshtastic MQTT into mesh_messages.
+
+    msg keys: id, msg_type, conversation_key, channel_name, text,
+              sender_name, sender_key, outgoing, acked, ts, source_url
+    """
+    if _pool is None:
+        return
+    ts = msg.get("ts")
+    if isinstance(ts, (int, float)):
+        from datetime import datetime, timezone
+        ts = datetime.fromtimestamp(float(ts), tz=timezone.utc)
+    try:
+        await _pool.execute(
+            """
+            INSERT INTO mesh_messages
+                (id, msg_type, conversation_key, channel_name, text,
+                 sender_name, sender_key, outgoing, acked, ts, source_url)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+            ON CONFLICT (id) DO NOTHING
+            """,
+            sanitize_text(msg.get("id") or ""),
+            sanitize_text(msg.get("msg_type") or "channel"),
+            sanitize_text(msg.get("conversation_key") or ""),
+            sanitize_text(msg.get("channel_name") or ""),
+            sanitize_text(msg.get("text") or ""),
+            sanitize_text(msg.get("sender_name") or ""),
+            sanitize_text(msg.get("sender_key") or ""),
+            bool(msg.get("outgoing", False)),
+            bool(msg.get("acked", False)),
+            ts,
+            sanitize_text(msg.get("source_url") or ""),
+        )
+    except Exception as exc:
+        logger.warning("[mesh_message] DB write failed: %s", exc)

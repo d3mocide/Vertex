@@ -15,9 +15,9 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from config_writer import add_entry, add_alert_zone, remove_entry, remove_alert_zone, update_entry
+from config_writer import add_entry, add_alert_zone, remove_entry, remove_alert_zone, update_entry, add_mqtt_entry, remove_mqtt_entry, update_mqtt_entry
 from deps import get_db
-from db.models import AlertZoneConfig, NewsFeed, PollerSource
+from db.models import AlertZoneConfig, MqttSource, NewsFeed, PollerSource
 
 router = APIRouter(prefix="/sources", tags=["sources"])
 
@@ -235,3 +235,97 @@ async def delete_alert_zone(zone_id: int, db: AsyncSession = Depends(get_db)):
     await db.delete(az)
     await db.commit()
     await remove_alert_zone(code)
+
+
+# ---------------------------------------------------------------------------
+# MQTT sources
+# ---------------------------------------------------------------------------
+
+class MqttSourceCreate(BaseModel):
+    name: str
+    normalizer: Literal["tinygs", "rtl_433", "meshtastic", "ais"]
+    broker: str = "mosquitto"
+    port: int = 1883
+    topic: str
+    qos: int = 0
+    auth_enabled: bool = False
+    enabled: bool = True
+
+
+class MqttSourceResponse(BaseModel):
+    id: int
+    name: str
+    normalizer: str
+    broker: str
+    port: int
+    topic: str
+    qos: int
+    auth_enabled: bool
+    enabled: bool
+    source: str
+
+
+def _ms_response(ms: MqttSource) -> MqttSourceResponse:
+    return MqttSourceResponse(
+        id=ms.id, name=ms.name, normalizer=ms.normalizer,
+        broker=ms.broker, port=ms.port, topic=ms.topic,
+        qos=ms.qos, auth_enabled=ms.auth_enabled,
+        enabled=ms.enabled, source=ms.source,
+    )
+
+
+@router.get("/mqtt", response_model=list[MqttSourceResponse])
+async def list_mqtt_sources(db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(MqttSource).order_by(MqttSource.normalizer, MqttSource.id))
+    return [_ms_response(ms) for ms in result.scalars().all()]
+
+
+@router.post("/mqtt", response_model=MqttSourceResponse, status_code=201)
+async def create_mqtt_source(body: MqttSourceCreate, db: AsyncSession = Depends(get_db)):
+    ms = MqttSource(
+        name=body.name, normalizer=body.normalizer, broker=body.broker,
+        port=body.port, topic=body.topic, qos=body.qos,
+        auth_enabled=body.auth_enabled, enabled=body.enabled,
+        source="user",
+        created_at=datetime.now(timezone.utc),
+        updated_at=datetime.now(timezone.utc),
+    )
+    db.add(ms)
+    try:
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(409, f"MQTT source {body.name!r} already exists")
+    await db.refresh(ms)
+    await add_mqtt_entry({
+        "name": ms.name, "normalizer": ms.normalizer, "broker": ms.broker,
+        "port": ms.port, "topic": ms.topic, "qos": ms.qos,
+        "auth_enabled": ms.auth_enabled, "enabled": ms.enabled, "source": "user",
+    })
+    return _ms_response(ms)
+
+
+@router.patch("/mqtt/{source_id}/toggle", response_model=MqttSourceResponse)
+async def toggle_mqtt_source(source_id: int, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(MqttSource).where(MqttSource.id == source_id))
+    ms = result.scalar_one_or_none()
+    if not ms:
+        raise HTTPException(404, "MQTT source not found")
+    ms.enabled = not ms.enabled
+    ms.updated_at = datetime.now(timezone.utc)
+    await db.commit()
+    await db.refresh(ms)
+    await update_mqtt_entry(ms.name, {"enabled": ms.enabled})
+    return _ms_response(ms)
+
+
+@router.delete("/mqtt/{source_id}", status_code=204)
+async def delete_mqtt_source(source_id: int, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(MqttSource).where(MqttSource.id == source_id))
+    ms = result.scalar_one_or_none()
+    if not ms:
+        raise HTTPException(404, "MQTT source not found")
+    name = ms.name
+    await db.delete(ms)
+    await db.commit()
+    await remove_mqtt_entry(name)

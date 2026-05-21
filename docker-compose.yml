@@ -50,6 +50,31 @@ services:
     networks:
       - internal
 
+  # ── MQTT Broker ──────────────────────────────────
+  mosquitto:
+    image: eclipse-mosquitto:2
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 64m
+          cpus: '0.25'
+        reservations:
+          memory: 16m
+          cpus: '0.05'
+    volumes:
+      - ./infra/mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - mosquitto_data:/mosquitto/data
+    ports:
+      - "${MQTT_PORT:-1883}:1883"
+    healthcheck:
+      test: ["CMD-SHELL", "mosquitto_pub -h 127.0.0.1 -p 1883 -t 'health/check' -m 'ok' -q 0"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - internal
+
   # ── Application ──────────────────────────────────
   backend:
     build:
@@ -125,6 +150,8 @@ services:
       db:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      mosquitto:
         condition: service_healthy
     networks:
       - internal
@@ -225,5 +252,6 @@ networks:
 volumes:
   db_data:
   redis_data:
+  mosquitto_data:  # MQTT broker persistence (retained messages, subscriptions)
   p25_audio:       # P25 call recordings; shared with transcription service
   whisper_models:  # Whisper model weights cache; avoids re-downloading on container restart

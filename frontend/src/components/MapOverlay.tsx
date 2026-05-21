@@ -107,7 +107,7 @@ export function MapOverlay({ map }: Props) {
   const camerasRef        = useRef<TrafficCamera[]>([])
   const selectedCamRef    = useRef<string | null>(null)
   const activeTabRef      = useRef<string>('safety')
-  const entityFilterRef   = useRef<EntityTypeFilter>({ aircraft: true, adsbLocal: true, adsbSupplement: true, vessel: true, mesh_node: true, aprs: true, fire_incident: true, satellite: true, tinygs_station: true, train: true })
+  const entityFilterRef   = useRef<EntityTypeFilter>({ aircraft: true, adsbLocal: true, adsbSupplement: true, vessel: true, mesh_node: true, aprs: true, fire_incident: true, satellite: true, tinygs_station: true, tinygs_satellite: true, rf_sensor: true, train: true })
   const searchQueryRef    = useRef<string>('')
   const altRangeRef       = useRef<RangeFilter>([0, 60_000])
   const speedRangeRef     = useRef<RangeFilter>([0, 600])

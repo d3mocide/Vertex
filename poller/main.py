@@ -24,6 +24,7 @@ from pollers.cot_receiver import CotReceiver
 from pollers.p25_recorder import P25AudioRecorder
 from pollers.anomaly import AnomalyDetectionPoller
 from pollers.tinygs import TinyGSPoller
+from pollers.mqtt_subscriber import MqttSubscriberPoller
 from pollers.lightning import LightningPoller
 from pollers.streamgauge import StreamGaugePoller
 from pollers.gdacs import GdacsPoller
@@ -96,7 +97,9 @@ async def main():
     if settings.tinygs_enabled:
         pollers.append(TinyGSPoller())
     else:
-        logger.info("[tinygs] integration sunset by default (set TINYGS_ENABLED=true to re-enable)")
+        logger.info("[tinygs] REST poller disabled (set TINYGS_ENABLED=true, or configure a tinygs mqtt_source for local node data)")
+
+    pollers.append(MqttSubscriberPoller())
 
     tasks = [asyncio.create_task(p.run()) for p in pollers]
     tasks.append(asyncio.create_task(_purge_loop()))
