@@ -12,7 +12,7 @@ from environment variables keyed by the sanitized source name:
   MQTT_{UPPER_SNAKE_NAME}_USERNAME
   MQTT_{UPPER_SNAKE_NAME}_PASSWORD
 
-Supported normalizers: tinygs, rtl_433, meshtastic, ais
+Supported normalizers: rtl_433, meshtastic, ais
 """
 
 import asyncio
@@ -23,7 +23,6 @@ import re
 import aiomqtt
 
 from .base import BasePoller
-import normalizers.tinygs_mqtt    as _tinygs
 import normalizers.rtl_433        as _rtl_433
 import normalizers.meshtastic_mqtt as _meshtastic
 import normalizers.ais_mqtt        as _ais
@@ -34,7 +33,6 @@ _RETRY_DELAY     = 10    # seconds between reconnect attempts
 _KEEPALIVE       = 60    # MQTT keepalive interval
 
 _NORMALIZERS: dict = {
-    "tinygs":     _tinygs.handle,
     "rtl_433":    _rtl_433.handle,
     "meshtastic": _meshtastic.handle,
     "ais":        _ais.handle,

@@ -23,7 +23,6 @@ from pollers.cot_emitter import CotEmitter
 from pollers.cot_receiver import CotReceiver
 from pollers.p25_recorder import P25AudioRecorder
 from pollers.anomaly import AnomalyDetectionPoller
-from pollers.tinygs import TinyGSPoller
 from pollers.mqtt_subscriber import MqttSubscriberPoller
 from pollers.lightning import LightningPoller
 from pollers.streamgauge import StreamGaugePoller
@@ -93,11 +92,6 @@ async def main():
         AmtrakPoller(),
         RailInfrastructurePoller(),
     ]
-
-    if settings.tinygs_enabled:
-        pollers.append(TinyGSPoller())
-    else:
-        logger.info("[tinygs] REST poller disabled (set TINYGS_ENABLED=true, or configure a tinygs mqtt_source for local node data)")
 
     pollers.append(MqttSubscriberPoller())
 

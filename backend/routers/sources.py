@@ -243,7 +243,7 @@ async def delete_alert_zone(zone_id: int, db: AsyncSession = Depends(get_db)):
 
 class MqttSourceCreate(BaseModel):
     name: str
-    normalizer: Literal["tinygs", "rtl_433", "meshtastic", "ais"]
+    normalizer: Literal["rtl_433", "meshtastic", "ais"]
     broker: str = "mosquitto"
     port: int = 1883
     topic: str

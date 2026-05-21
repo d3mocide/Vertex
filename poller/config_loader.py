@@ -34,7 +34,7 @@ class PollerSourceEntry(BaseModel):
 
 class MqttSourceEntry(BaseModel):
     name: str
-    normalizer: Literal["tinygs", "rtl_433", "meshtastic", "ais"]
+    normalizer: Literal["rtl_433", "meshtastic", "ais"]
     broker: str = "mosquitto"
     port: int = 1883
     topic: str

@@ -259,8 +259,6 @@ export type EntityTypeFilter = {
   aprs: boolean
   fire_incident: boolean
   satellite: boolean
-  tinygs_station: boolean
-  tinygs_satellite: boolean
   rf_sensor: boolean
   train: boolean
 }

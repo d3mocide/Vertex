@@ -18,7 +18,6 @@ const FILTER_KEY_TO_ENTITY_TYPE: Partial<Record<keyof EntityTypeFilter, string>>
   aprs:            'aprs',
   fire_incident:   'fire_incident',
   satellite:       'satellite',
-  tinygs_station:  'tinygs_station',
   train:           'train',
 }
 

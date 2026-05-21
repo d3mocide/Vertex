@@ -6,7 +6,7 @@ const ENTITY_COLORS: Record<string, string> = {
   mesh_node:     '#FF8F00',      // cat-mesh
   aprs_position: '#B388FF',      // cat-aprs
   p25:           '#FF8F00',      // cat-mesh (P25 radio)
-  tinygs_packet: '#4FC3F7',      // cat-stream
+
 }
 
 function barColor(type: string) {

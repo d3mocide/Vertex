@@ -125,29 +125,14 @@ poller_sources:
 #         "192.168.1.x" — LAN device running its own broker (e.g., Frigate on another Pi)
 #
 # normalizer: which parser handles messages on this topic
-#   tinygs      — TinyGS LoRa ground station (configure node MQTT server to Pi LAN IP)
 #   rtl_433     — RTL_433 SDR RF sensor decoder (rtl_433 -F "mqtt://localhost:1883,events=rtl_433/events")
 #   meshtastic  — Meshtastic node JSON MQTT uplink (configure node MQTT server to Pi LAN IP)
 #   ais         — AIS-catcher MQTT output (alternative to WebSocket poller_source)
 #
 # auth_enabled: false for local Mosquitto (no credentials needed)
 #               true for external brokers — set MQTT_{UPPER_SNAKE_NAME}_USERNAME/PASSWORD in .env
-#
-# TinyGS note: configure your node's MQTT settings to point at this Pi's LAN IP.
-# The global TinyGS REST poller (TINYGS_ENABLED) can run alongside or be disabled
-# once your local node is providing data.
 # ---------------------------------------------------------------------------
 mqtt_sources:
-  - name: "TinyGS Node"
-    normalizer: tinygs
-    broker: mosquitto
-    port: 1883
-    topic: "tinygs/#"
-    qos: 0
-    auth_enabled: false
-    enabled: false
-    source: config
-
   - name: "RTL_433 Sensors"
     normalizer: rtl_433
     broker: mosquitto

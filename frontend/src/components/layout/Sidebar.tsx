@@ -133,7 +133,6 @@ export function Sidebar() {
   const meshNodes    = entityList.filter((e) => e.entity_type === 'mesh_node').length
   const streamGauges = entityList.filter((e) => e.entity_type === 'stream_gauge').length
   const satellites   = entityList.filter((e) => e.entity_type === 'satellite').length
-  const tinygsStations = entityList.filter((e) => e.entity_type === 'tinygs_station').length
   const lightningCount = lightningStrikes.length
   const cams          = cameras.length
   const wAlerts       = weather.alerts.length
@@ -398,16 +397,6 @@ export function Sidebar() {
 
             <button
               type="button"
-              onClick={() => toggleEntityType('tinygs_station')}
-              className={`text-amber-p25 hover:text-white transition-all flex items-center gap-1 focus:outline-none ${entityFilter.tinygs_station ? 'opacity-100' : 'opacity-40'}`}
-              title="Toggle TinyGS stations layer"
-            >
-              <span className="ms text-[12px]" aria-hidden="true">settings_input_antenna</span>
-              <span>{tinygsStations}</span>
-            </button>
-
-            <button
-              type="button"
               onClick={() => { focusSafetyMap(); setCamerasVisible(!camerasVisible) }}
               className={`text-amber-gold hover:text-white transition-all flex items-center gap-1 focus:outline-none ${camerasVisible ? 'opacity-100' : 'opacity-40'}`}
               title="Toggle traffic cameras layer"
@@ -554,15 +543,6 @@ export function Sidebar() {
           >
             <span className="ms text-[14px] mr-1.5 shrink-0" aria-hidden="true">satellite_alt</span>
             Satellites: {satellites}
-          </button>
-          <button
-            type="button"
-            onClick={() => toggleEntityType('tinygs_station')}
-            className={`text-amber-p25 hover:text-white transition-all flex items-center text-left focus:outline-none ${entityFilter.tinygs_station ? 'opacity-100' : 'opacity-40'}`}
-            title="Toggle TinyGS stations layer"
-          >
-            <span className="ms text-[14px] mr-1.5 shrink-0" aria-hidden="true">settings_input_antenna</span>
-            TinyGS: {tinygsStations}
           </button>
           <button
             type="button"

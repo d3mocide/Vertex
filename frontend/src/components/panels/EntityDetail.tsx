@@ -23,7 +23,6 @@ const TYPE_COLORS: Record<string, string> = {
   train:          'text-amber-gold',
   mesh_node:      'text-amber-p25',
   satellite:      'text-violet-space',
-  tinygs_station: 'text-amber-p25',
   aprs:           'text-cyan-adsb',
   fire_incident:  'text-red-emergency',
   hazard:         'text-red-emergency',
@@ -38,7 +37,6 @@ const TYPE_ICONS: Record<string, string> = {
   fire_incident:  'local_fire_department',
   mesh_node:      'hub',
   satellite:      'satellite_alt',
-  tinygs_station: 'settings_input_antenna',
   stream_gauge:   'waves',
 }
 

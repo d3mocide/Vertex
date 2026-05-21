@@ -182,10 +182,6 @@ class Settings(BaseSettings):
     tvfr_enabled: bool = False
     tvfr_rss_url: str = ""
 
-    # TinyGS integration is sunset by default due to upstream API instability.
-    # Set true to opt in and re-enable the poller.
-    tinygs_enabled: bool = False
-
     # TriMet GTFS-RT — Portland Metro rail (MAX light rail, WES commuter, Portland Streetcar)
     # Free AppID at: https://developer.trimet.org/
     trimet_gtfs_enabled: bool = False
