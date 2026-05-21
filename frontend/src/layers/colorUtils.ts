@@ -63,5 +63,6 @@ export function entityColor(track: Track, alpha?: number): RGBA {
   if (track.type === 'sea') return speedToColor(track.speedMs, alpha)
   if (track.type === 'ground') return [120, 240, 255, alpha ?? 220]
   if (track.type === 'hazard') return [255, 96, 64, alpha ?? 220]
+  if (track.type === 'sensor') return [118, 221, 0, alpha ?? 220]
   return altitudeToColor(track.altMeters, alpha)
 }

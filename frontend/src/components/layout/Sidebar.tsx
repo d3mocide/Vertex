@@ -131,6 +131,7 @@ export function Sidebar() {
   const aprs         = entityList.filter((e) => e.entity_type === 'aprs').length
   const fire         = entityList.filter((e) => e.entity_type === 'fire_incident').length
   const meshNodes    = entityList.filter((e) => e.entity_type === 'mesh_node').length
+  const rfSensors    = entityList.filter((e) => e.entity_type === 'rf_sensor').length
   const streamGauges = entityList.filter((e) => e.entity_type === 'stream_gauge').length
   const satellites   = entityList.filter((e) => e.entity_type === 'satellite').length
   const lightningCount = lightningStrikes.length
@@ -367,6 +368,16 @@ export function Sidebar() {
 
             <button
               type="button"
+              onClick={() => toggleEntityType('rf_sensor')}
+              className={`text-lime-rf hover:text-white transition-all flex items-center gap-1 focus:outline-none ${entityFilter.rf_sensor ? 'opacity-100' : 'opacity-40'}`}
+              title="Toggle RF sensors layer"
+            >
+              <span className="ms text-[12px]" aria-hidden="true">sensors</span>
+              <span>{rfSensors}</span>
+            </button>
+
+            <button
+              type="button"
               onClick={() => { focusSafetyMap(); setGaugesVisible(!gaugesVisible) }}
               className={`text-cyan-adsb hover:text-white transition-all flex items-center gap-1 focus:outline-none ${gaugesVisible ? 'opacity-100' : 'opacity-40'}`}
               title="Toggle stream gauges layer"
@@ -516,6 +527,15 @@ export function Sidebar() {
           >
             <span className="ms text-[14px] mr-1.5 shrink-0" aria-hidden="true">hub</span>
             Mesh Nodes: {meshNodes}
+          </button>
+          <button
+            type="button"
+            onClick={() => toggleEntityType('rf_sensor')}
+            className={`text-lime-rf hover:text-white transition-all flex items-center text-left focus:outline-none ${entityFilter.rf_sensor ? 'opacity-100' : 'opacity-40'}`}
+            title="Toggle RF sensors layer"
+          >
+            <span className="ms text-[14px] mr-1.5 shrink-0" aria-hidden="true">sensors</span>
+            RF Sensors: {rfSensors}
           </button>
           <button
             type="button"
