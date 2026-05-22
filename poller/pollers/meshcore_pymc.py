@@ -87,6 +87,8 @@ def _contact_to_entity(contact: dict, source_url: str) -> dict | None:
         "display_name": name,
         "lat":          lat,
         "lon":          lon,
+        "altitude":     None,
+        "status":       "",
         "identity": {
             "public_key":   pub_key,
             "node_id":      pub_key[:12],

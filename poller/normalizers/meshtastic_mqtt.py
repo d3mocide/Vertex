@@ -86,7 +86,6 @@ async def _handle_position(data: dict, entity_id: str, sender_hex: str) -> None:
         "entity_id":    entity_id,
         "entity_type":  "mesh_node",
         "source":       "meshtastic",
-        "display_name": sender_hex,
         "lat":          lat,
         "lon":          lon,
         "altitude":     float(alt) if alt is not None else None,
@@ -95,7 +94,7 @@ async def _handle_position(data: dict, entity_id: str, sender_hex: str) -> None:
         "tags":         ["mesh_node"],
         "signal_quality": _snr_to_quality(data.get("snr") or data.get("rxSnr")),
     }
-    await publish_entity(entity, ttl=_NODE_TTL)
+    await publish_entity(entity, ttl=_NODE_TTL, merge=True)
 
 
 async def _handle_nodeinfo(data: dict, entity_id: str, sender_hex: str) -> None:
@@ -121,7 +120,7 @@ async def _handle_nodeinfo(data: dict, entity_id: str, sender_hex: str) -> None:
         },
         "tags": ["mesh_node"],
     }
-    await publish_entity(entity, ttl=_NODE_TTL, record_observation=False)
+    await publish_entity(entity, ttl=_NODE_TTL, record_observation=False, merge=True)
 
 
 async def _handle_telemetry(data: dict, entity_id: str, sender_hex: str) -> None:
@@ -150,14 +149,11 @@ async def _handle_telemetry(data: dict, entity_id: str, sender_hex: str) -> None
         "entity_id":    entity_id,
         "entity_type":  "mesh_node",
         "source":       "meshtastic",
-        "display_name": sender_hex,
-        "lat":          None,
-        "lon":          None,
         "status":       "active",
         "identity":     identity_update,
         "tags":         ["mesh_node"],
     }
-    await publish_entity(entity, ttl=_NODE_TTL, record_observation=False)
+    await publish_entity(entity, ttl=_NODE_TTL, record_observation=False, merge=True)
 
 
 async def _handle_text(
