@@ -383,7 +383,18 @@ async def proxy_stream(
     except ValueError as e:
         raise HTTPException(400, f"Invalid or unsafe stream URL: {str(e)}")
 
-    client = httpx.AsyncClient(timeout=httpx.Timeout(connect=10.0, read=None, write=10.0, pool=10.0), follow_redirects=True)
+    async def _validate_request_url(request: httpx.Request):
+        try:
+            validate_safe_url(str(request.url))
+        except ValueError as e:
+            # We raise a RequestError here so httpx catches it instead of crashing.
+            raise httpx.RequestError(f"SSRF validation failed: {e}", request=request)
+
+    client = httpx.AsyncClient(
+        timeout=httpx.Timeout(connect=10.0, read=None, write=10.0, pool=10.0),
+        follow_redirects=True,
+        event_hooks={'request': [_validate_request_url]},
+    )
     try:
         req = client.build_request("GET", stream.url)
         resp = await client.send(req, stream=True)
