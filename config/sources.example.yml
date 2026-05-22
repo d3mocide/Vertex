@@ -19,7 +19,7 @@
 radio_streams:
   - name: "Local P25"
     url: "http://192.168.1.x:8000/radio.mp3"
-    format: mp3            # mp3 | ogg | aac
+    format: mp3 # mp3 | ogg | aac
     enabled: true
     source: config
 
@@ -68,45 +68,45 @@ alert_feeds:
 # The poller connects to these instead of managing its own containers.
 # ---------------------------------------------------------------------------
 poller_sources:
-  - type: adsb             # ADS-B — tar1090 / readsb aircraft.json
+  - type: adsb # ADS-B — tar1090 / readsb aircraft.json
     name: "Primary ADS-B"
     url: "http://192.168.1.x:8080/data/aircraft.json"
     enabled: true
     source: config
 
-  - type: ais              # AIS — ais-catcher WebSocket
+  - type: ais # AIS — ais-catcher WebSocket
     name: "Local AIS-Catcher"
     url: "ws://192.168.1.x:10101"
     enabled: true
     source: config
 
-  - type: p25              # P25 — OP25 HTTP terminal state endpoint
+  - type: p25 # P25 — OP25 HTTP terminal state endpoint
     name: "Local OP25"
     url: "http://192.168.1.x:8080"
     enabled: true
     source: config
 
-  - type: meshcore         # MeshCore — Remote-Terminal-for-MeshCore base URL
-    name: "RemoteTerm"     #   https://github.com/jkingsman/Remote-Terminal-for-MeshCore
+  - type: meshcore # MeshCore — Remote-Terminal-for-MeshCore base URL
+    name: "RemoteTerm" #   https://github.com/jkingsman/Remote-Terminal-for-MeshCore
     url: "http://192.168.1.x:8000"
     # Embed credentials if Basic Auth is enabled: http://user:pass@192.168.1.x:8000
     enabled: true
     source: config
 
-  - type: fire             # Fire incidents — EONET open wildfires
+  - type: fire # Fire incidents — EONET open wildfires
     name: "EONET Wildfires"
     url: "https://eonet.gsfc.nasa.gov/api/v3/events?status=open&category=wildfires"
     enabled: true
     source: config
 
-  - type: aprs             # APRS-IS feed (host:port or tcp://host:port)
+  - type: aprs # APRS-IS feed (host:port or tcp://host:port)
     name: "APRS-IS"
     url: "rotate.aprs2.net:14580"
     enabled: true
     source: config
 
-  - type: acars            # ACARS — ACARSHub web interface base URL
-    name: "ACARSHub"       #   https://github.com/sdr-enthusiasts/docker-acarshub
+  - type: acars # ACARS — ACARSHub web interface base URL
+    name: "ACARSHub" #   https://github.com/sdr-enthusiasts/docker-acarshub
     url: "http://192.168.1.x:8080"
     # Point at the ACARSHub web UI port (default 8080 on the host).
     # The poller polls /api/ every 5 s, persists messages to acars_messages,
@@ -169,9 +169,16 @@ mqtt_sources:
 # ---------------------------------------------------------------------------
 alert_zones:
   nws_zones:
-    - "ORZ006"             # Washington County, OR
-    - "ORZ005"             # Multnomah County, OR
-    - "ORZ007"             # Clackamas County, OR
+    - "ORZ006" # Washington County, OR
+    - "ORZ005" # Multnomah County, OR
+    - "ORZ007" # Clackamas County, OR
+    - ORZ108
+    - ORZ109
+    - ORZ111
+    - ORZ112
+    - WAZ204
+    - WAZ205
+    - WAZ206
   source: config
 
 # ---------------------------------------------------------------------------
@@ -197,7 +204,8 @@ regions:
       min_lon: -123.5
       max_lon: -121.8
     enabled: true
-    show_on_map: true      # Set to false to poll data but hide the bounding box on the map
+    show_on_map: true # Set to false to poll data but hide the bounding box on the map
+
 
   # Example second region (disabled by default)
   # - id: "coast"
