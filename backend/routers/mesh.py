@@ -1,4 +1,5 @@
 from datetime import datetime, timezone, timedelta
+import json
 import logging
 
 from fastapi import APIRouter, Depends, Query
@@ -7,6 +8,7 @@ from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from deps import get_db
+from redis_bus import get_redis
 
 router = APIRouter(tags=["mesh"])
 logger = logging.getLogger(__name__)
@@ -69,6 +71,7 @@ async def list_mesh_links(
 @router.get("/mesh/topology")
 async def mesh_topology(
     stale_minutes: int = Query(30, ge=1, le=1440),
+    include_coords: bool = Query(False, description="Enrich each node with lat/lon from Redis entity cache"),
     db: AsyncSession = Depends(get_db),
 ):
     """Return nodes and links as a graph for visualization."""
@@ -80,11 +83,33 @@ async def mesh_topology(
         ).bindparams(cutoff=cutoff)
     )
     links = [dict(r) for r in result.mappings().all()]
-    node_ids = set()
+    node_ids: set[str] = set()
     for lnk in links:
         node_ids.add(lnk["node_a"])
         node_ids.add(lnk["node_b"])
-    return {"nodes": list(node_ids), "links": links}
+
+    if not include_coords:
+        return {"nodes": list(node_ids), "links": links}
+
+    # Enrich nodes with coordinates from the Redis entity cache
+    node_list = list(node_ids)
+    keys = [f"entity:{nid}" for nid in node_list]
+    r = get_redis()
+    values = await r.mget(*keys)
+
+    nodes_with_coords = []
+    for nid, raw in zip(node_list, values):
+        entry: dict = {"id": nid, "lat": None, "lon": None}
+        if raw:
+            try:
+                data = json.loads(raw)
+                entry["lat"] = data.get("lat")
+                entry["lon"] = data.get("lon")
+            except Exception:
+                pass
+        nodes_with_coords.append(entry)
+
+    return {"nodes": nodes_with_coords, "links": links}
  
  
 @router.get("/mesh/messages")

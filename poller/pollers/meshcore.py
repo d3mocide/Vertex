@@ -377,6 +377,15 @@ async def _upsert_mesh_links(source_url: str, neighbors: list[dict]) -> None:
         """,
         rows,
     )
+
+    # Check for SNR threshold crossings after each upsert
+    from mesh_link_alerts import check_link_degradation
+    for row in rows:
+        if row[3] is not None:  # snr
+            try:
+                await check_link_degradation(row[0], row[1], row[2], float(row[3]))
+            except Exception as exc:
+                logger.debug("[meshcore] link alert check failed: %s", exc)
     
     # Also publish to the bus for real-time frontend updates
     r = await get_bus()

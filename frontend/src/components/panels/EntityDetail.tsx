@@ -117,12 +117,14 @@ export function EntityDetail() {
   // Tab state
   const [activeTab, setActiveTab] = useState<'overview' | 'weather' | 'tags'>('overview')
 
-  // Reset tab to overview if switching from aircraft (which has weather) to non-aircraft
+  // Reset tab to overview when switching to an entity type that has no weather tab
   useEffect(() => {
-    if (activeTab === 'weather' && entity?.entity_type !== 'aircraft') {
+    const isAprsWeather = entity?.entity_type === 'aprs'
+      && (entity?.identity as Record<string, unknown> | undefined)?.station_type === 'weather'
+    if (activeTab === 'weather' && entity?.entity_type !== 'aircraft' && !isAprsWeather) {
       setActiveTab('overview')
     }
-  }, [entity?.entity_type, activeTab])
+  }, [entity?.entity_type, (entity?.identity as Record<string, unknown> | undefined)?.station_type, activeTab])
 
   const handleAddTag = async () => {
     if (!selectedEntityId || !tagInput.trim()) return
@@ -210,7 +212,11 @@ export function EntityDetail() {
         {/* Tabs */}
         <div className="flex gap-4 border-b border-white/10">
           {(['overview', 'weather', 'tags'] as const).map(tab => {
-            if (tab === 'weather' && entity.entity_type !== 'aircraft') return null
+            if (tab === 'weather') {
+              const isAprsWeather = entity.entity_type === 'aprs'
+                && (identity as Record<string, unknown>).station_type === 'weather'
+              if (entity.entity_type !== 'aircraft' && !isAprsWeather) return null
+            }
             return (
               <button
                 key={tab}
@@ -323,7 +329,38 @@ export function EntityDetail() {
           </>
         )}
 
-        {activeTab === 'weather' && (
+        {activeTab === 'weather' && entity.entity_type === 'aprs' && (() => {
+          const wx = (identity as Record<string, unknown>).wx as Record<string, unknown> | undefined
+          if (!wx) return (
+            <div className="text-center p-4">
+              <span className="ms text-[24px] text-on-surface-variant/50 mb-2 block">cloud_off</span>
+              <p className="text-[11px] text-on-surface-variant uppercase tracking-widest">No weather data</p>
+            </div>
+          )
+          const rows: [string, string][] = []
+          if (typeof wx.temp_f === 'number') rows.push(['Temperature', `${wx.temp_f}°F`])
+          if (typeof wx.humidity === 'number') rows.push(['Humidity', `${wx.humidity}%`])
+          if (typeof wx.pressure_mb === 'number') rows.push(['Pressure', `${(wx.pressure_mb as number).toFixed(1)} mb`])
+          if (typeof wx.wind_mph === 'number') {
+            const dir = typeof wx.wind_dir_deg === 'number' ? `${wx.wind_dir_deg}° ` : ''
+            rows.push(['Wind', `${dir}${wx.wind_mph} mph`])
+          }
+          if (typeof wx.gust_mph === 'number') rows.push(['Gust', `${wx.gust_mph} mph`])
+          if (typeof wx.rain_in === 'number') rows.push(['Rain (1h)', `${(wx.rain_in as number).toFixed(2)}"`])
+          return (
+            <div className="space-y-1">
+              <span className="label-caps text-[11px] text-sky-400/80 mb-2 block">Station Conditions</span>
+              {rows.map(([label, val]) => (
+                <div key={label} className="flex justify-between items-baseline gap-2">
+                  <span className="text-[11px] text-on-surface-variant shrink-0">{label}</span>
+                  <span className="font-mono text-[11px] text-sky-300">{val}</span>
+                </div>
+              ))}
+            </div>
+          )
+        })()}
+
+        {activeTab === 'weather' && entity.entity_type === 'aircraft' && (
           <div className="space-y-4">
             {!originWx && !destinationWx ? (
               <div className="text-center p-4">
@@ -343,7 +380,7 @@ export function EntityDetail() {
                     </div>
                   </div>
                 )}
-                
+
                 {destinationWx && (
                   <div>
                     <div className="flex items-center gap-1.5 mb-2 text-amber-gold">
