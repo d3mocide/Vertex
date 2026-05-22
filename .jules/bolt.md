@@ -8,3 +8,6 @@
 ## 2024-05-13 - [Hoist redundant datetime calls in geofence loop]
 **Learning:** In `poller/geofence.py`, calling `datetime.now(timezone.utc)` repeatedly inside a dictionary iteration generator expression (or tight loop) adds measurable overhead for no benefit since the execution happens within the same frame.
 **Action:** Always hoist variables that remain constant during execution (like the current time) outside of loops and list comprehensions.
+## 2024-05-22 - [Optimize Generator Expression in all()]
+**Learning:** Similar to `any()`, unrolling `all()` generator expressions in hot paths (like `poller/normalizers/beast_decoder.py`) avoids generator/frame overhead and can be ~2-20x faster depending on how early it exits.
+**Action:** Unroll `all()` into explicit loops with early returns when optimizing high-frequency parsing/decoding code.
