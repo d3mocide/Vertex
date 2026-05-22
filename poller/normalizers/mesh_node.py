@@ -2,6 +2,16 @@ from datetime import datetime, timezone
 from typing import Optional
 
 
+def snr_to_quality(snr) -> float | None:
+    """Convert SNR (dB) to a normalised signal quality in [0, 1]."""
+    if snr is None:
+        return None
+    try:
+        return max(0.0, min(1.0, (float(snr) + 20) / 30))
+    except (TypeError, ValueError):
+        return None
+
+
 _CONTACT_TYPES = {
     0: "unknown",
     1: "client",
@@ -28,7 +38,7 @@ def normalize_mesh_node(data: dict) -> Optional[dict]:
         "identity": {
             "node_id":    node_id,
             "short_name": data.get("short_name", ""),
-            "hw_model":   data.get("hw_model", ""),
+            "hw_model":   data.get("hw_model") or None,
         },
         "lat":      data.get("lat"),
         "lon":      data.get("lon"),
@@ -72,7 +82,7 @@ def normalize_remoteterm_contact(data: dict) -> Optional[dict]:
             "node_id":      pub_key[:12],
             "short_name":   pub_key[:12],
             "contact_type": node_type,
-            "hw_model":     "",
+            "hw_model":     None,
             "on_radio":     data.get("on_radio", False),
             "favorite":     data.get("favorite", False),
             "battery_level": data.get("battery_level"),

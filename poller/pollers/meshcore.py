@@ -21,7 +21,7 @@ import httpx
 import websockets
 
 from bus import get_bus, publish_entity, set_feed
-from normalizers.mesh_node import normalize_remoteterm_contact
+from normalizers.mesh_node import normalize_remoteterm_contact, snr_to_quality
 from sanitize import sanitize_payload
 from .base import BasePoller
 
@@ -192,7 +192,7 @@ class MeshCorePoller(BasePoller):
                 # Ensure sender ID matches the store format
                 node_b = f"mesh_node:{sender_id}" if not str(sender_id).startswith("mesh_node:") else str(sender_id)
                 link_key = f"{base_url}:local->{node_b}"
-                
+
                 # Throttle real-time link updates to max once per 10s
                 now = time.time()
                 if now - self._last_link_update.get(link_key, 0) < 10:
@@ -200,13 +200,24 @@ class MeshCorePoller(BasePoller):
                 self._last_link_update[link_key] = now
 
                 logger.debug("[meshcore] throttled link update from %s: snr=%s rssi=%s", sender_id, snr, rssi)
-                
+
+                # Stamp signal_quality on the sending node's entity
+                await publish_entity({
+                    "entity_id":      node_b,
+                    "entity_type":    "mesh_node",
+                    "source":         "meshcore",
+                    "signal_quality": snr_to_quality(snr),
+                    "identity":       {},
+                    "tags":           ["mesh_node"],
+                }, merge=True, record_observation=False)
+
+                local_id = self._local_node_ids.get(base_url, "local")
                 r = await get_bus()
                 await r.publish("civic:updates", json.dumps(sanitize_payload({
                     "type": "mesh_links",
                     "data": [{
                         "source_url": base_url,
-                        "node_a": "local", 
+                        "node_a": local_id,
                         "node_b": node_b,
                         "snr": snr,
                         "link_quality": None
