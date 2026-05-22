@@ -10,8 +10,9 @@ export interface Entity {
   heading?:     number
   speed?:       number
   vertical_rate?: number
-  distance_km?: number
-  status?:      string
+  distance_km?:    number
+  signal_quality?: number
+  status?:         string
   last_seen?:   string
   identity?:    Record<string, unknown>
   tags?:        string[]
@@ -61,7 +62,7 @@ export interface Track {
   altMeters:     number        // metres MSL (0 for vessels)
   speedMs:       number        // m/s
   courseTrue:    number        // 0–360°, true north
-  type:          'air' | 'sea' | 'ground' | 'hazard' | 'tak' | 'rail'
+  type:          'air' | 'sea' | 'ground' | 'hazard' | 'tak' | 'rail' | 'sensor'
   callsign?:     string
   category?:     string
   stationType?:  string
@@ -259,7 +260,7 @@ export type EntityTypeFilter = {
   aprs: boolean
   fire_incident: boolean
   satellite: boolean
-  tinygs_station: boolean
+  rf_sensor: boolean
   train: boolean
 }
 

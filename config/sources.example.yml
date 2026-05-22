@@ -116,11 +116,52 @@ poller_sources:
     source: config
 
 # ---------------------------------------------------------------------------
-# TinyGS — LoRa satellite ground station
-# The poller connects to mqtt.tinygs.com:8883 using your TinyGS MQTT credentials.
-# Set TINYGS_MQTT_USERNAME and TINYGS_MQTT_PASSWORD in .env (from the Telegram bot).
-# No entry needed here — credentials are environment variables, not URL-based sources.
+# MQTT sources — IoT and hardware devices that publish to the local broker.
+# The Mosquitto broker starts automatically as part of the Vertex stack.
+# Hardware devices should be configured to publish to this Pi's LAN IP on
+# port 1883 (or the MQTT_PORT you set in .env).
+#
+# broker: "mosquitto"   — internal Docker service name (use for all local hardware)
+#         "192.168.1.x" — LAN device running its own broker (e.g., Frigate on another Pi)
+#
+# normalizer: which parser handles messages on this topic
+#   rtl_433     — RTL_433 SDR RF sensor decoder (rtl_433 -F "mqtt://localhost:1883,events=rtl_433/events")
+#   meshtastic  — Meshtastic node JSON MQTT uplink (configure node MQTT server to Pi LAN IP)
+#   ais         — AIS-catcher MQTT output (alternative to WebSocket poller_source)
+#
+# auth_enabled: false for local Mosquitto (no credentials needed)
+#               true for external brokers — set MQTT_{UPPER_SNAKE_NAME}_USERNAME/PASSWORD in .env
 # ---------------------------------------------------------------------------
+mqtt_sources:
+  - name: "RTL_433 Sensors"
+    normalizer: rtl_433
+    broker: mosquitto
+    port: 1883
+    topic: "rtl_433/#"
+    qos: 0
+    auth_enabled: false
+    enabled: false
+    source: config
+
+  - name: "Meshtastic"
+    normalizer: meshtastic
+    broker: mosquitto
+    port: 1883
+    topic: "msh/#"
+    qos: 0
+    auth_enabled: false
+    enabled: false
+    source: config
+
+  - name: "AIS-Catcher MQTT"
+    normalizer: ais
+    broker: mosquitto
+    port: 1883
+    topic: "ais/#"
+    qos: 0
+    auth_enabled: false
+    enabled: false
+    source: config
 
 # ---------------------------------------------------------------------------
 # Alert zones — NWS zone codes for weather alerts.

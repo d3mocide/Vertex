@@ -66,6 +66,39 @@ async def update_entry(section: str, url: str, updates: dict) -> None:
         await _write_raw(data)
 
 
+async def add_mqtt_entry(entry: dict) -> None:
+    """Append an MQTT source entry to sources.yml (keyed by name, not url)."""
+    async with _write_lock:
+        data = await _read_raw()
+        data.setdefault("mqtt_sources", [])
+        if data["mqtt_sources"] is None:
+            data["mqtt_sources"] = []
+        data["mqtt_sources"].append(entry)
+        await _write_raw(data)
+
+
+async def remove_mqtt_entry(name: str) -> None:
+    """Remove the MQTT source entry matching name from sources.yml."""
+    async with _write_lock:
+        data = await _read_raw()
+        entries = data.get("mqtt_sources") or []
+        data["mqtt_sources"] = [e for e in entries if e.get("name") != name]
+        await _write_raw(data)
+
+
+async def update_mqtt_entry(name: str, updates: dict) -> None:
+    """Apply field updates to the MQTT source entry matching name in sources.yml."""
+    async with _write_lock:
+        data = await _read_raw()
+        entries = data.get("mqtt_sources") or []
+        for entry in entries:
+            if entry.get("name") == name:
+                entry.update(updates)
+                break
+        data["mqtt_sources"] = entries
+        await _write_raw(data)
+
+
 async def add_alert_zone(zone_code: str) -> None:
     """Append a zone code to alert_zones.nws_zones."""
     async with _write_lock:

@@ -298,6 +298,28 @@ export function createAtlasIcons(): IconAtlasResult {
     ctx.fill()
   }
 
+  // ─── Row 3, Col 1 · RF_SENSOR — diamond with hollow center ──────────────
+  {
+    const [ox, oy] = cellOrigin(1, 3)
+    ctx.fillStyle = W
+    ctx.beginPath()
+    ctx.moveTo(ox + 32, oy + 8)
+    ctx.lineTo(ox + 56, oy + 32)
+    ctx.lineTo(ox + 32, oy + 56)
+    ctx.lineTo(ox + 8,  oy + 32)
+    ctx.closePath()
+    ctx.fill()
+    ctx.globalCompositeOperation = 'destination-out'
+    ctx.beginPath()
+    ctx.moveTo(ox + 32, oy + 20)
+    ctx.lineTo(ox + 44, oy + 32)
+    ctx.lineTo(ox + 32, oy + 44)
+    ctx.lineTo(ox + 20, oy + 32)
+    ctx.closePath()
+    ctx.fill()
+    ctx.globalCompositeOperation = 'source-over'
+  }
+
   return {
     url:    canvas.toDataURL(),
     width:  canvas.width,
@@ -316,6 +338,7 @@ export function createAtlasIcons(): IconAtlasResult {
       halo:       entry(2, 2),
       tak_client: entry(3, 2),
       train:      entry(0, 3),
+      rf_sensor:  entry(1, 3),
     },
   }
 }

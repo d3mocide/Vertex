@@ -378,7 +378,7 @@ export function CommsPanel() {
   // Calculate nearest nodes
   const nearestNodes = useMemo(() => {
     const list = Object.values(entities).filter(e =>
-      (e.entity_type === 'mesh_node' || e.entity_type === 'aprs' || e.entity_type === 'tinygs_station') &&
+      (e.entity_type === 'mesh_node' || e.entity_type === 'aprs') &&
       e.lat != null && e.lon != null
     )
 

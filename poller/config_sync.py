@@ -2,7 +2,7 @@ import logging
 
 import asyncpg
 
-from config_loader import AlertFeedEntry, AlertZonesConfig, NewsFeedEntry, PollerSourceEntry, RadioStreamEntry, SourcesConfig
+from config_loader import AlertFeedEntry, AlertZonesConfig, MqttSourceEntry, NewsFeedEntry, PollerSourceEntry, RadioStreamEntry, SourcesConfig
 
 logger = logging.getLogger(__name__)
 
@@ -21,11 +21,12 @@ async def sync_sources_to_db(config: SourcesConfig, pool: asyncpg.Pool) -> None:
         ps = await _sync_poller_sources(config.poller_sources, conn)
         az = await _sync_alert_zones(config.alert_zones, conn)
         af = await _sync_alert_feeds(config.alert_feeds, conn)
+        ms = await _sync_mqtt_sources(config.mqtt_sources, conn)
 
-    if any((rs, nf, ps, az, af)):
+    if any((rs, nf, ps, az, af, ms)):
         logger.info(
-            "[config_sync] radio_streams(%s) news_feeds(%s) poller_sources(%s) alert_zones(%s) alert_feeds(%s)",
-            rs, nf, ps, az, af,
+            "[config_sync] radio_streams(%s) news_feeds(%s) poller_sources(%s) alert_zones(%s) alert_feeds(%s) mqtt_sources(%s)",
+            rs, nf, ps, az, af, ms,
         )
     else:
         logger.debug("[config_sync] no changes")
@@ -199,6 +200,51 @@ async def _sync_alert_feeds(
     if to_remove:
         await conn.execute(
             "DELETE FROM alert_feed_configs WHERE source = 'config' AND url = ANY($1::text[])",
+            list(to_remove),
+        )
+        removed += len(to_remove)
+
+    return f"+{added} -{removed}" if (added or removed) else ""
+
+
+async def _sync_mqtt_sources(
+    entries: list[MqttSourceEntry], conn: asyncpg.Connection
+) -> str:
+    existing = await conn.fetch("SELECT name, source FROM mqtt_sources")
+    db_all_names = {row["name"] for row in existing}
+    db_config_names = {row["name"] for row in existing if row["source"] == "config"}
+
+    yaml_config_names = {e.name for e in entries if e.source == "config"}
+    added = removed = 0
+
+    for entry in entries:
+        if entry.name not in db_all_names:
+            await conn.execute(
+                """
+                INSERT INTO mqtt_sources
+                    (name, normalizer, broker, port, topic, qos, auth_enabled, enabled, source, created_at, updated_at)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW())
+                """,
+                entry.name, entry.normalizer, entry.broker, entry.port,
+                entry.topic, entry.qos, entry.auth_enabled, entry.enabled, entry.source,
+            )
+            added += 1
+        elif entry.source == "config":
+            await conn.execute(
+                """
+                UPDATE mqtt_sources
+                SET normalizer=$1, broker=$2, port=$3, topic=$4, qos=$5,
+                    auth_enabled=$6, enabled=$7, updated_at=NOW()
+                WHERE name=$8 AND source='config'
+                """,
+                entry.normalizer, entry.broker, entry.port, entry.topic, entry.qos,
+                entry.auth_enabled, entry.enabled, entry.name,
+            )
+
+    to_remove = db_config_names - yaml_config_names
+    if to_remove:
+        await conn.execute(
+            "DELETE FROM mqtt_sources WHERE source = 'config' AND name = ANY($1::text[])",
             list(to_remove),
         )
         removed += len(to_remove)

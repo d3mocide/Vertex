@@ -29,6 +29,8 @@ export default {
         'red-emergency-muted': '#4A0000',
         'violet-space':      '#9E6CFF',
         'violet-space-muted':'#3D1B8E',
+        'lime-rf':           '#76DD00',
+        'lime-rf-muted':     '#254000',
       },
       borderRadius: {
         DEFAULT: '0rem',

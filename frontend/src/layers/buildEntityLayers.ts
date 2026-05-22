@@ -98,6 +98,7 @@ export function buildEntityLayers(
 
   // Design-guide color for fire_incident: --cat-fire #FF5252
   const FIRE_ICON_COLOR: [number, number, number, number] = [255, 82, 82, 230]
+  const RF_SENSOR_COLOR: [number, number, number, number] = [118, 221, 0, 220]
 
   const baseIcon = (t: Track) =>
     t.type === 'sea'    ? 'vessel'
@@ -105,6 +106,7 @@ export function buildEntityLayers(
     : t.type === 'hazard' ? 'fire'
     : t.type === 'tak'    ? 'tak_client'
     : t.type === 'rail'   ? 'train'
+    : t.type === 'sensor' ? 'rf_sensor'
     : 'aircraft'
 
   const iconOutlineLayer = new IconLayer<Track>({
@@ -157,6 +159,7 @@ export function buildEntityLayers(
       if (t.type === 'tak')     return TAK_ICON_COLOR
       if (t.type === 'hazard')  return FIRE_ICON_COLOR
       if (t.type === 'rail')    return tagColorMap?.[t.uid] ?? TRAIN_ICON_COLOR
+      if (t.type === 'sensor')  return RF_SENSOR_COLOR
       return tagColorMap?.[t.uid] ?? entityColor(t)
     },
     getSize:     (t) => entityIconSize(selectedUid, t, zoom),
@@ -224,5 +227,20 @@ export function buildEntityLayers(
     fontFamily: 'monospace',
   })
 
-  return [selectionRingLayer, emergencyRingLayer, iconOutlineLayer, iconLayer, aprsLabelLayer, takLabelLayer]
+  // RF sensor labels: show at z10+ with lime tint
+  const sensorLabelLayer = new TextLayer<Track>({
+    id: 'rf-sensor-labels',
+    data: zoom >= 10 ? trackArr.filter((t) => t.type === 'sensor') : [],
+    getPosition: (t) => [t.lon, t.lat],
+    getText: (t) => t.callsign ?? t.uid,
+    getSize: 10,
+    sizeUnits: 'pixels',
+    getColor: RF_SENSOR_COLOR,
+    getPixelOffset: [0, 14],
+    getTextAnchor: 'middle',
+    getAlignmentBaseline: 'top',
+    fontFamily: 'monospace',
+  })
+
+  return [selectionRingLayer, emergencyRingLayer, iconOutlineLayer, iconLayer, aprsLabelLayer, takLabelLayer, sensorLabelLayer]
 }

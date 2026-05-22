@@ -186,7 +186,7 @@ _TYPE_TO_POLLER: dict[str, str] = {
     "news_article": "news",
     "aprs": "aprs",
     "traffic": "traffic",
-    "tinygs_station": "tinygs",
+    "rf_sensor": "mqtt",
     "fire_incident": "fire",
     "stream_gauge": "streamgauge",
 }

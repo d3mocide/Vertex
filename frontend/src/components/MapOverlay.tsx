@@ -14,7 +14,7 @@ import { buildCustomLayers } from '../layers/buildCustomLayers'
 import { buildLightningLayer } from '../layers/buildLightningLayer'
 import { buildStreamGaugeLayers, type StreamGaugePoint } from '../layers/buildStreamGaugeLayer'
 import { buildMeshNodeLayers, type MeshNodePoint } from '../layers/buildMeshNodeLayer'
-import { buildTinyGSLayers, type TinyGSSatellitePoint, type TinyGSStationPoint } from '../layers/buildTinyGSLayer'
+
 import { extractRailSegments, snapPointToRail, type RailSegment } from '../layers/railSnap'
 import { applyPVB, type PVBState } from '../layers/pvb'
 import { DEFAULT_CENTER, OBSERVATION_RANGE_KM, API_BASE } from '../config'
@@ -107,7 +107,7 @@ export function MapOverlay({ map }: Props) {
   const camerasRef        = useRef<TrafficCamera[]>([])
   const selectedCamRef    = useRef<string | null>(null)
   const activeTabRef      = useRef<string>('safety')
-  const entityFilterRef   = useRef<EntityTypeFilter>({ aircraft: true, adsbLocal: true, adsbSupplement: true, vessel: true, mesh_node: true, aprs: true, fire_incident: true, satellite: true, tinygs_station: true, train: true })
+  const entityFilterRef   = useRef<EntityTypeFilter>({ aircraft: true, adsbLocal: true, adsbSupplement: true, vessel: true, mesh_node: true, aprs: true, fire_incident: true, satellite: true, rf_sensor: true, train: true })
   const searchQueryRef    = useRef<string>('')
   const altRangeRef       = useRef<RangeFilter>([0, 60_000])
   const speedRangeRef     = useRef<RangeFilter>([0, 600])
@@ -457,28 +457,6 @@ export function MapOverlay({ map }: Props) {
               ${node.status ? `<div class="text-[11px] text-slate-500 font-mono mt-1">${escHtml(node.status)}</div>` : ''}
             </div>
           `
-        } else if (layer.id === 'tinygs-satellite-dot') {
-          const sat = object as TinyGSSatellitePoint
-          html = `
-            <div class="p-2 min-w-[200px] bg-slate-900/95 border border-slate-700 rounded-lg shadow-2xl backdrop-blur-md">
-              <div class="flex items-center gap-2 text-[11px] font-bold text-white mb-1.5">
-                <span class="material-symbols-outlined text-[16px] text-violet-300">satellite_alt</span>
-                <span class="truncate">${escHtml(sat.name)}</span>
-              </div>
-              <div class="text-[11px] text-slate-400 font-mono">ALT: ${sat.alt_km !== null ? `${sat.alt_km} km` : 'n/a'}</div>
-            </div>
-          `
-        } else if (layer.id === 'tinygs-station-dot') {
-          const stn = object as TinyGSStationPoint
-          html = `
-            <div class="p-2 min-w-[180px] bg-slate-900/95 border border-slate-700 rounded-lg shadow-2xl backdrop-blur-md">
-              <div class="flex items-center gap-2 text-[11px] font-bold text-white mb-1.5">
-                <span class="material-symbols-outlined text-[16px] text-amber-400">sensors</span>
-                <span class="truncate">${escHtml(stn.name)}</span>
-              </div>
-              <div class="text-[11px] text-slate-400 font-mono">${stn.online ? 'ONLINE' : 'OFFLINE'}</div>
-            </div>
-          `
         } else if (layer.id === 'geofence-fill') {
           const geofence = object as GeofenceItem
           html = `
@@ -529,12 +507,6 @@ export function MapOverlay({ map }: Props) {
       } else if (picked.layer?.id === 'mesh-node-dots') {
         const node = picked.object as MeshNodePoint | undefined
         if (node?.entity_id) selectEntity(node.entity_id)
-      } else if (picked.layer?.id === 'tinygs-satellite-dot') {
-        const sat = picked.object as TinyGSSatellitePoint | undefined
-        if (sat?.entity_id) selectEntity(sat.entity_id)
-      } else if (picked.layer?.id === 'tinygs-station-dot') {
-        const stn = picked.object as TinyGSStationPoint | undefined
-        if (stn?.entity_id) selectEntity(stn.entity_id)
       } else {
         const track = picked.object as Track | undefined
         if (track?.uid) selectEntity(track.uid)
@@ -697,11 +669,6 @@ export function MapOverlay({ map }: Props) {
           ...buildCustomLayers(customLayersRef.current),
           ...buildGeofenceLayers(geofencesRef.current, geofencesVisibleRef.current),
           ...buildObservationRingLayers(DEFAULT_CENTER, OBSERVATION_RANGE_KM, true),
-          ...buildTinyGSLayers(
-            Object.values(entitiesRef.current),
-            entityFilterRef.current.satellite,
-            entityFilterRef.current.tinygs_station,
-          ),
           ...buildMeshNodeLayers(
             Object.values(entitiesRef.current),
             entityFilterRef.current.mesh_node,

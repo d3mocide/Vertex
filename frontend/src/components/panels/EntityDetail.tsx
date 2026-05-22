@@ -8,6 +8,7 @@ import { VesselOverview } from './entity/VesselOverview'
 import { AprsOverview } from './entity/AprsOverview'
 import { StreamGaugeOverview } from './entity/StreamGaugeOverview'
 import { TrainOverview } from './entity/TrainOverview'
+import { RfSensorOverview } from './entity/RfSensorOverview'
 import { GenericOverview } from './entity/GenericOverview'
 
 interface MeshNeighbor {
@@ -23,10 +24,10 @@ const TYPE_COLORS: Record<string, string> = {
   train:          'text-amber-gold',
   mesh_node:      'text-amber-p25',
   satellite:      'text-violet-space',
-  tinygs_station: 'text-amber-p25',
   aprs:           'text-cyan-adsb',
   fire_incident:  'text-red-emergency',
   hazard:         'text-red-emergency',
+  rf_sensor:      'text-lime-rf',
 }
 
 const TYPE_ICONS: Record<string, string> = {
@@ -38,8 +39,8 @@ const TYPE_ICONS: Record<string, string> = {
   fire_incident:  'local_fire_department',
   mesh_node:      'hub',
   satellite:      'satellite_alt',
-  tinygs_station: 'settings_input_antenna',
   stream_gauge:   'waves',
+  rf_sensor:      'sensors',
 }
 
 const TAG_PRESETS = ['#FF4444', '#FF8800', '#FFB800', '#44DD88', '#00BBFF', '#AA44FF', '#FF44AA']
@@ -242,6 +243,8 @@ export function EntityDetail() {
               <AprsOverview entity={entity} getIdentity={getIdentity} />
             ) : entity.entity_type === 'stream_gauge' ? (
               <StreamGaugeOverview entity={entity} getIdentity={getIdentity} />
+            ) : entity.entity_type === 'rf_sensor' ? (
+              <RfSensorOverview entity={entity} getIdentity={getIdentity} />
             ) : (
               <GenericOverview entity={entity} getIdentity={getIdentity} />
             )}
