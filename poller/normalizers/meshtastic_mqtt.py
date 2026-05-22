@@ -30,6 +30,7 @@ import time
 
 from bus import publish_entity
 from db import write_mesh_message
+from normalizers.mesh_node import snr_to_quality
 
 logger = logging.getLogger(__name__)
 
@@ -86,16 +87,15 @@ async def _handle_position(data: dict, entity_id: str, sender_hex: str) -> None:
         "entity_id":    entity_id,
         "entity_type":  "mesh_node",
         "source":       "meshtastic",
-        "display_name": sender_hex,
         "lat":          lat,
         "lon":          lon,
         "altitude":     float(alt) if alt is not None else None,
         "status":       "active",
         "identity": {"node_id": sender_hex},
         "tags":         ["mesh_node"],
-        "signal_quality": _snr_to_quality(data.get("snr") or data.get("rxSnr")),
+        "signal_quality": snr_to_quality(data.get("snr") or data.get("rxSnr")),
     }
-    await publish_entity(entity, ttl=_NODE_TTL)
+    await publish_entity(entity, ttl=_NODE_TTL, merge=True)
 
 
 async def _handle_nodeinfo(data: dict, entity_id: str, sender_hex: str) -> None:
@@ -121,7 +121,7 @@ async def _handle_nodeinfo(data: dict, entity_id: str, sender_hex: str) -> None:
         },
         "tags": ["mesh_node"],
     }
-    await publish_entity(entity, ttl=_NODE_TTL, record_observation=False)
+    await publish_entity(entity, ttl=_NODE_TTL, record_observation=False, merge=True)
 
 
 async def _handle_telemetry(data: dict, entity_id: str, sender_hex: str) -> None:
@@ -150,14 +150,11 @@ async def _handle_telemetry(data: dict, entity_id: str, sender_hex: str) -> None
         "entity_id":    entity_id,
         "entity_type":  "mesh_node",
         "source":       "meshtastic",
-        "display_name": sender_hex,
-        "lat":          None,
-        "lon":          None,
         "status":       "active",
         "identity":     identity_update,
         "tags":         ["mesh_node"],
     }
-    await publish_entity(entity, ttl=_NODE_TTL, record_observation=False)
+    await publish_entity(entity, ttl=_NODE_TTL, record_observation=False, merge=True)
 
 
 async def _handle_text(
@@ -208,10 +205,3 @@ def _channel_from_topic(topic: str) -> str:
     return "unknown"
 
 
-def _snr_to_quality(snr) -> float | None:
-    if snr is None:
-        return None
-    try:
-        return max(0.0, min(1.0, (float(snr) + 20) / 30))
-    except (TypeError, ValueError):
-        return None

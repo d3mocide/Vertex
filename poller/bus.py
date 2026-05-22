@@ -20,11 +20,33 @@ async def get_bus() -> Redis:
     return _redis
 
 
-async def publish_entity(entity: dict, ttl: int = 120, record_observation: bool = True):
+async def publish_entity(
+    entity: dict,
+    ttl: int = 120,
+    record_observation: bool = True,
+    merge: bool = False,
+):
     r = await get_bus()
     entity = sanitize_payload(entity)
     entity_id = entity["entity_id"]
     key = f"entity:{entity_id}"
+
+    if merge:
+        existing_raw = await r.get(key)
+        if existing_raw:
+            try:
+                existing = json.loads(existing_raw)
+                merged = dict(existing)
+                for k, v in entity.items():
+                    if v is not None:
+                        if k == "identity" and isinstance(v, dict) and isinstance(merged.get(k), dict):
+                            # Deep-merge identity: new non-None keys win, existing keys preserved
+                            merged[k] = {**merged[k], **{ik: iv for ik, iv in v.items() if iv is not None}}
+                        else:
+                            merged[k] = v
+                entity = merged
+            except Exception:
+                pass
 
     should_publish = True
     if settings.adsb_publish_only_changes:

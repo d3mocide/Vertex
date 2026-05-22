@@ -135,8 +135,8 @@ async def write_entity_observation(entity: dict, record_observation: bool = True
                 (entity_id, entity_type, source, display_name, identity, tags, first_seen, last_seen)
             VALUES ($1::text, $2::text, $3::text, $4::text, $5::jsonb, $6::jsonb, NOW(), NOW())
             ON CONFLICT (entity_id) DO UPDATE SET
-                display_name = EXCLUDED.display_name,
-                identity     = EXCLUDED.identity,
+                display_name = COALESCE(EXCLUDED.display_name, entities.display_name),
+                identity     = entities.identity || EXCLUDED.identity,
                 tags         = EXCLUDED.tags,
                 last_seen    = NOW()
             """,
