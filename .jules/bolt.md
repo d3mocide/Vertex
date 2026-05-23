@@ -11,3 +11,6 @@
 ## 2024-05-22 - [Optimize Generator Expression in all()]
 **Learning:** Similar to `any()`, unrolling `all()` generator expressions in hot paths (like `poller/normalizers/beast_decoder.py`) avoids generator/frame overhead and can be ~2-20x faster depending on how early it exits.
 **Action:** Unroll `all()` into explicit loops with early returns when optimizing high-frequency parsing/decoding code.
+## 2024-05-23 - [Bypass JSON parsing for non-entity WebSocket updates]
+**Learning:** In the WebSocket broadcasting loop (`backend/routers/ws.py`), parsing every incoming JSON message using `json.loads` before checking its type can be extremely slow and block the event loop, especially when passing along large payloads (like snapshots) that don't need filtering.
+**Action:** Use fast string matching (e.g., `'"type": "entity_update"' in raw`) to bypass `json.loads` entirely for messages that don't need filtering. This avoids deserialization overhead and significantly speeds up the event loop when dealing with large payloads.
