@@ -11,3 +11,6 @@
 ## 2024-05-22 - [Optimize Generator Expression in all()]
 **Learning:** Similar to `any()`, unrolling `all()` generator expressions in hot paths (like `poller/normalizers/beast_decoder.py`) avoids generator/frame overhead and can be ~2-20x faster depending on how early it exits.
 **Action:** Unroll `all()` into explicit loops with early returns when optimizing high-frequency parsing/decoding code.
+## 2026-05-10 - [Optimize JSON parsing with fast string match]
+**Learning:** In high-throughput async Python components (like ADSB poller sync looping over thousands of Redis keys), calling `json.loads(raw)` on every single entity when you only care about a specific type is extremely slow. We can use fast string matching (`b'"entity_type": "aircraft"' in raw`) to bypass parsing for non-matching entities. Note that `raw` from Redis might be `bytes` or `str` so check appropriately.
+**Action:** When looping over large datasets where only a subset of JSON objects are relevant, use fast matching on the raw payload to filter out non-matching entities before calling `json.loads()`.
