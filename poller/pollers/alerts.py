@@ -3,6 +3,7 @@ import xml.etree.ElementTree as ET
 import feedparser
 import httpx
 from config import settings
+from security import validate_request_url
 from bus import set_feed
 from .base import BasePoller
 
@@ -112,7 +113,11 @@ class AlertPoller(BasePoller):
         weather_alerts: list[dict] = []
 
         # ── URL-based alert feeds ────────────────────────────────────────────
-        async with httpx.AsyncClient(timeout=15, follow_redirects=True) as client:
+        async with httpx.AsyncClient(
+            timeout=15,
+            follow_redirects=True,
+            event_hooks={'request': [validate_request_url]}
+        ) as client:
             for feed in self._alert_feeds:
                 try:
                     resp = await client.get(feed["url"])

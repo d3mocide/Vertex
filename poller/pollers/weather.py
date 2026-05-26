@@ -2,6 +2,7 @@ import asyncio
 import logging
 import httpx
 from config import settings, load_regions
+from security import validate_request_url
 from bus import set_feed
 from normalizers.weather import normalize_observation
 from .base import BasePoller
@@ -109,7 +110,11 @@ class WeatherPoller(BasePoller):
         }
         _success = False
         try:
-            async with httpx.AsyncClient(timeout=30, follow_redirects=True) as client:
+            async with httpx.AsyncClient(
+                timeout=30,
+                follow_redirects=True,
+                event_hooks={'request': [validate_request_url]}
+            ) as client:
                 resp = await client.get(url, params=params)
                 resp.raise_for_status()
             data = resp.json()

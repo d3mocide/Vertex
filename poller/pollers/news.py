@@ -5,6 +5,7 @@ from html import unescape
 import feedparser
 import httpx
 
+from security import validate_request_url
 from bus import set_feed
 from .base import BasePoller
 
@@ -80,7 +81,9 @@ class NewsPoller(BasePoller):
         for src in self._rss_sources:
             try:
                 async with httpx.AsyncClient(
-                    timeout=15, follow_redirects=True
+                    timeout=15,
+                    follow_redirects=True,
+                    event_hooks={'request': [validate_request_url]}
                 ) as client:
                     resp = await client.get(src["url"])
                     resp.raise_for_status()
