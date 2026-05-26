@@ -133,7 +133,7 @@ async def _handle_telemetry(data: dict, entity_id: str, sender_hex: str) -> None
     chan_util = device.get("channel_utilization")
     air_util = device.get("air_util_tx")
 
-    if not any(v is not None for v in (battery, voltage, chan_util, air_util)):
+    if battery is None and voltage is None and chan_util is None and air_util is None:
         return
 
     identity_update: dict = {"node_id": sender_hex}
