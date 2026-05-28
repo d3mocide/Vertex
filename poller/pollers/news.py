@@ -5,6 +5,7 @@ from html import unescape
 import feedparser
 import httpx
 
+from security import validate_safe_url
 from bus import set_feed
 from .base import BasePoller
 
@@ -79,8 +80,21 @@ class NewsPoller(BasePoller):
 
         for src in self._rss_sources:
             try:
+
+                import asyncio
+                async def _validate_request_url(request: httpx.Request):
+                    try:
+                        loop = asyncio.get_running_loop()
+                        await loop.run_in_executor(None, validate_safe_url, str(request.url))
+                    except ValueError as e:
+                        raise httpx.RequestError(
+                            f"SSRF validation failed: {e}", request=request
+                        )
+
                 async with httpx.AsyncClient(
-                    timeout=15, follow_redirects=True
+                    timeout=15,
+                    follow_redirects=True,
+                    event_hooks={"request": [_validate_request_url]},
                 ) as client:
                     resp = await client.get(src["url"])
                     resp.raise_for_status()

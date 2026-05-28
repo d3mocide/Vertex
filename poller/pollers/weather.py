@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import httpx
+from security import validate_safe_url
 from config import settings, load_regions
 from bus import set_feed
 from normalizers.weather import normalize_observation
@@ -53,18 +54,28 @@ class WeatherPoller(BasePoller):
             )
             if isinstance(hazards, Exception):
                 logger.warning("[weather] aviation hazards fetch failed: %s", hazards)
-                await set_feed("weather:aviation_hazards", {"pireps": [], "sigmets": [], "airmets": []})
+                await set_feed(
+                    "weather:aviation_hazards",
+                    {"pireps": [], "sigmets": [], "airmets": []},
+                )
             elif isinstance(hazards, dict):
-                logger.info("[weather] published aviation hazards: %d pireps, %d sigmets, %d airmets", 
-                            len(hazards.get("pireps", [])), len(hazards.get("sigmets", [])), len(hazards.get("airmets", [])))
+                logger.info(
+                    "[weather] published aviation hazards: %d pireps, %d sigmets, %d airmets",
+                    len(hazards.get("pireps", [])),
+                    len(hazards.get("sigmets", [])),
+                    len(hazards.get("airmets", [])),
+                )
                 await set_feed("weather:aviation_hazards", hazards)
 
             if isinstance(avobs, Exception):
                 logger.warning("[weather] aviation obs fetch failed: %s", avobs)
                 await set_feed("weather:aviation_obs", {"metars": [], "tafs": []})
             elif isinstance(avobs, dict):
-                logger.info("[weather] published aviation observations: %d metars, %d tafs",
-                            len(avobs.get("metars", [])), len(avobs.get("tafs", [])))
+                logger.info(
+                    "[weather] published aviation observations: %d metars, %d tafs",
+                    len(avobs.get("metars", [])),
+                    len(avobs.get("tafs", [])),
+                )
                 await set_feed("weather:aviation_obs", avobs)
 
         # NWS text products every 30 min
@@ -95,10 +106,10 @@ class WeatherPoller(BasePoller):
     async def _fetch_aqi(self) -> dict:
         if not settings.airnow_api_key:
             return {}
-            
+
         lat = settings.region_lat
         lon = settings.region_lon
-        
+
         url = "https://www.airnowapi.org/aq/observation/latLong/current/"
         params = {
             "format": "application/json",
@@ -109,7 +120,22 @@ class WeatherPoller(BasePoller):
         }
         _success = False
         try:
-            async with httpx.AsyncClient(timeout=30, follow_redirects=True) as client:
+
+            import asyncio
+            async def _validate_request_url(request: httpx.Request):
+                try:
+                    loop = asyncio.get_running_loop()
+                    await loop.run_in_executor(None, validate_safe_url, str(request.url))
+                except ValueError as e:
+                    raise httpx.RequestError(
+                        f"SSRF validation failed: {e}", request=request
+                    )
+
+            async with httpx.AsyncClient(
+                timeout=30,
+                follow_redirects=True,
+                event_hooks={"request": [_validate_request_url]},
+            ) as client:
                 resp = await client.get(url, params=params)
                 resp.raise_for_status()
             data = resp.json()
@@ -129,41 +155,64 @@ class WeatherPoller(BasePoller):
             if status >= 500:
                 # AirNow intermittently returns 5xx; keep weather feed flowing without noisy warnings.
                 if self._airnow_consecutive_failures in (1, 6):
-                    logger.info("[weather] AirNow AQI temporarily unavailable (HTTP %d)", status)
+                    logger.info(
+                        "[weather] AirNow AQI temporarily unavailable (HTTP %d)", status
+                    )
                 else:
-                    logger.debug("[weather] AirNow AQI still unavailable (HTTP %d)", status)
+                    logger.debug(
+                        "[weather] AirNow AQI still unavailable (HTTP %d)", status
+                    )
             else:
                 if self._airnow_consecutive_failures in (1, 3):
-                    logger.warning("[weather] AirNow AQI request failed with HTTP %d", status)
+                    logger.warning(
+                        "[weather] AirNow AQI request failed with HTTP %d", status
+                    )
                 else:
-                    logger.debug("[weather] AirNow AQI request still failing with HTTP %d", status)
+                    logger.debug(
+                        "[weather] AirNow AQI request still failing with HTTP %d",
+                        status,
+                    )
             return {}
         except httpx.HTTPError as exc:
             self._airnow_consecutive_failures += 1
             if self._airnow_consecutive_failures in (1, 6):
-                logger.info("[weather] AirNow AQI request failed (%s)", exc.__class__.__name__)
+                logger.info(
+                    "[weather] AirNow AQI request failed (%s)", exc.__class__.__name__
+                )
             else:
-                logger.debug("[weather] AirNow AQI request still failing (%s)", exc.__class__.__name__)
+                logger.debug(
+                    "[weather] AirNow AQI request still failing (%s)",
+                    exc.__class__.__name__,
+                )
             return {}
         except Exception as exc:
             self._airnow_consecutive_failures += 1
             if self._airnow_consecutive_failures in (1, 3):
-                logger.warning("[weather] AirNow AQI unexpected failure (%s)", exc.__class__.__name__)
+                logger.warning(
+                    "[weather] AirNow AQI unexpected failure (%s)",
+                    exc.__class__.__name__,
+                )
             else:
-                logger.debug("[weather] AirNow AQI unexpected failure (%s)", exc.__class__.__name__)
+                logger.debug(
+                    "[weather] AirNow AQI unexpected failure (%s)",
+                    exc.__class__.__name__,
+                )
             return {}
         finally:
             # Reset only on success path where data parsing completed with no exception.
             if _success:
                 if self._airnow_consecutive_failures > 0:
-                    logger.info("[weather] AirNow AQI recovered after %d failures", self._airnow_consecutive_failures)
+                    logger.info(
+                        "[weather] AirNow AQI recovered after %d failures",
+                        self._airnow_consecutive_failures,
+                    )
                 self._airnow_consecutive_failures = 0
 
     async def _fetch_aviation_hazards(self) -> dict:
         """Fetch PIREPs and SIGMETs/AIRMETs from aviationweather.gov for all regions."""
         # Use regions if configured, else fallback to settings bbox
         regions = load_regions() or [None]
-        
+
         all_pireps = {}
         all_sigmets = {}
         all_airmets = {}
@@ -177,7 +226,10 @@ class WeatherPoller(BasePoller):
                     bbox = f"{settings.bbox_min_lat},{settings.bbox_min_lon},{settings.bbox_max_lat},{settings.bbox_max_lon}"
 
                 try:
-                    r = await client.get(f"{AVWX_BASE}/pirep", params={"bbox": bbox, "age": "3", "format": "json"})
+                    r = await client.get(
+                        f"{AVWX_BASE}/pirep",
+                        params={"bbox": bbox, "age": "3", "format": "json"},
+                    )
                     if r.status_code == 200:
                         data = r.json()
                         if isinstance(data, list):
@@ -187,7 +239,8 @@ class WeatherPoller(BasePoller):
                                 if raw and raw not in all_pireps:
                                     all_pireps[raw] = {
                                         "type": p.get("reportType", "PIREP"),
-                                        "time": p.get("obsTime") or p.get("receiptTime"),
+                                        "time": p.get("obsTime")
+                                        or p.get("receiptTime"),
                                         "lat": p.get("lat"),
                                         "lon": p.get("lon"),
                                         "aircraft": p.get("aircraftRef"),
@@ -197,7 +250,11 @@ class WeatherPoller(BasePoller):
                                         "raw": raw,
                                     }
                 except Exception as exc:
-                    logger.debug("[weather] PIREP fetch failed for region %s: %s", region.id if region else "default", exc)
+                    logger.debug(
+                        "[weather] PIREP fetch failed for region %s: %s",
+                        region.id if region else "default",
+                        exc,
+                    )
 
             # Global/CONUS-wide SIGMETs/AIRMETs (don't need bbox usually, or just fetch once)
             try:
@@ -207,7 +264,8 @@ class WeatherPoller(BasePoller):
                     if isinstance(data, list):
                         for s in data:
                             raw = s.get("rawAirSigmet")
-                            if not raw: continue
+                            if not raw:
+                                continue
                             entry = {
                                 "type": s.get("airSigmetType"),
                                 "hazard": s.get("hazard"),
@@ -226,7 +284,7 @@ class WeatherPoller(BasePoller):
         return {
             "pireps": list(all_pireps.values()),
             "sigmets": list(all_sigmets.values()),
-            "airmets": list(all_airmets.values())
+            "airmets": list(all_airmets.values()),
         }
 
     async def _fetch_aviation_obs(self) -> dict:
@@ -253,14 +311,18 @@ class WeatherPoller(BasePoller):
                         if isinstance(data, list):
                             for m in data:
                                 # Try multiple possible keys for station ID
-                                icao = m.get("icaoId") or m.get("stationId") or m.get("id")
-                                
+                                icao = (
+                                    m.get("icaoId") or m.get("stationId") or m.get("id")
+                                )
+
                                 # Fallback: Parse from raw observation (e.g., "METAR KSLE ...")
                                 raw = m.get("rawOb")
                                 if not icao and raw:
                                     parts = raw.split()
                                     if len(parts) > 1:
-                                        icao = parts[1] # Usually the second part of a METAR
+                                        icao = parts[
+                                            1
+                                        ]  # Usually the second part of a METAR
 
                                 if icao and icao not in all_metars:
                                     all_metars[icao] = {
@@ -277,7 +339,11 @@ class WeatherPoller(BasePoller):
                                         "raw": raw,
                                     }
                 except Exception as exc:
-                    logger.debug("[weather] METAR fetch failed for region %s: %s", region.id if region else "default", exc)
+                    logger.debug(
+                        "[weather] METAR fetch failed for region %s: %s",
+                        region.id if region else "default",
+                        exc,
+                    )
 
                 try:
                     r = await client.get(
@@ -289,8 +355,10 @@ class WeatherPoller(BasePoller):
                         if isinstance(data, list):
                             for t in data:
                                 # Try multiple possible keys for station ID
-                                icao = t.get("icaoId") or t.get("stationId") or t.get("id")
-                                
+                                icao = (
+                                    t.get("icaoId") or t.get("stationId") or t.get("id")
+                                )
+
                                 # Fallback: Parse from raw TAF (e.g., "TAF KSLE ...")
                                 raw = t.get("rawTAF")
                                 if not icao and raw:
@@ -307,7 +375,11 @@ class WeatherPoller(BasePoller):
                                         "raw": raw,
                                     }
                 except Exception as exc:
-                    logger.debug("[weather] TAF fetch failed for region %s: %s", region.id if region else "default", exc)
+                    logger.debug(
+                        "[weather] TAF fetch failed for region %s: %s",
+                        region.id if region else "default",
+                        exc,
+                    )
 
         return {"metars": list(all_metars.values()), "tafs": list(all_tafs.values())}
 
@@ -342,13 +414,15 @@ class WeatherPoller(BasePoller):
                                         text = pr.json().get("productText", "")
                                 except Exception:
                                     pass
-                        results.append({
-                            "code": code,
-                            "name": name,
-                            "office": office,
-                            "issuance_time": item.get("issuanceTime"),
-                            "text": (text or "").strip(),
-                        })
+                        results.append(
+                            {
+                                "code": code,
+                                "name": name,
+                                "office": office,
+                                "issuance_time": item.get("issuanceTime"),
+                                "text": (text or "").strip(),
+                            }
+                        )
                 except Exception as exc:
                     logger.debug("[weather] NWWS %s fetch failed: %s", code, exc)
         return results
@@ -401,4 +475,3 @@ class WeatherPoller(BasePoller):
         except Exception as exc:
             logger.warning("[weather] PWS fetch failed for %s: %s", station, exc)
             return {}
-

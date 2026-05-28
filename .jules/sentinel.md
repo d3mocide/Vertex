@@ -17,3 +17,8 @@
 **Vulnerability:** The `/radio/proxy/{stream_id}` endpoint instantiated an `httpx.AsyncClient` with `follow_redirects=True`. Although the initial user-provided URL was checked against SSRF using `validate_safe_url`, if the server responded with an HTTP redirect (e.g. 302 Found) to an internal URL, the client would follow it without re-validating the target URL, leading to an SSRF vulnerability.
 **Learning:** Checking a URL before making a request is insufficient if the HTTP client automatically follows redirects to new URLs. Each redirect target must also be validated against SSRF rules.
 **Prevention:** If `follow_redirects=True` must be used, add an `event_hooks={'request': [_validate_request_url]}` hook to `httpx.AsyncClient` to intercept and validate every outbound request URL during the lifecycle of the client, including redirects.
+
+## 2025-05-22 - [SSRF via Unvalidated Redirects in Pollers]
+**Vulnerability:** Multiple poller services (`alerts`, `gtfs_rt`, `news`, `utilities`, `weather`) instantiated `httpx.AsyncClient` with `follow_redirects=True` without validating the target URLs of redirects. An attacker could exploit this by providing a URL that redirects to an internal service, leading to Server-Side Request Forgery (SSRF).
+**Learning:** Even when polling external resources, if the client automatically follows redirects, every redirect target must be validated against SSRF rules, because an external server could redirect the request to an internal IP.
+**Prevention:** When using `follow_redirects=True`, always add an `event_hooks={'request': [_validate_request_url]}` hook to `httpx.AsyncClient` to intercept and validate every outbound request URL during the lifecycle of the client.

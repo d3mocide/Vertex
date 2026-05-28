@@ -9,13 +9,14 @@ from dataclasses import dataclass, field as dc_field
 
 import httpx
 
+from security import validate_safe_url
 from bus import get_bus, publish_entity
 from config import settings
 from .base import BasePoller
 
 logger = logging.getLogger(__name__)
 
-_STATIC_CACHE_TTL = 86_400.0   # 24 hours — route list rarely changes
+_STATIC_CACHE_TTL = 86_400.0  # 24 hours — route list rarely changes
 _USER_AGENT = "Vertex/1.0 (Situational Awareness Dashboard)"
 
 
@@ -52,16 +53,18 @@ def _build_feeds() -> list[_FeedConfig]:
             for x in settings.trimet_route_types.split(",")
             if x.strip().isdigit()
         ]
-        feeds.append(_FeedConfig(
-            name="trimet",
-            label="TriMet Portland Metro",
-            static_gtfs_url=settings.trimet_gtfs_static_url,
-            realtime_url=settings.trimet_gtfs_rt_url,
-            api_key=settings.trimet_app_id,
-            api_key_param="appID",
-            route_types=route_types,
-            poll_interval=settings.trimet_poll_interval,
-        ))
+        feeds.append(
+            _FeedConfig(
+                name="trimet",
+                label="TriMet Portland Metro",
+                static_gtfs_url=settings.trimet_gtfs_static_url,
+                realtime_url=settings.trimet_gtfs_rt_url,
+                api_key=settings.trimet_app_id,
+                api_key_param="appID",
+                route_types=route_types,
+                poll_interval=settings.trimet_poll_interval,
+            )
+        )
     return feeds
 
 
@@ -144,7 +147,20 @@ class GtfsRtPoller(BasePoller):
             params[feed.api_key_param] = feed.api_key
 
         try:
-            async with httpx.AsyncClient(timeout=90) as client:
+
+            import asyncio
+            async def _validate_request_url(request: httpx.Request):
+                try:
+                    loop = asyncio.get_running_loop()
+                    await loop.run_in_executor(None, validate_safe_url, str(request.url))
+                except ValueError as e:
+                    raise httpx.RequestError(
+                        f"SSRF validation failed: {e}", request=request
+                    )
+
+            async with httpx.AsyncClient(
+                timeout=90, event_hooks={"request": [_validate_request_url]}
+            ) as client:
                 resp = await client.get(
                     feed.static_gtfs_url,
                     params=params,
@@ -169,17 +185,24 @@ class GtfsRtPoller(BasePoller):
             state.route_map = route_map
             state.route_map_ts = now
             logger.info(
-                "[gtfs_rt:%s] loaded %d routes from static GTFS", feed.name, len(route_map)
+                "[gtfs_rt:%s] loaded %d routes from static GTFS",
+                feed.name,
+                len(route_map),
             )
 
             # Check if shapes are already cached to avoid redundant heavy parsing on restart
             redis_key = f"cache:gtfs:{feed.name}:shapes"
             r = await get_bus()
             if await r.exists(redis_key):
-                logger.info("[gtfs_rt:%s] shapes already cached in Redis, skipping build", feed.name)
+                logger.info(
+                    "[gtfs_rt:%s] shapes already cached in Redis, skipping build",
+                    feed.name,
+                )
             else:
                 asyncio.create_task(
-                    self._build_and_cache_shapes(zf, route_map, set(feed.route_types), feed.name)
+                    self._build_and_cache_shapes(
+                        zf, route_map, set(feed.route_types), feed.name
+                    )
                 )
         except Exception as exc:
             logger.warning("[gtfs_rt:%s] static GTFS fetch failed: %s", feed.name, exc)
@@ -247,27 +270,35 @@ class GtfsRtPoller(BasePoller):
             for route_id, lines in route_lines.items():
                 info = route_map[route_id]
                 raw_color = info.get("color", "").strip()
-                raw_text  = info.get("text_color", "FFFFFF").strip()
-                features.append({
-                    "type": "Feature",
-                    "geometry": {"type": "MultiLineString", "coordinates": lines},
-                    "properties": {
-                        "route_id":         route_id,
-                        "route_short_name": info["short_name"],
-                        "route_long_name":  info["long_name"],
-                        "route_type":       info["type"],
-                        "route_color":      f"#{raw_color}" if raw_color else "#a78bfa",
-                        "route_text_color": f"#{raw_text}"  if raw_text  else "#FFFFFF",
-                    },
-                })
+                raw_text = info.get("text_color", "FFFFFF").strip()
+                features.append(
+                    {
+                        "type": "Feature",
+                        "geometry": {"type": "MultiLineString", "coordinates": lines},
+                        "properties": {
+                            "route_id": route_id,
+                            "route_short_name": info["short_name"],
+                            "route_long_name": info["long_name"],
+                            "route_type": info["type"],
+                            "route_color": f"#{raw_color}" if raw_color else "#a78bfa",
+                            "route_text_color": f"#{raw_text}"
+                            if raw_text
+                            else "#FFFFFF",
+                        },
+                    }
+                )
 
             geojson = {"type": "FeatureCollection", "features": features}
             redis_key = f"cache:gtfs:{feed_name}:shapes"
             r = await get_bus()
-            await r.set(redis_key, json.dumps(geojson), ex=int(_STATIC_CACHE_TTL) + 3600)
+            await r.set(
+                redis_key, json.dumps(geojson), ex=int(_STATIC_CACHE_TTL) + 3600
+            )
             logger.info(
                 "[gtfs_rt:%s] cached %d route shapes to Redis (%s)",
-                feed_name, len(features), redis_key,
+                feed_name,
+                len(features),
+                redis_key,
             )
         except Exception as exc:
             logger.warning("[gtfs_rt:%s] shape cache build failed: %s", feed_name, exc)
@@ -317,45 +348,51 @@ class GtfsRtPoller(BasePoller):
             if not lat or not lon:
                 continue
 
-            route_id   = v.trip.route_id if v.HasField("trip") else ""
-            trip_id    = v.trip.trip_id  if v.HasField("trip") else ""
+            route_id = v.trip.route_id if v.HasField("trip") else ""
+            trip_id = v.trip.trip_id if v.HasField("trip") else ""
             route_info = route_map.get(route_id, {})
             route_type = route_info.get("type", -1)
 
             if route_type not in allowed_types:
                 continue
 
-            vehicle_id    = (v.vehicle.id if v.HasField("vehicle") and v.vehicle.id else ent.id) or ent.id
+            vehicle_id = (
+                v.vehicle.id if v.HasField("vehicle") and v.vehicle.id else ent.id
+            ) or ent.id
             vehicle_label = v.vehicle.label if v.HasField("vehicle") else vehicle_id
-            short_name    = route_info.get("short_name", "")
-            long_name     = route_info.get("long_name", "")
+            short_name = route_info.get("short_name", "")
+            long_name = route_info.get("long_name", "")
 
             speed_kts = round(float(pos.speed) * 1.94384, 1) if pos.speed else None
-            heading   = float(pos.bearing) if pos.bearing else None
+            heading = float(pos.bearing) if pos.bearing else None
 
-            display_name = f"{short_name} — {vehicle_label}".strip(" —") if short_name else f"Vehicle {vehicle_label}"
+            display_name = (
+                f"{short_name} — {vehicle_label}".strip(" —")
+                if short_name
+                else f"Vehicle {vehicle_label}"
+            )
 
             entity = {
-                "entity_id":    f"gtfs:{feed.name}:{vehicle_id}",
-                "entity_type":  "train",
-                "source":       f"gtfs_{feed.name}",
+                "entity_id": f"gtfs:{feed.name}:{vehicle_id}",
+                "entity_type": "train",
+                "source": f"gtfs_{feed.name}",
                 "display_name": display_name,
-                "lat":          lat,
-                "lon":          lon,
-                "heading":      heading,
-                "speed":        speed_kts,
-                "altitude":     None,
-                "status":       None,
+                "lat": lat,
+                "lon": lon,
+                "heading": heading,
+                "speed": speed_kts,
+                "altitude": None,
+                "status": None,
                 "identity": {
-                    "vehicle_id":        vehicle_id,
-                    "vehicle_label":     vehicle_label,
-                    "route_id":          route_id,
-                    "route_short_name":  short_name,
-                    "route_long_name":   long_name,
-                    "route_type":        route_type,
-                    "trip_id":           trip_id,
-                    "feed":              feed.name,
-                    "feed_label":        feed.label,
+                    "vehicle_id": vehicle_id,
+                    "vehicle_label": vehicle_label,
+                    "route_id": route_id,
+                    "route_short_name": short_name,
+                    "route_long_name": long_name,
+                    "route_type": route_type,
+                    "trip_id": trip_id,
+                    "feed": feed.name,
+                    "feed_label": feed.label,
                 },
                 "tags": [feed.label, short_name] if short_name else [feed.label],
             }
@@ -367,5 +404,7 @@ class GtfsRtPoller(BasePoller):
         if state.poll_count <= 3 or state.poll_count % 20 == 0:
             logger.info(
                 "[gtfs_rt:%s] poll #%d: %d rail vehicles",
-                feed.name, state.poll_count, published,
+                feed.name,
+                state.poll_count,
+                published,
             )
