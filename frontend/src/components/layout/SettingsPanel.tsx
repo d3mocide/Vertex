@@ -251,21 +251,23 @@ export function SettingsPanel() {
             </div>
           </section>
 
-          {/* Developer tools */}
-          <section>
-            <h2 className="label-caps mb-3">Developer</h2>
-            <div className="space-y-3">
-              <ToggleRow
-                label="Layout Inspector"
-                icon="straighten"
-                checked={debugInsets}
-                onChange={setDebugInsets}
-              />
-            </div>
-            <p className="mt-2 text-[11px] text-on-surface-variant leading-relaxed">
-              Overlays live safe-area insets &amp; viewport metrics for tuning the mobile layout.
-            </p>
-          </section>
+          {/* Developer tools — admin only */}
+          {userRole === 'admin' && (
+            <section>
+              <h2 className="label-caps mb-3">Developer</h2>
+              <div className="space-y-3">
+                <ToggleRow
+                  label="Layout Inspector"
+                  icon="straighten"
+                  checked={debugInsets}
+                  onChange={setDebugInsets}
+                />
+              </div>
+              <p className="mt-2 text-[11px] text-on-surface-variant leading-relaxed">
+                Overlays live safe-area insets &amp; viewport metrics for tuning the mobile layout.
+              </p>
+            </section>
+          )}
 
           {/* Alert Rules — admin only */}
           {userRole === 'admin' && <AlertRulesSection open={settingsOpen} />}
