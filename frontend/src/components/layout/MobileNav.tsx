@@ -34,7 +34,7 @@ export function MobileNav() {
             className="absolute inset-0 bg-onyx-black/80 backdrop-blur-sm"
             onClick={() => setShowMore(false)}
           />
-          <div className="absolute bottom-0 left-0 right-0 bg-onyx-deep border-t border-white/10 p-6 pb-20 animate-in slide-in-from-bottom duration-300">
+          <div className="absolute bottom-0 left-0 right-0 bg-onyx-deep border-t border-white/10 p-6 pb-[calc(5rem_+_env(safe-area-inset-bottom))] animate-in slide-in-from-bottom duration-300">
             <div className="flex items-center justify-between mb-6">
               <span className="label-caps text-amber-gold">// OPS CHANNELS</span>
               <button onClick={() => setShowMore(false)} className="text-on-surface-variant">
@@ -63,7 +63,7 @@ export function MobileNav() {
       )}
 
       <nav
-        className="fixed bottom-0 left-0 right-0 z-50 lg:hidden h-14 flex bg-onyx-deep/95 border-t border-white/10 backdrop-blur-md safe-area-inset-bottom"
+        className="fixed bottom-0 left-0 right-0 z-50 lg:hidden flex bg-onyx-deep/95 border-t border-white/10 backdrop-blur-md pb-safe"
         aria-label="Mobile navigation"
       >
         {PRIMARY_TABS.map((tab) => {
@@ -72,7 +72,7 @@ export function MobileNav() {
             <button
               key={tab.id}
               onClick={() => handleTabClick(tab.id)}
-              className={`relative flex-1 flex flex-col items-center justify-center gap-0.5 transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-amber-gold ${
+              className={`relative flex-1 h-14 flex flex-col items-center justify-center gap-0.5 transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-amber-gold ${
                 active ? 'text-amber-gold' : 'text-on-surface-variant hover:text-on-surface'
               }`}
               aria-current={active ? 'page' : undefined}
@@ -95,7 +95,7 @@ export function MobileNav() {
         {/* More Button */}
         <button
           onClick={() => setShowMore(!showMore)}
-          className={`relative flex-1 flex flex-col items-center justify-center gap-0.5 transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-amber-gold ${
+          className={`relative flex-1 h-14 flex flex-col items-center justify-center gap-0.5 transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-amber-gold ${
             showMore ? 'text-amber-gold' : 'text-on-surface-variant hover:text-on-surface'
           }`}
           aria-label="More options"

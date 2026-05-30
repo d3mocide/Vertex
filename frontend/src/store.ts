@@ -114,6 +114,9 @@ interface CivicStore {
   setSettingsOpen:     (v: boolean) => void
   helpOpen:            boolean
   setHelpOpen:         (v: boolean) => void
+  debugInsets:         boolean
+  setDebugInsets:      (v: boolean) => void
+  toggleDebugInsets:   () => void
   entityFilter:        EntityTypeFilter
   setEntityFilter:     (f: Partial<EntityTypeFilter>) => void
   entitySearchQuery:   string
@@ -368,6 +371,7 @@ export const useCivicStore = create<CivicStore>()(
   mobileNavOpen:    false,
   settingsOpen:     false,
   helpOpen:         false,
+  debugInsets:      false,
   entityFilter:     { aircraft: true, adsbLocal: true, adsbSupplement: true, vessel: true, mesh_node: true, aprs: true, fire_incident: true, satellite: true, rf_sensor: true, train: true },
   entitySearchQuery: '',
   entityAltRange:   ALT_RANGE_DEFAULT,
@@ -585,6 +589,8 @@ export const useCivicStore = create<CivicStore>()(
   setMobileNavOpen:  (mobileNavOpen)  => set({ mobileNavOpen }),
   setSettingsOpen:   (settingsOpen)   => set({ settingsOpen }),
   setHelpOpen:       (helpOpen)       => set({ helpOpen }),
+  setDebugInsets:    (debugInsets)    => set({ debugInsets }),
+  toggleDebugInsets: ()               => set((s) => ({ debugInsets: !s.debugInsets })),
   setEntityFilter:   (f)              => set((s) => ({ entityFilter: { ...s.entityFilter, ...f } })),
   setEntitySearchQuery: (entitySearchQuery) => set({ entitySearchQuery }),
   setEntityAltRange:   (entityAltRange)    => set({ entityAltRange }),

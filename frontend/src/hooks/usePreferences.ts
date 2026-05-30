@@ -21,6 +21,7 @@ type UiPrefs = {
   terrainEnabled: boolean
   terrainExaggeration: number
   ldiMode: boolean
+  debugInsets: boolean
 }
 
 function extractPrefs(s: ReturnType<typeof useCivicStore.getState>): UiPrefs {
@@ -39,6 +40,7 @@ function extractPrefs(s: ReturnType<typeof useCivicStore.getState>): UiPrefs {
     terrainEnabled:     s.terrainEnabled,
     terrainExaggeration: s.terrainExaggeration,
     ldiMode:            s.ldiMode,
+    debugInsets:        s.debugInsets,
   }
 }
 
@@ -66,6 +68,7 @@ async function loadAndApply() {
     if (p.terrainEnabled != null)     store.setTerrainEnabled(p.terrainEnabled)
     if (p.terrainExaggeration != null) store.setTerrainExaggeration(p.terrainExaggeration)
     if (p.ldiMode != null)            store.setLdiMode(p.ldiMode)
+    if (p.debugInsets != null)        store.setDebugInsets(p.debugInsets)
   } catch { /* non-fatal */ }
 }
 
