@@ -29,6 +29,12 @@
       repeating-linear-gradient(90deg, transparent 0px, transparent 39px, rgba(255,255,255,0.012) 40px);
   }
 
+  /* iOS PWA focus-zoom fix: auto-zoom fires when focused input font-size < 16px.
+     Keep the 16px floor here; visual sizing is handled per-component via transform. */
+  input, select, textarea {
+    font-size: 16px;
+  }
+
   select option {
     background-color: #121212;
     color: #f2f2f2;

@@ -90,10 +90,14 @@ export function DevInsetInspector() {
   const [corner, setCorner] = useState<Corner>('top-right')
 
   // Allow ?debug=insets (or bare ?debug) to switch the inspector on.
+  // Strip the param immediately so a refresh doesn't re-enable it.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     if (params.has('debug') && (params.get('debug') === 'insets' || params.get('debug') === '')) {
       setDebugInsets(true)
+      params.delete('debug')
+      const newSearch = params.toString()
+      history.replaceState(null, '', newSearch ? `?${newSearch}` : window.location.pathname)
     }
   }, [setDebugInsets])
 
