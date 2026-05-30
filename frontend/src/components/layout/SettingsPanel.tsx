@@ -257,14 +257,14 @@ export function SettingsPanel() {
               <h2 className="label-caps mb-3">Developer</h2>
               <div className="space-y-3">
                 <ToggleRow
-                  label="Layout Inspector"
-                  icon="straighten"
+                  label="Debug Mode"
+                  icon="bug_report"
                   checked={debugInsets}
                   onChange={setDebugInsets}
                 />
               </div>
               <p className="mt-2 text-[11px] text-on-surface-variant leading-relaxed">
-                Overlays live safe-area insets &amp; viewport metrics for tuning the mobile layout.
+                Overlays live safe-area insets &amp; viewport metrics. Toggle off to exit debug mode.
               </p>
             </section>
           )}
