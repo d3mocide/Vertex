@@ -398,13 +398,16 @@ class BeastAircraftDecoder:
     def _build_comm_b_snapshot(self, ac: _AircraftState, now_ts: float) -> dict | None:
         max_age = 120.0
 
-        def fresh(ts: float | None) -> bool:
-            return ts is not None and (now_ts - ts) <= max_age
+        # ⚡ Bolt Optimization: Pre-calculate freshness flags to avoid repeated function call overhead
+        bds40_fresh = ac.bds40_at is not None and (now_ts - ac.bds40_at) <= max_age
+        bds44_fresh = ac.bds44_at is not None and (now_ts - ac.bds44_at) <= max_age
+        bds50_fresh = ac.bds50_at is not None and (now_ts - ac.bds50_at) <= max_age
+        bds60_fresh = ac.bds60_at is not None and (now_ts - ac.bds60_at) <= max_age
 
-        sat = ac.static_air_temperature_c if fresh(ac.bds44_at) else None
+        sat = ac.static_air_temperature_c if bds44_fresh else None
         sat_source = "observed" if sat is not None else None
 
-        if sat is None and fresh(ac.bds50_at) and fresh(ac.bds60_at) and ac.true_airspeed_kt and ac.mach:
+        if sat is None and bds50_fresh and bds60_fresh and ac.true_airspeed_kt and ac.mach:
             try:
                 speed_of_sound = (float(ac.true_airspeed_kt) * 0.514444) / float(ac.mach)
                 temp_k = (speed_of_sound**2) / 401.874
@@ -422,27 +425,27 @@ class BeastAircraftDecoder:
             tat = tat_k - 273.15
 
         snapshot = {
-            "selected_altitude_mcp_ft": ac.selected_altitude_mcp_ft if fresh(ac.bds40_at) else None,
-            "selected_altitude_fms_ft": ac.selected_altitude_fms_ft if fresh(ac.bds40_at) else None,
-            "qnh_hpa": ac.qnh_hpa if fresh(ac.bds40_at) else None,
-            "wind_speed_kt": ac.wind_speed_kt if fresh(ac.bds44_at) else None,
-            "wind_direction_deg": ac.wind_direction_deg if fresh(ac.bds44_at) else None,
+            "selected_altitude_mcp_ft": ac.selected_altitude_mcp_ft if bds40_fresh else None,
+            "selected_altitude_fms_ft": ac.selected_altitude_fms_ft if bds40_fresh else None,
+            "qnh_hpa": ac.qnh_hpa if bds40_fresh else None,
+            "wind_speed_kt": ac.wind_speed_kt if bds44_fresh else None,
+            "wind_direction_deg": ac.wind_direction_deg if bds44_fresh else None,
             "static_air_temperature_c": sat,
             "static_air_temperature_source": sat_source,
             "total_air_temperature_c": tat,
-            "static_pressure_hpa": ac.static_pressure_hpa if fresh(ac.bds44_at) else None,
-            "turbulence": ac.turbulence if fresh(ac.bds44_at) else None,
-            "humidity_pct": ac.humidity_pct if fresh(ac.bds44_at) else None,
-            "roll_deg": ac.roll_deg if fresh(ac.bds50_at) else None,
-            "true_track_deg": ac.true_track_deg if fresh(ac.bds50_at) else None,
-            "groundspeed_kt": ac.groundspeed_kt if fresh(ac.bds50_at) else None,
-            "track_rate_deg_per_s": ac.track_rate_deg_per_s if fresh(ac.bds50_at) else None,
-            "true_airspeed_kt": ac.true_airspeed_kt if fresh(ac.bds50_at) else None,
-            "magnetic_heading_deg": ac.magnetic_heading_deg if fresh(ac.bds60_at) else None,
-            "indicated_airspeed_kt": ac.indicated_airspeed_kt if fresh(ac.bds60_at) else None,
-            "mach": ac.mach if fresh(ac.bds60_at) else None,
-            "baro_vertical_rate_fpm": ac.baro_vertical_rate_fpm if fresh(ac.bds60_at) else None,
-            "inertial_vertical_rate_fpm": ac.inertial_vertical_rate_fpm if fresh(ac.bds60_at) else None,
+            "static_pressure_hpa": ac.static_pressure_hpa if bds44_fresh else None,
+            "turbulence": ac.turbulence if bds44_fresh else None,
+            "humidity_pct": ac.humidity_pct if bds44_fresh else None,
+            "roll_deg": ac.roll_deg if bds50_fresh else None,
+            "true_track_deg": ac.true_track_deg if bds50_fresh else None,
+            "groundspeed_kt": ac.groundspeed_kt if bds50_fresh else None,
+            "track_rate_deg_per_s": ac.track_rate_deg_per_s if bds50_fresh else None,
+            "true_airspeed_kt": ac.true_airspeed_kt if bds50_fresh else None,
+            "magnetic_heading_deg": ac.magnetic_heading_deg if bds60_fresh else None,
+            "indicated_airspeed_kt": ac.indicated_airspeed_kt if bds60_fresh else None,
+            "mach": ac.mach if bds60_fresh else None,
+            "baro_vertical_rate_fpm": ac.baro_vertical_rate_fpm if bds60_fresh else None,
+            "inertial_vertical_rate_fpm": ac.inertial_vertical_rate_fpm if bds60_fresh else None,
             "raw": dict(ac.comm_b_raw),
         }
 

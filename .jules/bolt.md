@@ -17,3 +17,6 @@
 ## 2024-05-23 - [Bypass JSON parsing for non-entity WebSocket updates]
 **Learning:** In the WebSocket broadcasting loop (`backend/routers/ws.py`), parsing every incoming JSON message using `json.loads` before checking its type can be extremely slow and block the event loop, especially when passing along large payloads (like snapshots) that don't need filtering.
 **Action:** Use fast string matching (e.g., `'"type": "entity_update"' in raw`) to bypass `json.loads` entirely for messages that don't need filtering. This avoids deserialization overhead and significantly speeds up the event loop when dealing with large payloads.
+## 2024-05-24 - [Avoid closure/function call overhead in hot paths]
+**Learning:** In hot paths (like repeated snapshot generation in `poller/normalizers/beast_decoder.py`), defining and calling small inner functions (closures) repeatedly is significantly slower than pre-computing unrolled boolean flags. Function call overhead in Python is high.
+**Action:** Unroll and pre-calculate simple conditional logic instead of abstracting it behind inner helper functions when executing in high-throughput loops or dictionary comprehensions.
