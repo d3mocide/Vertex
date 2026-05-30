@@ -1,5 +1,6 @@
 import logging
 import httpx
+from security import validate_request_url
 from bus import set_feed
 from .base import BasePoller
 
@@ -28,7 +29,11 @@ class UtilityPoller(BasePoller):
                 "outFields": "utilityName,metersOut,CountyName",
                 "f": "json"
             }
-            async with httpx.AsyncClient(timeout=20, follow_redirects=True) as client:
+            async with httpx.AsyncClient(
+                timeout=20,
+                follow_redirects=True,
+                event_hooks={'request': [validate_request_url]}
+            ) as client:
                 resp = await client.get(_ODIN_URL, params=params)
                 resp.raise_for_status()
                 data = resp.json()

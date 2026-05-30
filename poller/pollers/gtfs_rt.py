@@ -9,6 +9,7 @@ from dataclasses import dataclass, field as dc_field
 
 import httpx
 
+from security import validate_request_url
 from bus import get_bus, publish_entity
 from config import settings
 from .base import BasePoller
@@ -144,7 +145,10 @@ class GtfsRtPoller(BasePoller):
             params[feed.api_key_param] = feed.api_key
 
         try:
-            async with httpx.AsyncClient(timeout=90) as client:
+            async with httpx.AsyncClient(
+                timeout=90,
+                event_hooks={'request': [validate_request_url]}
+            ) as client:
                 resp = await client.get(
                     feed.static_gtfs_url,
                     params=params,
