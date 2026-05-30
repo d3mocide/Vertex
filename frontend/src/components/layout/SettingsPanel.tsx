@@ -26,6 +26,7 @@ export function SettingsPanel() {
     terrainEnabled, setTerrainEnabled,
     terrainExaggeration, setTerrainExaggeration,
     entityFilter, setEntityFilter,
+    debugInsets, setDebugInsets,
   } = useCivicStore()
 
   const [notifPermission, setNotifPermission] = useState(() => notificationPermission())
@@ -249,6 +250,24 @@ export function SettingsPanel() {
               <ToggleRow label="History Trails" icon="timeline" checked={trailsVisible} onChange={setTrailsVisible} />
             </div>
           </section>
+
+          {/* Developer tools — admin only */}
+          {userRole === 'admin' && (
+            <section>
+              <h2 className="label-caps mb-3">Developer</h2>
+              <div className="space-y-3">
+                <ToggleRow
+                  label="Layout Inspector"
+                  icon="straighten"
+                  checked={debugInsets}
+                  onChange={setDebugInsets}
+                />
+              </div>
+              <p className="mt-2 text-[11px] text-on-surface-variant leading-relaxed">
+                Overlays live safe-area insets &amp; viewport metrics for tuning the mobile layout.
+              </p>
+            </section>
+          )}
 
           {/* Alert Rules — admin only */}
           {userRole === 'admin' && <AlertRulesSection open={settingsOpen} />}

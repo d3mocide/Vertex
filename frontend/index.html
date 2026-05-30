@@ -2,7 +2,9 @@
 <html class="dark" lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <!-- viewport-fit=cover → content extends under the notch / home indicator (enables env(safe-area-inset-*)).
+       maximum-scale=1 + user-scalable=no → lock out iOS pinch-zoom and the auto-zoom on input focus. -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no" />
   <title>VERTEX — Situational Awareness</title>
   <meta name="description" content="Real-time situational awareness dashboard for local public safety, environment, and infrastructure." />
 

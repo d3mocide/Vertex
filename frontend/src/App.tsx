@@ -33,6 +33,7 @@ import { CommsPanel }          from './components/panels/CommsPanel'
 import { FlightLogPanel }      from './components/panels/FlightLogPanel'
 import { AnnotationController } from './components/panels/AnnotationController'
 import { InstallPrompt } from './components/InstallPrompt'
+import { DevInsetInspector } from './components/DevInsetInspector'
 
 // ── Authenticated dashboard ────────────────────────────────────────────────────
 function Dashboard() {
@@ -60,7 +61,7 @@ function Dashboard() {
 
   return (
     <div
-      className="dark h-screen w-screen overflow-hidden flex flex-col font-body text-sm antialiased bg-onyx-black text-on-surface pb-14 lg:pb-0"
+      className="dark h-screen w-screen overflow-hidden flex flex-col font-body text-sm antialiased bg-onyx-black text-on-surface pt-safe pb-[calc(3.5rem_+_env(safe-area-inset-bottom))] lg:pb-0"
       data-mode={mode}
     >
       {/* Map Background Layer */}
@@ -139,6 +140,7 @@ function Dashboard() {
       <SettingsPanel />
       <HelpPanel />
       <InstallPrompt />
+      <DevInsetInspector />
     </div>
   )
 }
