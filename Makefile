@@ -1,4 +1,4 @@
-.PHONY: help build setup-buildx prod dev down logs clean startup-diagnose
+.PHONY: help build build-multiplatform setup-buildx prod dev down logs clean startup-diagnose
 
 help: ## Show this help message
 	@echo "Usage: make [command]"
@@ -9,13 +9,16 @@ help: ## Show this help message
 setup-buildx: ## Register QEMU binfmt handlers for multi-platform builds
 	docker run --rm --privileged tonistiigi/binfmt --install all
 
-build: setup-buildx ## Build all Docker images without starting them
+build: ## Build all Docker images for the host architecture
 	docker compose build
 
-prod: setup-buildx ## Start the project in Production mode (detached)
+build-multiplatform: setup-buildx ## Build multi-platform images (amd64 + arm64) for registry pushes
+	docker compose -f docker-compose.yml -f docker-compose.multiplatform.yml build
+
+prod: ## Start the project in Production mode (detached)
 	docker compose up -d
 
-dev: setup-buildx ## Start the project in Development mode (detached, rebuilds images)
+dev: ## Start the project in Development mode (detached, rebuilds images)
 	docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build -d
 
 down: ## Stop and remove all containers
