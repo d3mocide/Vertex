@@ -1,4 +1,6 @@
+import html
 import logging
+import re
 import xml.etree.ElementTree as ET
 import feedparser
 import httpx
@@ -10,6 +12,29 @@ from .base import BasePoller
 logger = logging.getLogger(__name__)
 
 _NWS_HEADERS = {"User-Agent": "Vertex/0.1 (vertex; contact@localhost)"}
+
+_TAG_RE = re.compile(r"<[^>]+>")
+_WS_RE = re.compile(r"\s+")
+
+
+def _clean_text(value: str | None) -> str:
+    """Decode HTML entities and strip markup from feed text.
+
+    Some feeds (notably ODOT TripCheck) double-encode their HTML, so a raw
+    summary arrives as ``... alternate route. &amp;lt;a href="..."&amp;gt;``.
+    Rendered verbatim that leaks entities and tags into the advisory bar, so we
+    unescape until stable, drop any tags, and collapse whitespace.
+    """
+    if not value:
+        return ""
+    text = value
+    for _ in range(3):  # handle single- and double-encoded entities
+        unescaped = html.unescape(text)
+        if unescaped == text:
+            break
+        text = unescaped
+    text = _TAG_RE.sub(" ", text)
+    return _WS_RE.sub(" ", text).strip()
 
 
 def _strip_flashalert_dtd(text: str) -> str:
@@ -36,10 +61,11 @@ def _parse_flashalert_xml(text: str) -> list[dict]:
             if report in list(cat):
                 category = cat.get("name", "")
                 break
+        title = f"{orgname}: {category}".strip(": ") if orgname else category
         results.append({
             "source":    "flashalert",
-            "title":     f"{orgname}: {category}".strip(": ") if orgname else category,
-            "summary":   detail[:500],
+            "title":     _clean_text(title),
+            "summary":   _clean_text(detail)[:500],
             "link":      "https://www.flashalertportland.net/",
             "published": report.get("effective_date", ""),
             "severity":  report.get("operating_code", ""),
@@ -53,8 +79,8 @@ def _parse_rss_feed(text: str, source_name: str, fallback_url: str) -> list[dict
     for entry in feed.entries[:10]:
         items.append({
             "source":    source_name.lower().replace(" ", "_"),
-            "title":     entry.get("title", ""),
-            "summary":   entry.get("summary", "") or entry.get("description", ""),
+            "title":     _clean_text(entry.get("title", "")),
+            "summary":   _clean_text(entry.get("summary", "") or entry.get("description", "")),
             "link":      entry.get("link", fallback_url),
             "published": entry.get("published", "") or entry.get("updated", ""),
             "severity":  "Unknown",
@@ -147,17 +173,19 @@ class AlertPoller(BasePoller):
                             continue
                         seen_headlines.add(headline)
 
+                        clean_headline = _clean_text(headline)
+                        clean_description = _clean_text(props.get("description", ""))
                         weather_alerts.append({
                             "event": props.get("event", ""),
-                            "headline": headline,
-                            "description": props.get("description", ""),
+                            "headline": clean_headline,
+                            "description": clean_description,
                             "severity": props.get("severity", ""),
                             "expires": props.get("expires", ""),
                         })
                         items.append({
                             "source":    "nws_cap",
-                            "title":     headline,
-                            "summary":   props.get("description", ""),
+                            "title":     clean_headline,
+                            "summary":   clean_description,
                             "link":      props.get("@id", ""),
                             "published": props.get("effective", ""),
                             "severity":  props.get("severity", ""),

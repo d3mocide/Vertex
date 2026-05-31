@@ -5,6 +5,16 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 
 ---
 
+## 2026-05-31 — Mobile PWA Overlap Fixes & TripCheck Markup Cleanup
+
+- **TripCheck / feed markup leaking into the advisory bar**:
+    - [poller/pollers/alerts.py](poller/pollers/alerts.py): added `_clean_text()` (repeated `html.unescape` for double-encoded entities + tag strip + whitespace collapse) and applied it to RSS (`_parse_rss_feed`), FlashAlert, and NWS CAP titles/summaries. ODOT TripCheck items were arriving as `... alternate route. &amp;lt;a href="..."&amp;gt;` and rendering verbatim.
+    - [frontend/src/components/layout/AlertStatusBar.tsx](frontend/src/components/layout/AlertStatusBar.tsx): added a memoized `stripMarkup()` safeguard so the ticker stays clean for any feed and for items cached before the next poll.
+    - [poller/tests/test_alerts_clean_text.py](poller/tests/test_alerts_clean_text.py): new unit tests (4 cases, all passing).
+- **Mobile map zoom/compass control hidden behind chrome** ([frontend/src/index.css](frontend/src/index.css)): the `<1024px` override pinned the control to `top: 7rem`, tucking the zoom-in button under the env bar. Now offset by `calc(env(safe-area-inset-top) + 8rem)` (+ right safe inset) to clear the status bar, advisory, header, and env bar.
+- **Header bleeding into the Dynamic Island** ([frontend/src/App.tsx](frontend/src/App.tsx)): added a `fixed top-0` glass scrim sized to `env(safe-area-inset-top)` so the iOS status bar / notch keeps a steady dark backdrop instead of showing the bright live map through the chrome. Collapses to 0 height off iOS.
+- **Validation**: `npx tsc --noEmit` clean; `npm run build` succeeds; `docker compose config --quiet` valid; poller `py_compile` + pytest green.
+
 ## 2026-05-31 — iOS PWA Home-Screen Icon & Fullscreen Polish
 
 - **Restored Scope-mark branding on iOS home screen**:

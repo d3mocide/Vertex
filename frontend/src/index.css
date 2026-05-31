@@ -68,7 +68,12 @@
 @media (max-width: 1023px) {
   .maplibregl-ctrl-bottom-right {
     bottom: auto !important;
-    top: 7rem !important;    /* below header + envbar, top-right corner */
+    /* Drop the zoom/compass control clear of the full top chrome stack:
+       status-bar safe area + advisory bar + header + env bar. Using the
+       safe-area inset keeps the zoom-in button visible under the notch /
+       Dynamic Island instead of hiding behind the env bar. */
+    top: calc(env(safe-area-inset-top, 0px) + 8rem) !important;
+    right: calc(env(safe-area-inset-right, 0px) + 0.5rem) !important;
   }
 }
 

@@ -1,6 +1,23 @@
+import { useMemo } from 'react'
 import { useCivicStore } from '../../store'
 
 type Level = 'green' | 'yellow' | 'red'
+
+// Defence-in-depth against feeds that leak markup (e.g. double-encoded ODOT
+// TripCheck links). The poller strips these too, but this keeps the advisory
+// bar clean for any source and for cached items before the next poll.
+function stripMarkup(input: string): string {
+  if (!input) return ''
+  let text = input
+  let prev = ''
+  const ta = document.createElement('textarea')
+  for (let i = 0; i < 3 && text !== prev; i++) {
+    prev = text
+    ta.innerHTML = text
+    text = ta.value
+  }
+  return text.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+}
 
 function resolveLevel(alertCount: number, hasEmergency: boolean): Level {
   if (hasEmergency || alertCount >= 3) return 'red'
@@ -39,9 +56,10 @@ export function AlertStatusBar() {
   const advisoryTitle = alertItem?.title?.trim() ?? ''
   const advisorySummary = alertItem?.summary?.trim() ?? ''
   const weatherHeadline = weatherAlert?.headline?.trim() ?? ''
-  const message = alertItem
+  const rawMessage = alertItem
     ? (advisorySummary ? `${advisoryTitle} - ${advisorySummary}` : advisoryTitle)
     : (weatherHeadline || 'No active alerts')
+  const message = useMemo(() => stripMarkup(rawMessage), [rawMessage])
 
   const openDetails = () => {
     if (alertItem) {
