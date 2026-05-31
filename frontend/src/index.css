@@ -6,6 +6,9 @@
   html, body, #root {
     height: 100%;
     overflow: hidden;
+    /* Lock the iOS standalone PWA: no rubber-band overscroll that reveals a
+       white/background gutter behind the fixed map + chrome. */
+    overscroll-behavior: none;
     /* Never let iOS auto-inflate text — keeps inputs at their designed size
        and avoids the focus-zoom dance. Paired with user-scalable=no in the viewport. */
     -webkit-text-size-adjust: 100%;

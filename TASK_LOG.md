@@ -5,6 +5,20 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 
 ---
 
+## 2026-05-31 — iOS PWA Home-Screen Icon & Fullscreen Polish
+
+- **Restored Scope-mark branding on iOS home screen**:
+    - iOS does not support SVG `apple-touch-icon`; it was falling back to an auto-generated tile (the gold "V" built from the app title + `theme_color`).
+    - Generated PNG icons from the canonical Scope mark (matching [frontend/public/icon.svg](frontend/public/icon.svg) geometry): `apple-touch-icon.png` (180×180), `icon-192.png`, `icon-512.png`, plus Android-adaptive `icon-maskable-192.png` / `icon-maskable-512.png` (mark inset into the 80% maskable safe zone).
+    - [frontend/index.html](frontend/index.html): pointed `apple-touch-icon` at the new 180×180 PNG.
+- **PWA manifest cleanup** ([frontend/public/manifest.json](frontend/public/manifest.json)):
+    - Replaced the single `any maskable` SVG icon entry with explicit `any` (SVG + 192/512 PNG) and dedicated `maskable` PNG entries (declaring a non-maskable icon as maskable caused Chrome to crop the mark's corners).
+    - Removed two invalid `screenshots` entries (SVG files declared with raster dimensions).
+    - Added `id: "/"`; aligned `background_color` to the app surface `#050505`.
+- **Fullscreen standalone polish** ([frontend/src/index.css](frontend/src/index.css)):
+    - Added `overscroll-behavior: none` to `html, body, #root` to stop iOS rubber-band overscroll from revealing a gutter behind the fixed map + chrome.
+- **Validation**: `npx tsc --noEmit` passed; `docker compose config --quiet` valid; manifest is valid JSON; rendered icons visually verified.
+
 ## 2026-05-20 — ACARSHub WebSocket 1005 Reconnect Loop Fix
 
 - **ACARS transport keepalive alignment**:
