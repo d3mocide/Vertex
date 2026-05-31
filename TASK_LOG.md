@@ -5,6 +5,30 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 
 ---
 
+## 2026-05-31 — Mobile PWA Overlap Fixes & TripCheck Markup Cleanup
+
+- **TripCheck / feed markup leaking into the advisory bar**:
+    - [poller/pollers/alerts.py](poller/pollers/alerts.py): added `_clean_text()` (repeated `html.unescape` for double-encoded entities + tag strip + whitespace collapse) and applied it to RSS (`_parse_rss_feed`), FlashAlert, and NWS CAP titles/summaries. ODOT TripCheck items were arriving as `... alternate route. &amp;lt;a href="..."&amp;gt;` and rendering verbatim.
+    - [frontend/src/components/layout/AlertStatusBar.tsx](frontend/src/components/layout/AlertStatusBar.tsx): added a memoized `stripMarkup()` safeguard so the ticker stays clean for any feed and for items cached before the next poll.
+    - [poller/tests/test_alerts_clean_text.py](poller/tests/test_alerts_clean_text.py): new unit tests (4 cases, all passing).
+- **Mobile map zoom/compass control hidden behind chrome** ([frontend/src/index.css](frontend/src/index.css)): the `<1024px` override pinned the control to `top: 7rem`, tucking the zoom-in button under the env bar. Now offset by `calc(env(safe-area-inset-top) + 8rem)` (+ right safe inset) to clear the status bar, advisory, header, and env bar.
+- **Header bleeding into the Dynamic Island** ([frontend/src/App.tsx](frontend/src/App.tsx)): added a `fixed top-0` glass scrim sized to `env(safe-area-inset-top)` so the iOS status bar / notch keeps a steady dark backdrop instead of showing the bright live map through the chrome. Collapses to 0 height off iOS.
+- **Validation**: `npx tsc --noEmit` clean; `npm run build` succeeds; `docker compose config --quiet` valid; poller `py_compile` + pytest green.
+
+## 2026-05-31 — iOS PWA Home-Screen Icon & Fullscreen Polish
+
+- **Restored Scope-mark branding on iOS home screen**:
+    - iOS does not support SVG `apple-touch-icon`; it was falling back to an auto-generated tile (the gold "V" built from the app title + `theme_color`).
+    - Generated PNG icons from the canonical Scope mark (matching [frontend/public/icon.svg](frontend/public/icon.svg) geometry): `apple-touch-icon.png` (180×180), `icon-192.png`, `icon-512.png`, plus Android-adaptive `icon-maskable-192.png` / `icon-maskable-512.png` (mark inset into the 80% maskable safe zone).
+    - [frontend/index.html](frontend/index.html): pointed `apple-touch-icon` at the new 180×180 PNG.
+- **PWA manifest cleanup** ([frontend/public/manifest.json](frontend/public/manifest.json)):
+    - Replaced the single `any maskable` SVG icon entry with explicit `any` (SVG + 192/512 PNG) and dedicated `maskable` PNG entries (declaring a non-maskable icon as maskable caused Chrome to crop the mark's corners).
+    - Removed two invalid `screenshots` entries (SVG files declared with raster dimensions).
+    - Added `id: "/"`; aligned `background_color` to the app surface `#050505`.
+- **Fullscreen standalone polish** ([frontend/src/index.css](frontend/src/index.css)):
+    - Added `overscroll-behavior: none` to `html, body, #root` to stop iOS rubber-band overscroll from revealing a gutter behind the fixed map + chrome.
+- **Validation**: `npx tsc --noEmit` passed; `docker compose config --quiet` valid; manifest is valid JSON; rendered icons visually verified.
+
 ## 2026-05-20 — ACARSHub WebSocket 1005 Reconnect Loop Fix
 
 - **ACARS transport keepalive alignment**:

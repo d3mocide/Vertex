@@ -75,6 +75,15 @@ function Dashboard() {
         <Map />
       </div>
 
+      {/* Status-bar scrim — gives the iOS status bar / Dynamic Island a steady
+          dark glass backdrop so the chrome doesn't appear to bleed into the
+          live map under the notch. Collapses to 0 height off iOS. */}
+      <div
+        className="fixed top-0 inset-x-0 z-30 pointer-events-none bg-onyx-deep/80 backdrop-blur-md"
+        style={{ height: 'env(safe-area-inset-top, 0px)' }}
+        aria-hidden="true"
+      />
+
       <AlertStatusBar />
 
       <div className="flex flex-1 min-h-0 relative z-10 pointer-events-none">
