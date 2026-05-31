@@ -63,7 +63,7 @@ export function MobileNav() {
       )}
 
       <nav
-        className="fixed bottom-0 left-0 right-0 z-50 lg:hidden flex bg-onyx-deep/95 border-t border-white/10 backdrop-blur-md pb-safe"
+        className="fixed bottom-0 left-0 right-0 z-50 lg:hidden flex bg-onyx-deep border-t border-white/10 pb-safe"
         aria-label="Mobile navigation"
       >
         {PRIMARY_TABS.map((tab) => {
