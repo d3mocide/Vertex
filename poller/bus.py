@@ -55,11 +55,13 @@ async def publish_entity(
             should_publish = _entity_changed(previous, entity)
 
     # Always refresh the Redis TTL so the key stays alive while the entity is active.
-    await r.set(key, json.dumps(entity), ex=ttl)
+    # ⚡ Bolt Optimization: Cache json.dumps result to avoid re-serializing large payload for the pubsub wrapper
+    payload = json.dumps(entity)
+    await r.set(key, payload, ex=ttl)
 
     if should_publish:
         _entity_cache[entity_id] = entity
-        await r.publish("civic:updates", json.dumps({"type": "entity_update", "data": entity}))
+        await r.publish("civic:updates", f'{{"type":"entity_update","data":{payload}}}')
 
     from db import write_entity_observation  # lazy import — db imports geofence which imports bus
     if not should_publish and settings.adsb_publish_only_changes:
@@ -79,15 +81,18 @@ async def set_feed(key: str, data):
     payload = json.dumps(data)
     await r.set(f"feed:{key}", payload)
     # Radio active state gets its own typed message so the frontend can react immediately
+    # ⚡ Bolt Optimization: String concatenation bypasses a second json.dumps() for the wrapper
     msg_type = "radio_update" if key == "radio:active" else "feed_update"
-    await r.publish("civic:updates", json.dumps({"type": msg_type, "key": key, "data": data}))
+    await r.publish("civic:updates", f'{{"type":"{msg_type}","key":{json.dumps(key)},"data":{payload}}}')
 
 
 async def set_aircraft_snapshot(snapshot: dict):
     r = await get_bus()
     snapshot = sanitize_payload(snapshot)
-    await r.set("feed:aircraft_snapshot", json.dumps(snapshot))
-    await r.publish("civic:updates", json.dumps({"type": "aircraft_snapshot", "data": snapshot}))
+    # ⚡ Bolt Optimization: String concatenation bypasses a second json.dumps() for the huge snapshot
+    payload = json.dumps(snapshot)
+    await r.set("feed:aircraft_snapshot", payload)
+    await r.publish("civic:updates", f'{{"type":"aircraft_snapshot","data":{payload}}}')
 
 
 async def close():
