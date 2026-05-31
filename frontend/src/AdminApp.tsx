@@ -17,7 +17,7 @@ export default function AdminApp() {
   const [active, setActive] = useState<Section>('metrics')
 
   return (
-    <div className="flex h-screen w-screen bg-[#0a0a0f] text-gray-200 font-mono overflow-hidden">
+    <div className="flex h-full w-full bg-[#0a0a0f] text-gray-200 font-mono overflow-hidden">
       {/* Sidebar */}
       <aside className="flex flex-col w-52 shrink-0 border-r border-white/10 bg-black/40">
         <div className="flex items-center gap-2 px-4 py-4 border-b border-white/10">

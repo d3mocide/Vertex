@@ -4,7 +4,6 @@
 
 @layer base {
   html, body, #root {
-    height: 100%;
     overflow: hidden;
     /* Lock the iOS standalone PWA: no rubber-band overscroll that reveals a
        white/background gutter behind the fixed map + chrome. */
@@ -13,6 +12,29 @@
        and avoids the focus-zoom dance. Paired with user-scalable=no in the viewport. */
     -webkit-text-size-adjust: 100%;
     text-size-adjust: 100%;
+  }
+
+  html, body {
+    height: 100%;
+  }
+
+  /* Full-bleed app shell.
+     iOS standalone PWAs are notoriously inconsistent about height: `100vh`
+     and `height: 100%` can resolve to the *safe* viewport (innerHeight, e.g.
+     894px) rather than the full screen (956px), which leaves a black
+     letterbox bar and makes the app look like it isn't using the whole
+     display. Pinning #root with `position: fixed; inset: 0` anchors it to the
+     full layout viewport — which, with viewport-fit=cover, is the entire
+     screen including the notch and home-indicator areas — so the app always
+     paints edge-to-edge. `100dvh` is kept as a fallback for engines that
+     don't honour the fixed-inset trick. Safe-area padding *inside* the shell
+     (pt-safe / pb-safe, applied per component) keeps chrome clear of the
+     unsafe zones. */
+  #root {
+    position: fixed;
+    inset: 0;
+    height: 100%;
+    height: 100dvh;
   }
 
   body {
