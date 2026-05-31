@@ -19,15 +19,20 @@
   }
 
   /* Full-bleed app shell.
-     iOS standalone PWAs are notoriously inconsistent about height: `100vh`
-     and `height: 100%` can resolve to the *safe* viewport (innerHeight, e.g.
-     894px) rather than the full screen (956px), which leaves a black
-     letterbox bar and makes the app look like it isn't using the whole
-     display. Pinning #root with `position: fixed; inset: 0` anchors it to the
-     full layout viewport — which, with viewport-fit=cover, is the entire
-     screen including the notch and home-indicator areas — so the app always
-     paints edge-to-edge. `100dvh` is kept as a fallback for engines that
-     don't honour the fixed-inset trick. Safe-area padding *inside* the shell
+     On an iOS standalone PWA the layout viewport is the *small* viewport: it
+     excludes the status-bar / Dynamic Island band. Measured on iOS 18.7 at
+     dpr 3, `screen` is 956px tall but `window.innerHeight` (and `100svh` /
+     `100dvh`) is 894px — the 62px difference is exactly the top safe-area
+     inset. The large-viewport units over-report: `100vh` and `100lvh` resolve
+     to the full 956px, so a `height: 100vh` shell renders 62px too tall and
+     shoves content down under the island.
+     Pinning #root with `position: fixed; inset: 0` anchors it to that 894px
+     layout viewport, so it fills the window edge-to-edge with no letterbox
+     gap (verified: html / body / #root all measure 894, GAP innerH−rootBot is
+     0). #root does *not* paint the 62px island band — that stays UA chrome,
+     and it reads as seamless only because the app is dark-only. `100dvh` is
+     the matching fallback for engines that don't honour the fixed-inset trick;
+     never substitute `100vh` here. Safe-area padding *inside* the shell
      (pt-safe / pb-safe, applied per component) keeps chrome clear of the
      unsafe zones. */
   #root {
