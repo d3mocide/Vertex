@@ -1,0 +1,32 @@
+# Override to build multi-platform images (amd64 + arm64).
+# Use when pushing to a registry that serves both x86 and Pi deployments:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.multiplatform.yml build
+#
+# Requires buildx with QEMU binfmt handlers:
+#   make setup-buildx
+
+services:
+  backend:
+    build:
+      platforms:
+        - linux/amd64
+        - linux/arm64
+
+  poller:
+    build:
+      platforms:
+        - linux/amd64
+        - linux/arm64
+
+  frontend:
+    build:
+      platforms:
+        - linux/amd64
+        - linux/arm64
+
+  transcription:
+    build:
+      platforms:
+        - linux/amd64
+        - linux/arm64

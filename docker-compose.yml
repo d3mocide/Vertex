@@ -79,9 +79,6 @@ services:
   backend:
     build:
       context: ./backend
-      platforms:
-        - linux/amd64
-        - linux/arm64
     restart: unless-stopped
     deploy:
       resources:
@@ -120,9 +117,6 @@ services:
   poller:
     build:
       context: ./poller
-      platforms:
-        - linux/amd64
-        - linux/arm64
       args:
         AIRCRAFT_DB_URL: ${AIRCRAFT_DB_URL:-https://raw.githubusercontent.com/wiedehopf/tar1090-db/refs/heads/csv/aircraft.csv.gz}
         AIRPORTS_DB_URL: ${AIRPORTS_DB_URL:-https://davidmegginson.github.io/ourairports-data/airports.csv}
@@ -163,9 +157,6 @@ services:
   frontend:
     build:
       context: ./frontend
-      platforms:
-        - linux/amd64
-        - linux/arm64
       args:
         VITE_REGION_LAT: ${REGION_LAT:-45.3842}
         VITE_REGION_LON: ${REGION_LON:--122.7635}
@@ -196,9 +187,6 @@ services:
   transcription:
     build:
       context: ./transcription
-      platforms:
-        - linux/amd64
-        - linux/arm64
     restart: unless-stopped
     deploy:
       resources:
