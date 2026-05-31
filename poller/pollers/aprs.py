@@ -154,9 +154,12 @@ class AprsPoller(BasePoller):
             f"filter r/{settings.region_lat:.4f}/{settings.region_lon:.4f}/{radius}\n"
         )
 
+        from security import validate_safe_host
+
         while True:
             try:
                 logger.info("[aprs] connecting to %s:%d", host, port)
+                await validate_safe_host(host)
                 reader, writer = await asyncio.open_connection(host, port)
                 writer.write(login.encode("utf-8"))
                 await writer.drain()
