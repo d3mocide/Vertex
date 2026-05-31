@@ -1,4 +1,4 @@
-.PHONY: help build prod dev down logs clean startup-diagnose
+.PHONY: help build setup-buildx prod dev down logs clean startup-diagnose
 
 help: ## Show this help message
 	@echo "Usage: make [command]"
@@ -6,13 +6,16 @@ help: ## Show this help message
 	@echo "Commands:"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-15s %s\n", $$1, $$2}'
 
-build: ## Build all Docker images without starting them
+setup-buildx: ## Register QEMU binfmt handlers for multi-platform builds
+	docker run --rm --privileged tonistiigi/binfmt --install all
+
+build: setup-buildx ## Build all Docker images without starting them
 	docker compose build
 
-prod: ## Start the project in Production mode (detached)
+prod: setup-buildx ## Start the project in Production mode (detached)
 	docker compose up -d
 
-dev: ## Start the project in Development mode (detached, rebuilds images)
+dev: setup-buildx ## Start the project in Development mode (detached, rebuilds images)
 	docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build -d
 
 down: ## Stop and remove all containers
