@@ -61,7 +61,7 @@ function Dashboard() {
 
   return (
     <div
-      className="dark h-screen w-screen overflow-hidden flex flex-col font-body text-sm antialiased bg-onyx-black text-on-surface pt-safe pb-[calc(3.5rem_+_env(safe-area-inset-bottom))] lg:pb-0"
+      className="dark h-full w-full overflow-hidden flex flex-col font-body text-sm antialiased bg-onyx-black text-on-surface pt-safe pb-[calc(3.5rem_+_env(safe-area-inset-bottom))] lg:pb-0"
       data-mode={mode}
     >
       {/* Map Background Layer */}
@@ -175,7 +175,7 @@ export default function App() {
   }, [])
 
   if (!authChecked) return (
-    <div className="w-screen h-screen bg-onyx-black flex flex-col items-center justify-center gap-6">
+    <div className="w-full h-full bg-onyx-black flex flex-col items-center justify-center gap-6">
       {/* Scope mark — static corner brackets, rotating diamond, pulsing amber center */}
       <svg width="64" height="64" viewBox="0 0 32 32" aria-hidden="true" className="text-white">
         <g fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="square">

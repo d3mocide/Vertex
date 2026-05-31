@@ -44,7 +44,7 @@ function ScopeMark({ size = 56 }: { size?: number }) {
 function Shell({ children }: { children: React.ReactNode }) {
   return (
     <div
-      className="h-screen w-screen flex items-center justify-center bg-onyx-black"
+      className="h-full w-full flex items-center justify-center bg-onyx-black"
       style={{
         backgroundImage: [
           'linear-gradient(180deg, rgba(255,184,0,0.018) 0%, transparent 50%, rgba(0,0,0,0.4) 100%)',
