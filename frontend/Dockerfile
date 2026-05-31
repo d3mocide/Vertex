@@ -2,7 +2,10 @@
 FROM node:20-alpine AS build
 WORKDIR /app
 COPY package.json package-lock.json* ./
-RUN npm ci
+RUN npm config set fetch-retries 5 \
+    && npm config set fetch-retry-mintimeout 20000 \
+    && npm config set fetch-retry-maxtimeout 120000 \
+    && npm ci
 COPY . .
 # VITE_ vars are baked into the bundle at build time; pass via docker-compose build.args
 ARG VITE_RADAR_LAYER=RTX-N0Q-0
