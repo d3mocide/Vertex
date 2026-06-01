@@ -63,9 +63,20 @@ export function MobileNav() {
       )}
 
       <nav
-        className="fixed bottom-0 left-0 right-0 z-50 lg:hidden flex bg-onyx-deep/95 border-t border-white/10 backdrop-blur-md pb-safe"
+        className="fixed bottom-0 left-0 right-0 z-50 lg:hidden flex bg-white/[0.03] border-t border-white/[0.06] backdrop-blur-md shadow-[0_-4px_30px_rgba(0,0,0,0.5)] pb-safe"
         aria-label="Mobile navigation"
       >
+        {/* Glass reflection — mirrors the header so the bar reads as one piece
+            of chrome while the live map shows through to the bottom edge. */}
+        <div className="absolute inset-0 bg-gradient-to-t from-white/5 to-transparent pointer-events-none" aria-hidden="true" />
+
+        {/* Amber accent line along the top edge — mirrors the header underline. */}
+        <div
+          className="absolute left-0 right-0 top-[-1px] h-px pointer-events-none"
+          style={{ background: 'linear-gradient(90deg, transparent, #FFB800 20%, #FFB800 80%, transparent)', opacity: 0.35 }}
+          aria-hidden="true"
+        />
+
         {PRIMARY_TABS.map((tab) => {
           const active = activeTab === tab.id && !showMore
           return (
