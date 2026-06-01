@@ -64,6 +64,15 @@ async def websocket_endpoint(ws: WebSocket):
                                 await ws.send_text(raw)
                                 continue
 
+                            # ⚡ Bolt Optimization: Avoid json.loads if there are no active filters
+                            async with sub_lock:
+                                bbox = sub_state["bbox"]
+                                entity_types = sub_state["entity_types"]
+
+                            if bbox is None and entity_types is None:
+                                await ws.send_text(raw)
+                                continue
+
                             # Apply subscription filters to entity_update messages
                             try:
                                 parsed = json.loads(raw)
@@ -75,11 +84,7 @@ async def websocket_endpoint(ws: WebSocket):
                                 await ws.send_text(raw)
                                 continue
 
-                            # Apply subscription filters to entity_update messages
                             entity_data = parsed.get("data") or {}
-                            async with sub_lock:
-                                bbox = sub_state["bbox"]
-                                entity_types = sub_state["entity_types"]
 
                             if not _entity_passes_filter(entity_data, bbox, entity_types):
                                 continue
