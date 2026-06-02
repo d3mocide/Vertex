@@ -17,6 +17,7 @@ import time
 from typing import Callable
 
 from config import settings
+from security import validate_safe_host
 
 logger = logging.getLogger(__name__)
 
@@ -70,6 +71,7 @@ class BeastTransport:
         while True:
             writer = None
             try:
+                await validate_safe_host(host)
                 reader, writer = await asyncio.open_connection(host, port)
                 self._connected = True
                 logger.info("[beast] connected to %s:%s", host, port)

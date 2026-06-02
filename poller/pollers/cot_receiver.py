@@ -22,6 +22,7 @@ from xml.etree import ElementTree as ET
 from bus import get_bus, publish_entity
 from config import settings
 from db import get_pool
+from security import validate_safe_host
 from .base import BasePoller
 
 logger = logging.getLogger(__name__)
@@ -192,6 +193,7 @@ class CotReceiver(BasePoller):
 
         while True:
             try:
+                await validate_safe_host(settings.cot_receive_host)
                 reader, writer = await asyncio.open_connection(
                     settings.cot_receive_host, settings.cot_receive_port
                 )

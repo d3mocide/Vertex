@@ -6,6 +6,7 @@ from urllib.parse import urlparse
 from bus import publish_entity
 from config import settings
 from enrichment.aprs_symbols import classify_symbol
+from security import validate_safe_host
 from .base import BasePoller
 
 logger = logging.getLogger(__name__)
@@ -156,6 +157,7 @@ class AprsPoller(BasePoller):
 
         while True:
             try:
+                await validate_safe_host(host)
                 logger.info("[aprs] connecting to %s:%d", host, port)
                 reader, writer = await asyncio.open_connection(host, port)
                 writer.write(login.encode("utf-8"))
