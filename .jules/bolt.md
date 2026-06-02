@@ -26,3 +26,6 @@
 ## 2024-05-30 - [Optimize double JSON serialization in pub-sub wrappers]
 **Learning:** In high-throughput paths like `poller/bus.py` where a large JSON payload (like an entity update or snapshot) is wrapped inside another JSON object (e.g., `{"type": "...", "data": ...}`), passing the dictionary to `json.dumps()` forces Python to traverse and serialize the inner payload twice.
 **Action:** Cache the inner `json.dumps()` result and use string concatenation (f-strings) to build the outer JSON envelope (e.g., `f'{{"type": "{msg_type}", "data": {payload}}}'`), ensuring any injected variables are either safe literals or safely escaped. This can be up to 2x faster for large payloads.
+## 2024-05-31 - [Bypass JSON parsing completely when client filters are inactive]
+**Learning:** In high-throughput websocket broadcast loops (e.g., `backend/routers/ws.py`), parsing every incoming message with `json.loads` before checking client-specific filters (such as bounding boxes and entity types) wastes immense CPU cycles if those filters aren't even active.
+**Action:** Always fetch the filter state before attempting to parse the payload. If the filters are `None` (inactive), skip `json.loads()` entirely and just forward the raw JSON string directly via `ws.send_text()`.
