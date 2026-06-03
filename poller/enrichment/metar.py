@@ -68,16 +68,17 @@ class MetarClient:
 
         try:
             fetched = await self._fetch_batch(missing)
-        except UpstreamRateLimitedError:
-            fetched = {icao: self._lookup.get_stale(icao) for icao in missing}
-        except httpx.HTTPError as exc:
-            # METAR batch lookups are often fired as background tasks; treat transient
-            # upstream failures as soft misses so they do not surface as unhandled task errors.
-            logger.warning("[metar] upstream request failed for %d ICAOs: %s", len(missing), exc)
-            fetched = {icao: self._lookup.get_stale(icao) for icao in missing}
         except Exception as exc:
-            logger.warning("[metar] batch lookup failed for %d ICAOs: %s", len(missing), exc)
-            fetched = {icao: self._lookup.get_stale(icao) for icao in missing}
+            if not isinstance(exc, UpstreamRateLimitedError):
+                if isinstance(exc, httpx.HTTPError):
+                    # METAR batch lookups are often fired as background tasks; treat transient
+                    # upstream failures as soft misses so they do not surface as unhandled task errors.
+                    logger.warning("[metar] upstream request failed for %d ICAOs: %s", len(missing), exc)
+                else:
+                    logger.warning("[metar] batch lookup failed for %d ICAOs: %s", len(missing), exc)
+
+            fetched = self._lookup.get_stale_many(missing)
+
         result.update(fetched)
         self._persist_cache()
         return result

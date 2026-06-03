@@ -1,31 +1,4 @@
-## 2024-05-09 - [Optimize Generator Expression in any()]
-**Learning:** In tight loops (like poller services), avoid generator expressions within `any()`; unrolling them into a simple `for` loop with a boolean flag eliminates generator/frame overhead and is significantly faster in Python.
-**Action:** When working on data-heavy loops in the `poller/` directory, replace `any(expr for item in iterable)` with explicit unrolled loops for noticeable speedups.
-## 2026-05-10 - [Optimize str.startswith with tuples instead of any(generator)]\n**Learning:** In hot paths (like AuthMiddleware parsing every request),  is measurably slower than passing a tuple directly: . The generator creates overhead that can be bypassed by leveraging the native C implementation of .\n**Action:** Use tuples directly with  instead of looping or generator expressions when checking multiple prefixes.
-## 2024-05-10 - [Optimize str.startswith with tuples instead of any(generator)]
-**Learning:** In hot paths (like AuthMiddleware parsing every request), `any(path.startswith(prefix) for prefix in prefixes)` is measurably slower than passing a tuple directly: `path.startswith(prefixes)`. The generator creates overhead that can be bypassed by leveraging the native C implementation of `startswith`.
-**Action:** Use tuples directly with `startswith` instead of looping or generator expressions when checking multiple string prefixes.
-## 2024-05-13 - [Hoist redundant datetime calls in geofence loop]
-**Learning:** In `poller/geofence.py`, calling `datetime.now(timezone.utc)` repeatedly inside a dictionary iteration generator expression (or tight loop) adds measurable overhead for no benefit since the execution happens within the same frame.
-**Action:** Always hoist variables that remain constant during execution (like the current time) outside of loops and list comprehensions.
-## 2024-05-22 - [Optimize Generator Expression in all()]
-**Learning:** Similar to `any()`, unrolling `all()` generator expressions in hot paths (like `poller/normalizers/beast_decoder.py`) avoids generator/frame overhead and can be ~2-20x faster depending on how early it exits.
-**Action:** Unroll `all()` into explicit loops with early returns when optimizing high-frequency parsing/decoding code.
-## 2026-05-10 - [Optimize JSON parsing with fast string match]
-**Learning:** In high-throughput async Python components (like ADSB poller sync looping over thousands of Redis keys), calling `json.loads(raw)` on every single entity when you only care about a specific type is extremely slow. We can use fast string matching (`b'"entity_type": "aircraft"' in raw`) to bypass parsing for non-matching entities. Note that `raw` from Redis might be `bytes` or `str` so check appropriately.
-**Action:** When looping over large datasets where only a subset of JSON objects are relevant, use fast matching on the raw payload to filter out non-matching entities before calling `json.loads()`.
-## 2024-05-23 - [Bypass JSON parsing for non-entity WebSocket updates]
-**Learning:** In the WebSocket broadcasting loop (`backend/routers/ws.py`), parsing every incoming JSON message using `json.loads` before checking its type can be extremely slow and block the event loop, especially when passing along large payloads (like snapshots) that don't need filtering.
-**Action:** Use fast string matching (e.g., `'"type": "entity_update"' in raw`) to bypass `json.loads` entirely for messages that don't need filtering. This avoids deserialization overhead and significantly speeds up the event loop when dealing with large payloads.
-## 2024-05-24 - [Avoid closure/function call overhead in hot paths]
-**Learning:** In hot paths (like repeated snapshot generation in `poller/normalizers/beast_decoder.py`), defining and calling small inner functions (closures) repeatedly is significantly slower than pre-computing unrolled boolean flags. Function call overhead in Python is high.
-**Action:** Unroll and pre-calculate simple conditional logic instead of abstracting it behind inner helper functions when executing in high-throughput loops or dictionary comprehensions.
-## 2024-05-30 - [Optimize JSON parsing with fast string match safely]
-**Learning:** When using fast string matching to bypass `json.loads(raw)` on payloads (e.g. `b'"entity_type"' in raw`), we must account for variations in JSON spacing (e.g. `"key":"value"` vs `"key": "value"`) to avoid brittle conditions and false negatives that cause unintentional data loss. Furthermore, Redis data may be returned as `bytes` or `str`, and searching for a `str` in a `bytes` payload will cause a `TypeError`. We must verify the data type (`isinstance(raw, bytes)` or `isinstance(raw, str)`) and search using the corresponding prefix type (`b"..."` vs `"..."`) before wrapping `json.loads` in a `try...except`. Checking for both the key and the value independently is a robust and fast way to filter out non-matching entities without brittle spacing assumptions.
-**Action:** When looping over large datasets and pre-filtering using string matching, verify whether `raw` is `bytes` or `str` and check for the presence of the key and the expected value independently to safely bypass `json.loads()`.
-## 2024-05-30 - [Optimize double JSON serialization in pub-sub wrappers]
-**Learning:** In high-throughput paths like `poller/bus.py` where a large JSON payload (like an entity update or snapshot) is wrapped inside another JSON object (e.g., `{"type": "...", "data": ...}`), passing the dictionary to `json.dumps()` forces Python to traverse and serialize the inner payload twice.
-**Action:** Cache the inner `json.dumps()` result and use string concatenation (f-strings) to build the outer JSON envelope (e.g., `f'{{"type": "{msg_type}", "data": {payload}}}'`), ensuring any injected variables are either safe literals or safely escaped. This can be up to 2x faster for large payloads.
-## 2024-05-31 - [Bypass JSON parsing completely when client filters are inactive]
-**Learning:** In high-throughput websocket broadcast loops (e.g., `backend/routers/ws.py`), parsing every incoming message with `json.loads` before checking client-specific filters (such as bounding boxes and entity types) wastes immense CPU cycles if those filters aren't even active.
-**Action:** Always fetch the filter state before attempting to parse the payload. If the filters are `None` (inactive), skip `json.loads()` entirely and just forward the raw JSON string directly via `ws.send_text()`.
+## 2024-05-18 - Optimize dictionary comprehension lookups in exception handlers
+
+**Learning:** Repeated fallback cache lookups (`_lookup.get_stale(icao)`) within multiple exception handlers can cause significant performance overhead during errors or rate-limiting events.
+**Action:** When a method performs fallback dictionary iteration on failures, centralize the exception block to eliminate repetitive fallback logic, and implement a dedicated batch fallback method (`get_stale_many`) on the cache abstraction to perform direct, optimized attribute lookups (`self._entries.get`) instead of repetitive method invocations.

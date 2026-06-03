@@ -107,6 +107,9 @@ class CachedLookup(Generic[T]):
         entry = self._entries.get(key)
         return entry.data if entry else None
 
+    def get_stale_many(self, keys: list[str]) -> dict[str, T | None]:
+        return {key: entry.data if (entry := self._entries.get(key)) else None for key in keys}
+
     async def get(self, key: str, fetcher: Callable[[str], Awaitable[T | None]]) -> T | None:
         known, cached = self.lookup_cached(key)
         if known:
