@@ -202,6 +202,12 @@ interface CivicStore {
   setTerrainEnabled:      (v: boolean) => void
   terrainExaggeration:    number
   setTerrainExaggeration: (v: number) => void
+  // 3-D buildings (fill-extrusion); only meaningful when terrain/3-D is on
+  buildingsEnabled:       boolean
+  setBuildingsEnabled:    (v: boolean) => void
+  // Animated glowing trails (TripsLayer)
+  animatedTrails:         boolean
+  setAnimatedTrails:      (v: boolean) => void
 }
 
 export interface LightningStrike {
@@ -358,6 +364,8 @@ export const useCivicStore = create<CivicStore>()(
   gaugesVisible:       true,
   terrainEnabled:      false,
   terrainExaggeration: 1.5,
+  buildingsEnabled:    false,
+  animatedTrails:      false,
   selectedCamId:    null,
   favoriteCamIds:   loadFavoriteCamIds(),
   customLayers:     [],
@@ -586,6 +594,8 @@ export const useCivicStore = create<CivicStore>()(
   setGaugesVisible:       (gaugesVisible)       => set({ gaugesVisible }),
   setTerrainEnabled:      (terrainEnabled)      => set({ terrainEnabled }),
   setTerrainExaggeration: (terrainExaggeration) => set({ terrainExaggeration }),
+  setBuildingsEnabled:    (buildingsEnabled)    => set({ buildingsEnabled }),
+  setAnimatedTrails:      (animatedTrails)      => set({ animatedTrails }),
   setMobileNavOpen:  (mobileNavOpen)  => set({ mobileNavOpen }),
   setSettingsOpen:   (settingsOpen)   => set({ settingsOpen }),
   setHelpOpen:       (helpOpen)       => set({ helpOpen }),
@@ -675,6 +685,8 @@ export const useCivicStore = create<CivicStore>()(
       gaugesVisible:      state.gaugesVisible,
       terrainEnabled:     state.terrainEnabled,
       terrainExaggeration: state.terrainExaggeration,
+      buildingsEnabled:   state.buildingsEnabled,
+      animatedTrails:     state.animatedTrails,
       ldiMode:            state.ldiMode,
     }),
   }

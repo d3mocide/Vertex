@@ -4,6 +4,7 @@ import { PathStyleExtension } from '@deck.gl/extensions'
 import type { Track } from '../store'
 import { getDistanceMeters } from './geoUtils'
 import { entityColor } from './colorUtils'
+import { DEPTH_OCCLUDE } from './occlusion'
 
 // deck.gl's Position is a @math.gl Vector (Float64Array-based), so plain number[]
 // needs a double-cast when passing to typed accessors.
@@ -22,21 +23,40 @@ function trailPath(t: Track): Position[] {
     : t.trail.map(p => pos([p[0], p[1]]))
 }
 
+// 3-D path: aircraft trails climb to their recorded altitude (metres, stored in
+// the raw trail tuple), vessel trails stay at sea level so coastal terrain
+// occludes them. Falls back to a flat path when history is too sparse.
+function trailPath3D(t: Track): Position[] {
+  if (t.type === 'air' && t.trail.length >= 2) {
+    return t.trail
+      .filter(p => p[0] != null && p[1] != null)
+      .map(p => pos([p[0], p[1], p[2] ?? 0]))
+  }
+  return t.smoothedTrail.length >= 2
+    ? t.smoothedTrail.map(p => pos([p[0], p[1], 0]))
+    : t.trail.map(p => pos([p[0], p[1], 0]))
+}
+
 // ─── buildTrailLayers ─────────────────────────────────────────────────────────
-// Returns: [trailLayer, gapBridgeLayer, predictedPathLayer, selectedTrailLayer]
+// Returns: [trailLayer, occludedTrailLayer, gapBridgeLayer, predictedPathLayer, selectedTrailLayer]
 export function buildTrailLayers(
   tracks: Record<string, Track>,
   selectedUid: string | null,
   trailsVisible: boolean,
+  threeD = false,
 ): Layer[] {
   const trackArr = Object.values(tracks)
 
-  // ── All non-selected history trails ─────────────────────────────────────
+  const hasTrail = (t: Track) => t.smoothedTrail.length >= 2 || t.trail.length >= 2
+
+  // ── Non-selected history trails that draw on top (no terrain occlusion) ───
+  // In 3-D mode, air/sea trails move to the depth-tested layer below.
   const trailLayer = new PathLayer<Track>({
     id:             'history-trails',
     data:           trailsVisible
       ? trackArr.filter(t =>
-        t.type !== 'rail' && t.uid !== selectedUid && (t.smoothedTrail.length >= 2 || t.trail.length >= 2),
+        t.type !== 'rail' && t.uid !== selectedUid && hasTrail(t)
+        && !(threeD && (t.type === 'air' || t.type === 'sea')),
       )
       : [],
     getPath:        trailPath,
@@ -47,6 +67,26 @@ export function buildTrailLayers(
     jointRounded:   true,
     capRounded:     true,
     pickable:       false,
+  })
+
+  // ── Air/sea history trails, depth-tested against terrain (3-D only) ───────
+  const occludedTrailLayer = new PathLayer<Track>({
+    id:             'history-trails-occluded',
+    data:           trailsVisible && threeD
+      ? trackArr.filter(t =>
+        (t.type === 'air' || t.type === 'sea') && t.uid !== selectedUid && hasTrail(t),
+      )
+      : [],
+    getPath:        trailPath3D,
+    getColor:       (t) => entityColor(t, 180),
+    getWidth:       () => 2.5,
+    widthMinPixels: 1.5,
+    widthUnits:     'pixels',
+    jointRounded:   true,
+    capRounded:     true,
+    pickable:       false,
+    parameters:     DEPTH_OCCLUDE,
+    updateTriggers: { getPath: threeD },
   })
 
   // ── Gap bridge: connect smoothed trail end → live position ───────────────
@@ -118,5 +158,5 @@ export function buildTrailLayers(
     capRounded:     true,
   })
 
-  return [trailLayer, gapBridgeLayer, predictedPathLayer, selectedTrailLayer]
+  return [trailLayer, occludedTrailLayer, gapBridgeLayer, predictedPathLayer, selectedTrailLayer]
 }

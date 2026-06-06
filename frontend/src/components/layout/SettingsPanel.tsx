@@ -25,6 +25,8 @@ export function SettingsPanel() {
     gaugesVisible, setGaugesVisible,
     terrainEnabled, setTerrainEnabled,
     terrainExaggeration, setTerrainExaggeration,
+    buildingsEnabled, setBuildingsEnabled,
+    animatedTrails, setAnimatedTrails,
     entityFilter, setEntityFilter,
     debugInsets, setDebugInsets,
   } = useCivicStore()
@@ -145,6 +147,10 @@ export function SettingsPanel() {
 
               {/* Map Foundation */}
               <ToggleRow label="3D Terrain" icon="landscape" checked={terrainEnabled} onChange={setTerrainEnabled} />
+              {terrainEnabled && (
+                <ToggleRow label="3D Buildings" icon="apartment" checked={buildingsEnabled} onChange={setBuildingsEnabled} />
+              )}
+              <ToggleRow label="Animated Trails" icon="animation" checked={animatedTrails} onChange={setAnimatedTrails} />
             </div>
           </section>
 
@@ -201,6 +207,26 @@ export function SettingsPanel() {
                     aria-label="Terrain exaggeration"
                   />
                 </div>
+              </div>
+              <div className="flex gap-2 mt-3">
+                {([['Flat', 1], ['Relief', 1.5], ['Dramatic', 2.5], ['Extreme', 5]] as const).map(([label, value]) => {
+                  const active = terrainExaggeration === value
+                  return (
+                    <button
+                      key={label}
+                      type="button"
+                      onClick={() => setTerrainExaggeration(value)}
+                      aria-pressed={active}
+                      className={`flex-1 px-2 py-1.5 text-[10px] font-mono uppercase tracking-wider border transition-colors ${
+                        active
+                          ? 'border-amber-gold bg-amber-gold/10 text-amber-gold'
+                          : 'border-outline-variant text-on-surface-variant hover:border-amber-gold-muted hover:text-on-surface'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  )
+                })}
               </div>
             </section>
           )}

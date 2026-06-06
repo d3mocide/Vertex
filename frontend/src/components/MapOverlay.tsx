@@ -1,13 +1,15 @@
 import { useEffect, useRef } from 'react'
 import maplibregl from 'maplibre-gl'
-import { Deck } from '@deck.gl/core'
+import { MapboxOverlay } from '@deck.gl/mapbox'
 import { useCivicStore } from '../store'
 import type { Entity, Track, TrafficCamera, EntityTypeFilter, RangeFilter, ReplayData, SystemEvent } from '../store'
 import { buildEntityLayers } from '../layers/buildEntityLayers'
 import { buildTrailLayers } from '../layers/buildTrailLayers'
+import { buildAnimatedTrailLayers } from '../layers/buildAnimatedTrailLayers'
 import { buildCameraLayer } from '../layers/buildCameraLayer'
 import { buildEventLayers } from '../layers/buildEventLayers'
 import { buildAnnotationLayers, buildAnnotationDrawPreviewLayers } from '../layers/AnnotationLayer'
+import { DEPTH_ON_TOP } from '../layers/occlusion'
 import { buildGeofenceLayers, type GeofenceItem } from '../layers/buildGeofenceLayers'
 import { buildObservationRingLayers } from '../layers/buildObservationRingLayer'
 import { buildCustomLayers } from '../layers/buildCustomLayers'
@@ -86,19 +88,8 @@ function buildReplayTracks(data: ReplayData, atMs: number): Record<string, Track
   return result
 }
 
-function getViewState(map: maplibregl.Map) {
-  const { lng, lat } = map.getCenter()
-  return {
-    longitude: lng,
-    latitude:  lat,
-    zoom:      map.getZoom(),
-    pitch:     map.getPitch(),
-    bearing:   map.getBearing(),
-  }
-}
-
 export function MapOverlay({ map }: Props) {
-  const deckRef           = useRef<Deck | null>(null)
+  const overlayRef        = useRef<MapboxOverlay | null>(null)
   const layersRef         = useRef<any[]>([])
   const entitiesRef       = useRef<Record<string, Entity>>({})
   const tracksRef         = useRef<Record<string, Track>>({})
@@ -142,6 +133,8 @@ export function MapOverlay({ map }: Props) {
   const setActiveTab      = useCivicStore((s) => s.setActiveTab)
   const geofencesVisible  = useCivicStore((s) => s.geofencesVisible)
   const trailsVisible     = useCivicStore((s) => s.trailsVisible)
+  const terrainEnabled    = useCivicStore((s) => s.terrainEnabled)
+  const animatedTrails    = useCivicStore((s) => s.animatedTrails)
   const annotations       = useCivicStore((s) => s.annotations)
   const annotationsVisible = useCivicStore((s) => s.annotationsVisible)
   const customLayers      = useCivicStore((s) => s.customLayers)
@@ -192,6 +185,11 @@ export function MapOverlay({ map }: Props) {
   useEffect(() => { geofencesVisibleRef.current = geofencesVisible }, [geofencesVisible])
   const trailsVisibleRef = useRef(true)
   useEffect(() => { trailsVisibleRef.current = trailsVisible }, [trailsVisible])
+  // 3-D occlusion follows the terrain toggle; animated trails are independent.
+  const threeDRef = useRef(false)
+  useEffect(() => { threeDRef.current = terrainEnabled }, [terrainEnabled])
+  const animatedTrailsRef = useRef(false)
+  useEffect(() => { animatedTrailsRef.current = animatedTrails }, [animatedTrails])
   useEffect(() => {
     let cancelled = false
     const loadGeofences = async () => {
@@ -284,26 +282,20 @@ export function MapOverlay({ map }: Props) {
   useEffect(() => {
     const container = map.getContainer()
 
-    // Overlay canvas: sits on top of the MapLibre canvas, passes events through.
-    const canvas = document.createElement('canvas')
-    canvas.id = 'deck-overlay-canvas'
-    canvas.style.cssText = 'position:absolute;top:0;left:0;pointer-events:none;'
-    canvas.width  = container.clientWidth
-    canvas.height = container.clientHeight
-    container.appendChild(canvas)
-
-    // Deck defaults to MapView with flat viewState — no views[] needed.
+    // Interleaved deck.gl: renders inside MapLibre's WebGL context and shares its
+    // depth buffer, so layers can be occluded by the 3-D terrain mesh. MapLibre
+    // owns the camera (no manual viewState sync) and all user input. The
+    // overlay-wide default disables depth testing — layers opt IN to terrain
+    // occlusion individually (see layers/occlusion.ts).
     let deckReady = false
-    const deck = new Deck({
-      canvas,
-      width:            container.clientWidth,
-      height:           container.clientHeight,
-      controller:       false,    // MapLibre owns all user input
-      initialViewState: getViewState(map),
-      layers:           [],
-      onLoad:           () => { deckReady = true },
+    const deck = new MapboxOverlay({
+      interleaved: true,
+      parameters:  DEPTH_ON_TOP,
+      layers:      [],
+      onLoad:      () => { deckReady = true },
     })
-    deckRef.current = deck
+    map.addControl(deck)
+    overlayRef.current = deck
 
     // Unified SA Tooltip Bridge
     const tooltip = document.createElement('div')
@@ -326,7 +318,7 @@ export function MapOverlay({ map }: Props) {
       
       if (picked?.object && picked.layer) {
         const { object, layer } = picked
-        if (layer.id === 'entity-icons') {
+        if (layer.id === 'entity-icons' || layer.id === 'entity-icons-occluded') {
           const t = object as Track
           const isTak = t.type === 'tak' || t.source.toLowerCase().includes('tak')
           if (isTak && isMobileViewport) {
@@ -514,14 +506,8 @@ export function MapOverlay({ map }: Props) {
     }
     map.on('click', onMapClick)
 
-    // Resize the overlay canvas when the map container resizes
-    const resizeObserver = new ResizeObserver(() => {
-      const w = container.clientWidth, h = container.clientHeight
-      canvas.width  = w
-      canvas.height = h
-      deck.setProps({ width: w, height: h })
-    })
-    resizeObserver.observe(container)
+    // No manual resize handling: the interleaved overlay tracks the MapLibre
+    // canvas size automatically.
 
     let last = performance.now()
     let lastLayerBuild = 0
@@ -531,10 +517,8 @@ export function MapOverlay({ map }: Props) {
       last = now
       cycleRef.current = (cycleRef.current + dt / 2000) % 1  // 2-second pulse
 
-      // Sync Deck camera every frame — eliminates the 1-frame lag that occurs
-      // when relying on map.on('render') because that fires after MapLibre paints,
-      // causing Deck to always be one RAF behind during map movement.
-      deck.setProps({ viewState: getViewState(map) })
+      // No manual camera sync: interleaved MapboxOverlay reads the live camera
+      // from MapLibre, so deck never lags the basemap during pan/zoom/pitch.
 
       const shouldRebuildLayers = (now - lastLayerBuild >= LAYER_BUILD_INTERVAL_MS)
       if (!shouldRebuildLayers) {
@@ -664,7 +648,8 @@ export function MapOverlay({ map }: Props) {
         }
       }
 
-      const zoom = map.getZoom()
+      const zoom   = map.getZoom()
+      const threeD = threeDRef.current
       const layers = [
           ...buildCustomLayers(customLayersRef.current),
           ...buildGeofenceLayers(geofencesRef.current, geofencesVisibleRef.current),
@@ -681,8 +666,11 @@ export function MapOverlay({ map }: Props) {
             const source = wsGauges.length > 0 ? wsGauges : fallback
             return buildStreamGaugeLayers(source, gaugesVisibleRef.current, zoom)
           })(),
-          ...buildTrailLayers(pvbTracks, sel, trailsVisibleRef.current),
-          ...buildEntityLayers(pvbTracks, sel, cycleRef.current, zoom, missionTagsRef.current),
+          ...buildTrailLayers(pvbTracks, sel, trailsVisibleRef.current, threeD),
+          ...(animatedTrailsRef.current
+            ? buildAnimatedTrailLayers(pvbTracks, threeD, now)
+            : []),
+          ...buildEntityLayers(pvbTracks, sel, cycleRef.current, zoom, missionTagsRef.current, threeD),
           ...buildEventLayers(systemEventsRef.current, nowMs),
           ...(lightningVisibleRef.current
             ? buildLightningLayer(lightningRef.current, nowMs, zoom)
@@ -709,11 +697,11 @@ export function MapOverlay({ map }: Props) {
       cancelAnimationFrame(rafRef.current)
       map.off('click', onMapClick)
       map.off('mousemove', onMapMouseMove)
-      resizeObserver.disconnect()
-      deck.finalize()
-      canvas.remove()
+      // removeControl runs the overlay's onRemove, which finalizes deck and
+      // detaches its interleaved render hook from the MapLibre context.
+      if (map.hasControl(deck)) map.removeControl(deck)
       tooltip.remove()
-      deckRef.current = null
+      overlayRef.current = null
       pvbRef.current = {}
     }
   }, [map])

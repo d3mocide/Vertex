@@ -1,26 +1,12 @@
-import { Layer, type LayerContext } from '@deck.gl/core'
+import { Layer, type Position } from '@deck.gl/core'
 import { IconLayer, ScatterplotLayer, TextLayer } from '@deck.gl/layers'
 import type { Track } from '../store'
 import { getAtlasIcons } from './atlasIcons'
 import { entityColor } from './colorUtils'
+import { DEPTH_OCCLUDE, DEPTH_ON_TOP, isOccludable } from './occlusion'
 
-// ─── StencilClearLayer ────────────────────────────────────────────────────────
-// Clears MapLibre tile stencil buffer bleed before deck.gl draws.
-export class StencilClearLayer extends Layer {
-  static layerName = 'StencilClearLayer'
-
-  initializeState(_context: LayerContext): void {}
-
-  // DrawOptions carries context: LayerContext which exposes gl (deprecated but present in v9)
-  draw(opts: Parameters<Layer['draw']>[0]): void {
-    const { gl } = opts.context
-    gl.disable(gl.STENCIL_TEST)
-    gl.stencilMask(0xff)
-    gl.clear(gl.STENCIL_BUFFER_BIT)
-  }
-
-  renderLayers() { return [] }
-}
+// deck.gl's Position is a @math.gl Vector; a plain number[] needs a double-cast.
+const pos = (arr: number[]): Position => arr as unknown as Position
 
 // Zoom bucket helpers — mirrors the Atlas spec (FULL >= 9 / RING 6-8 / DOT < 6).
 function iconForZoom(fullName: string, zoom: number): string {
@@ -70,6 +56,7 @@ export function buildEntityLayers(
   cycle: number,
   zoom: number,
   tagColorMap?: Record<string, [number, number, number, number]>,
+  threeD = false,
 ): Layer[] {
   const atlas    = getAtlasIcons()
   const trackArr = Object.values(tracks)
@@ -109,70 +96,91 @@ export function buildEntityLayers(
     : t.type === 'sensor' ? 'rf_sensor'
     : 'aircraft'
 
-  const iconOutlineLayer = new IconLayer<Track>({
-    id:          'entity-icons-outline',
-    data:        trackArr,
-    iconAtlas:   atlas.url,
-    iconMapping: atlas.mapping,
-    getIcon:     (t) => {
-      const icon = baseIcon(t)
-      if (zoom >= 9) return icon
-      if (zoom >= 6) {
-        if (t.type === 'air' || t.type === 'sea' || t.type === 'tak' || t.type === 'rail') return icon
-        return 'dot'
-      }
+  const getIconFor = (t: Track) => {
+    const icon = baseIcon(t)
+    if (zoom >= 9) return icon
+    if (zoom >= 6) {
+      // Keep ADSB (air), AIS (sea), TAK clients, and trains as full icons at mid zoom.
+      if (t.type === 'air' || t.type === 'sea' || t.type === 'tak' || t.type === 'rail') return icon
       return 'dot'
-    },
-    getPosition: (t) => [t.lon, t.lat],
-    getAngle:    (t) => -t.courseTrue,
-    getColor:    [15, 23, 42, 220], // Slate-900 with high alpha for contrast
-    getSize:     (t) => entityIconSize(selectedUid, t, zoom) + 2.5,
-    sizeUnits:   'pixels',
-    billboard:   false,
-    pickable:    false, // Only top layer needs to be pickable
-    updateTriggers: {
-      getIcon:  zoom,
-      getAngle: trackArr.map(t => t.courseTrue),
-      getSize:  [selectedUid, zoom],
-    },
-  })
+    }
+    return 'dot'
+  }
 
-  const iconLayer = new IconLayer<Track>({
-    id:          'entity-icons',
-    data:        trackArr,
-    iconAtlas:   atlas.url,
-    iconMapping: atlas.mapping,
-    getIcon:     (t) => {
-      const icon = baseIcon(t)
-      if (zoom >= 9) return icon
-      if (zoom >= 6) {
-        // Keep ADSB (air), AIS (sea), TAK clients, and trains as full icons at mid zoom.
-        if (t.type === 'air' || t.type === 'sea' || t.type === 'tak' || t.type === 'rail') return icon
-        return 'dot'
-      }
-      return 'dot'
-    },
-    getPosition: (t) => [t.lon, t.lat],
-    getAngle:    (t) => -t.courseTrue,
-    getColor:    (t) => {
-      if (t.type === 'ground')  return aprsColor(t.stationType)
-      if (t.type === 'tak')     return TAK_ICON_COLOR
-      if (t.type === 'hazard')  return FIRE_ICON_COLOR
-      if (t.type === 'rail')    return tagColorMap?.[t.uid] ?? TRAIN_ICON_COLOR
-      if (t.type === 'sensor')  return RF_SENSOR_COLOR
-      return tagColorMap?.[t.uid] ?? entityColor(t)
-    },
-    getSize:     (t) => entityIconSize(selectedUid, t, zoom),
-    sizeUnits:   'pixels',
-    billboard:   false,
-    pickable:    true,
-    updateTriggers: {
-      getIcon:  zoom,
-      getAngle: trackArr.map(t => t.courseTrue),
-      getColor: trackArr.map(t => tagColorMap?.[t.uid]?.join(',') ?? `${t.altMeters + t.speedMs}${t.stationType ?? ''}`),
-      getSize:  [selectedUid, zoom],
-    },
-  })
+  const getIconColor = (t: Track): [number, number, number, number] => {
+    if (t.type === 'ground')  return aprsColor(t.stationType)
+    if (t.type === 'tak')     return TAK_ICON_COLOR
+    if (t.type === 'hazard')  return FIRE_ICON_COLOR
+    if (t.type === 'rail')    return tagColorMap?.[t.uid] ?? TRAIN_ICON_COLOR
+    if (t.type === 'sensor')  return RF_SENSOR_COLOR
+    return tagColorMap?.[t.uid] ?? entityColor(t)
+  }
+
+  // In 3-D mode aircraft fly at their true altitude (so ridges occlude low
+  // traffic) and everything occludable shares the terrain depth buffer. Land
+  // markers and labels stay on top regardless. In flat mode a single bucket
+  // holds every track exactly as before.
+  const getIconPosition = (t: Track): Position =>
+    pos(threeD && t.type === 'air' ? [t.lon, t.lat, t.altMeters] : [t.lon, t.lat])
+
+  // Build an outline+icon pair for a subset of tracks. `idSuffix` keeps the
+  // pickable layer id stable as 'entity-icons' for the on-top bucket so the
+  // tooltip/click bridge keeps working; the occluded bucket adds its own id.
+  function iconPair(data: Track[], occlude: boolean, idSuffix: string): IconLayer<Track>[] {
+    const parameters = occlude ? DEPTH_OCCLUDE : DEPTH_ON_TOP
+    const outline = new IconLayer<Track>({
+      id:          `entity-icons-outline${idSuffix}`,
+      data,
+      iconAtlas:   atlas.url,
+      iconMapping: atlas.mapping,
+      getIcon:     getIconFor,
+      getPosition: getIconPosition,
+      getAngle:    (t) => -t.courseTrue,
+      getColor:    [15, 23, 42, 220], // Slate-900 with high alpha for contrast
+      getSize:     (t) => entityIconSize(selectedUid, t, zoom) + 2.5,
+      sizeUnits:   'pixels',
+      billboard:   false,
+      pickable:    false, // Only the top layer needs to be pickable
+      parameters,
+      updateTriggers: {
+        getIcon:     zoom,
+        getPosition: threeD,
+        getAngle:    data.map(t => t.courseTrue),
+        getSize:     [selectedUid, zoom],
+      },
+    })
+    const icon = new IconLayer<Track>({
+      id:          `entity-icons${idSuffix}`,
+      data,
+      iconAtlas:   atlas.url,
+      iconMapping: atlas.mapping,
+      getIcon:     getIconFor,
+      getPosition: getIconPosition,
+      getAngle:    (t) => -t.courseTrue,
+      getColor:    getIconColor,
+      getSize:     (t) => entityIconSize(selectedUid, t, zoom),
+      sizeUnits:   'pixels',
+      billboard:   false,
+      pickable:    true,
+      parameters,
+      updateTriggers: {
+        getIcon:     zoom,
+        getPosition: threeD,
+        getAngle:    data.map(t => t.courseTrue),
+        getColor:    data.map(t => tagColorMap?.[t.uid]?.join(',') ?? `${t.altMeters + t.speedMs}${t.stationType ?? ''}`),
+        getSize:     [selectedUid, zoom],
+      },
+    })
+    return [outline, icon]
+  }
+
+  // In 3-D, peel air/sea into a depth-tested bucket; the rest stay on top.
+  const onTopData    = threeD ? trackArr.filter(t => !isOccludable(t.type)) : trackArr
+  const occludedData = threeD ? trackArr.filter(t =>  isOccludable(t.type)) : []
+  const iconLayers: IconLayer<Track>[] = [
+    ...iconPair(onTopData, false, ''),
+    ...(occludedData.length ? iconPair(occludedData, true, '-occluded') : []),
+  ]
 
   // Pulsing red ring for APRS emergency stations.
   const emergencyAprs = trackArr.filter(t => t.type === 'ground' && t.stationType === 'emergency')
@@ -242,5 +250,5 @@ export function buildEntityLayers(
     fontFamily: 'monospace',
   })
 
-  return [selectionRingLayer, emergencyRingLayer, iconOutlineLayer, iconLayer, aprsLabelLayer, takLabelLayer, sensorLabelLayer]
+  return [selectionRingLayer, emergencyRingLayer, ...iconLayers, aprsLabelLayer, takLabelLayer, sensorLabelLayer]
 }
