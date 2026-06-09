@@ -1,3 +1,4 @@
+import json
 import logging
 import math
 from datetime import datetime, timezone
@@ -80,8 +81,6 @@ class NifcPoller(BasePoller):
         }
 
         # 2. Determine which specific distant fires to fetch (targeted sync)
-        from bus import get_bus
-        import json
         redis = await get_bus()
         keys = await redis.keys("entity:fire:*")
         fire_names: set[str] = set()
@@ -93,10 +92,12 @@ class NifcPoller(BasePoller):
                 ent = json.loads(raw)
                 name = ent.get("display_name")
                 if name and name != "Wildfire":
-                    clean_name = name.split(',')[0].replace(" WILDFIRE", "").replace(" FIRE", "").strip()
+                    # Uppercase BEFORE stripping suffixes — EONET titles are title-case
+                    # ("Haystack Butte Wildfire"), and NIFC IncidentName omits the suffix.
+                    clean_name = name.split(',')[0].upper().replace(" WILDFIRE", "").replace(" FIRE", "").strip()
                     if clean_name:
-                        fire_names.add(clean_name.upper())
-            except: continue
+                        fire_names.add(clean_name)
+            except (json.JSONDecodeError, TypeError, AttributeError): continue
 
         # Combine searches if we have distant fires to track
         features: list[dict] = []
@@ -105,13 +106,17 @@ class NifcPoller(BasePoller):
                 r1 = await client.get(_NIFC_BASE, params=spatial_params)
                 r1.raise_for_status()
                 data1 = r1.json()
+                # ArcGIS returns HTTP 200 with an "error" object on bad queries —
+                # treat that as a fetch failure, not a confirmed-empty result.
+                if isinstance(data1, dict) and data1.get("error"):
+                    raise RuntimeError(f"ArcGIS error: {data1['error'].get('message', data1['error'])}")
                 f1 = data1.get("features") or []
                 features.extend(f1)
                 logger.debug("[nifc] spatial sync returned %d features", len(f1))
 
                 # supplement with distant named fires if any
                 if fire_names:
-                    names_str = ",".join([f"'{n}'" for n in fire_names])
+                    names_str = ",".join([f"""'{n.replace("'", "''")}'""" for n in fire_names])
                     name_params = {
                         "where": f"UPPER(IncidentName) IN ({names_str})",
                         "outFields": _FIELDS,
@@ -129,7 +134,11 @@ class NifcPoller(BasePoller):
             if not features: return
 
         if not features:
+            # Successful query with zero results is a confirmed negative — write an
+            # empty collection so consumers (AI summary) can distinguish "no
+            # perimeters" from "feed never synced".
             logger.info("[nifc] zero perimeters returned from ArcGIS (spatial bbox: %s)", bbox)
+            await set_feed("fire:perimeters", {"type": "FeatureCollection", "features": []})
             return
 
         # De-duplicate by a hash of geometry or incident ID if possible, 
