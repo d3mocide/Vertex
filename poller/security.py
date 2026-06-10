@@ -1,6 +1,5 @@
 import asyncio
 import ipaddress
-import socket
 from urllib.parse import urlparse
 import httpx
 
