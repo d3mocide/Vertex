@@ -100,7 +100,49 @@ class AISummaryPoller(BasePoller):
         else:
             context_parts.append("WEATHER STATUS: Data feed currently unavailable.")
 
-        # 2. Fire Activity (NIFC/EONET)
+        # 2a. Fire Incident Tracker (EONET entities — same data the UI fire card shows)
+        fire_entities: list[dict] = []
+        for key in await r.keys("entity:fire:*"):
+            ent_raw = await r.get(key)
+            if not ent_raw:
+                continue
+            try:
+                ent = json.loads(ent_raw)
+            except (json.JSONDecodeError, TypeError):
+                continue
+            if isinstance(ent, dict):
+                fire_entities.append(ent)
+        if fire_entities:
+            # Local (alert radius) fires first, then by distance.
+            fire_entities.sort(key=lambda e: (
+                (e.get("identity") or {}).get("relevance") != "local",
+                e.get("distance_km") or 0,
+            ))
+            lines = []
+            for ent in fire_entities[:10]:
+                relevance = (ent.get("identity") or {}).get("relevance")
+                tag = "ALERT (local radius)" if relevance == "local" else "WATCH (regional smoke source)"
+                name = _sanitise(str(ent.get("display_name") or "Wildfire"), 120)
+                dist = ent.get("distance_km")
+                dist_text = f"{round(dist)} km" if isinstance(dist, (int, float)) else "distance unknown"
+                updated = ent.get("last_seen") or "update time unknown"
+                lines.append(f"- {tag}: {name} — {dist_text}, last update {updated}")
+            context_parts.append("WILDFIRE INCIDENT TRACKER:\n" + "\n".join(lines))
+        else:
+            context_parts.append(
+                "WILDFIRE INCIDENT TRACKER: No wildfire incidents inside the local alert or regional watch radius."
+            )
+
+        # 2b. Smoke / Air Quality (AirNow via weather feed)
+        raw = await r.get("feed:weather:current")
+        if raw:
+            wx = json.loads(raw)
+            aqi = wx.get("aqi") if isinstance(wx, dict) else None
+            if aqi is not None:
+                label = wx.get("aqi_label") or "Unknown"
+                context_parts.append(f"SMOKE / AIR QUALITY: AQI {aqi} ({label}).")
+
+        # 2c. Fire Perimeters (NIFC mapped polygons)
         raw = await r.get("feed:fire:perimeters")
         if raw:
             payload = json.loads(raw)
@@ -114,11 +156,15 @@ class AISummaryPoller(BasePoller):
                     acres = props.get("acres")
                     acres_text = f"{acres} acres" if acres is not None else "acreage unknown"
                     lines.append(f"- {name}: {state} ({acres_text})")
-                context_parts.append("WILDFIRE ACTIVITY:\n" + "\n".join(lines))
+                context_parts.append("MAPPED FIRE PERIMETERS (NIFC):\n" + "\n".join(lines))
             else:
-                context_parts.append("FIRE STATUS: No active wildfire perimeters in regional radius.")
+                context_parts.append(
+                    "MAPPED FIRE PERIMETERS (NIFC): Confirmed zero mapped perimeters in the regional query area."
+                )
         else:
-            context_parts.append("FIRE STATUS: Data feed currently unavailable.")
+            context_parts.append(
+                "MAPPED FIRE PERIMETERS (NIFC): Perimeter feed has not synced; rely on the incident tracker above for fire status."
+            )
 
         # 3. Traffic Impacts (ODOT/Real-time)
         raw = await r.get("feed:traffic:incidents")
