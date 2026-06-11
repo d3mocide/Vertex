@@ -63,41 +63,41 @@ export function PWSCard() {
       <div className="label-caps mb-3 flex items-center gap-2">
         <span className="ms text-[14px] leading-none text-emerald-400" aria-hidden="true">sensors</span>
         PERSONAL WEATHER STATION
-        <span className="ml-auto font-mono text-[11px] text-on-surface-variant truncate max-w-[120px]">{label}</span>
+        <span className="ml-auto font-mono text-[9px] lg:text-[11px] text-on-surface-variant truncate max-w-[120px]">{label}</span>
       </div>
 
       <div className="grid grid-cols-3 gap-2 mb-2">
         {/* Temperature */}
         <div className="border border-white/10 bg-white/[0.02] px-2 py-2 flex flex-col items-center">
-          <span className="text-[11px] font-mono text-on-surface-variant uppercase tracking-widest mb-1">Temp</span>
+          <span className="text-[8px] lg:text-[11px] font-mono text-on-surface-variant uppercase tracking-widest mb-1">Temp</span>
           <span className="text-[15px] font-black text-on-surface">{fmt(obs.temp_f)}°</span>
-          <span className="text-[11px] font-mono text-on-surface-variant">F</span>
+          <span className="text-[8px] lg:text-[11px] font-mono text-on-surface-variant">F</span>
         </div>
 
         {/* Humidity */}
         <div className="border border-white/10 bg-white/[0.02] px-2 py-2 flex flex-col items-center">
-          <span className="text-[11px] font-mono text-on-surface-variant uppercase tracking-widest mb-1">RH</span>
+          <span className="text-[8px] lg:text-[11px] font-mono text-on-surface-variant uppercase tracking-widest mb-1">RH</span>
           <span className="text-[15px] font-black text-sky-400">{fmt(obs.humidity)}%</span>
-          <span className="text-[11px] font-mono text-on-surface-variant">humid</span>
+          <span className="text-[8px] lg:text-[11px] font-mono text-on-surface-variant">humid</span>
         </div>
 
         {/* Pressure */}
         <div className="border border-white/10 bg-white/[0.02] px-2 py-2 flex flex-col items-center">
-          <span className="text-[11px] font-mono text-on-surface-variant uppercase tracking-widest mb-1">Press</span>
+          <span className="text-[8px] lg:text-[11px] font-mono text-on-surface-variant uppercase tracking-widest mb-1">Press</span>
           <span className="text-[15px] font-black text-purple-400">{fmt(obs.pressure_inhg, 2)}</span>
-          <span className="text-[11px] font-mono text-on-surface-variant">inHg</span>
+          <span className="text-[8px] lg:text-[11px] font-mono text-on-surface-variant">inHg</span>
         </div>
       </div>
 
       <div className="grid grid-cols-2 gap-2">
         {/* Wind */}
         <div className="border border-white/10 bg-white/[0.02] px-3 py-2">
-          <span className="text-[11px] font-mono text-on-surface-variant uppercase tracking-widest">Wind</span>
-          <div className="font-mono text-[12px] text-on-surface font-bold mt-0.5">
+          <span className="text-[8px] lg:text-[11px] font-mono text-on-surface-variant uppercase tracking-widest">Wind</span>
+          <div className="font-mono text-[11px] lg:text-[12px] text-on-surface font-bold mt-0.5">
             {windDir(obs.wind_dir)} {fmt(obs.wind_speed_mph)} mph
           </div>
           {obs.wind_gust_mph != null && obs.wind_gust_mph > 0 && (
-            <div className="font-mono text-[11px] text-amber-400/70">
+            <div className="font-mono text-[8px] lg:text-[11px] text-amber-400/70">
               gust {fmt(obs.wind_gust_mph)} mph
             </div>
           )}
@@ -105,18 +105,18 @@ export function PWSCard() {
 
         {/* Precipitation */}
         <div className="border border-white/10 bg-white/[0.02] px-3 py-2">
-          <span className="text-[11px] font-mono text-on-surface-variant uppercase tracking-widest">Precip</span>
-          <div className="font-mono text-[12px] text-on-surface font-bold mt-0.5">
+          <span className="text-[8px] lg:text-[11px] font-mono text-on-surface-variant uppercase tracking-widest">Precip</span>
+          <div className="font-mono text-[11px] lg:text-[12px] text-on-surface font-bold mt-0.5">
             {fmt(obs.precip_rate_in, 2)}&quot;/hr
           </div>
-          <div className="font-mono text-[11px] text-sky-400/70">
+          <div className="font-mono text-[8px] lg:text-[11px] text-sky-400/70">
             total {fmt(obs.precip_total_in, 2)}&quot;
           </div>
         </div>
       </div>
 
       {obs.obs_time_utc && (
-        <div className="mt-2 font-mono text-[11px] text-on-surface-variant text-right">
+        <div className="mt-2 font-mono text-[8px] lg:text-[11px] text-on-surface-variant text-right">
           {new Date(obs.obs_time_utc).toLocaleString([], { hour: '2-digit', minute: '2-digit' })}
         </div>
       )}

@@ -52,12 +52,12 @@ function renderFireRow(fire: FirePanelEntity) {
     <article key={fire.entity_id} className="border border-white/10 bg-white/[0.02] px-3 py-2">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <div className="text-[12px] font-bold text-on-surface truncate">{fire.display_name}</div>
-          <div className="mt-1 font-mono text-[11px] text-on-surface-variant uppercase tracking-widest">
+          <div className="text-[10px] lg:text-[12px] font-bold text-on-surface truncate">{fire.display_name}</div>
+          <div className="mt-1 font-mono text-[8px] lg:text-[11px] text-on-surface-variant uppercase tracking-widest">
             {fire.distanceKm != null ? `${Math.round(fire.distanceKm)} KM · ` : ''}{formatRelativeTime(fire.eventTs)}
           </div>
         </div>
-        <span className={`font-mono text-[11px] font-bold uppercase tracking-widest ${fire.relevance === 'local' ? 'text-red-500' : 'text-amber-gold'}`}>
+        <span className={`font-mono text-[8px] lg:text-[11px] font-bold uppercase tracking-widest ${fire.relevance === 'local' ? 'text-red-500' : 'text-amber-gold'}`}>
           {fire.relevance === 'local' ? 'ALERT' : 'WATCH'}
         </span>
       </div>
@@ -66,7 +66,7 @@ function renderFireRow(fire: FirePanelEntity) {
           href={fire.link}
           target="_blank"
           rel="noopener noreferrer"
-          className="mt-2 inline-flex text-[11px] font-mono uppercase tracking-widest text-amber-gold hover:text-amber-200"
+          className="mt-2 inline-flex text-[8px] lg:text-[11px] font-mono uppercase tracking-widest text-amber-gold hover:text-amber-200"
         >
           SOURCE
         </a>
@@ -107,19 +107,19 @@ export function FireStatusCard({
 
       <div className="grid grid-cols-3 gap-3 mb-4">
         <div className="border border-red-500/20 bg-red-500/5 px-3 py-2">
-          <div className="text-[11px] font-mono text-on-surface-variant uppercase tracking-widest">Alert Radius</div>
+          <div className="text-[8px] lg:text-[11px] font-mono text-on-surface-variant uppercase tracking-widest">Alert Radius</div>
           <div className="mt-1 text-[20px] font-black text-on-surface">{localFires.length}</div>
-          <div className="font-mono text-[11px] text-red-400 uppercase tracking-widest">Local fires</div>
+          <div className="font-mono text-[8px] lg:text-[11px] text-red-400 uppercase tracking-widest">Local fires</div>
         </div>
         <div className="border border-amber-gold/20 bg-amber-gold/5 px-3 py-2">
-          <div className="text-[11px] font-mono text-on-surface-variant uppercase tracking-widest">Regional Watch</div>
+          <div className="text-[8px] lg:text-[11px] font-mono text-on-surface-variant uppercase tracking-widest">Regional Watch</div>
           <div className="mt-1 text-[20px] font-black text-on-surface">{regionalFires.length}</div>
-          <div className="font-mono text-[11px] text-amber-gold uppercase tracking-widest">Potential sources</div>
+          <div className="font-mono text-[8px] lg:text-[11px] text-amber-gold uppercase tracking-widest">Potential sources</div>
         </div>
         <div className="border border-white/10 bg-white/[0.02] px-3 py-2">
-          <div className="text-[11px] font-mono text-on-surface-variant uppercase tracking-widest">Smoke Signal</div>
-          <div className={`mt-1 text-[11px] font-black uppercase tracking-wider ${smokeTone}`}>{smokeRisk}</div>
-          <div className="font-mono text-[11px] text-on-surface-variant uppercase tracking-widest">
+          <div className="text-[8px] lg:text-[11px] font-mono text-on-surface-variant uppercase tracking-widest">Smoke Signal</div>
+          <div className={`mt-1 text-[10px] lg:text-[11px] font-black uppercase tracking-wider ${smokeTone}`}>{smokeRisk}</div>
+          <div className="font-mono text-[8px] lg:text-[11px] text-on-surface-variant uppercase tracking-widest">
             {aqi != null ? `AQI ${aqi}${aqiLabel ? ` · ${aqiLabel}` : ''}` : 'Use smoke overlay + AQI'}
           </div>
         </div>
@@ -128,11 +128,11 @@ export function FireStatusCard({
       <div className="space-y-4">
         <section aria-labelledby="fire-local-heading">
           <div className="mb-2 flex items-center justify-between">
-            <h3 id="fire-local-heading" className="text-[11px] font-mono text-on-surface-variant uppercase tracking-[0.2em]">Local Alert Queue</h3>
-            <span className="font-mono text-[11px] text-red-400 uppercase tracking-widest">Actionable near region</span>
+            <h3 id="fire-local-heading" className="text-[9px] lg:text-[11px] font-mono text-on-surface-variant uppercase tracking-[0.2em]">Local Alert Queue</h3>
+            <span className="font-mono text-[8px] lg:text-[11px] text-red-400 uppercase tracking-widest">Actionable near region</span>
           </div>
           {localFires.length === 0 ? (
-            <div className="border border-white/10 bg-white/[0.02] px-3 py-2 font-mono text-[11px] text-on-surface-variant uppercase tracking-widest">
+            <div className="border border-white/10 bg-white/[0.02] px-3 py-2 font-mono text-[8px] lg:text-[11px] text-on-surface-variant uppercase tracking-widest">
               No current fires inside the local alert radius.
             </div>
           ) : (
@@ -144,11 +144,11 @@ export function FireStatusCard({
 
         <section aria-labelledby="fire-regional-heading">
           <div className="mb-2 flex items-center justify-between">
-            <h3 id="fire-regional-heading" className="text-[11px] font-mono text-on-surface-variant uppercase tracking-[0.2em]">Regional Smoke Watch</h3>
-            <span className="font-mono text-[11px] text-amber-gold uppercase tracking-widest">Use for drift awareness</span>
+            <h3 id="fire-regional-heading" className="text-[9px] lg:text-[11px] font-mono text-on-surface-variant uppercase tracking-[0.2em]">Regional Smoke Watch</h3>
+            <span className="font-mono text-[8px] lg:text-[11px] text-amber-gold uppercase tracking-widest">Use for drift awareness</span>
           </div>
           {regionalFires.length === 0 ? (
-            <div className="border border-white/10 bg-white/[0.02] px-3 py-2 font-mono text-[11px] text-on-surface-variant uppercase tracking-widest">
+            <div className="border border-white/10 bg-white/[0.02] px-3 py-2 font-mono text-[8px] lg:text-[11px] text-on-surface-variant uppercase tracking-widest">
               No regional wildfire sources currently inside the watch area.
             </div>
           ) : (

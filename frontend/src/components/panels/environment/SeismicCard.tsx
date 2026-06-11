@@ -22,12 +22,12 @@ export function SeismicCard({ events }: { events: SystemEvent[] }) {
 
       <div className="flex items-end justify-between mb-3">
         <div className="flex flex-col">
-          <span className="text-[11px] font-mono text-on-surface-variant uppercase tracking-widest">Last 24 Hours</span>
+          <span className="text-[8px] lg:text-[11px] font-mono text-on-surface-variant uppercase tracking-widest">Last 24 Hours</span>
           <span className="text-[18px] font-black text-on-surface tracking-tight">{events.length} event{events.length === 1 ? '' : 's'}</span>
         </div>
         <div className="flex flex-col items-end">
-          <span className="text-[11px] font-mono text-on-surface-variant uppercase tracking-widest">Strongest</span>
-          <span className="font-mono text-[14px] text-amber-gold font-bold">
+          <span className="text-[8px] lg:text-[11px] font-mono text-on-surface-variant uppercase tracking-widest">Strongest</span>
+          <span className="font-mono text-[12px] lg:text-[14px] text-amber-gold font-bold">
             {strongest != null ? `M${strongest.toFixed(1)}` : 'N/A'}
           </span>
         </div>
@@ -35,7 +35,7 @@ export function SeismicCard({ events }: { events: SystemEvent[] }) {
 
       {events.length === 0 ? (
         <div className="border border-white/10 bg-white/[0.02] px-3 py-2">
-          <span className="font-mono text-[11px] text-on-surface-variant uppercase tracking-widest">
+          <span className="font-mono text-[9px] lg:text-[11px] text-on-surface-variant uppercase tracking-widest">
             No recorded earthquakes in range
           </span>
         </div>
