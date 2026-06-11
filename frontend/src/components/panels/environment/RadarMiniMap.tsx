@@ -141,8 +141,8 @@ export function RadarControls({ isFullHeight }: { isFullHeight?: boolean }) {
 
       <div className="transition-all duration-300">
         <div className="flex items-center justify-between mb-2">
-          <span className="label-caps text-[11px] text-on-surface-variant uppercase tracking-widest">SCAN OPACITY</span>
-          <span className="font-mono text-[11px] text-amber-gold font-bold">
+          <span className="label-caps text-[9px] lg:text-[11px] text-on-surface-variant uppercase tracking-widest">SCAN OPACITY</span>
+          <span className="font-mono text-[10px] lg:text-[11px] text-amber-gold font-bold">
             {Math.round(radarOpacity * 100)}%
           </span>
         </div>
@@ -160,7 +160,7 @@ export function RadarControls({ isFullHeight }: { isFullHeight?: boolean }) {
         </div>
       </div>
 
-      <div className="mt-4 flex items-center justify-between font-mono text-[11px] text-on-surface-variant/60 uppercase tracking-widest">
+      <div className="mt-4 flex items-center justify-between font-mono text-[8px] lg:text-[11px] text-on-surface-variant/60 uppercase tracking-widest">
         <span>{RADAR_LAYER.replace(/-0$/, '')} · MULTI-SOURCE</span>
         <span>5 MIN REFRESH</span>
       </div>
@@ -180,7 +180,7 @@ function MiniToggle({ active, onClick, icon, label }: { active: boolean; onClick
       `}
     >
       <span className="ms text-[14px]" style={{ fontVariationSettings: `'FILL' ${active ? 1 : 0}` }}>{icon}</span>
-      <span className="text-[11px] font-black uppercase tracking-tight whitespace-nowrap">{label}</span>
+      <span className="text-[9px] lg:text-[11px] font-black uppercase tracking-tight whitespace-nowrap">{label}</span>
     </button>
   )
 }

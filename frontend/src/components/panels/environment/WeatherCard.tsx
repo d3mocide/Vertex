@@ -24,11 +24,11 @@ export function WeatherCard() {
               <span className="ms text-on-surface-variant group-hover:text-amber-gold transition-colors text-[16px]" aria-hidden="true">{s.icon}</span>
             </div>
             <div className="flex flex-col">
-              <span className="text-[11px] font-mono text-on-surface-variant uppercase tracking-widest mb-0.5">{s.label}</span>
+              <span className="text-[8px] lg:text-[11px] font-mono text-on-surface-variant uppercase tracking-widest mb-0.5">{s.label}</span>
               <div className="flex items-baseline gap-2 leading-none">
                 <span className="text-[16px] font-black text-on-surface tracking-tight">{s.value}</span>
                 {s.sub && (
-                  <span className="text-[11px] font-mono text-amber-gold font-bold">{s.sub}</span>
+                  <span className="text-[9px] lg:text-[11px] font-mono text-amber-gold font-bold">{s.sub}</span>
                 )}
               </div>
             </div>
@@ -37,12 +37,12 @@ export function WeatherCard() {
       </div>
 
       <div className="mt-6 pt-3 border-t border-white/5 flex items-center justify-between">
-        <span className="text-[11px] font-mono text-on-surface-variant/60 uppercase tracking-widest">
+        <span className="text-[7px] lg:text-[11px] font-mono text-on-surface-variant/60 uppercase tracking-widest">
           Weather Service: NOAA/NWS
         </span>
         <div className="flex items-center gap-1.5">
           <span className="w-1 h-1 rounded-full bg-green-ais animate-pulse" />
-          <span className="text-[11px] font-mono text-on-surface-variant/60 uppercase">Data Live</span>
+          <span className="text-[7px] lg:text-[11px] font-mono text-on-surface-variant/60 uppercase">Data Live</span>
         </div>
       </div>
     </div>

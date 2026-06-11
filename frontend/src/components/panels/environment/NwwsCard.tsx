@@ -60,7 +60,7 @@ export function NwwsCard() {
       <div className="label-caps mb-3 flex items-center gap-2">
         <span className="ms text-[14px] leading-none text-sky-400" aria-hidden="true">feed</span>
         NWS TEXT PRODUCTS
-        <span className="ml-auto font-mono text-[11px] text-on-surface-variant">{products[0]?.office}</span>
+        <span className="ml-auto font-mono text-[9px] lg:text-[11px] text-on-surface-variant">{products[0]?.office}</span>
       </div>
 
       <div className="space-y-2">
@@ -76,8 +76,8 @@ export function NwwsCard() {
                 aria-expanded={isOpen}
               >
                 <span className={`ms text-[12px] leading-none ${color}`} aria-hidden="true">{icon}</span>
-                <span className={`text-[12px] font-bold ${color} uppercase tracking-wide flex-1`}>{p.name}</span>
-                <span className="font-mono text-[11px] text-on-surface-variant shrink-0">
+                <span className={`text-[10px] lg:text-[12px] font-bold ${color} uppercase tracking-wide flex-1`}>{p.name}</span>
+                <span className="font-mono text-[8px] lg:text-[11px] text-on-surface-variant shrink-0">
                   {formatIso(p.issuance_time)}
                 </span>
                 <span className="ms text-[12px] leading-none text-on-surface-variant ml-1" aria-hidden="true">
@@ -87,7 +87,7 @@ export function NwwsCard() {
 
               {isOpen && p.text && (
                 <div className="border-t border-white/5 px-3 py-2">
-                  <pre className="font-mono text-[11px] text-on-surface-variant whitespace-pre-wrap break-words leading-relaxed max-h-48 overflow-y-auto">
+                  <pre className="font-mono text-[8px] lg:text-[11px] text-on-surface-variant whitespace-pre-wrap break-words leading-relaxed max-h-48 overflow-y-auto">
                     {p.text}
                   </pre>
                 </div>
@@ -95,7 +95,7 @@ export function NwwsCard() {
 
               {!isOpen && p.text && (
                 <div className="border-t border-white/5 px-3 pb-2 pt-1">
-                  <pre className="font-mono text-[11px] text-on-surface-variant/60 whitespace-pre-wrap break-words leading-relaxed line-clamp-3">
+                  <pre className="font-mono text-[8px] lg:text-[11px] text-on-surface-variant/60 whitespace-pre-wrap break-words leading-relaxed line-clamp-3">
                     {truncate(p.text, 3)}
                   </pre>
                 </div>
