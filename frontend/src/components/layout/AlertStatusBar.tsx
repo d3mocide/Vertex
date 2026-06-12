@@ -71,6 +71,13 @@ export function AlertStatusBar() {
     }
   }
 
+  // Adjust animation duration dynamically to keep a readable, constant scrolling speed
+  const animationDuration = useMemo(() => {
+    const charsPerSecond = 8
+    const duration = message.length / charsPerSecond
+    return `${Math.max(30, Math.round(duration))}s`
+  }, [message])
+
   // In calm mode show a slim indicator; in critical mode show the full bar
   if (mode === 'calm' && level === 'green') return null
 
@@ -98,7 +105,10 @@ export function AlertStatusBar() {
         {LEVEL_LABELS[level]}
       </span>
       <div className="flex-1 min-w-0 overflow-hidden">
-        <span className="alert-marquee-track font-mono opacity-80">
+        <span 
+          className="alert-marquee-track font-mono opacity-80"
+          style={{ animationDuration }}
+        >
           <span className="alert-marquee-item">{message}</span>
           <span className="alert-marquee-item" aria-hidden="true">{message}</span>
         </span>

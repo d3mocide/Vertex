@@ -7,7 +7,6 @@ const PREF_KEY = 'ui'
 const DEBOUNCE_MS = 1500
 
 type UiPrefs = {
-  activeTab: string
   mode: string
   trailsVisible: boolean
   radarVisible: boolean
@@ -26,7 +25,6 @@ type UiPrefs = {
 
 function extractPrefs(s: ReturnType<typeof useCivicStore.getState>): UiPrefs {
   return {
-    activeTab:          s.activeTab,
     mode:               s.mode,
     trailsVisible:      s.trailsVisible,
     radarVisible:       s.radarVisible,
@@ -54,7 +52,6 @@ async function loadAndApply() {
     if (!prefs || typeof prefs !== 'object') return
     const p = prefs as Partial<UiPrefs>
     const store = useCivicStore.getState()
-    if (p.activeTab != null)          store.setActiveTab(p.activeTab as Parameters<typeof store.setActiveTab>[0])
     if (p.mode != null)               store.setMode(p.mode as Parameters<typeof store.setMode>[0])
     if (p.trailsVisible != null)      store.setTrailsVisible(p.trailsVisible)
     if (p.radarVisible != null)       store.setRadarVisible(p.radarVisible)

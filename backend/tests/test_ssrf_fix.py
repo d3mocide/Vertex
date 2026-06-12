@@ -27,6 +27,7 @@ for _mod in [
 _mock_settings = MagicMock()
 _mock_settings.auth_enabled = False
 _mock_settings.auth_secret_key = "test-secret-key-at-least-32-chars!!"
+_mock_settings.allow_private_ips = False
 _mock_config = MagicMock()
 _mock_config.settings = _mock_settings
 sys.modules["config"] = _mock_config

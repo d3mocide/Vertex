@@ -31,6 +31,7 @@ class Settings(BaseSettings):
         return v
 
     p25_audio_dir: str = "/data/audio"
+    allow_private_ips: bool = False
 
     @model_validator(mode="after")
     def _check_secret(self):

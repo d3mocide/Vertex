@@ -34,7 +34,7 @@ export function MobileNav() {
             className="absolute inset-0 bg-onyx-black/80 backdrop-blur-sm"
             onClick={() => setShowMore(false)}
           />
-          <div className="absolute bottom-0 left-0 right-0 bg-onyx-deep border-t border-white/10 p-6 pb-[calc(5rem_+_env(safe-area-inset-bottom))] animate-in slide-in-from-bottom duration-300">
+          <div className="absolute bottom-0 left-0 right-0 bg-onyx-deep border-t border-white/10 p-6 pb-[4.25rem] animate-in slide-in-from-bottom duration-300">
             <div className="flex items-center justify-between mb-6">
               <span className="label-caps text-amber-gold">// OPS CHANNELS</span>
               <button onClick={() => setShowMore(false)} className="text-on-surface-variant">

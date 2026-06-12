@@ -127,6 +127,7 @@ class Settings(BaseSettings):
     # Kept here so existing .env files do not cause a validation error.
     adsb_beast_http_fallback: bool = True
     adsb_publish_only_changes: bool = True
+    allow_private_ips: bool = False
 
     # Mode D — OpenSky supplement alongside local sources (beast or ultrafeeder).
     # When enabled, OpenSky polls on its own interval and fills in aircraft not

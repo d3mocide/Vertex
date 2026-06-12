@@ -499,7 +499,7 @@ export function CommsPanel() {
       {/* ── Body: Split pane layout ── */}
       <div className="flex-1 min-h-0 flex flex-col lg:flex-row overflow-y-auto lg:overflow-hidden bg-onyx-black/5">
         {/* ── Left Column: Radio & Topology ── */}
-        <div className="w-full lg:w-[420px] shrink-0 flex flex-col border-b lg:border-b-0 lg:border-r border-white/10 bg-onyx-black/10 lg:h-full lg:overflow-y-auto p-4 lg:p-6 gap-6 pb-28 lg:pb-36 custom-scrollbar">
+        <div className="w-full lg:w-[420px] shrink-0 flex flex-col border-b lg:border-b-0 lg:border-r border-white/10 bg-onyx-black/10 lg:h-full lg:overflow-y-auto p-4 lg:p-6 gap-6 pb-4 lg:pb-36 custom-scrollbar">
           {/* RF Communications Card */}
           <section>
             <h3 className="section-heading mb-3 flex items-center gap-2">
@@ -588,33 +588,33 @@ export function CommsPanel() {
           <div className="flex border border-white/10 bg-white/5 rounded-sm p-1 gap-1 shrink-0 select-none">
             <button
               onClick={() => setActiveTab('chat')}
-              className={`flex-1 py-2 px-3 rounded-sm font-mono text-[11px] font-bold uppercase tracking-widest flex items-center justify-center gap-2 transition-all ${activeTab === 'chat'
+              className={`flex-1 py-1.5 md:py-2 px-2 md:px-3 rounded-sm font-mono text-[10px] md:text-[11px] font-bold uppercase tracking-wider md:tracking-widest flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-2 transition-all ${activeTab === 'chat'
                 ? 'bg-amber-gold text-onyx-black shadow-[0_0_8px_rgba(255,184,0,0.3)]'
                 : 'text-on-surface-variant hover:text-on-surface hover:bg-white/5'
                 }`}
             >
               <span className="ms text-[14px]">chat</span>
-              Mesh Chat
+              <span><span className="hidden sm:inline">Mesh </span>Chat</span>
             </button>
             <button
               onClick={() => setActiveTab('fleet')}
-              className={`flex-1 py-2 px-3 rounded-sm font-mono text-[11px] font-bold uppercase tracking-widest flex items-center justify-center gap-2 transition-all ${activeTab === 'fleet'
+              className={`flex-1 py-1.5 md:py-2 px-2 md:px-3 rounded-sm font-mono text-[10px] md:text-[11px] font-bold uppercase tracking-wider md:tracking-widest flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-2 transition-all ${activeTab === 'fleet'
                 ? 'bg-amber-gold text-onyx-black shadow-[0_0_8px_rgba(255,184,0,0.3)]'
                 : 'text-on-surface-variant hover:text-on-surface hover:bg-white/5'
                 }`}
             >
               <span className="ms text-[14px]">hub</span>
-              Mesh Network
+              <span><span className="hidden sm:inline">Mesh </span>Network</span>
             </button>
             <button
               onClick={() => setActiveTab('p25')}
-              className={`flex-1 py-2 px-3 rounded-sm font-mono text-[11px] font-bold uppercase tracking-widest flex items-center justify-center gap-2 transition-all ${activeTab === 'p25'
+              className={`flex-1 py-1.5 md:py-2 px-2 md:px-3 rounded-sm font-mono text-[10px] md:text-[11px] font-bold uppercase tracking-wider md:tracking-widest flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-2 transition-all ${activeTab === 'p25'
                 ? 'bg-amber-gold text-onyx-black shadow-[0_0_8px_rgba(255,184,0,0.3)]'
                 : 'text-on-surface-variant hover:text-on-surface hover:bg-white/5'
                 }`}
             >
               <span className="ms text-[14px]">radio</span>
-              P25 Call Log
+              <span>P25 <span className="hidden sm:inline">Call </span>Log</span>
             </button>
           </div>
 

@@ -4,6 +4,7 @@ import { useCivicStore, Entity } from '../../store'
 import type { AcarsMessage } from '../../storeTypes'
 import { API_BASE, MAP_STYLE, DEFAULT_CENTER } from '../../config'
 import { authHeaders } from '../../auth'
+import { ensureKnownStyleImages, KNOWN_STYLE_IMAGE_FALLBACKS } from '../Map'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const TIME_WINDOWS = [
@@ -327,6 +328,41 @@ function FlightMiniMap({ trailPoints, entity }: {
       attributionControl: false,
     })
 
+    const warnedMissing = new Set<string>()
+    let ensureKnownImagesInFlight = false
+
+    const ensureKnownImages = async () => {
+      if (ensureKnownImagesInFlight) return
+      ensureKnownImagesInFlight = true
+      try {
+        await ensureKnownStyleImages(m)
+      } finally {
+        ensureKnownImagesInFlight = false
+      }
+    }
+
+    m.on('styledata', () => {
+      if (m.isStyleLoaded()) void ensureKnownImages()
+    })
+
+    m.on('styleimagemissing', (e) => {
+      const id = e.id
+      if (m.hasImage(id)) return
+
+      const makeFallback = KNOWN_STYLE_IMAGE_FALLBACKS[id]
+      if (makeFallback) {
+        m.addImage(id, makeFallback())
+        return
+      }
+
+      if (!warnedMissing.has(id)) {
+        warnedMissing.add(id)
+        console.warn(`Map style image missing: ${id}. Using transparent fallback.`)
+      }
+      const data = new Uint8Array(4)
+      m.addImage(id, { width: 1, height: 1, data })
+    })
+
     m.on('load', () => {
       m.getCanvas().style.filter = 'brightness(0.75) contrast(1.05)'
 
@@ -362,6 +398,7 @@ function FlightMiniMap({ trailPoints, entity }: {
         },
       })
 
+      void ensureKnownImages()
       mapRef.current = m
       setReady(true)
     })
@@ -475,6 +512,21 @@ export function FlightLogPanel() {
   const [acarsTails,     setAcarsTails]     = useState<Set<string>>(new Set())
 
   const lastFetchedDetailId = useRef<string | null>(null)
+  const [isMobile, setIsMobile] = useState(false)
+  const [mobilePage, setMobilePage] = useState(1)
+  const MOBILE_PAGE_SIZE = 10
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 1024)
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+    return () => window.removeEventListener('resize', checkMobile)
+  }, [])
+
+  useEffect(() => {
+    setMobilePage(1)
+  }, [search])
+
 
   // ── Fetch historical aircraft list for the time window ─────────────────────
   const fetchReplay = useCallback(async (minutes: number) => {
@@ -670,6 +722,19 @@ export function FlightLogPanel() {
     })
   }, [displayFlights, search])
 
+  const mobileTotalPages = Math.max(1, Math.ceil(filteredFlights.length / MOBILE_PAGE_SIZE))
+
+  const mobilePageFlights = useMemo(() => {
+    const start = (mobilePage - 1) * MOBILE_PAGE_SIZE
+    return filteredFlights.slice(start, start + MOBILE_PAGE_SIZE)
+  }, [mobilePage, filteredFlights])
+
+  useEffect(() => {
+    if (mobilePage > mobileTotalPages) {
+      setMobilePage(mobileTotalPages)
+    }
+  }, [mobilePage, mobileTotalPages])
+
   // Summary stats across all aircraft in window
   const summaryStats = useMemo(() => {
     const live = allFlights.map(f => f.liveEntity).filter((e): e is Entity => e != null)
@@ -757,157 +822,177 @@ export function FlightLogPanel() {
 
       {/* ── Body: Split pane layout ── */}
       <div className="flex-1 min-h-0 flex flex-col lg:flex-row overflow-y-auto lg:overflow-hidden bg-onyx-black/5">
+        {isMobile ? (
+          <div className="flex flex-col gap-6 p-4 pb-28 overflow-y-auto">
+            {/* 1. Live Position Map */}
+            <section className="border border-white/10 p-4 bg-white/5 flex flex-col gap-2 rounded-sm bg-onyx-black/35 backdrop-blur-sm shrink-0 order-1">
+              <div className="flex items-center justify-between shrink-0">
+                <h3 className="section-heading flex items-center gap-2">
+                  <span className="ms text-[14px] text-cyan-adsb">map</span>
+                  {selectedEntityId && (detailEntity || replayFlights[selectedEntityId])
+                    ? (getIdent(detailEntity, 'callsign') !== '--'
+                        ? getIdent(detailEntity, 'callsign')
+                        : (replayFlights[selectedEntityId]?.display_name
+                          || selectedEntityId.split(':').pop()?.toUpperCase()
+                          || 'Selected Aircraft'))
+                    : 'Live Position'}
+                </h3>
+                {selectedEntityId && (
+                  <button
+                    type="button"
+                    onClick={() => selectEntity(null)}
+                    className="text-on-surface-variant hover:text-white transition-colors"
+                    aria-label="Deselect aircraft"
+                  >
+                    <span className="ms text-[14px]">close</span>
+                  </button>
+                )}
+              </div>
+              <div className="h-64 sm:h-80 w-full rounded-sm overflow-hidden">
+                <FlightMiniMap trailPoints={trailPoints} entity={detailEntity} />
+              </div>
+            </section>
 
-        {/* ── Left Column: Traffic Summary & Aircraft Log ── */}
-        <div className="w-full lg:w-[380px] shrink-0 flex flex-col border-b lg:border-b-0 lg:border-r border-white/10 bg-onyx-black/10 lg:h-full overflow-hidden">
+            {/* 2. Traffic Summary */}
+            <section className="p-4 border border-white/10 bg-white/5 bg-onyx-black/35 backdrop-blur-sm rounded-sm shrink-0 order-4">
+              <h3 className="section-heading mb-3 flex items-center gap-2">
+                <span className="ms text-[14px] text-cyan-adsb">analytics</span>
+                Traffic Summary
+                <span className="ml-auto font-mono text-[11px] text-on-surface-variant">{twLabel} window</span>
+              </h3>
+              <div className="grid grid-cols-2 gap-2">
+                <StatCard label="Total Observed"  value={String(summaryStats.total)}     unit="aircraft" colorClass="text-cyan-adsb"  />
+                <StatCard label="Currently Live"  value={String(summaryStats.liveCount)} unit="airborne" colorClass="text-green-ais"  />
+                <StatCard label="Avg Altitude"
+                  value={summaryStats.avgAlt != null ? summaryStats.avgAlt.toLocaleString() : '--'}
+                  unit="ft MSL" colorClass="text-amber-gold"
+                />
+                <StatCard label="Peak Altitude"
+                  value={summaryStats.maxAlt != null ? summaryStats.maxAlt.toLocaleString() : '--'}
+                  unit="ft MSL" colorClass="text-amber-gold"
+                />
+              </div>
+            </section>
 
-          {/* ── Traffic Summary ── */}
-          <section className="p-4 border-b border-white/10 bg-white/5 bg-onyx-black/35 backdrop-blur-sm shrink-0">
-            <h3 className="section-heading mb-3 flex items-center gap-2">
-              <span className="ms text-[14px] text-cyan-adsb">analytics</span>
-              Traffic Summary
-              <span className="ml-auto font-mono text-[11px] text-on-surface-variant">{twLabel} window</span>
-            </h3>
-            <div className="grid grid-cols-2 gap-2">
-              <StatCard label="Total Observed"  value={String(summaryStats.total)}     unit="aircraft" colorClass="text-cyan-adsb"  />
-              <StatCard label="Currently Live"  value={String(summaryStats.liveCount)} unit="airborne" colorClass="text-green-ais"  />
-              <StatCard label="Avg Altitude"
-                value={summaryStats.avgAlt != null ? summaryStats.avgAlt.toLocaleString() : '--'}
-                unit="ft MSL" colorClass="text-amber-gold"
-              />
-              <StatCard label="Peak Altitude"
-                value={summaryStats.maxAlt != null ? summaryStats.maxAlt.toLocaleString() : '--'}
-                unit="ft MSL" colorClass="text-amber-gold"
-              />
-            </div>
-          </section>
+            {/* 3. Aircraft Log / Air Feed */}
+            <div className="flex flex-col bg-onyx-black/35 backdrop-blur-sm border border-white/10 rounded-sm overflow-hidden shrink-0 order-3">
+              {/* Search bar */}
+              <div className="px-3 py-2 border-b border-white/10 shrink-0 flex items-center gap-2 bg-white/5">
+                <span className="ms text-[14px] text-on-surface-variant">search</span>
+                <input
+                  type="text"
+                  placeholder="Search ID, type, etc…"
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  className="flex-1 bg-transparent text-[12px] text-on-surface placeholder-on-surface-variant/50 focus:outline-none"
+                />
+                {search && (
+                  <button type="button" onClick={() => setSearch('')} className="text-on-surface-variant hover:text-white transition-colors">
+                    <span className="ms text-[14px]">close</span>
+                  </button>
+                )}
+              </div>
 
-          {/* ── Aircraft Log ── */}
-          <div className="flex-1 min-h-0 flex flex-col bg-onyx-black/35 backdrop-blur-sm">
-            {/* Search bar */}
-            <div className="px-3 py-2 border-b border-white/10 shrink-0 flex items-center gap-2 bg-white/5">
-              <span className="ms text-[14px] text-on-surface-variant">search</span>
-              <input
-                type="text"
-                placeholder="Search ID, type, etc…"
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                className="flex-1 bg-transparent text-[12px] text-on-surface placeholder-on-surface-variant/50 focus:outline-none"
-              />
-              {search && (
-                <button type="button" onClick={() => setSearch('')} className="text-on-surface-variant hover:text-white transition-colors">
-                  <span className="ms text-[14px]">close</span>
-                </button>
+              {/* Column headers */}
+              <div className="px-3 py-1.5 bg-white/5 border-b border-white/5 flex items-center justify-between shrink-0">
+                <span className="font-mono text-[11px] text-on-surface-variant uppercase tracking-widest">Aircraft</span>
+                <span className="font-mono text-[11px] text-on-surface-variant uppercase tracking-widest">
+                  {acarsTails.size > 0 && (
+                    <span className="text-cyan-adsb/60 mr-2" title={`${acarsTails.size} aircraft with ACARS data`}>
+                      ACARS:{acarsTails.size}
+                    </span>
+                  )}
+                  Phase · Alt · Spd
+                </span>
+              </div>
+
+              {/* List body: Scrollable list of aircraft */}
+              <div className="flex-1 min-h-0 h-96 overflow-y-auto divide-y divide-white/5">
+                {loadingReplay && displayFlights.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center gap-3 text-on-surface-variant/30 py-16">
+                    <span className="ms text-4xl animate-pulse">radar</span>
+                    <span className="text-[11px] uppercase tracking-[0.2em] font-mono">Fetching data…</span>
+                  </div>
+                ) : mobilePageFlights.length > 0 ? (
+                  mobilePageFlights.map(f => {
+                    const reg = (f.liveEntity?.identity?.['registration'] as string | undefined)?.toUpperCase()
+                    const hasAcars = !!reg && acarsTails.has(reg)
+                    return (
+                      <AircraftRow
+                        key={f.entityId}
+                        entityId={f.entityId}
+                        displayName={f.displayName}
+                        liveEntity={f.liveEntity}
+                        isSelected={selectedEntityId === f.entityId}
+                        lastSeen={f.lastSeen}
+                        hasAcars={hasAcars}
+                        onClick={() => handleSelectFlight(f.entityId)}
+                      />
+                    )
+                  })
+                ) : (
+                  <div className="flex flex-col items-center justify-center gap-3 text-on-surface-variant/30 py-16">
+                    <span className="ms text-4xl">flight_takeoff</span>
+                    <span className="text-[11px] uppercase tracking-[0.2em] font-mono text-center px-4">
+                      {search ? 'No matches' : 'No activity'}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* Pagination Controls */}
+              {filteredFlights.length > MOBILE_PAGE_SIZE && (
+                <div className="px-3 py-2 border-t border-white/5 bg-white/5 flex items-center justify-between gap-2">
+                  <span className="font-mono text-[10px] text-on-surface-variant uppercase tracking-widest">
+                    Showing {(mobilePage - 1) * MOBILE_PAGE_SIZE + 1}-{Math.min(mobilePage * MOBILE_PAGE_SIZE, filteredFlights.length)} of {filteredFlights.length}
+                  </span>
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => setMobilePage(p => Math.max(1, p - 1))}
+                      disabled={mobilePage === 1}
+                      className="px-2.5 py-1 font-mono text-[10px] uppercase tracking-widest border border-white/15 text-on-surface disabled:opacity-30 disabled:cursor-not-allowed hover:border-cyan-adsb transition-colors"
+                    >
+                      Prev
+                    </button>
+                    <span className="font-mono text-[10px] text-on-surface-variant px-1.5">
+                      {mobilePage}/{mobileTotalPages}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setMobilePage(p => Math.min(mobileTotalPages, p + 1))}
+                      disabled={mobilePage === mobileTotalPages}
+                      className="px-2.5 py-1 font-mono text-[10px] uppercase tracking-widest border border-white/15 text-on-surface disabled:opacity-30 disabled:cursor-not-allowed hover:border-cyan-adsb transition-colors"
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
               )}
-            </div>
 
-            {/* Column headers */}
-            <div className="px-3 py-1.5 bg-white/5 border-b border-white/5 flex items-center justify-between shrink-0">
-              <span className="font-mono text-[11px] text-on-surface-variant uppercase tracking-widest">Aircraft</span>
-              <span className="font-mono text-[11px] text-on-surface-variant uppercase tracking-widest">
-                {acarsTails.size > 0 && (
-                  <span className="text-cyan-adsb/60 mr-2" title={`${acarsTails.size} aircraft with ACARS data`}>
-                    ACARS:{acarsTails.size}
+              {/* Footer */}
+              <div className="px-3 py-2 border-t border-white/5 bg-white/5 flex items-center justify-between shrink-0">
+                <span className="font-mono text-[11px] text-on-surface-variant uppercase">
+                  {filteredFlights.length} found
+                </span>
+                {updateHz > 0 && (
+                  <span className="font-mono text-[11px] text-amber-gold/60 uppercase">
+                    {UPDATE_INTERVALS.find(u => u.ms === updateHz)?.label}
                   </span>
                 )}
-                Phase · Alt · Spd
-              </span>
+              </div>
             </div>
 
-            {/* List body: Scrollable list of aircraft */}
-            <div className="flex-1 min-h-0 h-64 lg:h-auto overflow-y-auto divide-y divide-white/5">
-              {loadingReplay && displayFlights.length === 0 ? (
-                <div className="flex flex-col items-center justify-center gap-3 text-on-surface-variant/30 py-16">
-                  <span className="ms text-4xl animate-pulse">radar</span>
-                  <span className="text-[11px] uppercase tracking-[0.2em] font-mono">Fetching data…</span>
-                </div>
-              ) : filteredFlights.length > 0 ? (
-                filteredFlights.map(f => {
-                  const reg = (f.liveEntity?.identity?.['registration'] as string | undefined)?.toUpperCase()
-                  const hasAcars = !!reg && acarsTails.has(reg)
-                  return (
-                    <AircraftRow
-                      key={f.entityId}
-                      entityId={f.entityId}
-                      displayName={f.displayName}
-                      liveEntity={f.liveEntity}
-                      isSelected={selectedEntityId === f.entityId}
-                      lastSeen={f.lastSeen}
-                      hasAcars={hasAcars}
-                      onClick={() => handleSelectFlight(f.entityId)}
-                    />
-                  )
-                })
-              ) : (
-                <div className="flex flex-col items-center justify-center gap-3 text-on-surface-variant/30 py-16">
-                  <span className="ms text-4xl">flight_takeoff</span>
-                  <span className="text-[11px] uppercase tracking-[0.2em] font-mono text-center px-4">
-                    {search ? 'No matches' : 'No activity'}
-                  </span>
-                </div>
-              )}
-            </div>
+            {/* 4. Selected Aircraft Details */}
+            <div className="shrink-0 order-2">
+              {selectedEntityId && (detailEntity || replayFlights[selectedEntityId]) ? (
+                <section className="p-4 space-y-4 pb-8 border border-white/10 bg-white/5 rounded-sm bg-onyx-black/35 backdrop-blur-sm">
+                  <h3 className="section-heading flex items-center gap-2">
+                    <span className="ms text-[14px] text-cyan-adsb">manage_search</span>
+                    Selected Aircraft
+                  </h3>
 
-            {/* Footer */}
-            <div className="px-3 py-2 border-t border-white/5 bg-white/5 flex items-center justify-between shrink-0">
-              <span className="font-mono text-[11px] text-on-surface-variant uppercase">
-                {filteredFlights.length} found
-              </span>
-              {updateHz > 0 && (
-                <span className="font-mono text-[11px] text-amber-gold/60 uppercase">
-                  {UPDATE_INTERVALS.find(u => u.ms === updateHz)?.label}
-                </span>
-              )}
-            </div>
-          </div>
-
-        </div>
-
-        {/* ── Right Column: Live Map & Details ── */}
-        <div className="flex-1 min-w-0 flex flex-col lg:h-full lg:overflow-y-auto p-4 lg:p-6 gap-6 pb-28 lg:pb-36">
-
-          {/* ── Live Position Map ── */}
-          <section className="border border-white/10 p-4 bg-white/5 flex flex-col gap-2 rounded-sm bg-onyx-black/35 backdrop-blur-sm shrink-0">
-            <div className="flex items-center justify-between shrink-0">
-              <h3 className="section-heading flex items-center gap-2">
-                <span className="ms text-[14px] text-cyan-adsb">map</span>
-                {selectedEntityId && (detailEntity || replayFlights[selectedEntityId])
-                  ? (getIdent(detailEntity, 'callsign') !== '--'
-                      ? getIdent(detailEntity, 'callsign')
-                      : (replayFlights[selectedEntityId]?.display_name
-                        || selectedEntityId.split(':').pop()?.toUpperCase()
-                        || 'Selected Aircraft'))
-                  : 'Live Position'}
-              </h3>
-              {selectedEntityId && (
-                <button
-                  type="button"
-                  onClick={() => selectEntity(null)}
-                  className="text-on-surface-variant hover:text-white transition-colors"
-                  aria-label="Deselect aircraft"
-                >
-                  <span className="ms text-[14px]">close</span>
-                </button>
-              )}
-            </div>
-            <div className="h-64 sm:h-80 lg:h-96 w-full rounded-sm overflow-hidden">
-              <FlightMiniMap trailPoints={trailPoints} entity={detailEntity} />
-            </div>
-          </section>
-
-          {/* ── Selected Aircraft Details ── */}
-          <div className="flex-1">
-            {selectedEntityId && (detailEntity || replayFlights[selectedEntityId]) ? (
-              <section className="p-4 space-y-4 pb-8 border border-white/10 bg-white/5 rounded-sm bg-onyx-black/35 backdrop-blur-sm">
-                <h3 className="section-heading flex items-center gap-2">
-                  <span className="ms text-[14px] text-cyan-adsb">manage_search</span>
-                  Selected Aircraft
-                </h3>
-
-                {/* Grid layout for wide displays, stacks on smaller screens */}
-                <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-                  {/* Left Column: Identity & Route */}
-                  <div className="space-y-4">
+                  <div className="grid grid-cols-1 gap-4">
                     {/* Identity card */}
                     <div className="p-3 border border-cyan-adsb/30 bg-cyan-adsb/5 rounded-sm space-y-1.5">
                       <div className="flex items-start justify-between border-b border-cyan-adsb/10 pb-2 mb-2">
@@ -958,10 +1043,7 @@ export function FlightLogPanel() {
                         </div>
                       </div>
                     )}
-                  </div>
 
-                  {/* Right Column: Live Position & Stats */}
-                  <div className="space-y-4">
                     {/* Live position */}
                     {detailEntity && (
                       <div className="p-3 border border-white/10 bg-white/5 rounded-sm">
@@ -1021,55 +1103,367 @@ export function FlightLogPanel() {
                       )}
                     </div>
                   </div>
-                </div>
 
-                {/* ACARS messages (full-width below grid) */}
-                <div className="p-3 border border-white/10 bg-white/5 rounded-sm">
-                  <div className="font-mono text-[11px] text-on-surface-variant uppercase tracking-widest mb-2 flex items-center gap-2">
-                    <span className="ms text-[13px] text-cyan-adsb/70">message</span>
-                    ACARS Messages
-                    {selectedRegistration && (
-                      <span className="text-on-surface-variant/40 normal-case tracking-normal">({selectedRegistration})</span>
-                    )}
-                    {loadingAcars && (
-                      <span className="ml-auto animate-pulse text-[9px] text-on-surface-variant/40">loading…</span>
-                    )}
-                    {mergedAcars.length > 0 && !loadingAcars && (
-                      <span className="ml-auto font-mono text-[10px] text-on-surface-variant/40">{mergedAcars.length}</span>
+                  {/* ACARS messages */}
+                  <div className="p-3 border border-white/10 bg-white/5 rounded-sm">
+                    <div className="font-mono text-[11px] text-on-surface-variant uppercase tracking-widest mb-2 flex items-center gap-2">
+                      <span className="ms text-[13px] text-cyan-adsb/70">message</span>
+                      ACARS Messages
+                      {selectedRegistration && (
+                        <span className="text-on-surface-variant/40 normal-case tracking-normal">({selectedRegistration})</span>
+                      )}
+                      {loadingAcars && (
+                        <span className="ml-auto animate-pulse text-[9px] text-on-surface-variant/40">loading…</span>
+                      )}
+                      {mergedAcars.length > 0 && !loadingAcars && (
+                        <span className="ml-auto font-mono text-[10px] text-on-surface-variant/40">{mergedAcars.length}</span>
+                      )}
+                    </div>
+                    {mergedAcars.length > 0 ? (
+                      <div className="border border-white/5 rounded-sm overflow-hidden">
+                        {mergedAcars.map((m, i) => (
+                          <AcarsMessageRow key={m.id ?? `${m.ts}-${i}`} msg={m} />
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="py-3 text-center text-[11px] font-mono text-on-surface-variant/30 uppercase">
+                        {!selectedRegistration
+                          ? 'No registration known'
+                          : loadingAcars
+                            ? 'Fetching…'
+                            : 'No ACARS messages'}
+                      </div>
                     )}
                   </div>
-                  {mergedAcars.length > 0 ? (
-                    <div className="border border-white/5 rounded-sm overflow-hidden">
-                      {mergedAcars.map((m, i) => (
-                        <AcarsMessageRow key={m.id ?? `${m.ts}-${i}`} msg={m} />
-                      ))}
+                </section>
+              ) : selectedEntityId ? (
+                <div className="flex flex-col items-center justify-center gap-2 text-on-surface-variant/30 p-8 h-full border border-white/10 bg-white/5 rounded-sm bg-onyx-black/35 backdrop-blur-sm min-h-[300px]">
+                  <span className="ms text-3xl animate-pulse">radar</span>
+                  <span className="text-[11px] uppercase tracking-widest font-mono text-center">Loading aircraft data…</span>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center gap-3 text-on-surface-variant/30 p-8 h-full border border-white/10 bg-white/5 rounded-sm bg-onyx-black/35 backdrop-blur-sm min-h-[300px]">
+                  <span className="ms text-5xl">flight</span>
+                  <span className="text-[11px] uppercase tracking-[0.2em] font-mono text-center leading-relaxed">
+                    Select an aircraft<br />to view flight details
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-col lg:flex-row gap-6 lg:gap-10 p-2 sm:p-4 lg:p-6 items-stretch lg:items-start w-full">
+            {/* ── Left Column: Traffic Summary & Aircraft Log ── */}
+            <div className="w-full lg:w-[380px] shrink-0 flex flex-col border-b lg:border-b-0 lg:border-r border-white/10 bg-onyx-black/10 lg:h-full overflow-hidden">
+              {/* ── Traffic Summary ── */}
+              <section className="p-4 border-b border-white/10 bg-white/5 bg-onyx-black/35 backdrop-blur-sm shrink-0">
+                <h3 className="section-heading mb-3 flex items-center gap-2">
+                  <span className="ms text-[14px] text-cyan-adsb">analytics</span>
+                  Traffic Summary
+                  <span className="ml-auto font-mono text-[11px] text-on-surface-variant">{twLabel} window</span>
+                </h3>
+                <div className="grid grid-cols-2 gap-2">
+                  <StatCard label="Total Observed"  value={String(summaryStats.total)}     unit="aircraft" colorClass="text-cyan-adsb"  />
+                  <StatCard label="Currently Live"  value={String(summaryStats.liveCount)} unit="airborne" colorClass="text-green-ais"  />
+                  <StatCard label="Avg Altitude"
+                    value={summaryStats.avgAlt != null ? summaryStats.avgAlt.toLocaleString() : '--'}
+                    unit="ft MSL" colorClass="text-amber-gold"
+                  />
+                  <StatCard label="Peak Altitude"
+                    value={summaryStats.maxAlt != null ? summaryStats.maxAlt.toLocaleString() : '--'}
+                    unit="ft MSL" colorClass="text-amber-gold"
+                  />
+                </div>
+              </section>
+
+              {/* ── Aircraft Log ── */}
+              <div className="flex-1 min-h-0 flex flex-col bg-onyx-black/35 backdrop-blur-sm">
+                {/* Search bar */}
+                <div className="px-3 py-2 border-b border-white/10 shrink-0 flex items-center gap-2 bg-white/5">
+                  <span className="ms text-[14px] text-on-surface-variant">search</span>
+                  <input
+                    type="text"
+                    placeholder="Search ID, type, etc…"
+                    value={search}
+                    onChange={e => setSearch(e.target.value)}
+                    className="flex-1 bg-transparent text-[12px] text-on-surface placeholder-on-surface-variant/50 focus:outline-none"
+                  />
+                  {search && (
+                    <button type="button" onClick={() => setSearch('')} className="text-on-surface-variant hover:text-white transition-colors">
+                      <span className="ms text-[14px]">close</span>
+                    </button>
+                  )}
+                </div>
+
+                {/* Column headers */}
+                <div className="px-3 py-1.5 bg-white/5 border-b border-white/5 flex items-center justify-between shrink-0">
+                  <span className="font-mono text-[11px] text-on-surface-variant uppercase tracking-widest">Aircraft</span>
+                  <span className="font-mono text-[11px] text-on-surface-variant uppercase tracking-widest">
+                    {acarsTails.size > 0 && (
+                      <span className="text-cyan-adsb/60 mr-2" title={`${acarsTails.size} aircraft with ACARS data`}>
+                        ACARS:{acarsTails.size}
+                      </span>
+                    )}
+                    Phase · Alt · Spd
+                  </span>
+                </div>
+
+                {/* List body: Scrollable list of aircraft */}
+                <div className="flex-1 min-h-0 h-64 lg:h-auto overflow-y-auto divide-y divide-white/5">
+                  {loadingReplay && displayFlights.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center gap-3 text-on-surface-variant/30 py-16">
+                      <span className="ms text-4xl animate-pulse">radar</span>
+                      <span className="text-[11px] uppercase tracking-[0.2em] font-mono">Fetching data…</span>
                     </div>
+                  ) : filteredFlights.length > 0 ? (
+                    filteredFlights.map(f => {
+                      const reg = (f.liveEntity?.identity?.['registration'] as string | undefined)?.toUpperCase()
+                      const hasAcars = !!reg && acarsTails.has(reg)
+                      return (
+                        <AircraftRow
+                          key={f.entityId}
+                          entityId={f.entityId}
+                          displayName={f.displayName}
+                          liveEntity={f.liveEntity}
+                          isSelected={selectedEntityId === f.entityId}
+                          lastSeen={f.lastSeen}
+                          hasAcars={hasAcars}
+                          onClick={() => handleSelectFlight(f.entityId)}
+                        />
+                      )
+                    })
                   ) : (
-                    <div className="py-3 text-center text-[11px] font-mono text-on-surface-variant/30 uppercase">
-                      {!selectedRegistration
-                        ? 'No registration known'
-                        : loadingAcars
-                          ? 'Fetching…'
-                          : 'No ACARS messages'}
+                    <div className="flex flex-col items-center justify-center gap-3 text-on-surface-variant/30 py-16">
+                      <span className="ms text-4xl">flight_takeoff</span>
+                      <span className="text-[11px] uppercase tracking-[0.2em] font-mono text-center px-4">
+                        {search ? 'No matches' : 'No activity'}
+                      </span>
                     </div>
                   )}
                 </div>
+
+                {/* Footer */}
+                <div className="px-3 py-2 border-t border-white/5 bg-white/5 flex items-center justify-between shrink-0">
+                  <span className="font-mono text-[11px] text-on-surface-variant uppercase">
+                    {filteredFlights.length} found
+                  </span>
+                  {updateHz > 0 && (
+                    <span className="font-mono text-[11px] text-amber-gold/60 uppercase">
+                      {UPDATE_INTERVALS.find(u => u.ms === updateHz)?.label}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* ── Right Column: Live Map & Details ── */}
+            <div className="flex-1 min-w-0 flex flex-col lg:h-full lg:overflow-y-auto p-4 lg:p-6 gap-6 pb-28 lg:pb-36">
+              {/* ── Live Position Map ── */}
+              <section className="border border-white/10 p-4 bg-white/5 flex flex-col gap-2 rounded-sm bg-onyx-black/35 backdrop-blur-sm shrink-0">
+                <div className="flex items-center justify-between shrink-0">
+                  <h3 className="section-heading flex items-center gap-2">
+                    <span className="ms text-[14px] text-cyan-adsb">map</span>
+                    {selectedEntityId && (detailEntity || replayFlights[selectedEntityId])
+                      ? (getIdent(detailEntity, 'callsign') !== '--'
+                          ? getIdent(detailEntity, 'callsign')
+                          : (replayFlights[selectedEntityId]?.display_name
+                            || selectedEntityId.split(':').pop()?.toUpperCase()
+                            || 'Selected Aircraft'))
+                      : 'Live Position'}
+                  </h3>
+                  {selectedEntityId && (
+                    <button
+                      type="button"
+                      onClick={() => selectEntity(null)}
+                      className="text-on-surface-variant hover:text-white transition-colors"
+                      aria-label="Deselect aircraft"
+                    >
+                      <span className="ms text-[14px]">close</span>
+                    </button>
+                  )}
+                </div>
+                <div className="h-64 sm:h-80 lg:h-96 w-full rounded-sm overflow-hidden">
+                  <FlightMiniMap trailPoints={trailPoints} entity={detailEntity} />
+                </div>
               </section>
-            ) : selectedEntityId ? (
-              <div className="flex flex-col items-center justify-center gap-2 text-on-surface-variant/30 p-8 h-full border border-white/10 bg-white/5 rounded-sm bg-onyx-black/35 backdrop-blur-sm min-h-[300px]">
-                <span className="ms text-3xl animate-pulse">radar</span>
-                <span className="text-[11px] uppercase tracking-widest font-mono text-center">Loading aircraft data…</span>
+
+              {/* ── Selected Aircraft Details ── */}
+              <div className="flex-1">
+                {selectedEntityId && (detailEntity || replayFlights[selectedEntityId]) ? (
+                  <section className="p-4 space-y-4 pb-8 border border-white/10 bg-white/5 rounded-sm bg-onyx-black/35 backdrop-blur-sm">
+                    <h3 className="section-heading flex items-center gap-2">
+                      <span className="ms text-[14px] text-cyan-adsb">manage_search</span>
+                      Selected Aircraft
+                    </h3>
+
+                    {/* Grid layout for wide displays, stacks on smaller screens */}
+                    <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                      {/* Left Column: Identity & Route */}
+                      <div className="space-y-4">
+                        {/* Identity card */}
+                        <div className="p-3 border border-cyan-adsb/30 bg-cyan-adsb/5 rounded-sm space-y-1.5">
+                          <div className="flex items-start justify-between border-b border-cyan-adsb/10 pb-2 mb-2">
+                            <div>
+                              <div className="font-mono text-[11px] text-cyan-adsb/70 uppercase tracking-widest mb-0.5">Callsign</div>
+                              <div className="font-black text-lg text-on-surface uppercase leading-none tracking-tight">
+                                {getIdent(detailEntity, 'callsign') !== '--'
+                                  ? getIdent(detailEntity, 'callsign')
+                                  : (replayFlights[selectedEntityId]?.display_name
+                                    || selectedEntityId.split(':').pop()?.toUpperCase()
+                                    || '------')}
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <div className="font-mono text-[11px] text-on-surface-variant uppercase tracking-widest mb-0.5">ICAO 24</div>
+                              <div className="font-mono text-[12px] text-on-surface">{selectedEntityId.split(':').pop()?.toUpperCase()}</div>
+                            </div>
+                          </div>
+                          <InfoRow label="Registration"  value={getIdent(detailEntity, 'registration')} />
+                          <InfoRow label="Aircraft Type" value={getIdent(detailEntity, 'type')} />
+                          <InfoRow label="ICAO Type"     value={getIdent(detailEntity, 'icao_type')} />
+                          <InfoRow label="Operator"      value={getIdent(detailEntity, 'operator')} />
+                          <InfoRow label="Country"       value={getIdent(detailEntity, 'operator_country')} />
+                        </div>
+
+                        {/* Route */}
+                        {detailEntity && !!(detailEntity.identity?.['origin'] || detailEntity.identity?.['destination']) && (
+                          <div className="p-3 border border-white/10 bg-white/5 rounded-sm">
+                            <div className="font-mono text-[11px] text-on-surface-variant uppercase tracking-widest mb-3">Route</div>
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="text-center flex-1 min-w-0">
+                                <div className="font-black text-base text-on-surface">{getIdent(detailEntity, 'origin')}</div>
+                                <div className="font-mono text-[11px] text-on-surface-variant truncate">
+                                  {nestedStr(detailEntity, 'origin_info', 'city') || 'Origin'}
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-1 shrink-0">
+                                <div className="w-5 h-px bg-white/20" />
+                                <span className="ms text-[13px] text-cyan-adsb" style={{ fontVariationSettings: "'FILL' 1" }}>flight</span>
+                                <div className="w-5 h-px bg-white/20" />
+                              </div>
+                              <div className="text-center flex-1 min-w-0">
+                                <div className="font-black text-base text-on-surface">{getIdent(detailEntity, 'destination')}</div>
+                                <div className="font-mono text-[11px] text-on-surface-variant truncate">
+                                  {nestedStr(detailEntity, 'dest_info', 'city') || 'Destination'}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Right Column: Live Position & Stats */}
+                      <div className="space-y-4">
+                        {/* Live position */}
+                        {detailEntity && (
+                          <div className="p-3 border border-white/10 bg-white/5 rounded-sm">
+                            <div className="flex items-center gap-2 mb-2">
+                              <div className="font-mono text-[11px] text-on-surface-variant uppercase tracking-widest">Live Position</div>
+                              {entities[selectedEntityId] && (
+                                <span className="w-1.5 h-1.5 rounded-full bg-green-ais animate-pulse" />
+                              )}
+                            </div>
+                            <div className="grid grid-cols-3 gap-x-4 gap-y-3">
+                              <LiveStat label="Altitude"  value={fmtAlt(detailEntity.altitude)} />
+                              <LiveStat label="Speed"     value={fmtSpd(detailEntity.speed)} />
+                              <LiveStat label="Heading"   value={detailEntity.heading != null ? `${Math.round(detailEntity.heading)}°` : '--'} />
+                              <LiveStat label="Vert Rate"
+                                value={detailEntity.vertical_rate != null
+                                  ? `${detailEntity.vertical_rate > 0 ? '+' : ''}${Math.round(detailEntity.vertical_rate)} fpm`
+                                  : '--'}
+                              />
+                              <LiveStat label="Distance"  value={detailEntity.distance_km != null ? `${detailEntity.distance_km.toFixed(1)} km` : '--'} />
+                              <LiveStat label="Phase"     value={(getIdent(detailEntity, 'phase')).toUpperCase()} />
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Flight statistics */}
+                        <div className="p-3 border border-white/10 bg-white/5 rounded-sm">
+                          <div className="font-mono text-[11px] text-on-surface-variant uppercase tracking-widest mb-2 flex items-center gap-2">
+                            Flight Statistics
+                            <span className="text-amber-gold/60 text-[7px]">({twLabel})</span>
+                            {loadingTrail && <span className="ml-auto animate-pulse text-[7px] text-on-surface-variant/50">loading…</span>}
+                          </div>
+                          {selectedFlightStats ? (
+                            <>
+                              <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+                                <LiveStat label="Max Altitude"  value={fmtAlt(selectedFlightStats.maxAltFt)}    />
+                                <LiveStat label="Min Altitude"  value={fmtAlt(selectedFlightStats.minAltFt)}    />
+                                <LiveStat label="Max Speed"     value={fmtSpd(selectedFlightStats.maxSpeedKts)} />
+                                <LiveStat label="Avg Speed"     value={fmtSpd(selectedFlightStats.avgSpeedKts)} />
+                                <LiveStat label="Duration"      value={`${selectedFlightStats.durationMin} min`} />
+                                <LiveStat label="Track Points"  value={String(selectedFlightStats.pointCount)}  />
+                              </div>
+                              <div className="mt-3 pt-2 border-t border-white/5 grid grid-cols-2 gap-3">
+                                <div>
+                                  <div className="font-mono text-[7px] text-on-surface-variant/60 uppercase">First Seen</div>
+                                  <div className="font-mono text-[11px] text-on-surface mt-0.5">{fmtDateTime(selectedFlightStats.firstSeen)}</div>
+                                </div>
+                                <div>
+                                  <div className="font-mono text-[7px] text-on-surface-variant/60 uppercase">Last Seen</div>
+                                  <div className="font-mono text-[11px] text-on-surface mt-0.5">{fmtDateTime(selectedFlightStats.lastSeen)}</div>
+                                </div>
+                              </div>
+                            </>
+                          ) : (
+                            <div className="py-3 text-center text-[11px] font-mono text-on-surface-variant/30 uppercase">
+                              {loadingTrail ? 'Fetching trail…' : 'No observations in window'}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* ACARS messages (full-width below grid) */}
+                    <div className="p-3 border border-white/10 bg-white/5 rounded-sm">
+                      <div className="font-mono text-[11px] text-on-surface-variant uppercase tracking-widest mb-2 flex items-center gap-2">
+                        <span className="ms text-[13px] text-cyan-adsb/70">message</span>
+                        ACARS Messages
+                        {selectedRegistration && (
+                          <span className="text-on-surface-variant/40 normal-case tracking-normal">({selectedRegistration})</span>
+                        )}
+                        {loadingAcars && (
+                          <span className="ml-auto animate-pulse text-[9px] text-on-surface-variant/40">loading…</span>
+                        )}
+                        {mergedAcars.length > 0 && !loadingAcars && (
+                          <span className="ml-auto font-mono text-[10px] text-on-surface-variant/40">{mergedAcars.length}</span>
+                        )}
+                      </div>
+                      {mergedAcars.length > 0 ? (
+                        <div className="border border-white/5 rounded-sm overflow-hidden">
+                          {mergedAcars.map((m, i) => (
+                            <AcarsMessageRow key={m.id ?? `${m.ts}-${i}`} msg={m} />
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="py-3 text-center text-[11px] font-mono text-on-surface-variant/30 uppercase">
+                          {!selectedRegistration
+                            ? 'No registration known'
+                            : loadingAcars
+                              ? 'Fetching…'
+                              : 'No ACARS messages'}
+                        </div>
+                      )}
+                    </div>
+                  </section>
+                ) : selectedEntityId ? (
+                  <div className="flex flex-col items-center justify-center gap-2 text-on-surface-variant/30 p-8 h-full border border-white/10 bg-white/5 rounded-sm bg-onyx-black/35 backdrop-blur-sm min-h-[300px]">
+                    <span className="ms text-3xl animate-pulse">radar</span>
+                    <span className="text-[11px] uppercase tracking-widest font-mono text-center">Loading aircraft data…</span>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center gap-3 text-on-surface-variant/30 p-8 h-full border border-white/10 bg-white/5 rounded-sm bg-onyx-black/35 backdrop-blur-sm min-h-[300px]">
+                    <span className="ms text-5xl">flight</span>
+                    <span className="text-[11px] uppercase tracking-[0.2em] font-mono text-center leading-relaxed">
+                      Select an aircraft<br />to view flight details
+                    </span>
+                  </div>
+                )}
               </div>
-            ) : (
-              <div className="flex flex-col items-center justify-center gap-3 text-on-surface-variant/30 p-8 h-full border border-white/10 bg-white/5 rounded-sm bg-onyx-black/35 backdrop-blur-sm min-h-[300px]">
-                <span className="ms text-5xl">flight</span>
-                <span className="text-[11px] uppercase tracking-[0.2em] font-mono text-center leading-relaxed">
-                  Select an aircraft<br />to view flight details
-                </span>
-              </div>
-            )}
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   )

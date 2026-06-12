@@ -16,6 +16,11 @@ _OBS_MIN_INTERVAL = 30.0
 _last_obs_ts: dict[str, float] = {}
 
 
+# Throttle entities table upsert to avoid continuous DB writes for active entities.
+_ENTITY_MIN_INTERVAL = 15.0
+_last_entity_write_ts: dict[str, float] = {}
+
+
 def get_pool() -> asyncpg.Pool:
     if _pool is None:
         raise RuntimeError("DB pool not initialised — call init_db() first")
@@ -67,7 +72,7 @@ async def init_db():
                        ROW_NUMBER() OVER (
                            PARTITION BY station_id, tail, freq, ts
                            ORDER BY id
-                       ) AS row_num
+                        ) AS row_num
                 FROM acars_messages
             )
             DELETE FROM acars_messages AS messages
@@ -127,26 +132,42 @@ async def write_entity_observation(entity: dict, record_observation: bool = True
 
     lat = entity.get("lat")
     lon = entity.get("lon")
+    entity_id_key = entity["entity_id"]
+    now_ts = time.time()
+
+    # Determine if we should update the entity row
+    should_write_entity = False
+    last_write = _last_entity_write_ts.get(entity_id_key, 0.0)
+    if now_ts - last_write >= _ENTITY_MIN_INTERVAL:
+        should_write_entity = True
+    else:
+        # If critical display or identity metadata changed, update immediately
+        from bus import _entity_cache
+        prev = _entity_cache.get(entity_id_key)
+        if prev and (prev.get("display_name") != entity.get("display_name") or prev.get("identity") != entity.get("identity")):
+            should_write_entity = True
 
     async with _pool.acquire() as conn:
-        await conn.execute(
-            """
-            INSERT INTO entities
-                (entity_id, entity_type, source, display_name, identity, tags, first_seen, last_seen)
-            VALUES ($1::text, $2::text, $3::text, $4::text, $5::jsonb, $6::jsonb, NOW(), NOW())
-            ON CONFLICT (entity_id) DO UPDATE SET
-                display_name = COALESCE(EXCLUDED.display_name, entities.display_name),
-                identity     = entities.identity || EXCLUDED.identity,
-                tags         = EXCLUDED.tags,
-                last_seen    = NOW()
-            """,
-            entity["entity_id"],
-            entity["entity_type"],
-            entity["source"],
-            entity.get("display_name"),
-            json.dumps(entity.get("identity") or {}),
-            json.dumps(entity.get("tags") or []),
-        )
+        if should_write_entity:
+            _last_entity_write_ts[entity_id_key] = now_ts
+            await conn.execute(
+                """
+                INSERT INTO entities
+                    (entity_id, entity_type, source, display_name, identity, tags, first_seen, last_seen)
+                VALUES ($1::text, $2::text, $3::text, $4::text, $5::jsonb, $6::jsonb, NOW(), NOW())
+                ON CONFLICT (entity_id) DO UPDATE SET
+                    display_name = COALESCE(EXCLUDED.display_name, entities.display_name),
+                    identity     = entities.identity || EXCLUDED.identity,
+                    tags         = EXCLUDED.tags,
+                    last_seen    = NOW()
+                """,
+                entity["entity_id"],
+                entity["entity_type"],
+                entity["source"],
+                entity.get("display_name"),
+                json.dumps(entity.get("identity") or {}),
+                json.dumps(entity.get("tags") or []),
+            )
 
         mode = (settings.adsb_history_mode or "record").strip().lower()
         if mode != "record" or not record_observation:
@@ -156,8 +177,6 @@ async def write_entity_observation(entity: dict, record_observation: bool = True
 
         # Rate-limit observation inserts per entity to avoid write storms from
         # high-frequency sources (BEAST streams entities at 1-2 Hz per aircraft).
-        entity_id_key = entity["entity_id"]
-        now_ts = time.time()
         if now_ts - _last_obs_ts.get(entity_id_key, 0.0) < _OBS_MIN_INTERVAL:
             if lat is not None and lon is not None:
                 await check_geofences(entity, conn)

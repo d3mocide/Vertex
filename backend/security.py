@@ -66,5 +66,8 @@ def validate_webhook_url(url: str) -> None:
 
 
 def _reject_private_ip(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> None:
+    from config import settings
+    if getattr(settings, "allow_private_ips", False):
+        return
     if ip.is_loopback or ip.is_private or ip.is_link_local or ip.is_reserved or ip.is_unspecified:
         raise ValueError(f"URL resolves to a non-public address: {ip}")

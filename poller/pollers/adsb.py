@@ -212,6 +212,7 @@ class AdsbPoller(BasePoller):
         # state is always current; only the publish (Redis + DB + geofence) is gated.
         _BEAST_PUBLISH_MIN_INTERVAL = 1.0
         _last_published: dict[str, float] = {}
+        count = 0
 
         while True:
             msg, mlat_ticks, signal = await self._beast_queue.get()
@@ -227,6 +228,12 @@ class AdsbPoller(BasePoller):
                         await publish_entity(entity)
             except Exception as exc:
                 logger.warning("[adsb] frame processing error: %s", exc)
+
+            # Periodically yield control to the asyncio event loop to prevent event loop starvation
+            count += 1
+            if count >= 50:
+                count = 0
+                await asyncio.sleep(0)
 
     async def _registry_tick_loop(self):
         _SNAPSHOT_INTERVAL = 5  # publish full snapshot every N ticks (seconds)

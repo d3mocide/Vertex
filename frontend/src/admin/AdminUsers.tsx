@@ -95,8 +95,8 @@ export default function AdminUsers() {
           ) : error ? (
             <p className="text-xs text-red-400">{error}</p>
           ) : (
-            <div className="border border-white/10">
-              <table className="w-full text-xs">
+            <div className="border border-white/10 overflow-x-auto">
+              <table className="w-full text-xs min-w-[500px]">
                 <thead>
                   <tr className="border-b border-white/10 bg-surface-container">
                     <th className="text-left px-3 py-2 text-[11px] uppercase tracking-wider text-gray-500 font-normal">Username</th>

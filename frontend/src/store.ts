@@ -656,7 +656,6 @@ export const useCivicStore = create<CivicStore>()(
   {
     name: 'vertex.ui.prefs',
     partialize: (state) => ({
-      activeTab:          state.activeTab,
       mode:               state.mode,
       trailsVisible:      state.trailsVisible,
       radarVisible:       state.radarVisible,

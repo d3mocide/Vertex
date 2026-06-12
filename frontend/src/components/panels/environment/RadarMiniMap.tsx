@@ -7,6 +7,7 @@ import { RadarReflectivityLayer } from '../../layers/RadarReflectivityLayer'
 import { NWSAlertsLayer } from '../../layers/NWSAlertsLayer'
 import { LightningDensityLayer } from '../../layers/LightningDensityLayer'
 import { GOESLayer } from '../../layers/GOESLayer'
+import { ensureKnownStyleImages, KNOWN_STYLE_IMAGE_FALLBACKS } from '../../Map'
 
 interface MiniMapVisibility {
   iemRadar: boolean
@@ -39,9 +40,45 @@ function RadarMiniMapCanvas({
       attributionControl: false,
     })
 
+    const warnedMissing = new Set<string>()
+    let ensureKnownImagesInFlight = false
+
+    const ensureKnownImages = async () => {
+      if (ensureKnownImagesInFlight) return
+      ensureKnownImagesInFlight = true
+      try {
+        await ensureKnownStyleImages(m)
+      } finally {
+        ensureKnownImagesInFlight = false
+      }
+    }
+
+    m.on('styledata', () => {
+      if (m.isStyleLoaded()) void ensureKnownImages()
+    })
+
+    m.on('styleimagemissing', (e) => {
+      const id = e.id
+      if (m.hasImage(id)) return
+
+      const makeFallback = KNOWN_STYLE_IMAGE_FALLBACKS[id]
+      if (makeFallback) {
+        m.addImage(id, makeFallback())
+        return
+      }
+
+      if (!warnedMissing.has(id)) {
+        warnedMissing.add(id)
+        console.warn(`Map style image missing: ${id}. Using transparent fallback.`)
+      }
+      const data = new Uint8Array(4)
+      m.addImage(id, { width: 1, height: 1, data })
+    })
+
     m.on('load', () => {
       const canvas = m.getCanvas()
       canvas.style.filter = 'brightness(0.85) contrast(1.1)'
+      void ensureKnownImages()
       setMap(m)
     })
 

@@ -5,6 +5,181 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 
 ---
 
+## 2026-06-12 — Mobile-Friendly Admin Dashboard
+
+- **Responsive Admin Layout** ([AdminApp.tsx](frontend/src/AdminApp.tsx)):
+    - Converted the static side-by-side flex layout to a responsive `flex-col md:flex-row`.
+    - Hided the sidebar on mobile and replaced it with a top header and a horizontal scrolling navigation bar.
+    - Hided duplicate header titles on mobile and reduced main content padding from `p-6` to `p-4 md:p-6`.
+- **Responsive Admin Forms** ([AdminFeeds.tsx](frontend/src/admin/AdminFeeds.tsx)):
+    - Updated form grid layouts to stack input elements vertically on mobile viewports (`grid-cols-1 sm:grid-cols-3` and `grid-cols-1 sm:grid-cols-2`) and expand buttons to full-width.
+- **Scrollable Tables** ([AdminUsers.tsx](frontend/src/admin/AdminUsers.tsx)):
+    - Wrapped the accounts table in a container with `overflow-x-auto` to prevent layout breaking on narrow screens.
+- **Validation**:
+    - Ran TypeScript type checks successfully, validated Docker Compose, and verified container builds.
+
+## 2026-06-12 — Optimized Comms Page Mobile Layout & Tab Buttons
+
+- **Left Column Mobile Spacing** ([CommsPanel.tsx](frontend/src/components/panels/CommsPanel.tsx)):
+    - Adjusted the left column's bottom padding from `pb-28` to `pb-4` on mobile viewports (`pb-4 lg:pb-36`). Since the right column stacks below the left column on mobile, the extra clearance was creating a massive empty gap between the columns.
+- **Compact Tab Buttons** ([CommsPanel.tsx](frontend/src/components/panels/CommsPanel.tsx)):
+    - Reduced padding (`py-1.5 px-2`) and decreased font size/letter spacing (`text-[10px] tracking-wider`) on mobile.
+    - Set buttons to layout vertically on mobile/tablet viewports using `flex-col sm:flex-row`.
+    - Wrapped long labels in responsive hidden tags (`<span className="hidden sm:inline">Mesh </span>Chat`, `Network`, `P25 Call Log`) to shorten names on narrow screens and prevent button contents from wrapping awkwardly into multiple lines.
+- **Validation**:
+    - Ran TypeScript type checks successfully, validated Docker Compose, and verified container builds.
+
+## 2026-06-12 — Restored Mesh Monitor Card on Page Reload
+
+- **Mesh Status API Endpoint** ([mesh.py](backend/routers/mesh.py)):
+    - Added an `/api/v1/mesh/status` endpoint to retrieve the current MeshCore connection and health status cached in Redis (`feed:mesh:status`).
+- **Initial Load Hydration** ([useMeshHistory.ts](frontend/src/hooks/useMeshHistory.ts)):
+    - Updated the `useMeshHistory` hook to fetch this status on application mount and update the Zustand state store via `setMeshStatus`.
+    - This ensures that the "Mesh Monitor" card (Mesh Client card) and P2P links are immediately visible under "Spectral Health" on startup/hard reset, rather than waiting for a WebSocket health broadcast.
+- **Validation**:
+    - Ran TypeScript type checks successfully, validated Docker Compose, and verified container builds.
+
+## 2026-06-12 — Default Main Map on Hard Reset
+
+- **Removed Active Tab Persistence** ([store.ts](frontend/src/store.ts), [usePreferences.ts](frontend/src/hooks/usePreferences.ts)):
+    - Excluded `activeTab` from the Zustand `persist` middleware's `partialize` state slice.
+    - Removed `activeTab` from the `UiPrefs` preference sync in `usePreferences.ts` to prevent the backend or local storage from overriding the default tab.
+    - As a result, the application now consistently loads to the main Map ('safety' tab) by default on a hard reset or page reload.
+- **Validation**:
+    - Ran TypeScript type check (`npx.cmd tsc --noEmit`) and verified it compiled successfully with zero errors.
+
+## 2026-06-12 — Reduced Dead Space in Mobile Navigation Drawer
+
+- **Mobile Navigation Drawer Spacing** ([MobileNav.tsx](frontend/src/components/layout/MobileNav.tsx)):
+    - Reduced the bottom padding of the "More" options drawer to a flat `4.25rem` and removed the safe area inset. This eliminates unnecessary empty dead space at the bottom of the drawer on mobile viewports while keeping proper layout clearance above the navigation bar.
+- **Validation**:
+    - Verified compile checks pass cleanly.
+
+## 2026-06-12 — Reordered Flight Log Mobile Components
+
+- **Flight Log Component Reordering** ([FlightLogPanel.tsx](frontend/src/components/panels/FlightLogPanel.tsx)):
+    - Reordered the mobile viewport rendering sequence using Tailwind CSS flexbox order utilities (`order-1`, `order-2`, `order-3`, `order-4`).
+    - The new mobile sequence is:
+      1. **Live Position Map** (`order-1`)
+      2. **Selected Aircraft Details** (`order-2`)
+      3. **Aircraft Log / Air Feed** (`order-3`)
+      4. **Traffic Summary** (`order-4`)
+- **Validation**:
+    - Verified compile checks pass cleanly.
+
+## 2026-06-12 — Mobile Pagination for Aircraft Log
+
+- **Mobile Pagination** ([FlightLogPanel.tsx](frontend/src/components/panels/FlightLogPanel.tsx)):
+    - Integrated mobile pagination controls into the mobile view of the aircraft log.
+    - Set page sizes to 10 items per page (`MOBILE_PAGE_SIZE = 10`) to keep the scrolling lists short and manageable.
+    - Added automatic page clamps to handle changing search filter scopes, resetting current page back to 1 when search text is edited.
+- **Validation**:
+    - Verified compile checks pass cleanly.
+
+## 2026-06-12 — Mobile-Specific Layout Restructuring for Flight Log Page
+
+- **Mobile Viewport Restructuring** ([FlightLogPanel.tsx](frontend/src/components/panels/FlightLogPanel.tsx)):
+    - Introduced an `isMobile` screen width state listener (`window.innerWidth < 1024`).
+    - Added conditional responsive layout rendering on mobile viewports to place the **Live Position Map** at the top of the feed, followed by **Traffic Summary**, **Aircraft Log**, and **Selected Aircraft Details** at the bottom.
+- **Validation**:
+    - Verified compile checks pass cleanly.
+
+## 2026-06-12 — Mobile-Specific Card Ordering for Environment Page
+
+- **Mobile Viewport Restructuring** ([EnvironmentPanel.tsx](frontend/src/components/panels/EnvironmentPanel.tsx)):
+    - Introduced an `isMobile` screen width state listener (`window.innerWidth < 1024`).
+    - Added conditional responsive layout rendering to order cards optimally on mobile viewports:
+      1. NWS Alerts
+      2. Hazard quick cards
+      3. **Current Conditions** (WeatherCard) — placed under hazards.
+      4. Air Quality (AqiGauge).
+      5. **Radar Controls** (RadarControls) — placed under Air Quality.
+      6. **NWS Text** (NwwsCard) — placed under Radar.
+      7. Fire/Smoke (FireStatusCard).
+      8. **GDACS** (GdacsCard) — placed under Fire/Smoke.
+      9. Seismic (SeismicCard).
+      10. PWS, METAR, PIREP cards.
+- **Validation**:
+    - Verified compile checks pass cleanly.
+
+## 2026-06-12 — Replaced Winter with Severe Storm & Expanded Freeze Trigger
+
+- **Severe Storm Indicator** ([EnvironmentPanel.tsx](frontend/src/components/panels/EnvironmentPanel.tsx)):
+    - Replaced the **Winter** hazard card with a **Severe Storm** card using the `thunderstorm` icon to track severe weather, thunderstorm, tornado, hail, and squall events.
+    - Updated the **Freeze** hazard card to trigger on both freeze/frost events and winter weather/snow/ice/blizzard events.
+- **Validation**:
+    - Verified compile checks pass cleanly.
+
+## 2026-06-12 — Reordered Hazard Status Indicators Layout
+
+- **Hazard Grid Reordering** ([EnvironmentPanel.tsx](frontend/src/components/panels/EnvironmentPanel.tsx)):
+    - Reordered the indicators array to present:
+      - Row 1: **Heat**, **Flood**, **Wind**
+      - Row 2: **Fire**, **Freeze**, **Winter**
+- **Validation**:
+    - Verified compile checks pass cleanly.
+
+## 2026-06-12 — Resolved Missing Map Style Image Warnings
+
+- **Map style image fallbacks** ([Map.tsx](frontend/src/components/Map.tsx)):
+    - Exported the fallback registration helpers `ensureKnownStyleImages` and `KNOWN_STYLE_IMAGE_FALLBACKS` from the main Map component.
+- **Environment Mini-map Integration** ([RadarMiniMap.tsx](frontend/src/components/panels/environment/RadarMiniMap.tsx)):
+    - Integrated `styledata` and `styleimagemissing` event listeners to resolve missing `circle-11` and `wood-pattern` warnings on the mini-map.
+- **Flight Log Mini-map Integration** ([FlightLogPanel.tsx](frontend/src/components/panels/FlightLogPanel.tsx)):
+    - Registered the same style image fallback listeners on the FlightMiniMap component to eliminate missing style asset errors.
+- **Validation**:
+    - Verified compilation of all modifications via `npx.cmd tsc --noEmit` returning exit code 0.
+
+## 2026-06-12 — Enhanced Hazard Status Indicators Widget
+
+- **Expanded Indicators & Threat Levels** ([frontend/src/components/panels/EnvironmentPanel.tsx](frontend/src/components/panels/EnvironmentPanel.tsx)):
+    - Expanded the grid of indicators from 3 (Freeze, Flood, Wind) to 6 by adding **Heat**, **Fire**, and **Winter** cards.
+    - Implemented a clean, unified `resolveHazardState` helper to parse active weather alerts for each category.
+    - Added support for NWS alert type escalation: matching alerts trigger **`WATCH ACTIVE`** styled in amber (with amber ping dot) or **`WARNING ACTIVE`** styled in red (with red ping dot and glow shadow) if a warning is active, defaulting to **`SECURE`** (grayed out) when no advisories match.
+- **Validation**:
+    - Ran TypeScript type check (`npx tsc --noEmit`) successfully with zero errors.
+
+## 2026-06-12 — Fixed Environment Panel Header Mobile Layout
+
+- **Responsive Header Layout** ([frontend/src/components/panels/EnvironmentPanel.tsx](frontend/src/components/panels/EnvironmentPanel.tsx)):
+    - Overhauled the info bar layout to use responsive layout parameters (`flex-col md:flex-row md:items-center`).
+    - Added `whitespace-nowrap` to critical text columns ("Last Update", "DATA LIVE", "Region Center" labels) to prevent browsers from vertically squishing and wrapping them under narrow viewport bounds.
+    - Allowed the regional coordinate string to wrap cleanly on mobile screens while preserving tabular sizing.
+- **Validation**:
+    - Ran TypeScript compile checks (`npx tsc --noEmit`) successfully with zero errors.
+    - Rebuilt and started the `frontend` container successfully.
+
+## 2026-06-12 — Added ALLOW_PRIVATE_IPS Config to Support Local Servers
+
+- **Allow Local/Private IPs Configuration**:
+    - [poller/config.py](poller/config.py), [backend/config.py](backend/config.py): Added `allow_private_ips` configuration option (via `ALLOW_PRIVATE_IPS` env variable) defaulting to `False`.
+    - [poller/security.py](poller/security.py), [backend/security.py](backend/security.py): Updated `_reject_private_ip()` check to skip blocking private/loopback/link-local address ranges if `allow_private_ips` is enabled.
+    - [.env](.env): Set `ALLOW_PRIVATE_IPS=true` to allow correct local routing to BEAST receiver, ACARS gateway, and local services. Updated [.env.example](.env.example) to document the new option.
+- **Validation**:
+    - Confirmed unit tests in `backend/tests/test_ssrf_fix.py` pass cleanly inside Docker.
+    - Verified poller logs successfully establish connections to `192.168.10.20` for BEAST and ACARS feeds.
+
+## 2026-06-12 — Optimized ADSB Ingestion & Database writes
+
+- **Poller DB Throttling & Connection Reuse** ([poller/db.py](poller/db.py)):
+    - Implemented a 15-second write throttle for upserting rows into the `entities` table to reduce transaction storms and WAL generation overhead.
+    - Added bypass logic to write critical metadata changes (like `display_name` or `identity`) immediately.
+    - Optimized connection lifecycle in `write_entity_observation` to acquire a connection exactly once and share it across all queries (entity, observations, geofences).
+- **Prevent Event Loop Starvation** ([poller/pollers/adsb.py](poller/pollers/adsb.py)):
+    - Added periodic `await asyncio.sleep(0)` yielding every 50 frames inside the CPU-bound BEAST decoding loop (`_process_beast_frames`) to allow concurrent tasks (web sockets, REST requests) to execute smoothly.
+- **Validation**:
+    - Ran Python compile checks on modified files successfully.
+    - Validated Docker Compose configuration and successfully built/recreated the `poller` container.
+
+## 2026-06-12 — Optimized alert marquee ticker speed
+
+- **Responsive Marquee Speed Control** ([frontend/src/components/layout/AlertStatusBar.tsx](frontend/src/components/layout/AlertStatusBar.tsx)):
+    - Replaced the hardcoded 45-second marquee animation duration with a dynamically calculated duration based on message length (`message.length / 8` seconds, minimum 30 seconds).
+    - This ensures that long alerts scroll at a steady, readable pace (~8 characters per second) instead of rushing past too quickly.
+- **Validation**:
+    - Ran TypeScript type check (`npx tsc --noEmit`) successfully with zero errors.
+    - Verified Docker Compose configuration validity and rebuilt/recreated the `frontend` container successfully.
+
 ## 2026-05-31 — Mobile PWA Overlap Fixes & TripCheck Markup Cleanup
 
 - **TripCheck / feed markup leaking into the advisory bar**:

@@ -62,7 +62,7 @@ function makeWoodPatternImage(size: number) {
   return { width: size, height: size, data }
 }
 
-const KNOWN_STYLE_IMAGE_FALLBACKS: Record<string, () => { width: number; height: number; data: Uint8Array }> = {
+export const KNOWN_STYLE_IMAGE_FALLBACKS: Record<string, () => { width: number; height: number; data: Uint8Array }> = {
   'circle-11': () => makeCircleImage(11, [173, 181, 189, 220]),
   'wood-pattern': () => makeWoodPatternImage(16),
 }
@@ -81,7 +81,7 @@ function loadMapImage(map: maplibregl.Map, url: string): Promise<ImageBitmap | H
   })
 }
 
-async function ensureKnownStyleImages(map: maplibregl.Map) {
+export async function ensureKnownStyleImages(map: maplibregl.Map) {
   for (const [id, makeFallback] of Object.entries(KNOWN_STYLE_IMAGE_FALLBACKS)) {
     if (map.hasImage(id)) continue
 

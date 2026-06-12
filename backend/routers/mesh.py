@@ -110,8 +110,20 @@ async def mesh_topology(
         nodes_with_coords.append(entry)
 
     return {"nodes": nodes_with_coords, "links": links}
- 
- 
+
+
+@router.get("/mesh/status")
+async def get_mesh_status():
+    """Return the current MeshCore connection status and health parameters from Redis."""
+    raw = await get_redis().get("feed:mesh:status")
+    if not raw:
+        return None
+    try:
+        return json.loads(raw)
+    except (json.JSONDecodeError, TypeError):
+        return None
+
+
 @router.get("/mesh/messages")
 async def list_mesh_messages(
     limit: int = Query(100, ge=1, le=1000),
