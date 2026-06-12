@@ -5,6 +5,14 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 
 ---
 
+## 2026-06-12 — Fixed NIFC Fire Perimeters (ArcGIS API Scheme)
+
+- **Updated ArcGIS Schema Queries** ([nifc.py](poller/pollers/nifc.py)):
+    - Corrected the query parameters for NIFC's year-to-date perimeters REST API to match their updated schema. The server now prefixes spatial fields with `poly_` and attributes with `attr_`.
+    - Mapped the prefixed parameters (`poly_IncidentName`, `poly_GISAcres`, `poly_DateCurrent`, `attr_PercentContained`, `attr_POOState`, `attr_POOProtectingAgency`) back to the expected output fields (`name`, `acres`, `contained_pct`, `state`, `agency`, `updated`) for the UI layers.
+- **Validation**:
+    - Ran the poller and verified that the NIFC task successfully synced 367 perimeters and 6 named fires without warnings or errors.
+
 ## 2026-06-12 — Mobile-Friendly Admin Dashboard
 
 - **Responsive Admin Layout** ([AdminApp.tsx](frontend/src/AdminApp.tsx)):

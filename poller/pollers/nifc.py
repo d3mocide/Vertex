@@ -19,7 +19,7 @@ _NIFC_BASE = (
 _HEADERS = {"User-Agent": "Vertex/1.0 (Situational Awareness Dashboard)"}
 
 # Fields to request from ArcGIS REST API
-_FIELDS = "IncidentName,GISAcres,DateCurrent,PercentContained,POOState,Agency"
+_FIELDS = "poly_IncidentName,poly_GISAcres,poly_DateCurrent,attr_PercentContained,attr_POOState,attr_POOProtectingAgency"
 
 # Expand search area significantly for perimeters
 _BBOX_EXPAND_DEG = 10.0
@@ -118,7 +118,7 @@ class NifcPoller(BasePoller):
                 if fire_names:
                     names_str = ",".join([f"""'{n.replace("'", "''")}'""" for n in fire_names])
                     name_params = {
-                        "where": f"UPPER(IncidentName) IN ({names_str})",
+                        "where": f"UPPER(poly_IncidentName) IN ({names_str})",
                         "outFields": _FIELDS,
                         "f": "geojson",
                         "outSR": "4326",
@@ -147,7 +147,7 @@ class NifcPoller(BasePoller):
         unique_features = []
         for f in features:
             props = f.get("properties") or {}
-            fid = f"{props.get('IncidentName')}:{props.get('GISAcres')}"
+            fid = f"{props.get('poly_IncidentName')}:{props.get('poly_GISAcres')}"
             if fid in seen_ids: continue
             seen_ids.add(fid)
             unique_features.append(f)
@@ -157,12 +157,12 @@ class NifcPoller(BasePoller):
             props = f.get("properties") or {}
             geom  = f.get("geometry") or {}
 
-            name = (props.get("IncidentName") or "Unknown Fire").strip()
-            acres = props.get("GISAcres")
-            contained = props.get("PercentContained")
-            state = props.get("POOState") or ""
-            agency = props.get("Agency") or ""
-            date_ms = props.get("DateCurrent")
+            name = (props.get("poly_IncidentName") or "Unknown Fire").strip()
+            acres = props.get("poly_GISAcres")
+            contained = props.get("attr_PercentContained")
+            state = props.get("attr_POOState") or ""
+            agency = props.get("attr_POOProtectingAgency") or ""
+            date_ms = props.get("poly_DateCurrent")
 
             centroid = _centroid(geom.get("coordinates", []))
             clon, clat = centroid if centroid else (None, None)
