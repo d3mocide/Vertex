@@ -526,8 +526,23 @@ export function MapOverlay({ map }: Props) {
     let last = performance.now()
     let lastLayerBuild = 0
     const LAYER_BUILD_INTERVAL_MS = 16
+
+    // When the tab is backgrounded the browser pauses/throttles rAF while the
+    // WebSocket keeps delivering position updates. On return, re-anchor motion
+    // smoothing to current server truth instead of extrapolating across the
+    // whole away-window — otherwise icons drift off and snap back. Clearing PVB
+    // state makes applyPVB() re-seed each track at its reported position.
+    const onVisibility = () => {
+      if (document.visibilityState !== 'visible') return
+      last = performance.now()
+      lastLayerBuild = 0
+      pvbRef.current = {}
+    }
+    document.addEventListener('visibilitychange', onVisibility)
+
     const tick = (now: number) => {
-      const dt = now - last
+      // Clamp dt so a paused/throttled rAF can't fast-forward the pulse phase.
+      const dt = Math.min(now - last, 100)
       last = now
       cycleRef.current = (cycleRef.current + dt / 2000) % 1  // 2-second pulse
 
@@ -707,6 +722,7 @@ export function MapOverlay({ map }: Props) {
 
     return () => {
       cancelAnimationFrame(rafRef.current)
+      document.removeEventListener('visibilitychange', onVisibility)
       map.off('click', onMapClick)
       map.off('mousemove', onMapMouseMove)
       resizeObserver.disconnect()
