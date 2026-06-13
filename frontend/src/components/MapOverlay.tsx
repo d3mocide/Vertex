@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import maplibregl from 'maplibre-gl'
-import { Deck } from '@deck.gl/core'
+import { MapboxOverlay } from '@deck.gl/mapbox'
 import { useCivicStore } from '../store'
 import type { Entity, Track, TrafficCamera, EntityTypeFilter, RangeFilter, ReplayData, SystemEvent } from '../store'
 import { buildEntityLayers } from '../layers/buildEntityLayers'
@@ -86,20 +86,13 @@ function buildReplayTracks(data: ReplayData, atMs: number): Record<string, Track
   return result
 }
 
-function getViewState(map: maplibregl.Map) {
-  const { lng, lat } = map.getCenter()
-  return {
-    longitude: lng,
-    latitude:  lat,
-    zoom:      map.getZoom(),
-    pitch:     map.getPitch(),
-    bearing:   map.getBearing(),
-  }
-}
-
 export function MapOverlay({ map }: Props) {
-  const deckRef           = useRef<Deck | null>(null)
+  const deckRef           = useRef<MapboxOverlay | null>(null)
   const layersRef         = useRef<any[]>([])
+  // Per-group layer cache so static/slow-changing layers are rebuilt only when
+  // their inputs change instead of on every animation frame. Reusing the same
+  // Layer instances lets deck.gl skip re-diffing them entirely.
+  const layerMemoRef      = useRef<Record<string, { deps: unknown[]; layers: any[] }>>({})
   const entitiesRef       = useRef<Record<string, Entity>>({})
   const tracksRef         = useRef<Record<string, Track>>({})
   const pvbRef            = useRef<Record<string, PVBState>>({})
@@ -284,26 +277,18 @@ export function MapOverlay({ map }: Props) {
   useEffect(() => {
     const container = map.getContainer()
 
-    // Overlay canvas: sits on top of the MapLibre canvas, passes events through.
-    const canvas = document.createElement('canvas')
-    canvas.id = 'deck-overlay-canvas'
-    canvas.style.cssText = 'position:absolute;top:0;left:0;pointer-events:none;'
-    canvas.width  = container.clientWidth
-    canvas.height = container.clientHeight
-    container.appendChild(canvas)
-
-    // Deck defaults to MapView with flat viewState — no views[] needed.
-    let deckReady = false
-    const deck = new Deck({
-      canvas,
-      width:            container.clientWidth,
-      height:           container.clientHeight,
-      controller:       false,    // MapLibre owns all user input
-      initialViewState: getViewState(map),
-      layers:           [],
-      onLoad:           () => { deckReady = true },
+    // Render Deck.gl through MapLibre's own render loop via MapboxOverlay. Unlike
+    // a standalone Deck on a separate canvas synced by pushing viewState each rAF
+    // (which leaves the two canvases a frame out of phase, so icons "jiggle"/swim
+    // during pan & zoom), the overlay redraws in lockstep with the base map, so
+    // entities stay glued to the ground. MapLibre still owns all user input.
+    const overlay = new MapboxOverlay({
+      id:          'deck-overlay-canvas',  // keeps snapshotExport's canvas lookup working
+      interleaved: false,
+      layers:      [],
     })
-    deckRef.current = deck
+    map.addControl(overlay as unknown as maplibregl.IControl)
+    deckRef.current = overlay
 
     // Unified SA Tooltip Bridge
     const tooltip = document.createElement('div')
@@ -318,9 +303,8 @@ export function MapOverlay({ map }: Props) {
         return
       }
 
-      // 1. Pick from Deck.gl — guard until the GL context is ready
-      if (!deckReady) return
-      const picked = deck.pickObject({ x: e.point.x, y: e.point.y, radius: 5 })
+      // 1. Pick from Deck.gl (returns null until the overlay GL context is ready)
+      const picked = overlay.pickObject({ x: e.point.x, y: e.point.y, radius: 5 })
 
       let html = ''
       
@@ -495,8 +479,7 @@ export function MapOverlay({ map }: Props) {
     // Allow selecting entities and cameras while preserving normal map interaction.
     const onMapClick = (e: maplibregl.MapMouseEvent) => {
       if (annotationDrawModeRef.current) return
-      if (!deckReady) return
-      const picked = deck.pickObject({ x: e.point.x, y: e.point.y, radius: 10 })
+      const picked = overlay.pickObject({ x: e.point.x, y: e.point.y, radius: 10 })
       if (!picked) return
       if (picked.layer?.id === 'camera-points') {
         const cam = picked.object as TrafficCamera
@@ -514,27 +497,45 @@ export function MapOverlay({ map }: Props) {
     }
     map.on('click', onMapClick)
 
-    // Resize the overlay canvas when the map container resizes
-    const resizeObserver = new ResizeObserver(() => {
-      const w = container.clientWidth, h = container.clientHeight
-      canvas.width  = w
-      canvas.height = h
-      deck.setProps({ width: w, height: h })
-    })
-    resizeObserver.observe(container)
-
     let last = performance.now()
     let lastLayerBuild = 0
     const LAYER_BUILD_INTERVAL_MS = 16
+
+    // When the tab is backgrounded the browser pauses/throttles rAF while the
+    // WebSocket keeps delivering position updates. On return, re-anchor motion
+    // smoothing to current server truth instead of extrapolating across the
+    // whole away-window — otherwise icons drift off and snap back. Clearing PVB
+    // state makes applyPVB() re-seed each track at its reported position.
+    const onVisibility = () => {
+      if (document.visibilityState !== 'visible') return
+      last = performance.now()
+      lastLayerBuild = 0
+      pvbRef.current = {}
+    }
+    document.addEventListener('visibilitychange', onVisibility)
+
+    // Rebuild a layer group only when its inputs change; otherwise reuse the
+    // cached Layer instances so deck.gl skips re-diffing them on frames where
+    // only the animated entity/trail layers actually moved.
+    const memo = layerMemoRef.current
+    const memoGroup = (name: string, deps: unknown[], build: () => any[]): any[] => {
+      const cached = memo[name]
+      if (cached && cached.deps.length === deps.length && cached.deps.every((d, i) => Object.is(d, deps[i]))) {
+        return cached.layers
+      }
+      const layers = build()
+      memo[name] = { deps, layers }
+      return layers
+    }
+
     const tick = (now: number) => {
-      const dt = now - last
+      // Clamp dt so a paused/throttled rAF can't fast-forward the pulse phase.
+      const dt = Math.min(now - last, 100)
       last = now
       cycleRef.current = (cycleRef.current + dt / 2000) % 1  // 2-second pulse
 
-      // Sync Deck camera every frame — eliminates the 1-frame lag that occurs
-      // when relying on map.on('render') because that fires after MapLibre paints,
-      // causing Deck to always be one RAF behind during map movement.
-      deck.setProps({ viewState: getViewState(map) })
+      // No per-frame viewState push: MapboxOverlay tracks the base map's camera
+      // automatically and redraws in lockstep with it.
 
       const shouldRebuildLayers = (now - lastLayerBuild >= LAYER_BUILD_INTERVAL_MS)
       if (!shouldRebuildLayers) {
@@ -665,41 +666,51 @@ export function MapOverlay({ map }: Props) {
       }
 
       const zoom = map.getZoom()
+      const timeBucket = Math.floor(nowMs / 5000)  // coarse clock for stale styling
       const layers = [
-          ...buildCustomLayers(customLayersRef.current),
-          ...buildGeofenceLayers(geofencesRef.current, geofencesVisibleRef.current),
-          ...buildObservationRingLayers(DEFAULT_CENTER, OBSERVATION_RANGE_KM, true),
-          ...buildMeshNodeLayers(
-            Object.values(entitiesRef.current),
-            entityFilterRef.current.mesh_node,
-            nowMs,
-            zoom,
-          ),
-          ...(() => {
-            const wsGauges = Object.values(entitiesRef.current).filter((e) => e.entity_type === 'stream_gauge')
-            const fallback = gaugeFallbackRef.current
-            const source = wsGauges.length > 0 ? wsGauges : fallback
-            return buildStreamGaugeLayers(source, gaugesVisibleRef.current, zoom)
-          })(),
+          ...memoGroup('custom', [customLayersRef.current],
+            () => buildCustomLayers(customLayersRef.current)),
+          ...memoGroup('geofence', [geofencesRef.current, geofencesVisibleRef.current],
+            () => buildGeofenceLayers(geofencesRef.current, geofencesVisibleRef.current)),
+          ...memoGroup('obsRing', [],
+            () => buildObservationRingLayers(DEFAULT_CENTER, OBSERVATION_RANGE_KM, true)),
+          ...memoGroup('mesh', [entitiesRef.current, entityFilterRef.current.mesh_node, zoom, timeBucket],
+            () => buildMeshNodeLayers(
+              Object.values(entitiesRef.current),
+              entityFilterRef.current.mesh_node,
+              nowMs,
+              zoom,
+            )),
+          ...memoGroup('gauge', [entitiesRef.current, gaugeFallbackRef.current, gaugesVisibleRef.current, zoom],
+            () => {
+              const wsGauges = Object.values(entitiesRef.current).filter((e) => e.entity_type === 'stream_gauge')
+              const source = wsGauges.length > 0 ? wsGauges : gaugeFallbackRef.current
+              return buildStreamGaugeLayers(source, gaugesVisibleRef.current, zoom)
+            }),
+          // Dynamic — rebuilt every frame for PVB motion / pulse animation.
           ...buildTrailLayers(pvbTracks, sel, trailsVisibleRef.current),
           ...buildEntityLayers(pvbTracks, sel, cycleRef.current, zoom, missionTagsRef.current),
           ...buildEventLayers(systemEventsRef.current, nowMs),
           ...(lightningVisibleRef.current
             ? buildLightningLayer(lightningRef.current, nowMs, zoom)
             : []),
-          ...(camerasVisibleRef.current
-            ? [buildCameraLayer(camerasRef.current, selectedCamRef.current, zoom)]
-            : []),
-          ...buildAnnotationLayers(annotationsRef.current, annotationsVisibleRef.current),
-          ...buildAnnotationDrawPreviewLayers({
-            mode: annotationDrawModeRef.current,
-            points: annotationDrawPointsRef.current,
-            cursor: annotationDrawCursorRef.current,
-          }),
+          ...memoGroup('camera', [camerasVisibleRef.current, camerasRef.current, selectedCamRef.current, zoom],
+            () => (camerasVisibleRef.current
+              ? [buildCameraLayer(camerasRef.current, selectedCamRef.current, zoom)]
+              : [])),
+          ...memoGroup('annotation', [annotationsRef.current, annotationsVisibleRef.current],
+            () => buildAnnotationLayers(annotationsRef.current, annotationsVisibleRef.current)),
+          ...memoGroup('annotationDraw',
+            [annotationDrawModeRef.current, annotationDrawPointsRef.current, annotationDrawCursorRef.current],
+            () => buildAnnotationDrawPreviewLayers({
+              mode: annotationDrawModeRef.current,
+              points: annotationDrawPointsRef.current,
+              cursor: annotationDrawCursorRef.current,
+            })),
       ]
 
       layersRef.current = layers
-      deck.setProps({ layers })
+      overlay.setProps({ layers })
 
       rafRef.current = requestAnimationFrame(tick)
     }
@@ -707,12 +718,12 @@ export function MapOverlay({ map }: Props) {
 
     return () => {
       cancelAnimationFrame(rafRef.current)
+      document.removeEventListener('visibilitychange', onVisibility)
       map.off('click', onMapClick)
       map.off('mousemove', onMapMouseMove)
-      resizeObserver.disconnect()
-      deck.finalize()
-      canvas.remove()
+      map.removeControl(overlay as unknown as maplibregl.IControl)
       tooltip.remove()
+      layerMemoRef.current = {}
       deckRef.current = null
       pvbRef.current = {}
     }

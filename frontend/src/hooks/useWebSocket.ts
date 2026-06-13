@@ -1,8 +1,8 @@
 import { useEffect, useRef } from 'react'
-import { WS_URL } from '../config'
+import { WS_URL, API_BASE } from '../config'
 import { useCivicStore } from '../store'
-import type { EntityTypeFilter } from '../storeTypes'
-import { wsTokenParam } from '../auth'
+import type { Entity, EntityTypeFilter } from '../storeTypes'
+import { wsTokenParam, authHeaders } from '../auth'
 import { initNotifications, maybeNotify, notifyMeshMessage } from '../notifications'
 
 const RECONNECT_DELAY_INITIAL_MS = 1000
@@ -105,6 +105,20 @@ export function useWebSocket() {
     let cancelled = false
 
     initNotifications()
+
+    // Cold-start prefetch: the WebSocket only delivers initial state after the
+    // handshake completes and the poller emits its first snapshot (up to a few
+    // seconds). Seed the store immediately over REST so the map renders right
+    // away. Guarded on an empty store so it never clobbers live WS data that
+    // may have already arrived.
+    fetch(`${API_BASE}/entities`, { headers: authHeaders() })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((list: Entity[] | null) => {
+        if (cancelled || !Array.isArray(list) || list.length === 0) return
+        if (Object.keys(useCivicStore.getState().entities).length > 0) return
+        setEntities(list)
+      })
+      .catch(() => { /* WS will populate state shortly regardless */ })
 
     const cleanupInterval = setInterval(() => {
       purgeStaleEntities()
