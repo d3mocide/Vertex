@@ -14,7 +14,6 @@ from pollers.traffic import TrafficPoller
 from pollers.utilities import UtilityPoller
 from pollers.p25 import P25Poller
 from pollers.meshcore import MeshCorePoller
-from pollers.meshcore_pymc import MeshCorePymcPoller
 from pollers.summary import AISummaryPoller
 from pollers.seismic import SeismicPoller
 from pollers.fire import FirePoller
@@ -76,7 +75,6 @@ async def main():
         UtilityPoller(),
         P25Poller(),
         MeshCorePoller(),
-        MeshCorePymcPoller(),
         AISummaryPoller(),
         SeismicPoller(),
         FirePoller(),
