@@ -21,6 +21,57 @@ _CONTACT_TYPES = {
 }
 
 
+def normalize_pymc_repeater_advert(data: dict, source_url: str) -> Optional[dict]:
+    """Normalize a pyMC-Repeater advert to a canonical mesh_node entity."""
+    pub_key = (data.get("public_key") or "").strip()
+    if not pub_key or pub_key == "0" * 64:
+        return None
+
+    name = (data.get("name") or "").strip() or pub_key[:12]
+
+    contact_type_raw = data.get("contact_type") or data.get("type") or 0
+    if isinstance(contact_type_raw, int):
+        contact_type = _CONTACT_TYPES.get(contact_type_raw, "unknown")
+    else:
+        contact_type = str(contact_type_raw)
+
+    lat = data.get("gps_lat") or data.get("lat")
+    lon = data.get("gps_lon") or data.get("lon")
+    if lat == 0.0 and lon == 0.0:
+        lat = lon = None
+
+    last_advert = data.get("last_advert_timestamp") or data.get("lastmod")
+    if isinstance(last_advert, (int, float)):
+        last_seen = datetime.fromtimestamp(last_advert, tz=timezone.utc).isoformat()
+    else:
+        last_seen = _now()
+
+    out_path_len = data.get("out_path_len")
+    status = f"hops:{out_path_len}" if out_path_len is not None else ""
+
+    return {
+        "entity_id":    f"mesh_node:{pub_key}",
+        "entity_type":  "mesh_node",
+        "source":       "meshcore",
+        "display_name": name,
+        "identity": {
+            "public_key":   pub_key,
+            "node_id":      pub_key[:12],
+            "short_name":   name[:12],
+            "contact_type": contact_type,
+            "source_url":   source_url,
+            "out_path":     data.get("out_path"),
+            "out_path_len": out_path_len,
+        },
+        "lat":      lat,
+        "lon":      lon,
+        "altitude": None,
+        "status":   status,
+        "last_seen": last_seen,
+        "tags":     ["mesh_node", contact_type],
+    }
+
+
 def normalize_mesh_node(data: dict) -> Optional[dict]:
     """Normalize a MeshCore bridge node_update payload to canonical Entity."""
     node_id = data.get("entity_id", "").replace("mesh_node:", "") or data.get("identity", {}).get("node_id")
@@ -47,61 +98,6 @@ def normalize_mesh_node(data: dict) -> Optional[dict]:
         "last_seen": data.get("timestamp") or _now(),
         "tags":     ["mesh_node"],
     }
-
-
-def normalize_remoteterm_contact(data: dict) -> Optional[dict]:
-    """Normalize a RemoteTerm /api/contacts entry to canonical Entity."""
-    pub_key = data.get("public_key", "")
-    if not pub_key:
-        return None
-
-    node_type = _CONTACT_TYPES.get(data.get("type", 0), "unknown")
-    name = data.get("name") or pub_key[:12]
-
-    last_seen_raw = data.get("last_seen")
-    if isinstance(last_seen_raw, (int, float)):
-        last_seen = datetime.fromtimestamp(last_seen_raw, tz=timezone.utc).isoformat()
-    elif isinstance(last_seen_raw, str):
-        last_seen = last_seen_raw
-    else:
-        last_seen = _now()
-
-    tags = ["mesh_node", node_type]
-    if data.get("on_radio"):
-        tags.append("on_radio")
-    if data.get("favorite"):
-        tags.append("favorite")
-
-    return {
-        "entity_id":    f"mesh_node:{pub_key}",
-        "entity_type":  "mesh_node",
-        "source":       "meshcore",
-        "display_name": name,
-        "identity": {
-            "public_key":   pub_key,
-            "node_id":      pub_key[:12],
-            "short_name":   pub_key[:12],
-            "contact_type": node_type,
-            "hw_model":     None,
-            "on_radio":     data.get("on_radio", False),
-            "favorite":     data.get("favorite", False),
-            "battery_level": data.get("battery_level"),
-        },
-        "lat":      data.get("lat"),
-        "lon":      data.get("lon"),
-        "altitude": None,
-        "status":   _remoteterm_status(data),
-        "last_seen": last_seen,
-        "tags":     tags,
-    }
-
-
-def _remoteterm_status(contact: dict) -> str:
-    parts = []
-    effective = contact.get("effective_route")
-    if isinstance(effective, dict) and (hops := effective.get("hop_count")) is not None:
-        parts.append(f"hops:{hops}")
-    return " ".join(parts)
 
 
 def _bridge_status(node: dict) -> str:
