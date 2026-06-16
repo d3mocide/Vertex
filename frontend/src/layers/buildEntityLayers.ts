@@ -160,6 +160,12 @@ export function buildEntityLayers(
       if (t.type === 'hazard')  return FIRE_ICON_COLOR
       if (t.type === 'rail')    return tagColorMap?.[t.uid] ?? TRAIN_ICON_COLOR
       if (t.type === 'sensor')  return RF_SENSOR_COLOR
+      // OpenSky-supplemented aircraft are lower-fidelity (coarser, delayed
+      // positions filling a local BEAST signal gap) — render them dimmed so it
+      // is visually clear the track is not from the local feed.
+      if (t.type === 'air' && (t.source ?? '').toLowerCase() === 'opensky') {
+        return tagColorMap?.[t.uid] ?? entityColor(t, 120)
+      }
       return tagColorMap?.[t.uid] ?? entityColor(t)
     },
     getSize:     (t) => entityIconSize(selectedUid, t, zoom),
@@ -169,7 +175,7 @@ export function buildEntityLayers(
     updateTriggers: {
       getIcon:  zoom,
       getAngle: trackArr.map(t => t.courseTrue),
-      getColor: trackArr.map(t => tagColorMap?.[t.uid]?.join(',') ?? `${t.altMeters + t.speedMs}${t.stationType ?? ''}`),
+      getColor: trackArr.map(t => tagColorMap?.[t.uid]?.join(',') ?? `${t.altMeters + t.speedMs}${t.stationType ?? ''}${t.source ?? ''}`),
       getSize:  [selectedUid, zoom],
     },
   })

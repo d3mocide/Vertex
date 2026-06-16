@@ -131,13 +131,16 @@ class Settings(BaseSettings):
 
     # Mode D — OpenSky supplement alongside local sources (beast or ultrafeeder).
     # When enabled, OpenSky polls on its own interval and fills in aircraft not
-    # seen locally within adsb_opensky_stale_threshold seconds.
-    adsb_opensky_supplement: bool = False
-    # Seconds between OpenSky polls. Anonymous budget ~400 req/day; keep >= 220s
-    # for anonymous use. With credentials 30s is safe (~2880 req/day vs 4000 limit).
-    adsb_opensky_interval: int = 240
+    # seen locally within adsb_opensky_stale_threshold seconds. On by default —
+    # most OpenSky users register a free account, which makes the fast cadence
+    # below safe and gives a smooth ~30s handover when BEAST hits a signal gap.
+    adsb_opensky_supplement: bool = True
+    # Seconds between OpenSky polls. With credentials 30s is safe (~2880 req/day
+    # vs 4000 limit). Anonymous (no credentials) budget is ~400 req/day — raise
+    # this to >= 220s for anonymous use to avoid being rate limited.
+    adsb_opensky_interval: int = 30
     # Seconds since last local sighting before OpenSky may update an aircraft.
-    adsb_opensky_stale_threshold: int = 15
+    adsb_opensky_stale_threshold: int = 25
     # Write OpenSky supplement positions to the observations table.
     adsb_opensky_record_observations: bool = True
     # Optional OpenSky Network credentials (https://opensky-network.org).

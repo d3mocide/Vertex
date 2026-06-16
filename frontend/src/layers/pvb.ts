@@ -6,6 +6,12 @@ import type { Track } from '../store'
 const BLEND_WINDOW_MS = 2_000
 const OPENSKY_MIN_BLEND_MS = 8_000
 const OPENSKY_MAX_BLEND_MS = 25_000
+// Hard ceiling on how far a stale anchor may be extrapolated. Without this, a
+// large wall-clock gap (e.g. the rAF loop being paused while the tab is
+// backgrounded) would project aircraft forward by minutes, making icons "drift
+// away" and then snap back when the tab regains focus. The ceiling is above the
+// widest blend window so it never clips normal motion, only pathological gaps.
+const MAX_PROJECT_MS = 30_000
 
 export interface PVBState {
   // Server anchor — position/velocity from the most recent server report
@@ -51,7 +57,8 @@ function project(
   elapsedMs: number,
 ): [number, number] {
   if (speedMs < 0.5 || elapsedMs <= 0) return [lon, lat]
-  return destinationPoint(lon, lat, course, speedMs * elapsedMs / 1_000)
+  const clamped = Math.min(elapsedMs, MAX_PROJECT_MS)
+  return destinationPoint(lon, lat, course, speedMs * clamped / 1_000)
 }
 
 function evaluatePVB(state: PVBState, nowMs: number): [number, number] {

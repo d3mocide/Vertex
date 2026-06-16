@@ -98,11 +98,38 @@ async def _resolve_source(db: AsyncSession, source_type: str, source_url: Option
     return dict(source)
 
 
-async def _http_get_check(url: str, auth: Optional[httpx.BasicAuth] = None, timeout: float = 10.0) -> tuple[dict, object | None]:
+def _summarize_list(payload) -> str:
+    items = payload if isinstance(payload, list) else (
+        payload.get("data") or payload.get("items") or []
+        if isinstance(payload, dict) else []
+    )
+    return f"{len(items)} item(s)"
+
+
+def _summarize_stats(payload) -> str:
+    if not isinstance(payload, dict):
+        return ""
+    connected = payload.get("radio_connected", payload.get("connected"))
+    site = payload.get("site_name", "")
+    version = payload.get("version", "")
+    parts = [p for p in [
+        f"connected={connected}" if connected is not None else None,
+        f"site={site}" if site else None,
+        f"v{version}" if version else None,
+    ] if p]
+    return " ".join(parts)
+
+
+async def _http_get_check(
+    url: str,
+    auth: Optional[httpx.BasicAuth] = None,
+    extra_headers: Optional[dict[str, str]] = None,
+    timeout: float = 10.0,
+) -> tuple[dict, object | None]:
     t0 = time.perf_counter()
     try:
         validate_safe_url(url, allowed_schemes={"http", "https"})
-        async with httpx.AsyncClient(auth=auth, timeout=timeout) as client:
+        async with httpx.AsyncClient(auth=auth, headers=extra_headers or {}, timeout=timeout) as client:
             resp = await client.get(url)
         latency_ms = round((time.perf_counter() - t0) * 1000, 1)
         payload = None
@@ -315,24 +342,22 @@ async def probe_remote_feed(body: RemoteFeedProbeRequest, db: AsyncSession = Dep
     recommendations: list[str] = []
 
     if body.source_type == "meshcore":
-        for name, path in (("health", "/api/health"), ("contacts", "/api/contacts"), ("neighbors", "/api/neighbors")):
-            check, payload = await _http_get_check(f"{base_url}{path}", auth=httpx_auth)
-            if isinstance(payload, list):
-                check["summary"] = f"{len(payload)} item(s)"
-            elif isinstance(payload, dict):
-                if path == "/api/health":
-                    connected = payload.get("radio_connected", payload.get("connected", payload.get("radio_ok")))
-                    check["summary"] = f"radio_connected={connected}"
-                elif "items" in payload and isinstance(payload.get("items"), list):
-                    check["summary"] = f"{len(payload.get('items', []))} item(s)"
-                elif "contacts" in payload and isinstance(payload.get("contacts"), list):
-                    check["summary"] = f"{len(payload.get('contacts', []))} contact(s)"
-                elif "neighbors" in payload and isinstance(payload.get("neighbors"), list):
-                    check["summary"] = f"{len(payload.get('neighbors', []))} neighbor(s)"
+        # pyMC-Repeater uses X-API-Key auth (URL username = API key)
+        pymc_headers = {}
+        if auth:
+            pymc_headers["X-API-Key"] = auth[0]
 
+        for name, path, summarize in (
+            ("stats", "/api/stats", _summarize_stats),
+            ("adverts", "/api/adverts_by_contact_type", _summarize_list),
+            ("packets", "/api/recent_packets", _summarize_list),
+        ):
+            check, payload = await _http_get_check(
+                f"{base_url}{path}", extra_headers=pymc_headers
+            )
+            if payload is not None:
+                check["summary"] = summarize(payload)
             checks.append({"name": name, "protocol": "http", **check})
-
-        ws = await _probe_ws(_to_ws_url(base_url) + "/api/ws", body.duration_seconds, headers=headers)
 
         stats_row = await db.execute(
             text(
@@ -350,15 +375,14 @@ async def probe_remote_feed(body: RemoteFeedProbeRequest, db: AsyncSession = Dep
             "latest_timestamp": stats.get("latest_ts").isoformat() if stats.get("latest_ts") else None,
         }
 
-        neighbors = next((c for c in checks if c.get("name") == "neighbors"), None)
-        if not ws.get("connected"):
-            recommendations.append("WebSocket connection failed; verify RemoteTerm reachability and auth.")
-        if ws.get("connected") and ws.get("event_counts", {}).get("message", 0) == 0:
-            recommendations.append("No message events observed; RemoteTerm may be emitting only telemetry (health/contact/raw_packet).")
-        if neighbors and neighbors.get("status_code") == 404:
-            recommendations.append("/api/neighbors returned 404; topology enrichment via neighbor endpoint is unavailable.")
+        stats_check = next((c for c in checks if c.get("name") == "stats"), None)
+        adverts_check = next((c for c in checks if c.get("name") == "adverts"), None)
+        if stats_check and not stats_check.get("ok"):
+            recommendations.append("Could not reach /api/stats — verify the repeater URL and that pyMC-Repeater is running.")
+        if adverts_check and adverts_check.get("status_code") == 401:
+            recommendations.append("/api/adverts_by_contact_type returned 401; embed the API key in the source URL as http://API_KEY@host:port.")
         if storage["total_messages"] == 0:
-            recommendations.append("No persisted mesh messages found for this source yet.")
+            recommendations.append("No persisted mesh messages found; messages arrive via SSE only when a companion identity is configured on the repeater.")
 
     elif body.source_type == "adsb":
         check, payload = await _http_get_check(base_url, auth=httpx_auth)
