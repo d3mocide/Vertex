@@ -35,8 +35,8 @@ def normalize_pymc_repeater_advert(data: dict, source_url: str) -> Optional[dict
     else:
         contact_type = str(contact_type_raw)
 
-    lat = data.get("gps_lat") or data.get("lat")
-    lon = data.get("gps_lon") or data.get("lon")
+    lat = data.get("gps_lat") or data.get("lat") or data.get("latitude")
+    lon = data.get("gps_lon") or data.get("lon") or data.get("longitude")
     if lat == 0.0 and lon == 0.0:
         lat = lon = None
 

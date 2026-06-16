@@ -26,6 +26,7 @@ class MeshProbeRequest(BaseModel):
 class RemoteFeedProbeRequest(BaseModel):
     source_type: Literal["adsb", "ais", "p25", "meshcore", "fire", "aprs"]
     source_url: Optional[str] = None
+    source_id: Optional[int] = None
     duration_seconds: int = Field(default=20, ge=5, le=60)
 
 
@@ -63,7 +64,24 @@ def _sanitize_url(url: str) -> str:
     return url
 
 
-async def _resolve_source(db: AsyncSession, source_type: str, source_url: Optional[str]) -> dict:
+async def _resolve_source(
+    db: AsyncSession,
+    source_type: str,
+    source_url: Optional[str],
+    source_id: Optional[int] = None,
+) -> dict:
+    if source_id is not None:
+        row = await db.execute(
+            text(
+                "SELECT id, type, name, url, enabled, source FROM poller_sources "
+                "WHERE id = :source_id LIMIT 1"
+            ),
+            {"source_id": source_id},
+        )
+        source = row.mappings().first()
+        if source:
+            return dict(source)
+
     if source_url:
         row = await db.execute(
             text(
@@ -322,7 +340,9 @@ async def list_remote_feeds(db: AsyncSession = Depends(get_db)):
 
 @router.post("/remote-feeds/probe")
 async def probe_remote_feed(body: RemoteFeedProbeRequest, db: AsyncSession = Depends(get_db)):
-    source = await _resolve_source(db, body.source_type, body.source_url)
+    source = await _resolve_source(
+        db, body.source_type, body.source_url, source_id=body.source_id
+    )
     source_url = str(source.get("url") or "")
 
     try:

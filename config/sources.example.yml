@@ -91,6 +91,8 @@ poller_sources:
     url: "http://192.168.1.x:8000"
     # Embed an API key as the URL username if auth is enabled:
     #   http://MY_API_KEY@192.168.1.x:8000
+    # Add a companion parameter if you want to lock the connection to a specific companion identity:
+    #   http://MY_API_KEY@192.168.1.x:8000?companion=MyCompanionNode
     enabled: true
     source: config
 
@@ -181,12 +183,6 @@ alert_zones:
     - WAZ205
     - WAZ206
   source: config
-
-# ---------------------------------------------------------------------------
-# TriMet GTFS-RT (MAX light rail, WES commuter rail, Portland Streetcar)
-# is configured via .env — set TRIMET_GTFS_ENABLED=true and TRIMET_API_KEY.
-# See .env.example for all available options.
-# ---------------------------------------------------------------------------
 
 # ---------------------------------------------------------------------------
 # Regions — define one or more geographic bounding boxes for data ingestion.

@@ -1,8 +1,10 @@
 from datetime import datetime, timezone, timedelta
 import json
 import logging
+from typing import Optional
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, HTTPException
+from pydantic import BaseModel
 from sqlalchemy import text
 from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -156,3 +158,71 @@ async def list_mesh_messages(
 
     rows = result.mappings().all()
     return [dict(r) for r in rows]
+
+
+class SendMeshMessageRequest(BaseModel):
+    message: str
+    room_name: Optional[str] = None
+    room_hash: Optional[str] = None
+    author_pubkey: str = "server"
+
+
+@router.post("/mesh/messages")
+async def send_mesh_message(
+    body: SendMeshMessageRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    """Post a message to a room server on the active pyMC-Repeater."""
+    # Find the active meshcore source
+    result = await db.execute(
+        text(
+            "SELECT url FROM poller_sources WHERE type = 'meshcore' AND enabled = TRUE "
+            "ORDER BY updated_at DESC NULLS LAST, created_at DESC NULLS LAST LIMIT 1"
+        )
+    )
+    row = result.mappings().first()
+    if not row:
+        raise HTTPException(status_code=404, detail="No active MeshCore source configured")
+
+    url_str = row["url"]
+    from urllib.parse import urlparse, urlunparse
+    import httpx
+
+    parsed = urlparse(url_str)
+    api_key = parsed.username
+    netloc = parsed.hostname + (f":{parsed.port}" if parsed.port else "")
+    base_url = urlunparse(parsed._replace(netloc=netloc)).rstrip("/")
+
+    headers = {}
+    if api_key:
+        headers["X-API-Key"] = api_key
+
+    # Forward to pyMC-Repeater
+    payload = {
+        "message": body.message,
+        "author_pubkey": body.author_pubkey,
+    }
+    if body.room_name:
+        payload["room_name"] = body.room_name
+    if body.room_hash:
+        payload["room_hash"] = body.room_hash
+
+    async with httpx.AsyncClient(headers=headers, timeout=10) as client:
+        try:
+            resp = await client.post(f"{base_url}/api/room_post_message", json=payload)
+            if resp.status_code != 200:
+                detail = resp.json().get("error") if resp.headers.get("content-type") == "application/json" else resp.text
+                raise HTTPException(
+                    status_code=resp.status_code,
+                    detail=f"pyMC-Repeater error: {detail or resp.reason_phrase}"
+                )
+            try:
+                return resp.json()
+            except Exception:
+                return {"status": "ok", "detail": resp.text}
+        except httpx.RequestError as exc:
+            raise HTTPException(
+                status_code=502,
+                detail=f"Failed to connect to pyMC-Repeater: {exc}"
+            )
+

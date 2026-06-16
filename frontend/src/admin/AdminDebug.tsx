@@ -267,6 +267,7 @@ export default function AdminDebug() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...authHeaders() },
         body: JSON.stringify({
+          source_id: source.id,
           source_type: source.type,
           source_url: source.url,
           duration_seconds: durationSeconds,

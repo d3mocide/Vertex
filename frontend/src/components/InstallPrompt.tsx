@@ -30,12 +30,12 @@ export function InstallPrompt() {
   }
 
   return (
-    <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 bg-zinc-900 border border-amber-500/40 rounded-lg px-4 py-2 shadow-lg">
-      <span className="material-symbols-outlined text-amber-400 text-sm">install_mobile</span>
-      <span className="text-xs text-zinc-300">Install Vertex app</span>
+    <div className="fixed bottom-4 left-1/2 -translate-x-1/2 lg:bottom-auto lg:top-24 lg:right-4 lg:left-auto lg:translate-x-0 z-50 flex items-center gap-3 bg-onyx-deep/90 border border-amber-gold/40 px-4 py-2 shadow-2xl backdrop-blur-md">
+      <span className="material-symbols-outlined text-amber-gold text-sm">install_mobile</span>
+      <span className="text-xs font-mono text-zinc-300 uppercase tracking-wider">Install Vertex app</span>
       <button
         onClick={handleInstall}
-        className="text-xs font-semibold text-amber-400 hover:text-amber-300 transition-colors"
+        className="text-xs font-mono font-bold uppercase tracking-wider text-amber-gold hover:text-amber-300 transition-colors"
       >
         Install
       </button>

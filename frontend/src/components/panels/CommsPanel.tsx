@@ -1,8 +1,9 @@
 import { useState, useMemo } from 'react'
 import { useCivicStore, MeshMessage, Entity, SystemEvent, Track, MeshLink } from '../../store'
 import { getDistanceMeters } from '../../layers/geoUtils'
-import { DEFAULT_CENTER } from '../../config'
+import { DEFAULT_CENTER, API_BASE } from '../../config'
 import { MeshFleetPanel } from './MeshFleetPanel'
+import { authHeaders } from '../../auth'
 
 function formatTime(iso: string) {
   if (!iso) return '--:--'
@@ -375,6 +376,12 @@ export function CommsPanel() {
   const [selectedConv, setSelectedConv] = useState<string>('all')
   const [activeTab, setActiveTab] = useState<'chat' | 'fleet' | 'p25'>('chat')
 
+  // Chat send state
+  const [newMsgText, setNewMsgText] = useState('')
+  const [sendingMsg, setSendingMsg] = useState(false)
+  const [sendError, setSendError] = useState<string | null>(null)
+  const [showFilter, setShowFilter] = useState(false)
+
   // Calculate nearest nodes
   const nearestNodes = useMemo(() => {
     const list = Object.values(entities).filter(e =>
@@ -621,10 +628,6 @@ export function CommsPanel() {
           {/* ── Active Tab Contents ── */}
           {activeTab === 'chat' && (
             <div className="flex flex-col gap-3 flex-1 min-h-0">
-              <h3 className="section-heading flex items-center gap-2 shrink-0">
-                <span className="ms text-[14px] text-amber-gold">chat</span>
-                Mesh Network Messaging
-              </h3>
 
               <div className="flex-1 flex flex-col border border-white/10 bg-onyx-deep/40 rounded-sm overflow-hidden min-h-0">
                 {/* Conversation selector */}
@@ -654,16 +657,138 @@ export function CommsPanel() {
                   </div>
                 )}
 
-                {/* Filter bar */}
-                <div className="p-2 border-b border-white/10 bg-white/5 flex gap-2 shrink-0">
-                  <input
-                    type="text"
-                    placeholder="Filter messages..."
-                    value={msgFilter}
-                    onChange={e => setMsgFilter(e.target.value)}
-                    className="flex-1 bg-onyx-black/40 border border-white/10 px-3 py-1 text-[12px] text-on-surface placeholder-on-surface-variant focus:outline-none focus:border-amber-gold/50 transition-colors"
-                  />
-                </div>
+                {/* Send/Search Message Form */}
+                <form
+                  onSubmit={async (e) => {
+                    e.preventDefault()
+                    if (!newMsgText.trim() || sendingMsg || showFilter) return
+                    setSendingMsg(true)
+                    setSendError(null)
+                    try {
+                      const payload: { message: string; room_name?: string; room_hash?: string } = {
+                        message: newMsgText.trim(),
+                      }
+                      if (selectedConv !== 'all') {
+                        if (selectedConv.startsWith('0x')) {
+                          payload.room_hash = selectedConv
+                        } else {
+                          payload.room_name = selectedConv
+                        }
+                      } else {
+                        const defaultRoom = conversations.length > 0 ? conversations[0].key : 'general'
+                        if (defaultRoom.startsWith('0x')) {
+                          payload.room_hash = defaultRoom
+                        } else {
+                          payload.room_name = defaultRoom
+                        }
+                      }
+                      const res = await fetch(`${API_BASE}/mesh/messages`, {
+                        method: 'POST',
+                        headers: {
+                          'Content-Type': 'application/json',
+                          ...authHeaders(),
+                        },
+                        body: JSON.stringify(payload),
+                      })
+                      if (!res.ok) {
+                        const data = await res.json().catch(() => ({}))
+                        throw new Error(data.detail || `HTTP ${res.status}`)
+                      }
+                      setNewMsgText('')
+                    } catch (err) {
+                      setSendError(String(err))
+                    } finally {
+                      setSendingMsg(false)
+                    }
+                  }}
+                  className="p-2 border-b border-white/10 bg-white/5 flex flex-col gap-2 shrink-0"
+                >
+                  {meshStatus?.connected && meshStatus?.companion && !showFilter && (
+                    <div className="text-[10px] font-mono text-gray-500 uppercase tracking-widest px-1 flex items-center gap-1.5 select-none">
+                      <span className="w-1.5 h-1.5 rounded-full bg-green-ais animate-pulse" />
+                      <span>Transmitting via <span className="text-amber-gold/80 font-bold">{meshStatus.companion}</span></span>
+                    </div>
+                  )}
+                  {showFilter && (
+                    <div className="text-[10px] font-mono text-gray-500 uppercase tracking-widest px-1 flex items-center gap-1.5 select-none">
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-gold animate-pulse" />
+                      <span>Active Search Filter Mode</span>
+                    </div>
+                  )}
+                  <div className="flex gap-2 items-center">
+                    {showFilter ? (
+                      <div className="relative flex-1">
+                        <span className="ms text-[14px] text-gray-500 absolute left-3 top-1/2 -translate-y-1/2 select-none">
+                          search
+                        </span>
+                        <input
+                          type="text"
+                          placeholder="Filter messages..."
+                          value={msgFilter}
+                          onChange={e => setMsgFilter(e.target.value)}
+                          className="w-full bg-onyx-black/40 border border-white/10 pl-9 pr-8 py-1.5 text-[12px] text-on-surface placeholder-on-surface-variant focus:outline-none focus:border-amber-gold/50 focus:shadow-[0_0_8px_rgba(255,184,0,0.15)] transition-all"
+                          autoFocus
+                        />
+                        {msgFilter && (
+                          <button
+                            type="button"
+                            onClick={() => setMsgFilter('')}
+                            className="absolute right-2.5 top-1/2 -translate-y-1/2 ms text-[14px] text-gray-500 hover:text-white transition-colors"
+                          >
+                            close
+                          </button>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="relative flex-1">
+                        <span className="ms text-[14px] text-amber-gold/70 absolute left-3 top-1/2 -translate-y-1/2 select-none">
+                          chat_bubble
+                        </span>
+                        <input
+                          type="text"
+                          placeholder={
+                            !meshStatus?.connected
+                              ? 'Disconnected from Mesh...'
+                              : `Message ${selectedConv === 'all' ? 'room' : prettyConversationLabel(selectedConv, conversationNames.get(selectedConv))}...`
+                          }
+                          value={newMsgText}
+                          onChange={e => setNewMsgText(e.target.value)}
+                          disabled={sendingMsg || !meshStatus?.connected}
+                          className="w-full bg-onyx-black/40 border border-white/10 pl-9 pr-3 py-1.5 text-[12px] text-on-surface placeholder-on-surface-variant focus:outline-none focus:border-amber-gold/50 focus:shadow-[0_0_8px_rgba(255,184,0,0.15)] transition-all disabled:opacity-50"
+                        />
+                      </div>
+                    )}
+
+                    {meshStatus?.connected && !showFilter && (
+                      <button
+                        type="submit"
+                        disabled={sendingMsg || !newMsgText.trim()}
+                        className="px-4 py-1.5 font-mono text-[11px] font-bold uppercase tracking-wider border border-amber-gold/40 text-amber-gold hover:bg-amber-gold/10 disabled:opacity-40 transition-colors shrink-0"
+                      >
+                        {sendingMsg ? 'Sending...' : 'Send'}
+                      </button>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (showFilter) {
+                          setMsgFilter('') // Clear search filter when toggling back to chat compose
+                        }
+                        setShowFilter(!showFilter)
+                      }}
+                      className={`p-1.5 border transition-colors shrink-0 flex items-center justify-center rounded-sm ${
+                        showFilter
+                          ? 'bg-amber-gold/10 text-amber-gold border-amber-gold/30'
+                          : 'border-white/10 text-gray-400 hover:bg-white/5 hover:text-white'
+                      }`}
+                      title={showFilter ? 'Return to Chat' : 'Search Messages'}
+                    >
+                      <span className="ms text-[14px]">{showFilter ? 'chat' : 'search'}</span>
+                    </button>
+                  </div>
+                  {sendError && <div className="text-[10px] text-red-400 font-mono px-1">{sendError}</div>}
+                </form>
 
                 {/* Message Feed — grouped by conversation */}
                 <div className="flex-1 overflow-y-auto p-4 pb-24 lg:pb-28 space-y-4 custom-scrollbar">
@@ -725,10 +850,6 @@ export function CommsPanel() {
 
           {activeTab === 'fleet' && (
             <div className="flex flex-col gap-3 flex-1 min-h-0">
-              <h3 className="section-heading flex items-center gap-2 shrink-0">
-                <span className="ms text-[14px] text-amber-gold">hub</span>
-                Mesh Network Nodes
-              </h3>
               <div className="flex-1 min-h-0 overflow-y-auto pb-24 lg:pb-28 custom-scrollbar">
                 <MeshFleetPanel entities={Object.values(entities)} />
               </div>
@@ -737,10 +858,6 @@ export function CommsPanel() {
 
           {activeTab === 'p25' && (
             <div className="flex flex-col gap-3 flex-1 min-h-0">
-              <h3 className="section-heading flex items-center gap-2 shrink-0">
-                <span className="ms text-[14px] text-amber-gold">radio</span>
-                P25 Digital Transmission Log
-              </h3>
               <div className="flex-1 min-h-0 border border-white/10 bg-onyx-deep/40 rounded-sm overflow-hidden flex flex-col">
                 <div className="bg-white/5 px-4 py-2.5 border-b border-white/10 flex justify-between items-center shrink-0">
                   <span className="font-mono text-[11px] text-on-surface-variant uppercase tracking-widest">

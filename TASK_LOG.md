@@ -5,6 +5,63 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 
 ---
 
+## 2026-06-15 — Enhanced Mesh Companion Connectivity & Streamlined Tab Layout
+
+- **Mesh Companion Status Sync**:
+  - Modified [meshcore.py](file:///d:/Projects/Vertex/poller/pollers/meshcore.py) to publish the active companion node's name to the Redis `mesh:status` feed and broadcast it over WebSocket updates on SSE connection/disconnection.
+  - Ensured companion name is updated and passed to health statistics publication.
+- **Streamlined Tab Layout**:
+  - Removed redundant section title headers (`<h3>` elements) from all active tabs (Mesh Chat, Mesh Network, and P25 Call Log) in [CommsPanel.tsx](file:///d:/Projects/Vertex/frontend/src/components/panels/CommsPanel.tsx) to maximize space efficiency.
+- **Robust Message Posting**:
+  - Modified the `/mesh/messages` POST proxy endpoint in [mesh.py](file:///d:/Projects/Vertex/backend/routers/mesh.py) to catch JSON decode exceptions when handling successful (status 200) responses from pyMC-Repeater, preventing unexpected 500 errors if the repeater responds with non-JSON text.
+- **Mesh Node Mapping Fix**:
+  - Updated [meshcore.py](file:///d:/Projects/Vertex/poller/pollers/meshcore.py) to extract neighboring mesh nodes directly from the `neighbors` mapping returned by the pyMC-Repeater `/api/stats` endpoint, and published them as canonical `mesh_node` entities to ensure they appear on the map.
+  - Modified the normalizer in [mesh_node.py](file:///d:/Projects/Vertex/poller/normalizers/mesh_node.py) to support the `latitude` and `longitude` coordinate fields returned by the pyMC-Repeater neighbors API (which previously ignored them in favor of `lat` and `lon`).
+- **Validation**:
+  - Verified TypeScript compilation successfully with 0 errors.
+  - Validated Docker compose config and restarted the containers.
+
+## 2026-06-15 — Redesigned Comms Panel Chat Interface
+
+- **Redesigned Chat Input UI** ([CommsPanel.tsx](file:///d:/Projects/Vertex/frontend/src/components/panels/CommsPanel.tsx)):
+    - Replaced the stacked full-width inputs with a premium unified layout incorporating Google Material Symbols (`search` for filters, `chat_bubble` for sending messages) absolute-positioned inside the text boxes.
+    - Added high-fidelity focus indicator borders with custom shadow-glow transitions (`focus:border-amber-gold/50 focus:shadow-[0_0_8px_rgba(255,184,0,0.15)]`).
+    - Added an active companion status badge (`Transmitting via NodeName`) powered by real-time `meshStatus` updates to surface the active sender node's identity.
+- **Validation**:
+    - Ran TypeScript compile checks (`npx tsc --noEmit`) and verified build succeeded.
+    - Rebuilt and restarted the `frontend` container.
+
+## 2026-06-15 — Supported Custom Companion Node Selection in MeshCore
+
+- **Parsed URL Query Parameters** ([meshcore.py](file:///d:/Projects/Vertex/poller/pollers/meshcore.py), [sources.example.yml](file:///d:/Projects/Vertex/config/sources.example.yml)):
+    - Updated URL source parsing (`_parse_source`) to check for a `companion` query parameter (e.g. `?companion=MyNodeName`).
+    - Configured the SSE loop to use the specified companion parameter directly, bypassing the default auto-discovery step (which picks the first companion in `/api/companion/index`).
+    - Documented this parameter usage in `config/sources.example.yml`.
+- **Validation**:
+    - Validated Docker Compose configuration.
+    - Rebuilt and restarted the `poller` container.
+
+## 2026-06-15 — Interactive Mesh Messaging (Send Chat Messages)
+
+- **Implemented Backend Proxy Route** ([mesh.py](file:///d:/Projects/Vertex/backend/routers/mesh.py)):
+    - Added a `POST /mesh/messages` endpoint that fetches the active `meshcore` source URL and API key from the database, and uses `httpx.AsyncClient` to post messages directly to the repeater's `/api/room_post_message` endpoint.
+- **Implemented Frontend UI Input** ([CommsPanel.tsx](file:///d:/Projects/Vertex/frontend/src/components/panels/CommsPanel.tsx)):
+    - Integrated a premium chat input box and a "Send" button inside the **Mesh Chat** tab, positioned directly below the message filter bar.
+    - Tied the form submission to send messages back to the active room server, clearing input upon success.
+- **Validation**:
+    - Ran TypeScript type checks successfully via `npx tsc --noEmit`.
+    - Validated Docker Compose configuration syntax.
+    - Rebuilt and restarted the `backend` and `frontend` containers.
+
+## 2026-06-15 — Fixed Diagnostics Probe 401 for Sanitized URLs (pyMC-Repeater API Key)
+
+- **Resolved Probe Target Lookup for Sanitized URLs**:
+    - [admin_debug.py](file:///d:/Projects/Vertex/backend/routers/admin_debug.py): Updated `RemoteFeedProbeRequest` schema to accept a `source_id` field, and updated `_resolve_source` helper to resolve by ID when present. This guarantees the probe can lookup the original, unsanitized URL containing credentials/API keys from the database, preventing it from falling back to an ad-hoc sanitised URL and causing a 401 Unauthorized.
+    - [AdminDebug.tsx](file:///d:/Projects/Vertex/frontend/src/admin/AdminDebug.tsx): Updated the probe POST request body to include `source_id: source.id`.
+- **Validation**:
+    - Ran TypeScript type checks successfully via `npx tsc --noEmit`.
+    - Rebuilt and restarted the `backend` container.
+
 ## 2026-06-12 — Fixed NIFC Fire Perimeters (ArcGIS API Scheme)
 
 - **Updated ArcGIS Schema Queries** ([nifc.py](poller/pollers/nifc.py)):

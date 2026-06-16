@@ -19,7 +19,7 @@ import hashlib
 import json
 import logging
 import time
-from urllib.parse import urlparse, urlunparse
+from urllib.parse import urlparse, urlunparse, parse_qs
 
 import httpx
 
@@ -118,7 +118,7 @@ class MeshCorePoller(BasePoller):
             try:
                 resp = await client.get(f"{base_url}/api/stats")
                 if resp.status_code == 200:
-                    await _publish_health(resp.json(), base_url)
+                    await _publish_health(resp.json(), base_url, src.get("companion"))
             except Exception as exc:
                 logger.debug("[meshcore] stats fetch error: %s", exc)
 
@@ -132,7 +132,12 @@ class MeshCorePoller(BasePoller):
         base_url = src["base_url"]
         headers = _api_headers(src.get("api_key"))
 
-        companion_name = await _discover_companion(base_url, headers)
+        companion_name = src.get("companion")
+        if not companion_name:
+            companion_name = await _discover_companion(base_url, headers)
+            if companion_name:
+                src["companion"] = companion_name
+
         if not companion_name:
             logger.info(
                 "[meshcore] no companion found at %s — running poll-only mode", base_url
@@ -152,7 +157,17 @@ class MeshCorePoller(BasePoller):
                             )
                         else:
                             logger.info("[meshcore] SSE connected: %s", sse_url)
-                            await set_feed("mesh:status", {"connected": True, "url": base_url})
+                            status_payload = {
+                                "connected": True,
+                                "url": base_url,
+                                "companion": companion_name,
+                            }
+                            await set_feed("mesh:status", status_payload)
+                            r = await get_bus()
+                            await r.publish("civic:updates", json.dumps(sanitize_payload({
+                                "type": "mesh_status",
+                                "data": status_payload,
+                            })))
                             event_type: str | None = None
                             async for raw_line in resp.aiter_lines():
                                 line = raw_line.strip()
@@ -174,12 +189,27 @@ class MeshCorePoller(BasePoller):
                     sse_url, exc, _RETRY_DELAY,
                 )
 
-            await set_feed("mesh:status", {"connected": False, "url": base_url})
+            status_payload = {
+                "connected": False,
+                "url": base_url,
+                "companion": companion_name,
+            }
+            await set_feed("mesh:status", status_payload)
+            r = await get_bus()
+            await r.publish("civic:updates", json.dumps(sanitize_payload({
+                "type": "mesh_status",
+                "data": status_payload,
+            })))
             await asyncio.sleep(_RETRY_DELAY)
 
     async def _handle_sse_event(self, event_type: str | None, data: dict, base_url: str):
+        if not event_type and isinstance(data, dict):
+            event_type = data.get("event")
+
+        payload = data.get("arg0") if isinstance(data.get("arg0"), dict) else data
+
         if event_type == "advert_received":
-            entity = normalize_pymc_repeater_advert(data, base_url)
+            entity = normalize_pymc_repeater_advert(payload, base_url)
             if entity:
                 await publish_entity(entity)
 
@@ -196,7 +226,7 @@ class MeshCorePoller(BasePoller):
             })))
 
         elif event_type == "contact_path_updated":
-            entity = normalize_pymc_repeater_advert(data, base_url)
+            entity = normalize_pymc_repeater_advert(payload, base_url)
             if entity:
                 await publish_entity(entity, merge=True, record_observation=False)
 
@@ -204,14 +234,22 @@ class MeshCorePoller(BasePoller):
 # ─── helpers ──────────────────────────────────────────────────────────────────
 
 def _parse_source(url: str) -> dict:
-    """Extract API key from URL username; return clean base_url and api_key."""
+    """Extract API key and companion from URL; return clean base_url, api_key, and companion."""
     parsed = urlparse(url)
     api_key = None
+    companion = None
+    if parsed.query:
+        qs = parse_qs(parsed.query)
+        if "companion" in qs:
+            companion = qs["companion"][0]
+
     if parsed.username:
         api_key = parsed.username
         netloc = parsed.hostname + (f":{parsed.port}" if parsed.port else "")
-        url = urlunparse(parsed._replace(netloc=netloc))
-    return {"base_url": url.rstrip("/"), "api_key": api_key}
+        url = urlunparse(parsed._replace(netloc=netloc, query=""))
+    else:
+        url = urlunparse(parsed._replace(query=""))
+    return {"base_url": url.rstrip("/"), "api_key": api_key, "companion": companion}
 
 
 def _api_headers(api_key: str | None) -> dict[str, str]:
@@ -338,7 +376,7 @@ async def _upsert_mesh_links(links: list[dict]) -> None:
     }))
 
 
-async def _publish_health(stats: dict, base_url: str) -> None:
+async def _publish_health(stats: dict, base_url: str, companion: str | None = None) -> None:
     if not isinstance(stats, dict):
         return
     connected = stats.get("radio_connected", stats.get("connected", True))
@@ -349,8 +387,23 @@ async def _publish_health(stats: dict, base_url: str) -> None:
         "uptime_secs": uptime,
         "version": stats.get("version"),
         "site_name": stats.get("site_name"),
+        "companion": companion,
     }
     await set_feed("mesh:status", payload)
+    
+    # Process neighbors from stats and publish as mesh_node entities
+    neighbors = stats.get("neighbors", {})
+    if isinstance(neighbors, dict):
+        for pub_key, node in neighbors.items():
+            if not isinstance(node, dict):
+                continue
+            node_copy = dict(node)
+            node_copy["public_key"] = pub_key
+            node_copy["name"] = node.get("node_name")
+            entity = normalize_pymc_repeater_advert(node_copy, base_url)
+            if entity:
+                await publish_entity(entity)
+
     r = await get_bus()
     await r.publish("civic:updates", json.dumps(sanitize_payload({
         "type": "mesh_status",
@@ -359,27 +412,35 @@ async def _publish_health(stats: dict, base_url: str) -> None:
 
 
 def _normalize_repeater_message(data: dict, source_url: str, event_type: str) -> dict:
-    text = data.get("message_text") or data.get("text") or data.get("body") or ""
-    sender_pubkey = (
-        data.get("author_pubkey")
-        or data.get("public_key")
-        or data.get("from")
-        or "unknown"
-    )
-    sender_prefix = data.get("author_prefix") or str(sender_pubkey)[:8]
-    ts_raw = (
-        data.get("post_timestamp")
-        or data.get("sender_timestamp")
-        or data.get("timestamp")
-    )
+    if "arg2" in data and "arg6" in data:
+        text = data.get("arg2") or ""
+        sender_pubkey = data.get("arg6") or "unknown"
+        sender_prefix = data.get("arg1") or str(sender_pubkey)[:8]
+        ts_raw = data.get("arg3") or data.get("timestamp")
+        companion = data.get("arg0") or "public"
+    else:
+        text = data.get("message_text") or data.get("text") or data.get("body") or ""
+        sender_pubkey = (
+            data.get("author_pubkey")
+            or data.get("public_key")
+            or data.get("from")
+            or "unknown"
+        )
+        sender_prefix = data.get("author_prefix") or str(sender_pubkey)[:8]
+        ts_raw = (
+            data.get("post_timestamp")
+            or data.get("sender_timestamp")
+            or data.get("timestamp")
+        )
+        companion = (
+            data.get("companion")
+            or data.get("room")
+            or data.get("identity_name")
+            or "public"
+        )
+
     ts = str(ts_raw) if ts_raw is not None else ""
     msg_type = "channel" if event_type == "channel_message_received" else "direct"
-    companion = (
-        data.get("companion")
-        or data.get("room")
-        or data.get("identity_name")
-        or "public"
-    )
     fingerprint = f"{source_url}|{companion}|{sender_pubkey}|{ts}|{text}"
     message_id = hashlib.sha1(fingerprint.encode("utf-8", errors="ignore")).hexdigest()
     return {
