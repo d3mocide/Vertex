@@ -103,15 +103,18 @@ async def _sync_news_feeds(
 async def _sync_poller_sources(
     entries: list[PollerSourceEntry], conn: asyncpg.Connection
 ) -> str:
-    existing = await conn.fetch("SELECT type, url, source FROM poller_sources")
-    db_all_keys = {(row["type"], row["url"]) for row in existing}
-    db_config_keys = {(row["type"], row["url"]) for row in existing if row["source"] == "config"}
+    # Identity is keyed on (type, name) to match the DB's UNIQUE(type, name)
+    # constraint. The URL can change for an existing source, so it is treated
+    # as a mutable property rather than part of the key.
+    existing = await conn.fetch("SELECT type, name, source FROM poller_sources")
+    db_all_keys = {(row["type"], row["name"]) for row in existing}
+    db_config_keys = {(row["type"], row["name"]) for row in existing if row["source"] == "config"}
 
-    yaml_config_keys = {(e.type, e.url) for e in entries if e.source == "config"}
+    yaml_config_keys = {(e.type, e.name) for e in entries if e.source == "config"}
     added = removed = 0
 
     for entry in entries:
-        key = (entry.type, entry.url)
+        key = (entry.type, entry.name)
         if key not in db_all_keys:
             await conn.execute(
                 """
@@ -122,21 +125,21 @@ async def _sync_poller_sources(
             )
             added += 1
         elif entry.source == "config":
-            # Sync properties for existing config sources
+            # Sync mutable properties (url, enabled) for existing config sources
             await conn.execute(
                 """
-                UPDATE poller_sources 
-                SET name = $1, enabled = $2, updated_at = NOW()
-                WHERE type = $3 AND url = $4 AND source = 'config'
+                UPDATE poller_sources
+                SET url = $1, enabled = $2, updated_at = NOW()
+                WHERE type = $3 AND name = $4 AND source = 'config'
                 """,
-                entry.name, entry.enabled, entry.type, entry.url
+                entry.url, entry.enabled, entry.type, entry.name,
             )
 
     to_remove = db_config_keys - yaml_config_keys
-    for src_type, url in to_remove:
+    for src_type, name in to_remove:
         await conn.execute(
-            "DELETE FROM poller_sources WHERE source = 'config' AND type = $1 AND url = $2",
-            src_type, url,
+            "DELETE FROM poller_sources WHERE source = 'config' AND type = $1 AND name = $2",
+            src_type, name,
         )
         removed += 1
 
