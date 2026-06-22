@@ -10,7 +10,7 @@ Connects to an openTAK server via TCP streaming XML and ingests:
 CoT messages arriving from TAK are tagged with their original TAK UID so the
 annotation bridge can skip re-broadcasting them back to TAK (no feedback loop).
 
-Enable via COT_RECEIVE_ENABLED=true, COT_RECEIVE_HOST=<ip> in .env.
+Enable via COT_RECEIVE_ENABLED=true, COT_TAKSERVER_HOST=<ip> in .env.
 """
 
 import asyncio
@@ -41,6 +41,10 @@ def _parse_cot(xml_bytes: bytes) -> dict[str, Any] | None:
 
     uid      = root.get("uid", "")
     cot_type = root.get("type", "")
+
+    # Skip CoT that Vertex itself emitted and OTS echoed back.
+    if uid.startswith("VERTEX-"):
+        return None
 
     point = root.find("point")
     if point is None:
@@ -178,14 +182,14 @@ class CotReceiver(BasePoller):
         if not settings.cot_receive_enabled:
             logger.info("[cot_rx] CoT receive disabled (COT_RECEIVE_ENABLED not set)")
             return
-        if not settings.cot_receive_host:
-            logger.warning("[cot_rx] COT_RECEIVE_HOST not set — receiver disabled")
+        if not settings.cot_takserver_host:
+            logger.warning("[cot_rx] COT_TAKSERVER_HOST not set — receiver disabled")
             return
 
         logger.info(
             "[cot_rx] Connecting to openTAK at %s:%d",
-            settings.cot_receive_host,
-            settings.cot_receive_port,
+            settings.cot_takserver_host,
+            settings.cot_takserver_port,
         )
 
         delay = 2.0
@@ -193,9 +197,9 @@ class CotReceiver(BasePoller):
 
         while True:
             try:
-                await validate_safe_host(settings.cot_receive_host)
+                await validate_safe_host(settings.cot_takserver_host)
                 reader, writer = await asyncio.open_connection(
-                    settings.cot_receive_host, settings.cot_receive_port
+                    settings.cot_takserver_host, settings.cot_takserver_port
                 )
                 _consecutive_failures = 0
                 delay = 2.0
