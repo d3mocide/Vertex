@@ -42,6 +42,10 @@ def _parse_cot(xml_bytes: bytes) -> dict[str, Any] | None:
     uid      = root.get("uid", "")
     cot_type = root.get("type", "")
 
+    # Skip CoT that Vertex itself emitted and OTS echoed back.
+    if uid.startswith("VERTEX-"):
+        return None
+
     point = root.find("point")
     if point is None:
         return None
