@@ -158,22 +158,18 @@ class Settings(BaseSettings):
     adsb_airlines_db_path: str = "/data/airlines.dat"
     adsb_navaids_db_path: str = "/data/navaids.csv"
 
-    # TAK/CoT output — set COT_ENABLED=true to broadcast entity positions
-    # to ATAK/WinTAK clients via UDP multicast or a dedicated TAK server.
+    # TAK/CoT — COT_TAKSERVER_HOST/PORT is shared by both emitter and receiver.
+    # Standard TAK Server: port 8087. OpenTAK Server (OTS): port 8088.
+    # Leave host blank to use UDP multicast instead of a TAK server.
     cot_enabled: bool = False
     cot_multicast_addr: str = "239.2.3.1"
     cot_multicast_port: int = 6969
     cot_stale_seconds: int = 60
-    # Optional unicast to a TAK server (overrides multicast when set)
     cot_takserver_host: str = ""
     cot_takserver_port: int = 8087
 
-    # TAK/CoT ingest — set COT_RECEIVE_ENABLED=true to receive CoT from openTAK.
-    # Connects to openTAK via TCP streaming; ingests field operator positions as
-    # tak_client entities and TAK map markers as Vertex annotations.
+    # Enable receive direction (OTS → Vertex). Uses cot_takserver_host/port.
     cot_receive_enabled: bool = False
-    cot_receive_host: str = ""
-    cot_receive_port: int = 8087
 
     # Anomaly detection — statistical baseline monitoring
     anomaly_enabled: bool = True
