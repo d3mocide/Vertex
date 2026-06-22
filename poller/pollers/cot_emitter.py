@@ -195,8 +195,11 @@ def _build_annotation_cot(ann: dict[str, Any]) -> str | None:
     )
 
 
-def _msg_to_cot(msg: dict) -> str | None:
-    """Convert a Redis pub/sub message to a CoT XML string, or None to skip."""
+def _msg_to_cot(msg: dict, allowed: frozenset[str] | None = None) -> str | None:
+    """Convert a Redis pub/sub message to a CoT XML string, or None to skip.
+
+    allowed: frozenset of entity_type strings to emit; None means emit all.
+    """
     if msg["type"] != "message":
         return None
     try:
@@ -207,7 +210,10 @@ def _msg_to_cot(msg: dict) -> str | None:
     if msg["channel"] == "civic:updates":
         if payload.get("type") != "entity_update":
             return None
-        return _build_cot(payload.get("data", {}))
+        entity = payload.get("data", {})
+        if allowed is not None and entity.get("entity_type") not in allowed:
+            return None
+        return _build_cot(entity)
     else:
         # annotation_update — skip TAK-sourced annotations to avoid feedback loops
         if payload.get("source") == "tak":
@@ -232,12 +238,19 @@ class CotEmitter(BasePoller):
             logger.info("[cot] CoT output disabled (COT_ENABLED not set)")
             return
 
-        if settings.cot_takserver_host:
-            await self._run_tcp(settings.cot_takserver_host, settings.cot_takserver_port)
+        raw = {t.strip() for t in settings.cot_entity_types.split(",") if t.strip()}
+        allowed: frozenset[str] | None = frozenset(raw) if raw else None
+        if allowed:
+            logger.info("[cot] Filtering entity types: %s", ", ".join(sorted(allowed)))
         else:
-            await self._run_udp()
+            logger.info("[cot] Emitting all entity types")
 
-    async def _run_tcp(self, host: str, port: int) -> None:
+        if settings.cot_takserver_host:
+            await self._run_tcp(settings.cot_takserver_host, settings.cot_takserver_port, allowed)
+        else:
+            await self._run_udp(allowed)
+
+    async def _run_tcp(self, host: str, port: int, allowed: frozenset[str] | None) -> None:
         logger.info("[cot] Starting CoT emitter (TCP) → %s:%d", host, port)
         delay = 2.0
         failures = 0
@@ -255,7 +268,7 @@ class CotEmitter(BasePoller):
                     async with r.pubsub() as ps:
                         await ps.subscribe("civic:updates", "annotation_update")
                         async for msg in ps.listen():
-                            xml = _msg_to_cot(msg)
+                            xml = _msg_to_cot(msg, allowed)
                             if xml:
                                 try:
                                     writer.write(xml.encode())
@@ -282,7 +295,7 @@ class CotEmitter(BasePoller):
             await asyncio.sleep(delay)
             delay = min(delay * 2, 60.0)
 
-    async def _run_udp(self) -> None:
+    async def _run_udp(self, allowed: frozenset[str] | None) -> None:
         addr = (settings.cot_multicast_addr, settings.cot_multicast_port)
         logger.info("[cot] Starting CoT emitter (UDP multicast) → %s:%d", *addr)
 
@@ -302,7 +315,7 @@ class CotEmitter(BasePoller):
             async with r.pubsub() as ps:
                 await ps.subscribe("civic:updates", "annotation_update")
                 async for msg in ps.listen():
-                    xml = _msg_to_cot(msg)
+                    xml = _msg_to_cot(msg, allowed)
                     if xml:
                         await _send(xml.encode())
         finally:

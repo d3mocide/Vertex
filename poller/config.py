@@ -167,6 +167,9 @@ class Settings(BaseSettings):
     cot_stale_seconds: int = 60
     cot_takserver_host: str = ""
     cot_takserver_port: int = 8087
+    # Comma-separated entity types to emit. Empty = all types.
+    # Known types: aircraft, vessel, aprs, mesh_node, fire_incident, tak_client
+    cot_entity_types: str = ""
 
     # Enable receive direction (OTS → Vertex). Uses cot_takserver_host/port.
     cot_receive_enabled: bool = False
