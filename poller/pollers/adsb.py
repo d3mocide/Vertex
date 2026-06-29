@@ -95,13 +95,20 @@ class AdsbPoller(BasePoller):
             keys = []
             cur = 0
             while True:
-                cur, batch = await r.scan(cur, match="entity:*", count=200)
+                # ⚡ Bolt Optimization: Increase SCAN count to 5000 to drastically reduce round-trips
+                cur, batch = await r.scan(cur, match="entity:*", count=5000)
                 keys.extend(batch)
                 if not cur:
                     break
+
+            results = []
+            # ⚡ Bolt Optimization: Use MGET in chunks instead of individual GETs
+            for i in range(0, len(keys), 5000):
+                chunk = await r.mget(keys[i:i + 5000])
+                results.extend(chunk)
+
             hydrated = 0
-            for key in keys:
-                raw = await r.get(key)
+            for raw in results:
                 if not raw:
                     continue
                 # ⚡ Bolt Optimization: Fast bytes matching to bypass JSON parsing for non-aircraft entities (~35x faster for skips)
