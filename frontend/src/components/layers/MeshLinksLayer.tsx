@@ -16,10 +16,12 @@ interface MeshLink {
 const SOURCE_ID = 'mesh-links'
 const LAYER_ID = 'mesh-links-line'
 
+// MeshCore LoRa SNR spans roughly -20..+12 dB. (The old -70/-90 thresholds
+// were RSSI-scale values, so every link always rendered green.)
 function snrToColor(snr: number | null): [number, number, number] {
   if (snr === null) return [150, 150, 150]
-  if (snr >= -70) return [68, 221, 136]   // strong — green
-  if (snr >= -90) return [255, 184, 0]    // medium — amber
+  if (snr >= 5)   return [68, 221, 136]   // strong — green
+  if (snr >= -10) return [255, 184, 0]    // medium — amber
   return [255, 80, 80]                    // weak — red
 }
 
@@ -37,6 +39,7 @@ export function MeshLinksLayer({ map }: Props) {
   // this effect rebuild its GeoJSON on every aircraft/vessel update.
   const meshNodes = useEntitiesByType('mesh_node')
   const meshLinks = useCivicStore((s) => s.meshLinks)
+  const meshStatus = useCivicStore((s) => s.meshStatus)
 
   // Initialize Layer and Source
   useEffect(() => {
@@ -82,13 +85,17 @@ export function MeshLinksLayer({ map }: Props) {
     const byId: Record<string, Entity> = {}
     for (const n of meshNodes) byId[n.entity_id] = n
 
-    // Packet-derived links are recorded with node_a = "local" (the repeater
-    // itself), which never exists as an entity — previously every such link
-    // was silently dropped and the layer drew nothing. The repeater's own
-    // position isn't in the entity stream, so anchor "local" at the
-    // configured region center.
+    // Packet-derived links may be recorded with node_a = "local" (the
+    // repeater itself). Anchor those at the repeater's reported position
+    // from mesh:status (GPS from /api/stats or the ?lat=&lon= source pin),
+    // falling back to the configured region center.
     const resolve = (id: string): [number, number] | null => {
-      if (id === 'local') return DEFAULT_CENTER
+      if (id === 'local') {
+        const lat = Number(meshStatus?.lat)
+        const lon = Number(meshStatus?.lon)
+        if (Number.isFinite(lat) && Number.isFinite(lon)) return [lon, lat]
+        return DEFAULT_CENTER
+      }
       const n = byId[id]
       return n && n.lat != null && n.lon != null ? [n.lon, n.lat] : null
     }
@@ -98,8 +105,11 @@ export function MeshLinksLayer({ map }: Props) {
       const coordB = resolve(link.node_b)
       if (!coordA || !coordB) return []
 
+      // Missing/unparsable last_seen (NaN) counts as fresh rather than
+      // dimming the link to minimum opacity.
       const ageMinutes = (now - new Date(link.last_seen).getTime()) / 60_000
-      const opacity = ageMinutes < 5 ? 0.9 : ageMinutes < 15 ? 0.6 : ageMinutes < 30 ? 0.35 : 0.15
+      const opacity = !Number.isFinite(ageMinutes) || ageMinutes < 5 ? 0.9
+        : ageMinutes < 15 ? 0.6 : ageMinutes < 30 ? 0.35 : 0.15
       const quality = link.link_quality ?? 0
       const width = 1.5 + (Math.min(Math.max(quality, 0), 100) / 100) * 2.5
 
@@ -122,7 +132,7 @@ export function MeshLinksLayer({ map }: Props) {
       type: 'FeatureCollection',
       features
     })
-  }, [map, meshNodes, meshLinks])
+  }, [map, meshNodes, meshLinks, meshStatus])
 
   return null
 }

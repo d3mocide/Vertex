@@ -93,6 +93,10 @@ poller_sources:
     #   http://MY_API_KEY@192.168.1.x:8000
     # Add a companion parameter if you want to lock the connection to a specific companion identity:
     #   http://MY_API_KEY@192.168.1.x:8000?companion=MyCompanionNode
+    # Pin the repeater's own position with lat/lon parameters — used when the
+    # repeater API doesn't report GPS. The station then appears on the map as
+    # a mesh_node entity and anchors its packet-derived link lines:
+    #   http://192.168.1.x:8000?lat=45.3842&lon=-122.7635
     enabled: true
     source: config
 
