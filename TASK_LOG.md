@@ -33,6 +33,10 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
   - Packet-derived links anchor on the repeater's entity id instead of the `"local"` placeholder; `mesh:status` carries `lat`/`lon` so the frontend anchors legacy `"local"` links at the actual station before falling back to the region center.
   - Link metric fixes: `link_quality` now computed from SNR on the 0–100 scale the UI expects (was always NULL); WS `mesh_links` payload now includes `last_seen` (missing value rendered every live link at minimum opacity); `snrToColor` rescaled from RSSI-style −70/−90 thresholds (everything green) to LoRa SNR (green ≥ 5 dB, amber ≥ −10 dB).
   - 16 new tests in [test_meshcore_self_node.py](poller/tests/test_meshcore_self_node.py).
+- **Live neighbor list in EntityDetail** ([EntityDetail.tsx](frontend/src/components/panels/EntityDetail.tsx)):
+  - The Neighbors section now overlays the live `meshLinks` store array (WS-fed) on top of the one-shot REST fetch, per the 2026-05-10 mesh audit recommendation — fresh SNR readings appear immediately and the list survives REST failures.
+  - Neighbor rows show peer display names (raw id on hover) and click through to select known peers; `"local"` resolves to the repeater's site name from `mesh:status`.
+  - Fixed the panel's remaining RSSI-scale SNR thresholds (−70/−90 labeled "dBm") to the LoRa SNR scale with dB units.
 - **Motivation**: User reported the entire Cascade mesh rendering (not just local nodes), render-pipeline jank severe enough to block the P25 audio stream from connecting, and mesh-node filter state not surviving PWA reloads; a follow-up audit request surfaced the re-render storm, batching gaps, bugs, and dead code fixed above.
 
 ## 2026-06-15 — Enhanced Mesh Companion Connectivity & Streamlined Tab Layout
