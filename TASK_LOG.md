@@ -5,6 +5,20 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 
 ---
 
+## 2026-07-05 — Gated mesh nodes to region bbox and made entity filters persistent
+
+- **Mesh node bbox gating** ([meshcore.py](poller/pollers/meshcore.py), [config.py](poller/config.py)):
+  - A pyMC-Repeater's advert table covers every node it has ever heard (the whole Cascade mesh), so the poller was publishing hundreds of far-away nodes that cluttered the map and dragged down the render pipeline.
+  - Added `_should_publish_node()` gate that drops `mesh_node` entities whose advertised position falls outside the configured region bbox(es), mirroring the ADS-B/AIS/Amtrak gating. Applied to all three publish paths: REST advert sync, SSE `advert_received`/`contact_path_updated`, and stats neighbors.
+  - New settings `MESH_BBOX_FILTER` (default true) and `MESH_BBOX_PAD_DEG` (default 0.25°, keeps nearby ridge-top repeaters just outside the box). Documented in `.env.example`.
+  - Nodes with no advertised position always pass — they can't clutter the map and direct RF neighbors often advertise without GPS. Gated nodes age out of Redis (120s entity TTL) within ~2 minutes of a poller restart.
+- **Stateful entity filters** ([store.ts](frontend/src/store.ts)):
+  - Added `entityFilter` to the Zustand `persist` partialize so layer toggles (e.g. hiding mesh nodes) survive PWA close/reopen — previously the toggle reset to all-visible on every reload.
+  - Added a custom `merge` that deep-merges the persisted filter over defaults, so filter keys added in future versions default to visible instead of disappearing for users with older persisted state.
+  - Side benefit: the WebSocket subscription is built from `entityFilter` on connect, so a persisted `mesh_node=false` now also suppresses mesh entity updates server-side.
+- **Tests**: New [test_meshcore_bbox.py](poller/tests/test_meshcore_bbox.py) — 6 tests covering in/out-of-bbox, pad behavior, unpositioned nodes, and the disabled-filter path.
+- **Motivation**: User reported the entire Cascade mesh rendering (not just local nodes), render-pipeline jank severe enough to block the P25 audio stream from connecting, and mesh-node filter state not surviving PWA reloads.
+
 ## 2026-06-15 — Enhanced Mesh Companion Connectivity & Streamlined Tab Layout
 
 - **Mesh Companion Status Sync**:
