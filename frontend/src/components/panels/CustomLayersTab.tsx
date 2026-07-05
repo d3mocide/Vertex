@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
-import { useCivicStore, CustomLayerItem } from '../../store'
+import { CustomLayerItem, useCivicPick } from '../../store'
 import { API_BASE } from '../../config'
 import { authHeaders } from '../../auth'
 
@@ -58,7 +58,7 @@ function kmlToGeoJson(kmlText: string): object {
 }
 
 export function CustomLayersTab() {
-  const { customLayers, setCustomLayers } = useCivicStore()
+  const { customLayers, setCustomLayers } = useCivicPick('customLayers', 'setCustomLayers')
 
   const fileInputRef               = useRef<HTMLInputElement>(null)
   const [layerImportName, setLayerImportName] = useState('')

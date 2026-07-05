@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { useShallow } from 'zustand/react/shallow'
 import { entityToTrack, mergeEntityState, loadFavoriteCamIds } from './entityUtils'
 
 // Re-export all types so existing imports from '../../store' keep working.
@@ -15,7 +16,7 @@ import type {
 import { ALT_RANGE_DEFAULT, SPD_RANGE_DEFAULT } from './storeTypes'
 
 // ─── Store ────────────────────────────────────────────────────────────────────
-interface CivicStore {
+export interface CivicStore {
   // Live data
   entities:         Record<string, Entity>
   tracks:           Record<string, Track>
@@ -62,6 +63,7 @@ interface CivicStore {
   setEntities:      (entities: Entity[]) => void
   setAircraftSnapshot: (entities: Entity[]) => void
   upsertEntity:     (entity: Entity) => void
+  upsertEntities:   (entities: Entity[]) => void
   purgeStaleEntities: () => void
   appendSystemEvent: (event: SystemEvent) => void
   setSystemEvents:  (events: SystemEvent[]) => void
@@ -202,6 +204,25 @@ interface CivicStore {
   setTerrainEnabled:      (v: boolean) => void
   terrainExaggeration:    number
   setTerrainExaggeration: (v: number) => void
+}
+
+/**
+ * Subscribe to a named subset of store keys with shallow equality.
+ *
+ * Use this instead of a bare `useCivicStore()` — a selector-less hook
+ * re-renders the component on EVERY store change, including the dozens of
+ * entity updates per second arriving over the WebSocket. Picking only the
+ * keys a component reads limits its re-renders to changes of those keys.
+ * (Action functions are stable, so picking them never causes a re-render.)
+ */
+export function useCivicPick<K extends keyof CivicStore>(...keys: K[]): Pick<CivicStore, K> {
+  return useCivicStore(
+    useShallow((s: CivicStore) => {
+      const out = {} as Pick<CivicStore, K>
+      for (const k of keys) out[k] = s[k]
+      return out
+    }),
+  )
 }
 
 export interface LightningStrike {
@@ -451,6 +472,21 @@ export const useCivicStore = create<CivicStore>()(
         tracks: track ? { ...s.tracks, [entity.entity_id]: track } : s.tracks,
       }
     }),
+  // Batch variant — one store notification for a whole buffer of WS updates
+  // instead of one per message. Order within the batch is preserved.
+  upsertEntities: (list) =>
+    set((s) => {
+      if (list.length === 0) return {}
+      const entities = { ...s.entities }
+      const tracks = { ...s.tracks }
+      for (const entity of list) {
+        const merged = mergeEntityState(entities[entity.entity_id], entity)
+        entities[entity.entity_id] = merged
+        const track = entityToTrack(merged, tracks[entity.entity_id])
+        if (track) tracks[entity.entity_id] = track
+      }
+      return { entities, tracks }
+    }),
   purgeStaleEntities: () =>
     set((s) => {
       const now = Date.now()
@@ -655,7 +691,19 @@ export const useCivicStore = create<CivicStore>()(
   }),
   {
     name: 'vertex.ui.prefs',
+    // Shallow merge except entityFilter, which is deep-merged so filter keys
+    // added in later versions default to visible instead of vanishing for
+    // users with older persisted state.
+    merge: (persisted, current) => {
+      const p = (persisted ?? {}) as Partial<CivicStore>
+      return {
+        ...current,
+        ...p,
+        entityFilter: { ...current.entityFilter, ...(p.entityFilter ?? {}) },
+      }
+    },
     partialize: (state) => ({
+      entityFilter:       state.entityFilter,
       mode:               state.mode,
       trailsVisible:      state.trailsVisible,
       radarVisible:       state.radarVisible,

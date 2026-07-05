@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { useCivicStore, MeshMessage, Entity, SystemEvent, Track, MeshLink } from '../../store'
+import { MeshMessage, Entity, SystemEvent, Track, MeshLink, useCivicPick } from '../../store'
 import { getDistanceMeters } from '../../layers/geoUtils'
 import { DEFAULT_CENTER, API_BASE } from '../../config'
 import { MeshFleetPanel } from './MeshFleetPanel'
@@ -161,7 +161,7 @@ function formatAge(iso: string | undefined): string {
 }
 
 function SpectralMonitor({ links, history, status }: { links: MeshLink[]; history: Record<string, { snr: number[], quality: number[] }>; status: any }) {
-  const { radio, entities } = useCivicStore()
+  const { radio, entities } = useCivicPick('radio', 'entities')
 
   // Calculate top 3 links by SNR
   const topLinks = useMemo(() => {
@@ -371,7 +371,7 @@ function SpectralMonitor({ links, history, status }: { links: MeshLink[]; histor
 }
 
 export function CommsPanel() {
-  const { radio, meshMessages, entities, systemEvents, tracks, meshLinks, linkHistory, meshStatus } = useCivicStore()
+  const { radio, meshMessages, entities, systemEvents, tracks, meshLinks, linkHistory, meshStatus } = useCivicPick('radio', 'meshMessages', 'entities', 'systemEvents', 'tracks', 'meshLinks', 'linkHistory', 'meshStatus')
   const [msgFilter, setMsgFilter] = useState('')
   const [selectedConv, setSelectedConv] = useState<string>('all')
   const [activeTab, setActiveTab] = useState<'chat' | 'fleet' | 'p25'>('chat')

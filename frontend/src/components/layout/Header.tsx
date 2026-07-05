@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { useCivicStore, SystemEvent, NavTab } from '../../store'
+import { SystemEvent, NavTab, useCivicPick } from '../../store'
 import { exportDashboardSnapshot } from '../../snapshotExport'
 
 const TABS: { id: NavTab; label: string; icon: string }[] = [
@@ -50,7 +50,7 @@ function NotificationsDropdown({ events, onClose }: { events: SystemEvent[]; onC
 }
 
 export function Header() {
-  const { activeTab, setActiveTab, mode, setSettingsOpen, setHelpOpen, systemEvents } = useCivicStore()
+  const { activeTab, setActiveTab, mode, setSettingsOpen, setHelpOpen, systemEvents } = useCivicPick('activeTab', 'setActiveTab', 'mode', 'setSettingsOpen', 'setHelpOpen', 'systemEvents')
   const [notificationsOpen, setNotificationsOpen] = useState(false)
   const notifRef = useRef<HTMLDivElement>(null)
 

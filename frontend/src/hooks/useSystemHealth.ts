@@ -1,9 +1,9 @@
 import { useEffect, useRef } from 'react'
 import { HEALTH_POLL_MS } from '../config'
-import { useCivicStore } from '../store'
+import { useCivicPick } from '../store'
 
 export function useSystemHealth() {
-  const { setHealth } = useCivicStore()
+  const { setHealth } = useCivicPick('setHealth')
   const timer = useRef<ReturnType<typeof setInterval> | null>(null)
 
   useEffect(() => {

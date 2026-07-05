@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
-import { useCivicStore } from '../store'
+import { useCivicPick } from '../store'
 
 // ── Developer overlay: surfaces the exact iOS safe-area insets, viewport
 //    geometry, and DOM-layer heights on-device, so we never have to guess at
@@ -214,7 +214,7 @@ function LayerRow({ k, rect }: { k: LayerKey; rect: LayerRect }) {
 }
 
 export function DevInsetInspector() {
-  const { debugInsets, setDebugInsets } = useCivicStore()
+  const { debugInsets, setDebugInsets } = useCivicPick('debugInsets', 'setDebugInsets')
   const [metrics, setMetrics] = useState<Metrics>(() => readMetrics())
   const [corner, setCorner] = useState<Corner>('top-right')
   const [copied, setCopied] = useState(false)

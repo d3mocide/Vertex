@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useCivicStore, TrafficCamera } from '../../store'
+import { TrafficCamera, useCivicPick } from '../../store'
 import { isMajorTrafficIncident } from '../../incidentUtils'
 
 function CctvThumbnail({
@@ -141,10 +141,18 @@ const PLACEHOLDER_CAMERAS: TrafficCamera[] = [
 
 export function InfrastructureGrid() {
   const {
-    cameras, trafficFlow, trafficIncidents, utilityStatus, oregonStatus, ldiMode, setLdiMode,
-    selectedCamId, setSelectedCamId,
-    favoriteCamIds, toggleFavoriteCam,
-  } = useCivicStore()
+    cameras,
+    trafficFlow,
+    trafficIncidents,
+    utilityStatus,
+    oregonStatus,
+    ldiMode,
+    setLdiMode,
+    selectedCamId,
+    setSelectedCamId,
+    favoriteCamIds,
+    toggleFavoriteCam,
+  } = useCivicPick('cameras', 'trafficFlow', 'trafficIncidents', 'utilityStatus', 'oregonStatus', 'ldiMode', 'setLdiMode', 'selectedCamId', 'setSelectedCamId', 'favoriteCamIds', 'toggleFavoriteCam')
   const [radiusKm, setRadiusKm] = useState(5)
   const [page, setPage] = useState(0)
   const PAGE_SIZE = 12

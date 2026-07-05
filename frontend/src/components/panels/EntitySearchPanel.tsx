@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useCivicStore, ALT_RANGE_DEFAULT, SPD_RANGE_DEFAULT } from '../../store'
+import { ALT_RANGE_DEFAULT, SPD_RANGE_DEFAULT, useCivicPick } from '../../store'
 import { getDistanceMeters } from '../../layers/geoUtils'
 import { DEFAULT_CENTER } from '../../config'
 
@@ -69,15 +69,22 @@ function RangeSlider({
 
 export function EntitySearchPanel() {
   const {
-    tracks, entities,
-    entitySearchQuery, setEntitySearchQuery,
-    entityAltRange, setEntityAltRange,
-    entitySpeedRange, setEntitySpeedRange,
-    entityFilter, setEntityFilter,
-    trailsVisible, setTrailsVisible,
-    selectEntity, selectedEntityId,
+    tracks,
+    entities,
+    entitySearchQuery,
+    setEntitySearchQuery,
+    entityAltRange,
+    setEntityAltRange,
+    entitySpeedRange,
+    setEntitySpeedRange,
+    entityFilter,
+    setEntityFilter,
+    trailsVisible,
+    setTrailsVisible,
+    selectEntity,
+    selectedEntityId,
     entityMissionTags,
-  } = useCivicStore()
+  } = useCivicPick('tracks', 'entities', 'entitySearchQuery', 'setEntitySearchQuery', 'entityAltRange', 'setEntityAltRange', 'entitySpeedRange', 'setEntitySpeedRange', 'entityFilter', 'setEntityFilter', 'trailsVisible', 'setTrailsVisible', 'selectEntity', 'selectedEntityId', 'entityMissionTags')
 
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [taggedOnly, setTaggedOnly] = useState(false)

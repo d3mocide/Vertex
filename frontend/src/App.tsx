@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useCivicStore } from './store'
+import { useCivicPick } from './store'
 import { useAlerts } from './hooks/useAlerts'
 import { useSystemHealth } from './hooks/useSystemHealth'
 import { useTrailHydration } from './hooks/useTrailHydration'
@@ -43,7 +43,7 @@ function Dashboard() {
   usePreferences()
   useMeshHistory()
 
-  const { news, appendSystemEvent } = useCivicStore()
+  const { news, appendSystemEvent } = useCivicPick('news', 'appendSystemEvent')
 
   // Background Intelligence Processor
   // Elevates critical news headlines to system events (Incidents)
@@ -56,7 +56,7 @@ function Dashboard() {
     })
   }, [news, appendSystemEvent])
 
-  const { activeTab, mode } = useCivicStore()
+  const { activeTab, mode } = useCivicPick('activeTab', 'mode')
   const isCritical = mode === 'critical'
 
   return (

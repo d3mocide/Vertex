@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { useCivicStore } from '../../store'
+import { useCivicPick } from '../../store'
 
 type Level = 'green' | 'yellow' | 'red'
 
@@ -44,7 +44,7 @@ const LEVEL_ICONS: Record<Level, string> = {
 }
 
 export function AlertStatusBar() {
-  const { mode, alerts, weather, setActiveTab } = useCivicStore()
+  const { mode, alerts, weather, setActiveTab } = useCivicPick('mode', 'alerts', 'weather', 'setActiveTab')
 
   const hasEmergency = weather.alerts.some(
     (a) => a.severity === 'Extreme' || a.severity === 'Severe'

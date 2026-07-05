@@ -2,12 +2,6 @@ import { ScatterplotLayer, LineLayer, PolygonLayer, TextLayer } from '@deck.gl/l
 import type { Layer } from '@deck.gl/core'
 import type { AnnotationItem } from '../storeTypes'
 
-interface AnnotationDrawPreview {
-  mode: 'marker' | 'line' | 'polygon' | null
-  points: [number, number][]
-  cursor: [number, number] | null
-}
-
 function hexToRgb(hex: string): [number, number, number] {
   const cleaned = hex.replace('#', '')
   const r = parseInt(cleaned.slice(0, 2), 16)
@@ -182,64 +176,6 @@ export function buildAnnotationLayers(annotations: AnnotationItem[], visible: bo
       })
     )
   }
-
-  return layers
-}
-
-export function buildAnnotationDrawPreviewLayers(preview: AnnotationDrawPreview): Layer[] {
-  const { mode, points, cursor } = preview
-  if (!mode || mode === 'marker' || points.length === 0) return []
-
-  const previewPoints = cursor ? [...points, cursor] : points
-  const lineData: Array<{ sourcePosition: [number, number]; targetPosition: [number, number] }> = []
-  for (let i = 0; i < previewPoints.length - 1; i++) {
-    lineData.push({ sourcePosition: previewPoints[i], targetPosition: previewPoints[i + 1] })
-  }
-
-  const layers: Layer[] = []
-
-  if (lineData.length > 0) {
-    layers.push(
-      new LineLayer({
-        id: 'annotation-draw-preview-line',
-        data: lineData,
-        getSourcePosition: (d: any) => d.sourcePosition,
-        getTargetPosition: (d: any) => d.targetPosition,
-        getColor: [255, 184, 0, 230] as [number, number, number, number],
-        getWidth: 2,
-        widthUnits: 'pixels',
-        pickable: false,
-      })
-    )
-  }
-
-  if (mode === 'polygon' && previewPoints.length >= 3) {
-    layers.push(
-      new PolygonLayer({
-        id: 'annotation-draw-preview-fill',
-        data: [{ polygon: [...previewPoints, previewPoints[0]] }],
-        getPolygon: (d: any) => d.polygon,
-        getFillColor: [255, 184, 0, 28] as [number, number, number, number],
-        stroked: false,
-        pickable: false,
-      })
-    )
-  }
-
-  layers.push(
-    new ScatterplotLayer({
-      id: 'annotation-draw-preview-points',
-      data: points,
-      getPosition: (d: [number, number]) => d,
-      getRadius: 4,
-      radiusUnits: 'pixels',
-      getFillColor: [255, 184, 0, 240] as [number, number, number, number],
-      getLineColor: [0, 0, 0, 220] as [number, number, number, number],
-      getLineWidth: 1,
-      lineWidthUnits: 'pixels',
-      pickable: false,
-    })
-  )
 
   return layers
 }

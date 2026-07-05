@@ -24,6 +24,7 @@ from urllib.parse import urlparse, urlunparse, parse_qs
 import httpx
 
 from bus import get_bus, publish_entity, set_feed
+from config import settings
 from normalizers.mesh_node import normalize_pymc_repeater_advert, snr_to_quality
 from sanitize import sanitize_payload
 from .base import BasePoller
@@ -116,32 +117,43 @@ class MeshCorePoller(BasePoller):
                 resp = await client.get(f"{base_url}/api/adverts_by_contact_type")
                 if resp.status_code == 200:
                     count = 0
+                    skipped = 0
                     for advert in _iter_items(resp.json()):
                         entity = normalize_pymc_repeater_advert(advert, base_url)
-                        if entity:
-                            await publish_entity(entity)
-                            count += 1
-                    logger.debug("[meshcore] synced %d adverts from %s", count, base_url)
+                        if not entity:
+                            continue
+                        if not _should_publish_node(entity):
+                            skipped += 1
+                            continue
+                        await publish_entity(entity)
+                        count += 1
+                    logger.debug(
+                        "[meshcore] synced %d adverts from %s (%d outside region bbox)",
+                        count, base_url, skipped,
+                    )
             except Exception as exc:
                 logger.debug("[meshcore] advert fetch error: %s", exc)
 
-            # Recent packets → SNR / RSSI link metrics
+            # Recent packets → SNR / RSSI link metrics. Links anchor on the
+            # repeater's own entity once _publish_health has identified it.
             try:
                 resp = await client.get(
                     f"{base_url}/api/recent_packets", params={"limit": _PACKET_LIMIT}
                 )
                 if resp.status_code == 200:
-                    links = _extract_links_from_packets(resp.json(), base_url)
+                    links = _extract_links_from_packets(
+                        resp.json(), base_url, src.get("self_entity_id") or "local"
+                    )
                     if links:
                         await _upsert_mesh_links(links)
             except Exception as exc:
                 logger.debug("[meshcore] packet fetch error: %s", exc)
 
-            # System health
+            # System health + the repeater's own entity
             try:
                 resp = await client.get(f"{base_url}/api/stats")
                 if resp.status_code == 200:
-                    await _publish_health(resp.json(), base_url, src.get("companion"))
+                    await _publish_health(resp.json(), src)
             except Exception as exc:
                 logger.debug("[meshcore] stats fetch error: %s", exc)
 
@@ -218,7 +230,7 @@ class MeshCorePoller(BasePoller):
 
         if event_type == "advert_received":
             entity = normalize_pymc_repeater_advert(payload, base_url)
-            if entity:
+            if entity and _should_publish_node(entity):
                 await publish_entity(entity)
 
         elif event_type in ("message_received", "channel_message_received"):
@@ -235,21 +247,60 @@ class MeshCorePoller(BasePoller):
 
         elif event_type == "contact_path_updated":
             entity = normalize_pymc_repeater_advert(payload, base_url)
-            if entity:
+            if entity and _should_publish_node(entity):
                 await publish_entity(entity, merge=True, record_observation=False)
 
 
 # ─── helpers ──────────────────────────────────────────────────────────────────
 
+def _in_region(lat: float, lon: float) -> bool:
+    """True when the coordinates fall inside any configured region bbox (padded)."""
+    from config import load_regions
+    pad = settings.mesh_bbox_pad_deg
+    for region in load_regions():
+        b = region.bbox
+        if (b.min_lat - pad) <= lat <= (b.max_lat + pad) \
+                and (b.min_lon - pad) <= lon <= (b.max_lon + pad):
+            return True
+    return False
+
+
+def _should_publish_node(entity: dict) -> bool:
+    """Bbox gate for mesh_node entities, like the ADS-B/AIS/Amtrak pollers.
+
+    Nodes with no advertised position always pass — they cannot clutter the
+    map, and direct RF neighbors often advertise without GPS.
+    """
+    if not settings.mesh_bbox_filter:
+        return True
+    lat, lon = entity.get("lat"), entity.get("lon")
+    if lat is None or lon is None:
+        return True
+    return _in_region(lat, lon)
+
+
 def _parse_source(url: str) -> dict:
-    """Extract API key and companion from URL; return clean base_url, api_key, and companion."""
+    """Extract API key, companion, and optional self-position pin from the URL.
+
+    Query parameters:
+      companion=<name>   lock the SSE connection to a specific companion identity
+      lat=<f>&lon=<f>    pin the repeater's own position (used when the
+                         repeater API does not report its GPS location)
+    """
     parsed = urlparse(url)
     api_key = None
     companion = None
+    self_lat = self_lon = None
     if parsed.query:
         qs = parse_qs(parsed.query)
         if "companion" in qs:
             companion = qs["companion"][0]
+        if "lat" in qs and "lon" in qs:
+            try:
+                self_lat = float(qs["lat"][0])
+                self_lon = float(qs["lon"][0])
+            except (TypeError, ValueError):
+                self_lat = self_lon = None
 
     if parsed.username:
         api_key = parsed.username
@@ -257,7 +308,56 @@ def _parse_source(url: str) -> dict:
         url = urlunparse(parsed._replace(netloc=netloc, query=""))
     else:
         url = urlunparse(parsed._replace(query=""))
-    return {"base_url": url.rstrip("/"), "api_key": api_key, "companion": companion}
+    return {
+        "base_url": url.rstrip("/"),
+        "api_key": api_key,
+        "companion": companion,
+        "self_lat": self_lat,
+        "self_lon": self_lon,
+    }
+
+
+def _extract_self_position(stats: dict) -> tuple[float, float] | None:
+    """Best-effort extraction of the repeater's own GPS position from /api/stats.
+
+    pyMC-Repeater builds vary in where (and whether) they report the station's
+    coordinates, so check the top level plus the common nested containers.
+    """
+    if not isinstance(stats, dict):
+        return None
+    containers = [stats] + [
+        stats.get(k) for k in
+        ("self", "node_info", "position", "gps", "location", "radio_device_info")
+    ]
+    for obj in containers:
+        if not isinstance(obj, dict):
+            continue
+        lat = obj.get("gps_lat") or obj.get("lat") or obj.get("latitude")
+        lon = obj.get("gps_lon") or obj.get("lon") or obj.get("longitude")
+        try:
+            lat_f, lon_f = float(lat), float(lon)
+        except (TypeError, ValueError):
+            continue
+        if lat_f == 0.0 and lon_f == 0.0:
+            continue
+        if -90.0 <= lat_f <= 90.0 and -180.0 <= lon_f <= 180.0:
+            return lat_f, lon_f
+    return None
+
+
+def _extract_self_pubkey(stats: dict) -> str | None:
+    """Best-effort extraction of the repeater's own public key from /api/stats."""
+    if not isinstance(stats, dict):
+        return None
+    containers = [stats] + [stats.get(k) for k in ("self", "node_info")]
+    for obj in containers:
+        if not isinstance(obj, dict):
+            continue
+        for key in ("public_key", "self_public_key", "node_pubkey", "pubkey"):
+            v = obj.get(key)
+            if isinstance(v, str) and len(v) >= 8 and v != "0" * len(v):
+                return v
+    return None
 
 
 def _api_headers(api_key: str | None) -> dict[str, str]:
@@ -296,8 +396,13 @@ async def _discover_all_companions(base_url: str, headers: dict) -> list[str]:
     return []
 
 
-def _extract_links_from_packets(payload, source_url: str) -> list[dict]:
-    """Deduplicate per-sender SNR/RSSI from the recent-packet list."""
+def _extract_links_from_packets(payload, source_url: str, self_id: str = "local") -> list[dict]:
+    """Deduplicate per-sender SNR/RSSI from the recent-packet list.
+
+    self_id is the local end of every link — the repeater's own entity id when
+    known, else the legacy "local" placeholder (which the frontend anchors at
+    the repeater position from mesh:status, falling back to the region center).
+    """
     packets = _iter_items(payload)
     now = time.time()
     links: list[dict] = []
@@ -335,7 +440,7 @@ def _extract_links_from_packets(payload, source_url: str) -> list[dict]:
         age_secs = max(0.0, now - float(ts)) if isinstance(ts, (int, float)) else 0.0
         links.append({
             "source_url": source_url,
-            "node_a": "local",
+            "node_a": self_id,
             "node_b": node_b,
             "snr": float(snr),
             "rssi": float(rssi) if rssi is not None else None,
@@ -348,13 +453,20 @@ def _extract_links_from_packets(payload, source_url: str) -> list[dict]:
 async def _upsert_mesh_links(links: list[dict]) -> None:
     from db import get_pool
     now_utc = datetime.datetime.now(datetime.timezone.utc)
+
+    # Normalise SNR to the 0-100 link_quality scale the frontend meters and
+    # link-width styling expect.
+    for lnk in links:
+        quality = snr_to_quality(lnk.get("snr"))
+        lnk["link_quality"] = round(quality * 100) if quality is not None else None
+
     rows = [
         (
             lnk["source_url"],
             lnk["node_a"],
             lnk["node_b"],
             lnk.get("snr"),
-            None,
+            lnk.get("link_quality"),
             now_utc - datetime.timedelta(seconds=int(lnk.get("secs_ago", 0))),
         )
         for lnk in links
@@ -379,18 +491,39 @@ async def _upsert_mesh_links(links: list[dict]) -> None:
                 "node_a":     lnk["node_a"],
                 "node_b":     lnk["node_b"],
                 "snr":        lnk.get("snr"),
-                "link_quality": None,
+                "link_quality": lnk.get("link_quality"),
+                # Frontend line opacity is age-based; without this the WS
+                # variant of the payload rendered every link at minimum
+                # opacity (Date.parse(undefined) → NaN).
+                "last_seen": (
+                    now_utc - datetime.timedelta(seconds=int(lnk.get("secs_ago", 0)))
+                ).isoformat(),
             }
             for lnk in links
         ],
     }))
 
 
-async def _publish_health(stats: dict, base_url: str, companion: str | None = None) -> None:
+async def _publish_health(stats: dict, src: dict) -> None:
     if not isinstance(stats, dict):
         return
+    base_url = src["base_url"]
+    companion = src.get("companion")
     connected = stats.get("radio_connected", stats.get("connected", True))
-    uptime = stats.get("uptime_seconds") or stats.get("uptime_secs")
+    radio_stats = stats.get("radio_stats") if isinstance(stats.get("radio_stats"), dict) else {}
+    uptime = (
+        stats.get("uptime_seconds")
+        or stats.get("uptime_secs")
+        or radio_stats.get("uptime_secs")
+    )
+
+    # The repeater's own position: an explicit ?lat=&lon= pin on the source URL
+    # wins; otherwise try to read GPS coordinates from the stats payload.
+    if src.get("self_lat") is not None and src.get("self_lon") is not None:
+        self_pos = (src["self_lat"], src["self_lon"])
+    else:
+        self_pos = _extract_self_position(stats)
+
     payload = {
         "connected": connected,
         "url": base_url,
@@ -398,9 +531,51 @@ async def _publish_health(stats: dict, base_url: str, companion: str | None = No
         "version": stats.get("version"),
         "site_name": stats.get("site_name"),
         "companion": companion,
+        "lat": self_pos[0] if self_pos else None,
+        "lon": self_pos[1] if self_pos else None,
     }
     await set_feed("mesh:status", payload)
-    
+
+    # Publish the repeater itself as a mesh_node entity so it renders on the
+    # map, records observations, and anchors packet-derived links. Bypasses
+    # the bbox gate: the station's position is explicit operator config, and
+    # remotely monitoring a repeater outside the region is a supported case.
+    if self_pos:
+        pubkey = _extract_self_pubkey(stats)
+        entity_id = (
+            f"mesh_node:{pubkey}"
+            if pubkey
+            else f"mesh_node:repeater:{urlparse(base_url).hostname}"
+        )
+        src["self_entity_id"] = entity_id
+        name = stats.get("site_name") or "pyMC Repeater"
+        status_parts = []
+        battery_mv = radio_stats.get("battery_mv")
+        if isinstance(battery_mv, (int, float)):
+            status_parts.append(f"bat:{battery_mv / 1000:.2f}V")
+        noise_floor = radio_stats.get("noise_floor")
+        if isinstance(noise_floor, (int, float)):
+            status_parts.append(f"nf:{noise_floor:.0f}dBm")
+        await publish_entity({
+            "entity_id":    entity_id,
+            "entity_type":  "mesh_node",
+            "source":       "meshcore",
+            "display_name": name,
+            "identity": {
+                "node_id":      (pubkey or entity_id)[:12],
+                "short_name":   str(name)[:12],
+                "contact_type": "repeater",
+                "source_url":   base_url,
+                "is_self":      True,
+            },
+            "lat":       self_pos[0],
+            "lon":       self_pos[1],
+            "altitude":  None,
+            "status":    " ".join(status_parts),
+            "last_seen": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            "tags":      ["mesh_node", "repeater", "self"],
+        })
+
     # Process neighbors from stats and publish as mesh_node entities
     neighbors = stats.get("neighbors", {})
     if isinstance(neighbors, dict):
@@ -411,7 +586,7 @@ async def _publish_health(stats: dict, base_url: str, companion: str | None = No
             node_copy["public_key"] = pub_key
             node_copy["name"] = node.get("node_name")
             entity = normalize_pymc_repeater_advert(node_copy, base_url)
-            if entity:
+            if entity and _should_publish_node(entity):
                 await publish_entity(entity)
 
     r = await get_bus()

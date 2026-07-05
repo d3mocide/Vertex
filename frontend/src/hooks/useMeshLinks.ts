@@ -1,10 +1,10 @@
 import { useEffect } from 'react'
-import { useCivicStore } from '../store'
+import { useCivicPick } from '../store'
 import { API_BASE } from '../config'
 import { authHeaders } from '../auth'
 
 export function useMeshLinks() {
-  const { setMeshLinks, connected } = useCivicStore()
+  const { setMeshLinks, connected } = useCivicPick('setMeshLinks', 'connected')
 
   useEffect(() => {
     if (!connected) return

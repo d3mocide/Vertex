@@ -1,5 +1,6 @@
 import json
 import logging
+import time
 from redis.asyncio import Redis
 from config import settings
 from sanitize import sanitize_payload
@@ -7,10 +8,18 @@ from sanitize import sanitize_payload
 logger = logging.getLogger(__name__)
 
 _redis: Redis | None = None
-# In-memory mirror of the last-published entity state per entity_id.
-# Eliminates the Redis GET on every publish_entity call when adsb_publish_only_changes
-# is enabled — the comparison is done locally instead of via a round-trip.
-_entity_cache: dict[str, dict] = {}
+# In-memory mirror of the last-published entity state per entity_id, stored as
+# (monotonic_last_seen, entity). Eliminates the Redis GET on every
+# publish_entity call when adsb_publish_only_changes is enabled — the
+# comparison is done locally instead of via a round-trip.
+#
+# Entries for entities that stop reporting are swept periodically; without
+# eviction the cache grows unboundedly with every unique aircraft ever seen,
+# a slow leak on a Pi that runs for weeks.
+_entity_cache: dict[str, tuple[float, dict]] = {}
+_ENTITY_CACHE_MAX_AGE_S = 600.0
+_ENTITY_CACHE_SWEEP_EVERY = 4096
+_entity_cache_ops = 0
 
 
 async def get_bus() -> Redis:
@@ -48,11 +57,27 @@ async def publish_entity(
             except Exception:
                 pass
 
+    global _entity_cache_ops
+    now = time.monotonic()
+
     should_publish = True
     if settings.adsb_publish_only_changes:
         previous = _entity_cache.get(entity_id)
         if previous is not None:
-            should_publish = _entity_changed(previous, entity)
+            should_publish = _entity_changed(previous[1], entity)
+    # Refresh the timestamp on every call so active-but-static entities
+    # (e.g. mesh nodes) are not evicted while still reporting.
+    _entity_cache[entity_id] = (now, entity)
+
+    _entity_cache_ops += 1
+    if _entity_cache_ops >= _ENTITY_CACHE_SWEEP_EVERY:
+        _entity_cache_ops = 0
+        cutoff = now - _ENTITY_CACHE_MAX_AGE_S
+        stale = [k for k, (ts, _) in _entity_cache.items() if ts < cutoff]
+        for k in stale:
+            del _entity_cache[k]
+        if stale:
+            logger.debug("entity cache: evicted %d stale entries", len(stale))
 
     # Always refresh the Redis TTL so the key stays alive while the entity is active.
     # ⚡ Bolt Optimization: Cache json.dumps result to avoid re-serializing large payload for the pubsub wrapper
@@ -60,7 +85,6 @@ async def publish_entity(
     await r.set(key, payload, ex=ttl)
 
     if should_publish:
-        _entity_cache[entity_id] = entity
         await r.publish("civic:updates", f'{{"type":"entity_update","data":{payload}}}')
 
     from db import write_entity_observation  # lazy import — db imports geofence which imports bus

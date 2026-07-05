@@ -1,11 +1,14 @@
-import { useCivicStore, TrafficCamera } from '../../store'
+import { TrafficCamera, useCivicPick } from '../../store'
 
 export function CameraModal() {
-  const { 
-    selectedCamId, setSelectedCamId, 
-    cameras, ldiMode,
-    favoriteCamIds, toggleFavoriteCam
-  } = useCivicStore()
+  const {
+    selectedCamId,
+    setSelectedCamId,
+    cameras,
+    ldiMode,
+    favoriteCamIds,
+    toggleFavoriteCam,
+  } = useCivicPick('selectedCamId', 'setSelectedCamId', 'cameras', 'ldiMode', 'favoriteCamIds', 'toggleFavoriteCam')
 
   if (!selectedCamId) return null
 

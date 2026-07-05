@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useCivicStore, NavTab } from '../../store'
+import { NavTab, useCivicPick } from '../../store'
 import { exportDashboardSnapshot } from '../../snapshotExport'
 
 const PRIMARY_TABS: { id: NavTab; label: string; icon: string }[] = [
@@ -17,7 +17,7 @@ const SECONDARY_TABS: { id: NavTab; label: string; icon: string }[] = [
 ]
 
 export function MobileNav() {
-  const { activeTab, setActiveTab, setSettingsOpen, setHelpOpen } = useCivicStore()
+  const { activeTab, setActiveTab, setSettingsOpen, setHelpOpen } = useCivicPick('activeTab', 'setActiveTab', 'setSettingsOpen', 'setHelpOpen')
   const [showMore, setShowMore] = useState(false)
 
   const handleTabClick = (id: NavTab) => {

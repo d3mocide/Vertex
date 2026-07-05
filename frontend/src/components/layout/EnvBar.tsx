@@ -1,4 +1,4 @@
-import { useCivicStore } from '../../store'
+import { useCivicPick } from '../../store'
 import { DEFAULT_CENTER } from '../../config'
 
 function aqiColor(aqi: number | undefined): string {
@@ -24,7 +24,7 @@ function formatCoord(val: number, pos: string, neg: string): string {
 }
 
 export function EnvBar() {
-  const { weather, mode } = useCivicStore()
+  const { weather, mode } = useCivicPick('weather', 'mode')
   const [centerLon, centerLat] = DEFAULT_CENTER
 
   // In critical mode, highlight the entire bar if severe alerts exist

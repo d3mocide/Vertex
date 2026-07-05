@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useCivicStore, ALT_RANGE_DEFAULT, SPD_RANGE_DEFAULT, type EntityTypeFilter } from '../../store'
+import { ALT_RANGE_DEFAULT, SPD_RANGE_DEFAULT, type EntityTypeFilter, useCivicPick } from '../../store'
 import { isMajorTrafficIncident } from '../../incidentUtils'
 
 const INCIDENTS_COLLAPSE_KEY = 'vertex.sidebar.incidentsCollapsed'
@@ -122,7 +122,7 @@ export function Sidebar() {
     setGaugesVisible,
     lightningVisible,
     setLightningVisible,
-  } = useCivicStore()
+  } = useCivicPick('alerts', 'news', 'health', 'entities', 'connected', 'cameras', 'weather', 'trafficIncidents', 'lightningStrikes', 'setActiveTab', 'entityFilter', 'setEntityFilter', 'setEntitySearchQuery', 'setEntityAltRange', 'setEntitySpeedRange', 'camerasVisible', 'setCamerasVisible', 'gaugesVisible', 'setGaugesVisible', 'lightningVisible', 'setLightningVisible')
 
   const entityList = Object.values(entities)
   const aircraft     = entityList.filter((e) => e.entity_type === 'aircraft').length

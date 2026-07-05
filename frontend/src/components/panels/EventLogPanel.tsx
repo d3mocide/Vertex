@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useCivicStore, SystemEvent } from '../../store'
+import { SystemEvent, useCivicPick } from '../../store'
 import { API_BASE } from '../../config'
 import { authHeaders, clearToken } from '../../auth'
 
@@ -94,7 +94,7 @@ function EventRow({ event }: { event: SystemEvent }) {
 }
 
 export function EventLogPanel() {
-  const { systemEvents, setSystemEvents } = useCivicStore()
+  const { systemEvents, setSystemEvents } = useCivicPick('systemEvents', 'setSystemEvents')
   const [severityFilter, setSeverityFilter] = useState<SeverityFilter>('all')
   const [search, setSearch] = useState('')
   const [sitrepHours, setSitrepHours] = useState(24)
