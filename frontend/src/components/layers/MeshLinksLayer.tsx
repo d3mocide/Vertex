@@ -1,8 +1,9 @@
-import { useEffect, useRef } from 'react'
+import { useEffect } from 'react'
 import type { Map as MapLibreMap } from 'maplibre-gl'
 import { useCivicStore } from '../../store'
-import { API_BASE } from '../../config'
-import { authHeaders } from '../../auth'
+import type { Entity } from '../../store'
+import { useEntitiesByType } from '../../hooks/useEntities'
+import { DEFAULT_CENTER } from '../../config'
 
 interface MeshLink {
   node_a:       string
@@ -32,7 +33,9 @@ interface Props {
 }
 
 export function MeshLinksLayer({ map }: Props) {
-  const entities = useCivicStore((s) => s.entities)
+  // Subscribe to mesh nodes only — depending on the whole entities map made
+  // this effect rebuild its GeoJSON on every aircraft/vessel update.
+  const meshNodes = useEntitiesByType('mesh_node')
   const meshLinks = useCivicStore((s) => s.meshLinks)
 
   // Initialize Layer and Source
@@ -76,10 +79,24 @@ export function MeshLinksLayer({ map }: Props) {
 
     const now = Date.now()
 
+    const byId: Record<string, Entity> = {}
+    for (const n of meshNodes) byId[n.entity_id] = n
+
+    // Packet-derived links are recorded with node_a = "local" (the repeater
+    // itself), which never exists as an entity — previously every such link
+    // was silently dropped and the layer drew nothing. The repeater's own
+    // position isn't in the entity stream, so anchor "local" at the
+    // configured region center.
+    const resolve = (id: string): [number, number] | null => {
+      if (id === 'local') return DEFAULT_CENTER
+      const n = byId[id]
+      return n && n.lat != null && n.lon != null ? [n.lon, n.lat] : null
+    }
+
     const features = meshLinks.flatMap((link) => {
-      const nodeA = entities[link.node_a]
-      const nodeB = entities[link.node_b]
-      if (!nodeA?.lat || !nodeA?.lon || !nodeB?.lat || !nodeB?.lon) return []
+      const coordA = resolve(link.node_a)
+      const coordB = resolve(link.node_b)
+      if (!coordA || !coordB) return []
 
       const ageMinutes = (now - new Date(link.last_seen).getTime()) / 60_000
       const opacity = ageMinutes < 5 ? 0.9 : ageMinutes < 15 ? 0.6 : ageMinutes < 30 ? 0.35 : 0.15
@@ -90,10 +107,7 @@ export function MeshLinksLayer({ map }: Props) {
         type: 'Feature' as const,
         geometry: {
           type: 'LineString' as const,
-          coordinates: [
-            [nodeA.lon, nodeA.lat],
-            [nodeB.lon, nodeB.lat],
-          ],
+          coordinates: [coordA, coordB],
         },
         properties: {
           snr:     link.snr,
@@ -108,7 +122,7 @@ export function MeshLinksLayer({ map }: Props) {
       type: 'FeatureCollection',
       features
     })
-  }, [map, entities, meshLinks])
+  }, [map, meshNodes, meshLinks])
 
   return null
 }
