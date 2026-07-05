@@ -17,7 +17,18 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
   - Added a custom `merge` that deep-merges the persisted filter over defaults, so filter keys added in future versions default to visible instead of disappearing for users with older persisted state.
   - Side benefit: the WebSocket subscription is built from `entityFilter` on connect, so a persisted `mesh_node=false` now also suppresses mesh entity updates server-side.
 - **Tests**: New [test_meshcore_bbox.py](poller/tests/test_meshcore_bbox.py) — 6 tests covering in/out-of-bbox, pad behavior, unpositioned nodes, and the disabled-filter path.
-- **Motivation**: User reported the entire Cascade mesh rendering (not just local nodes), render-pipeline jank severe enough to block the P25 audio stream from connecting, and mesh-node filter state not surviving PWA reloads.
+- **Narrowed store subscriptions** ([store.ts](frontend/src/store.ts) + 26 components/hooks):
+  - Added `useCivicPick(...keys)` (shallow-equality picker) and converted all 29 bare `useCivicStore()` call sites — previously every WS entity update re-rendered the whole React tree from `Dashboard` down, which was the main-thread churn starving the P25 audio stream.
+- **Batched WS entity updates** ([useWebSocket.ts](frontend/src/hooks/useWebSocket.ts), [store.ts](frontend/src/store.ts)):
+  - New `upsertEntities` action; `entity_update` messages buffer and flush in one store commit per 250ms (~4 notifications/sec instead of one per message). Cold-start REST seed now requests `limit=2000` (backend default of 200 gave a partial first paint).
+- **Render-loop trims** ([MapOverlay.tsx](frontend/src/components/MapOverlay.tsx)):
+  - Layer-rebuild throttle 16ms→33ms (16 was a no-op at 60fps rAF); tooltip GPU picking throttled to 50ms; fixed tooltip-hide handler (`mouseout`, not the never-firing map-level `mouseleave`) and added its cleanup; removed write-only `layersRef`.
+- **Bug fixes**:
+  - Mesh links now render: packet-derived links use `node_a="local"` which never resolved to an entity, so [MeshLinksLayer.tsx](frontend/src/components/layers/MeshLinksLayer.tsx) dropped every feature. `"local"` anchors at the region center; the layer also now subscribes to mesh nodes only instead of the whole entities map.
+  - Annotation draw preview no longer renders twice (removed the passive deck.gl copy in MapOverlay; the interactive MapLibre `AnnotationOverlay` owns it).
+  - Bounded the poller's `_entity_cache` in [bus.py](poller/bus.py) — entries carry a monotonic last-seen timestamp and stale ones (>10 min) are swept every 4096 publishes (was an unbounded slow leak).
+- **Dead code removed**: `components/layers/MeshLayer.tsx`, `StreamGaugeLayer.tsx` (never imported), `ObservationRingLayer.tsx` (mounted no-op stub), `buildAnnotationDrawPreviewLayers`, unused `snr_to_quality` import, and uncalled `normalize_mesh_node`/`_bridge_status` in the poller.
+- **Motivation**: User reported the entire Cascade mesh rendering (not just local nodes), render-pipeline jank severe enough to block the P25 audio stream from connecting, and mesh-node filter state not surviving PWA reloads; a follow-up audit request surfaced the re-render storm, batching gaps, bugs, and dead code fixed above.
 
 ## 2026-06-15 — Enhanced Mesh Companion Connectivity & Streamlined Tab Layout
 
