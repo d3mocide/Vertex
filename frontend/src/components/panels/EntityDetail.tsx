@@ -45,6 +45,10 @@ const TYPE_ICONS: Record<string, string> = {
 
 const TAG_PRESETS = ['#FF4444', '#FF8800', '#FFB800', '#44DD88', '#00BBFF', '#AA44FF', '#FF44AA']
 
+// MeshCore LoRa SNR spans roughly -20..+12 dB.
+const snrColor = (snr: number | null): string =>
+  snr === null ? '#999' : snr >= 5 ? '#44dd88' : snr >= -10 ? '#ffb800' : '#ff5050'
+
 
 
 export function EntityDetail() {
@@ -58,6 +62,7 @@ export function EntityDetail() {
     addEntityMissionTag,
     removeEntityMissionTag,
   } = useCivicPick('entities', 'airports', 'selectedEntityId', 'selectEntity', 'entityMissionTags', 'setEntityMissionTags', 'addEntityMissionTag', 'removeEntityMissionTag')
+  const { meshLinks, meshStatus } = useCivicPick('meshLinks', 'meshStatus')
   const entity = selectedEntityId ? entities[selectedEntityId] : null
 
   // Fetch trail for sparklines (aircraft only)
@@ -77,11 +82,14 @@ export function EntityDetail() {
     return () => { cancelled = true }
   }, [selectedEntityId, entity?.entity_type])
 
-  // Fetch mesh neighbors for mesh_node entities
-  const [meshNeighbors, setMeshNeighbors] = useState<MeshNeighbor[]>([])
+  // Mesh neighbors for mesh_node entities: REST gives the persisted 60-min
+  // window; the live meshLinks store array (fed by WS mesh_links events)
+  // overlays it so fresh SNR readings appear without waiting on a refetch —
+  // and the list still populates when the REST call fails entirely.
+  const [restNeighbors, setRestNeighbors] = useState<MeshNeighbor[]>([])
   useEffect(() => {
     if (!selectedEntityId || !entity || entity.entity_type !== 'mesh_node') {
-      setMeshNeighbors([])
+      setRestNeighbors([])
       return
     }
     let cancelled = false
@@ -89,7 +97,7 @@ export function EntityDetail() {
       .then((r) => r.ok ? r.json() : [])
       .then((links: MeshNeighbor[]) => {
         if (!cancelled) {
-          setMeshNeighbors(
+          setRestNeighbors(
             links.filter(
               (l) => l.node_a === selectedEntityId || l.node_b === selectedEntityId
             )
@@ -99,6 +107,18 @@ export function EntityDetail() {
       .catch(() => {})
     return () => { cancelled = true }
   }, [selectedEntityId, entity?.entity_type])
+
+  const meshNeighbors: MeshNeighbor[] = (() => {
+    if (!selectedEntityId || entity?.entity_type !== 'mesh_node') return []
+    const byPair = new Map<string, MeshNeighbor>()
+    for (const l of restNeighbors) byPair.set(`${l.node_a}|${l.node_b}`, l)
+    for (const l of meshLinks) {
+      if (l.node_a === selectedEntityId || l.node_b === selectedEntityId) {
+        byPair.set(`${l.node_a}|${l.node_b}`, l)  // live reading wins
+      }
+    }
+    return Array.from(byPair.values())
+  })()
 
   // Load mission tags when entity changes
   const loadTags = useCallback(async (entityId: string) => {
@@ -291,10 +311,8 @@ export function EntityDetail() {
                         {nodeSnr != null && (
                           <div className="flex justify-between">
                             <span className="text-[11px] text-on-surface-variant">Node SNR</span>
-                            <span className="font-mono text-[11px]" style={{
-                              color: nodeSnr >= -70 ? '#44dd88' : nodeSnr >= -90 ? '#ffb800' : '#ff5050',
-                            }}>
-                              {nodeSnr} dBm
+                            <span className="font-mono text-[11px]" style={{ color: snrColor(nodeSnr) }}>
+                              {nodeSnr} dB
                             </span>
                           </div>
                         )}
@@ -309,19 +327,31 @@ export function EntityDetail() {
                       <ul className="space-y-1">
                         {meshNeighbors.map((lnk, i) => {
                           const peerId = lnk.node_a === selectedEntityId ? lnk.node_b : lnk.node_a
+                          const peer = entities[peerId]
+                          const peerName = peerId === 'local'
+                            ? (meshStatus?.site_name ?? 'Repeater (local)')
+                            : (peer?.display_name ?? peerId)
                           return (
                             <li key={i} className="flex items-center justify-between gap-2">
-                              <span className="font-mono text-[11px] text-on-surface truncate">{peerId}</span>
+                              {peer ? (
+                                <button
+                                  type="button"
+                                  onClick={() => selectEntity(peerId)}
+                                  className="font-mono text-[11px] text-on-surface truncate hover:text-amber-gold text-left"
+                                  title={peerId}
+                                >
+                                  {peerName}
+                                </button>
+                              ) : (
+                                <span className="font-mono text-[11px] text-on-surface truncate" title={peerId}>
+                                  {peerName}
+                                </span>
+                              )}
                               <span
                                 className="font-mono text-[11px] shrink-0"
-                                style={{
-                                  color: lnk.snr === null ? '#999'
-                                    : lnk.snr >= -70 ? '#44dd88'
-                                    : lnk.snr >= -90 ? '#ffb800'
-                                    : '#ff5050',
-                                }}
+                                style={{ color: snrColor(lnk.snr) }}
                               >
-                                {lnk.snr !== null ? `${lnk.snr} dBm` : '—'}
+                                {lnk.snr !== null ? `${lnk.snr} dB` : '—'}
                               </span>
                             </li>
                           )
