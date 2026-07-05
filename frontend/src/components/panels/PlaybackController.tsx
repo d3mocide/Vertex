@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { useCivicStore, ReplayEvent } from '../../store'
+import { ReplayEvent, useCivicPick } from '../../store'
 import { API_BASE } from '../../config'
 import { authHeaders } from '../../auth'
 
@@ -29,12 +29,17 @@ function toDatetimeLocal(d: Date): string {
 
 export function PlaybackController() {
   const {
-    replayMode, setReplayMode,
-    replayData, setReplayData,
-    replayCurrentTs, setReplayCurrentTs,
-    replayPlaying, setReplayPlaying,
-    replaySpeed, setReplaySpeed,
-  } = useCivicStore()
+    replayMode,
+    setReplayMode,
+    replayData,
+    setReplayData,
+    replayCurrentTs,
+    setReplayCurrentTs,
+    replayPlaying,
+    setReplayPlaying,
+    replaySpeed,
+    setReplaySpeed,
+  } = useCivicPick('replayMode', 'setReplayMode', 'replayData', 'setReplayData', 'replayCurrentTs', 'setReplayCurrentTs', 'replayPlaying', 'setReplayPlaying', 'replaySpeed', 'setReplaySpeed')
 
   const [windowHours, setWindowHours] = useState(2)
   const [useAbsolute, setUseAbsolute] = useState(false)

@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { useShallow } from 'zustand/react/shallow'
 import { entityToTrack, mergeEntityState, loadFavoriteCamIds } from './entityUtils'
 
 // Re-export all types so existing imports from '../../store' keep working.
@@ -15,7 +16,7 @@ import type {
 import { ALT_RANGE_DEFAULT, SPD_RANGE_DEFAULT } from './storeTypes'
 
 // ─── Store ────────────────────────────────────────────────────────────────────
-interface CivicStore {
+export interface CivicStore {
   // Live data
   entities:         Record<string, Entity>
   tracks:           Record<string, Track>
@@ -202,6 +203,25 @@ interface CivicStore {
   setTerrainEnabled:      (v: boolean) => void
   terrainExaggeration:    number
   setTerrainExaggeration: (v: number) => void
+}
+
+/**
+ * Subscribe to a named subset of store keys with shallow equality.
+ *
+ * Use this instead of a bare `useCivicStore()` — a selector-less hook
+ * re-renders the component on EVERY store change, including the dozens of
+ * entity updates per second arriving over the WebSocket. Picking only the
+ * keys a component reads limits its re-renders to changes of those keys.
+ * (Action functions are stable, so picking them never causes a re-render.)
+ */
+export function useCivicPick<K extends keyof CivicStore>(...keys: K[]): Pick<CivicStore, K> {
+  return useCivicStore(
+    useShallow((s: CivicStore) => {
+      const out = {} as Pick<CivicStore, K>
+      for (const k of keys) out[k] = s[k]
+      return out
+    }),
+  )
 }
 
 export interface LightningStrike {

@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
-import { useCivicStore } from '../../store'
+import { useCivicPick } from '../../store'
 import type { EntityMissionTag } from '../../store'
 import { API_BASE } from '../../config'
 import { authHeaders } from '../../auth'
@@ -49,9 +49,15 @@ const TAG_PRESETS = ['#FF4444', '#FF8800', '#FFB800', '#44DD88', '#00BBFF', '#AA
 
 export function EntityDetail() {
   const {
-    entities, airports, selectedEntityId, selectEntity,
-    entityMissionTags, setEntityMissionTags, addEntityMissionTag, removeEntityMissionTag,
-  } = useCivicStore()
+    entities,
+    airports,
+    selectedEntityId,
+    selectEntity,
+    entityMissionTags,
+    setEntityMissionTags,
+    addEntityMissionTag,
+    removeEntityMissionTag,
+  } = useCivicPick('entities', 'airports', 'selectedEntityId', 'selectEntity', 'entityMissionTags', 'setEntityMissionTags', 'addEntityMissionTag', 'removeEntityMissionTag')
   const entity = selectedEntityId ? entities[selectedEntityId] : null
 
   // Fetch trail for sparklines (aircraft only)

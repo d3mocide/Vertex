@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { useCivicStore } from '../../store'
+import { useCivicPick } from '../../store'
 import { API_BASE } from '../../config'
 import { authHeaders } from '../../auth'
 import { CustomLayersTab } from './CustomLayersTab'
@@ -36,11 +36,14 @@ type PanelTab = 'geofences' | 'layers'
 
 export function GeofencePanel() {
   const {
-    geofenceDrawing, setGeofenceDrawing,
-    geofenceDrawMode, setGeofenceDrawMode,
-    geofenceDrawPoints, clearGeofenceDrawPoints,
+    geofenceDrawing,
+    setGeofenceDrawing,
+    geofenceDrawMode,
+    setGeofenceDrawMode,
+    geofenceDrawPoints,
+    clearGeofenceDrawPoints,
     customLayers,
-  } = useCivicStore()
+  } = useCivicPick('geofenceDrawing', 'setGeofenceDrawing', 'geofenceDrawMode', 'setGeofenceDrawMode', 'geofenceDrawPoints', 'clearGeofenceDrawPoints', 'customLayers')
 
   const [panelTab, setPanelTab] = useState<PanelTab>('geofences')
   const [fences, setFences]         = useState<GeofenceRecord[]>([])

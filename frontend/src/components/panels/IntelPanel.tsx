@@ -1,4 +1,4 @@
-import { useCivicStore, AlertItem, NewsItem } from '../../store'
+import { AlertItem, NewsItem, useCivicPick } from '../../store'
 
 type FeedItem = {
   key:       string
@@ -106,7 +106,7 @@ function toFeedItem(item: AlertItem | NewsItem, i: number, isAlert: boolean): Fe
 }
 
 export function IntelPanel() {
-  const { alerts, news } = useCivicStore()
+  const { alerts, news } = useCivicPick('alerts', 'news')
 
   // Merge and sort by published date descending
   const allItems = [

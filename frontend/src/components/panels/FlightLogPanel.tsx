@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react'
 import maplibregl from 'maplibre-gl'
-import { useCivicStore, Entity } from '../../store'
+import { Entity, useCivicPick } from '../../store'
 import type { AcarsMessage } from '../../storeTypes'
 import { API_BASE, MAP_STYLE, DEFAULT_CENTER } from '../../config'
 import { authHeaders } from '../../auth'
@@ -498,7 +498,7 @@ function FlightMiniMap({ trailPoints, entity }: {
 
 // ─── Main Panel ───────────────────────────────────────────────────────────────
 export function FlightLogPanel() {
-  const { entities, selectedEntityId, selectEntity, acarsMessages } = useCivicStore()
+  const { entities, selectedEntityId, selectEntity, acarsMessages } = useCivicPick('entities', 'selectedEntityId', 'selectEntity', 'acarsMessages')
 
   const [timeWindow,     setTimeWindow]     = useState(60)
   const [search,         setSearch]         = useState('')

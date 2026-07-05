@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { useCivicStore, WeatherAlert, SystemEvent } from '../../store'
+import { WeatherAlert, SystemEvent, useCivicPick } from '../../store'
 import { isMajorTrafficIncident, isIncidentInRadius } from '../../incidentUtils'
 import ReactMarkdown from 'react-markdown'
 import { API_BASE } from '../../config'
@@ -37,7 +37,7 @@ function deriveIncidentTitle(incident: {
 }
 
 function AiTrafficSummary() {
-  const { summary } = useCivicStore()
+  const { summary } = useCivicPick('summary')
   if (!summary.summary) return null
 
   return (
@@ -100,7 +100,7 @@ function sysSeverityColorClass(severity: string) {
 }
 
 export function IncidentsPanel() {
-  const { weather, trafficIncidents, systemEvents } = useCivicStore()
+  const { weather, trafficIncidents, systemEvents } = useCivicPick('weather', 'trafficIncidents', 'systemEvents')
 
   // Request an on-demand AI summary refresh whenever this panel is opened.
   // The updated result arrives via the existing WebSocket → store flow.

@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
-import { useCivicStore } from '../../store'
+import { useCivicPick } from '../../store'
 import { notificationPermission, requestNotificationPermission } from '../../notifications'
 import { getUserRole, clearToken, authHeaders } from '../../auth'
 import { API_BASE } from '../../config'
@@ -8,26 +8,45 @@ import { AlertRulesSection } from './AlertRulesSection'
 
 export function SettingsPanel() {
   const {
-    settingsOpen, setSettingsOpen,
-    radarVisible, setRadarVisible,
-    radarOpacity, setRadarOpacity,
-    smokeVisible, setSmokeVisible,
-    goesVisible, setGoesVisible,
-    firePerimetersVisible, setFirePerimetersVisible,
-    camerasVisible, setCamerasVisible,
-    geofencesVisible, setGeofencesVisible,
-    trailsVisible, setTrailsVisible,
-    lightningVisible, setLightningVisible,
-    radarReflectivityVisible, setRadarReflectivityVisible,
-    nwsAlertsVisible, setNwsAlertsVisible,
-    lightningDensityVisible, setLightningDensityVisible,
-    railTracksVisible, setRailTracksVisible,
-    gaugesVisible, setGaugesVisible,
-    terrainEnabled, setTerrainEnabled,
-    terrainExaggeration, setTerrainExaggeration,
-    entityFilter, setEntityFilter,
-    debugInsets, setDebugInsets,
-  } = useCivicStore()
+    settingsOpen,
+    setSettingsOpen,
+    radarVisible,
+    setRadarVisible,
+    radarOpacity,
+    setRadarOpacity,
+    smokeVisible,
+    setSmokeVisible,
+    goesVisible,
+    setGoesVisible,
+    firePerimetersVisible,
+    setFirePerimetersVisible,
+    camerasVisible,
+    setCamerasVisible,
+    geofencesVisible,
+    setGeofencesVisible,
+    trailsVisible,
+    setTrailsVisible,
+    lightningVisible,
+    setLightningVisible,
+    radarReflectivityVisible,
+    setRadarReflectivityVisible,
+    nwsAlertsVisible,
+    setNwsAlertsVisible,
+    lightningDensityVisible,
+    setLightningDensityVisible,
+    railTracksVisible,
+    setRailTracksVisible,
+    gaugesVisible,
+    setGaugesVisible,
+    terrainEnabled,
+    setTerrainEnabled,
+    terrainExaggeration,
+    setTerrainExaggeration,
+    entityFilter,
+    setEntityFilter,
+    debugInsets,
+    setDebugInsets,
+  } = useCivicPick('settingsOpen', 'setSettingsOpen', 'radarVisible', 'setRadarVisible', 'radarOpacity', 'setRadarOpacity', 'smokeVisible', 'setSmokeVisible', 'goesVisible', 'setGoesVisible', 'firePerimetersVisible', 'setFirePerimetersVisible', 'camerasVisible', 'setCamerasVisible', 'geofencesVisible', 'setGeofencesVisible', 'trailsVisible', 'setTrailsVisible', 'lightningVisible', 'setLightningVisible', 'radarReflectivityVisible', 'setRadarReflectivityVisible', 'nwsAlertsVisible', 'setNwsAlertsVisible', 'lightningDensityVisible', 'setLightningDensityVisible', 'railTracksVisible', 'setRailTracksVisible', 'gaugesVisible', 'setGaugesVisible', 'terrainEnabled', 'setTerrainEnabled', 'terrainExaggeration', 'setTerrainExaggeration', 'entityFilter', 'setEntityFilter', 'debugInsets', 'setDebugInsets')
 
   const [notifPermission, setNotifPermission] = useState(() => notificationPermission())
   const userRole = getUserRole()

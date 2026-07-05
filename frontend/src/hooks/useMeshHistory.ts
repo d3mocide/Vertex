@@ -1,10 +1,10 @@
 import { useEffect } from 'react'
-import { useCivicStore } from '../store'
+import { useCivicPick } from '../store'
 import { API_BASE } from '../config'
 import { authHeaders } from '../auth'
 
 export function useMeshHistory() {
-  const { setMeshLinks, setMeshMessages, setMeshStatus, connected } = useCivicStore()
+  const { setMeshLinks, setMeshMessages, setMeshStatus, connected } = useCivicPick('setMeshLinks', 'setMeshMessages', 'setMeshStatus', 'connected')
 
   useEffect(() => {
     if (!connected) return

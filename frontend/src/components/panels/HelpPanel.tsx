@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react'
-import { useCivicStore } from '../../store'
+import { useCivicPick } from '../../store'
 import { DOC_PAGES, type DocPage } from '../../docs/content'
 
 const SECTIONS = ['Usage', 'Capabilities', 'Dashboards', 'Navigation'] as const
 
 export function HelpPanel() {
-  const { helpOpen, setHelpOpen } = useCivicStore()
+  const { helpOpen, setHelpOpen } = useCivicPick('helpOpen', 'setHelpOpen')
   const [activePage, setActivePage] = useState<DocPage>(DOC_PAGES[0])
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
 

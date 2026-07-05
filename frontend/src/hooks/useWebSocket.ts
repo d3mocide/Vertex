@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { WS_URL, API_BASE } from '../config'
-import { useCivicStore } from '../store'
+import { useCivicStore, useCivicPick } from '../store'
 import type { Entity, EntityTypeFilter } from '../storeTypes'
 import { wsTokenParam, authHeaders } from '../auth'
 import { initNotifications, maybeNotify, notifyMeshMessage } from '../notifications'
@@ -99,7 +99,7 @@ export function useWebSocket() {
     updateLinkHistory,
     setMeshStatus,
     appendAcarsMessage,
-  } = useCivicStore()
+  } = useCivicPick('setEntities', 'setAircraftSnapshot', 'upsertEntity', 'purgeStaleEntities', 'setConnected', 'setRadio', 'appendSystemEvent', 'setUtilityStatus', 'setOregonStatus', 'setAirports', 'setWeather', 'setAlerts', 'setNews', 'setCameras', 'setTrafficFlow', 'setTrafficIncidents', 'setSummary', 'appendLightningStrikes', 'appendMeshMessage', 'updateLinkHistory', 'setMeshStatus', 'appendAcarsMessage')
 
   useEffect(() => {
     let cancelled = false

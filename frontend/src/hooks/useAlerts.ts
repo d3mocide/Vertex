@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { API_BASE, ALERTS_POLL_MS, NEWS_POLL_MS, WEATHER_POLL_MS, CAMERAS_POLL_MS } from '../config'
-import { useCivicStore } from '../store'
+import { useCivicPick } from '../store'
 import { authHeaders, clearToken } from '../auth'
 import type { TrafficFlowSensor, UtilityStatus, OregonStatus } from '../storeTypes'
 
@@ -26,7 +26,7 @@ export function useAlerts() {
     setUtilityStatus,
     setOregonStatus,
     setSummary,
-  } = useCivicStore()
+  } = useCivicPick('setAlerts', 'setNews', 'setWeather', 'setCameras', 'setTrafficFlow', 'setTrafficIncidents', 'setUtilityStatus', 'setOregonStatus', 'setSummary')
   const timers = useRef<ReturnType<typeof setInterval>[]>([])
 
   useEffect(() => {
