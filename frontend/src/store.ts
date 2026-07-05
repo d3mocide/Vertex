@@ -655,7 +655,19 @@ export const useCivicStore = create<CivicStore>()(
   }),
   {
     name: 'vertex.ui.prefs',
+    // Shallow merge except entityFilter, which is deep-merged so filter keys
+    // added in later versions default to visible instead of vanishing for
+    // users with older persisted state.
+    merge: (persisted, current) => {
+      const p = (persisted ?? {}) as Partial<CivicStore>
+      return {
+        ...current,
+        ...p,
+        entityFilter: { ...current.entityFilter, ...(p.entityFilter ?? {}) },
+      }
+    },
     partialize: (state) => ({
+      entityFilter:       state.entityFilter,
       mode:               state.mode,
       trailsVisible:      state.trailsVisible,
       radarVisible:       state.radarVisible,

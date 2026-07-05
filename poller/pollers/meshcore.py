@@ -24,6 +24,7 @@ from urllib.parse import urlparse, urlunparse, parse_qs
 import httpx
 
 from bus import get_bus, publish_entity, set_feed
+from config import settings
 from normalizers.mesh_node import normalize_pymc_repeater_advert, snr_to_quality
 from sanitize import sanitize_payload
 from .base import BasePoller
@@ -116,12 +117,20 @@ class MeshCorePoller(BasePoller):
                 resp = await client.get(f"{base_url}/api/adverts_by_contact_type")
                 if resp.status_code == 200:
                     count = 0
+                    skipped = 0
                     for advert in _iter_items(resp.json()):
                         entity = normalize_pymc_repeater_advert(advert, base_url)
-                        if entity:
-                            await publish_entity(entity)
-                            count += 1
-                    logger.debug("[meshcore] synced %d adverts from %s", count, base_url)
+                        if not entity:
+                            continue
+                        if not _should_publish_node(entity):
+                            skipped += 1
+                            continue
+                        await publish_entity(entity)
+                        count += 1
+                    logger.debug(
+                        "[meshcore] synced %d adverts from %s (%d outside region bbox)",
+                        count, base_url, skipped,
+                    )
             except Exception as exc:
                 logger.debug("[meshcore] advert fetch error: %s", exc)
 
@@ -218,7 +227,7 @@ class MeshCorePoller(BasePoller):
 
         if event_type == "advert_received":
             entity = normalize_pymc_repeater_advert(payload, base_url)
-            if entity:
+            if entity and _should_publish_node(entity):
                 await publish_entity(entity)
 
         elif event_type in ("message_received", "channel_message_received"):
@@ -235,11 +244,37 @@ class MeshCorePoller(BasePoller):
 
         elif event_type == "contact_path_updated":
             entity = normalize_pymc_repeater_advert(payload, base_url)
-            if entity:
+            if entity and _should_publish_node(entity):
                 await publish_entity(entity, merge=True, record_observation=False)
 
 
 # ─── helpers ──────────────────────────────────────────────────────────────────
+
+def _in_region(lat: float, lon: float) -> bool:
+    """True when the coordinates fall inside any configured region bbox (padded)."""
+    from config import load_regions
+    pad = settings.mesh_bbox_pad_deg
+    for region in load_regions():
+        b = region.bbox
+        if (b.min_lat - pad) <= lat <= (b.max_lat + pad) \
+                and (b.min_lon - pad) <= lon <= (b.max_lon + pad):
+            return True
+    return False
+
+
+def _should_publish_node(entity: dict) -> bool:
+    """Bbox gate for mesh_node entities, like the ADS-B/AIS/Amtrak pollers.
+
+    Nodes with no advertised position always pass — they cannot clutter the
+    map, and direct RF neighbors often advertise without GPS.
+    """
+    if not settings.mesh_bbox_filter:
+        return True
+    lat, lon = entity.get("lat"), entity.get("lon")
+    if lat is None or lon is None:
+        return True
+    return _in_region(lat, lon)
+
 
 def _parse_source(url: str) -> dict:
     """Extract API key and companion from URL; return clean base_url, api_key, and companion."""
@@ -411,7 +446,7 @@ async def _publish_health(stats: dict, base_url: str, companion: str | None = No
             node_copy["public_key"] = pub_key
             node_copy["name"] = node.get("node_name")
             entity = normalize_pymc_repeater_advert(node_copy, base_url)
-            if entity:
+            if entity and _should_publish_node(entity):
                 await publish_entity(entity)
 
     r = await get_bus()

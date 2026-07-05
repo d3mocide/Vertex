@@ -114,6 +114,15 @@ class Settings(BaseSettings):
     aprs_passcode: str = "-1"
     aprs_filter_radius_km: int = 80
 
+    # MeshCore node gating — a pyMC-Repeater advert table covers the whole
+    # regional mesh (every node it has ever heard an advert for), not just
+    # nearby RF neighbors. When enabled, nodes advertising a position outside
+    # the configured region bbox(es), padded by mesh_bbox_pad_deg degrees,
+    # are dropped — mirroring the ADS-B/AIS/Amtrak bbox gating. Nodes with no
+    # advertised position always pass (they cannot clutter the map).
+    mesh_bbox_filter: bool = True
+    mesh_bbox_pad_deg: float = 0.25
+
     # ADS-B ingest strategy
     adsb_enable_beast: bool = False
     adsb_beast_host: str = "localhost"
