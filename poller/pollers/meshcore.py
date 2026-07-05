@@ -25,7 +25,7 @@ import httpx
 
 from bus import get_bus, publish_entity, set_feed
 from config import settings
-from normalizers.mesh_node import normalize_pymc_repeater_advert, snr_to_quality
+from normalizers.mesh_node import normalize_pymc_repeater_advert
 from sanitize import sanitize_payload
 from .base import BasePoller
 

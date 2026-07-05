@@ -7,7 +7,6 @@ import { SmokeLayer }           from './layers/SmokeLayer'
 import { GOESLayer }            from './layers/GOESLayer'
 import { FirePerimeterLayer }   from './layers/FirePerimeterLayer'
 import { GeofenceLayer }        from './layers/GeofenceLayer'
-import { ObservationRingLayer } from './layers/ObservationRingLayer'
 import { CustomLayersLayer }    from './layers/CustomLayersLayer'
 import { AnnotationOverlay }    from './layers/AnnotationOverlay'
 import { TerrainLayer }         from './layers/TerrainLayer'
@@ -208,7 +207,6 @@ export function Map() {
           <FirePerimeterLayer    map={map} />
           <GeofenceLayer         map={map} />
           <CustomLayersLayer     map={map} />
-          <ObservationRingLayer  map={map} />
           <AnnotationOverlay     map={map} />
           <RegionLayer           map={map} regions={regions} />
           <MeshLinksLayer        map={map} />
