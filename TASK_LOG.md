@@ -28,6 +28,11 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
   - Annotation draw preview no longer renders twice (removed the passive deck.gl copy in MapOverlay; the interactive MapLibre `AnnotationOverlay` owns it).
   - Bounded the poller's `_entity_cache` in [bus.py](poller/bus.py) — entries carry a monotonic last-seen timestamp and stale ones (>10 min) are swept every 4096 publishes (was an unbounded slow leak).
 - **Dead code removed**: `components/layers/MeshLayer.tsx`, `StreamGaugeLayer.tsx` (never imported), `ObservationRingLayer.tsx` (mounted no-op stub), `buildAnnotationDrawPreviewLayers`, unused `snr_to_quality` import, and uncalled `normalize_mesh_node`/`_bridge_status` in the poller.
+- **Repeater self-node with GPS** ([meshcore.py](poller/pollers/meshcore.py), [MeshLinksLayer.tsx](frontend/src/components/layers/MeshLinksLayer.tsx), [sources.example.yml](config/sources.example.yml)):
+  - The repeater station now publishes itself as a `mesh_node` entity when its position is known: best-effort GPS extraction from `/api/stats` (top-level + nested containers), or an explicit `?lat=&lon=` pin on the source URL. Entity carries battery/noise-floor status for remote monitoring and bypasses the bbox gate (explicit operator config).
+  - Packet-derived links anchor on the repeater's entity id instead of the `"local"` placeholder; `mesh:status` carries `lat`/`lon` so the frontend anchors legacy `"local"` links at the actual station before falling back to the region center.
+  - Link metric fixes: `link_quality` now computed from SNR on the 0–100 scale the UI expects (was always NULL); WS `mesh_links` payload now includes `last_seen` (missing value rendered every live link at minimum opacity); `snrToColor` rescaled from RSSI-style −70/−90 thresholds (everything green) to LoRa SNR (green ≥ 5 dB, amber ≥ −10 dB).
+  - 16 new tests in [test_meshcore_self_node.py](poller/tests/test_meshcore_self_node.py).
 - **Motivation**: User reported the entire Cascade mesh rendering (not just local nodes), render-pipeline jank severe enough to block the P25 audio stream from connecting, and mesh-node filter state not surviving PWA reloads; a follow-up audit request surfaced the re-render storm, batching gaps, bugs, and dead code fixed above.
 
 ## 2026-06-15 — Enhanced Mesh Companion Connectivity & Streamlined Tab Layout
