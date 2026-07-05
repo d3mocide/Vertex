@@ -7,6 +7,13 @@ import { initNotifications, maybeNotify, notifyMeshMessage } from '../notificati
 
 const RECONNECT_DELAY_INITIAL_MS = 1000
 const RECONNECT_DELAY_MAX_MS = 60_000
+// Entity updates are buffered and applied in one store commit per flush so a
+// busy feed produces ~4 store notifications/sec instead of one per WS message.
+// PVB interpolates icon motion between flushes, so this adds no visible lag.
+const ENTITY_FLUSH_MS = 250
+// Cold-start REST seed page size — the backend defaults to 200, which can be
+// a partial snapshot on a busy feed.
+const ENTITY_SEED_LIMIT = 2000
 
 // All known entity types tracked by EntityTypeFilter keys.
 // adsbLocal / adsbSupplement are frontend sub-filters of 'aircraft'; the
@@ -73,13 +80,14 @@ function buildSubscription(
 
 export function useWebSocket() {
   const wsRef = useRef<WebSocket | null>(null)
+  const entityBufferRef = useRef<Entity[]>([])
   const reconnectDelayRef = useRef(RECONNECT_DELAY_INITIAL_MS)
   const emptyAircraftSnapshotStreakRef = useRef(0)
   const degradedAircraftSnapshotStreakRef = useRef(0)
   const {
     setEntities,
     setAircraftSnapshot,
-    upsertEntity,
+    upsertEntities,
     purgeStaleEntities,
     setConnected,
     setRadio,
@@ -99,7 +107,7 @@ export function useWebSocket() {
     updateLinkHistory,
     setMeshStatus,
     appendAcarsMessage,
-  } = useCivicPick('setEntities', 'setAircraftSnapshot', 'upsertEntity', 'purgeStaleEntities', 'setConnected', 'setRadio', 'appendSystemEvent', 'setUtilityStatus', 'setOregonStatus', 'setAirports', 'setWeather', 'setAlerts', 'setNews', 'setCameras', 'setTrafficFlow', 'setTrafficIncidents', 'setSummary', 'appendLightningStrikes', 'appendMeshMessage', 'updateLinkHistory', 'setMeshStatus', 'appendAcarsMessage')
+  } = useCivicPick('setEntities', 'setAircraftSnapshot', 'upsertEntities', 'purgeStaleEntities', 'setConnected', 'setRadio', 'appendSystemEvent', 'setUtilityStatus', 'setOregonStatus', 'setAirports', 'setWeather', 'setAlerts', 'setNews', 'setCameras', 'setTrafficFlow', 'setTrafficIncidents', 'setSummary', 'appendLightningStrikes', 'appendMeshMessage', 'updateLinkHistory', 'setMeshStatus', 'appendAcarsMessage')
 
   useEffect(() => {
     let cancelled = false
@@ -111,7 +119,7 @@ export function useWebSocket() {
     // seconds). Seed the store immediately over REST so the map renders right
     // away. Guarded on an empty store so it never clobbers live WS data that
     // may have already arrived.
-    fetch(`${API_BASE}/entities`, { headers: authHeaders() })
+    fetch(`${API_BASE}/entities?limit=${ENTITY_SEED_LIMIT}`, { headers: authHeaders() })
       .then((r) => (r.ok ? r.json() : null))
       .then((list: Entity[] | null) => {
         if (cancelled || !Array.isArray(list) || list.length === 0) return
@@ -123,6 +131,13 @@ export function useWebSocket() {
     const cleanupInterval = setInterval(() => {
       purgeStaleEntities()
     }, 10000)
+
+    const flushInterval = setInterval(() => {
+      if (entityBufferRef.current.length === 0) return
+      const batch = entityBufferRef.current
+      entityBufferRef.current = []
+      upsertEntities(batch)
+    }, ENTITY_FLUSH_MS)
 
     const sendSubscription = (ws: WebSocket) => {
       if (ws.readyState !== WebSocket.OPEN) return
@@ -167,7 +182,7 @@ export function useWebSocket() {
             setEntities(msg.data as Parameters<typeof setEntities>[0])
             break
           case 'entity_update':
-            upsertEntity(msg.data as Parameters<typeof upsertEntity>[0])
+            entityBufferRef.current.push(msg.data as Entity)
             break
           case 'aircraft_snapshot': {
             if (msgData?.schema_version !== undefined && msgData.schema_version !== 1) {
@@ -317,6 +332,7 @@ export function useWebSocket() {
     return () => {
       cancelled = true
       clearInterval(cleanupInterval)
+      clearInterval(flushInterval)
       unsubscribeStore()
       if (wsRef.current) {
         wsRef.current.onopen = null

@@ -88,7 +88,6 @@ function buildReplayTracks(data: ReplayData, atMs: number): Record<string, Track
 
 export function MapOverlay({ map }: Props) {
   const deckRef           = useRef<MapboxOverlay | null>(null)
-  const layersRef         = useRef<any[]>([])
   // Per-group layer cache so static/slow-changing layers are rebuilt only when
   // their inputs change instead of on every animation frame. Reusing the same
   // Layer instances lets deck.gl skip re-diffing them entirely.
@@ -295,6 +294,12 @@ export function MapOverlay({ map }: Props) {
     tooltip.className = 'absolute pointer-events-none z-[100] opacity-0 transition-opacity duration-150'
     container.appendChild(tooltip)
 
+    // Deck picking is a GPU readback — throttle it so fast mouse movement
+    // doesn't stall the render loop. Between picks the tooltip just tracks
+    // the cursor.
+    const PICK_INTERVAL_MS = 50
+    let lastPickMs = 0
+
     const onMapMouseMove = (e: maplibregl.MapMouseEvent) => {
       const isMobileViewport = window.innerWidth < 1024
       if (isMobileViewport) {
@@ -302,6 +307,16 @@ export function MapOverlay({ map }: Props) {
         map.getCanvas().style.cursor = ''
         return
       }
+
+      const nowMs = performance.now()
+      if (nowMs - lastPickMs < PICK_INTERVAL_MS) {
+        if (tooltip.style.opacity === '1') {
+          tooltip.style.left = `${e.point.x + 15}px`
+          tooltip.style.top = `${e.point.y + 15}px`
+        }
+        return
+      }
+      lastPickMs = nowMs
 
       // 1. Pick from Deck.gl (returns null until the overlay GL context is ready)
       const picked = overlay.pickObject({ x: e.point.x, y: e.point.y, radius: 5 })
@@ -473,8 +488,14 @@ export function MapOverlay({ map }: Props) {
       }
     }
 
+    // MapLibre's canvas-level leave event is 'mouseout' — 'mouseleave' only
+    // fires for the layer-id overload and would never trigger here.
+    const onMapMouseOut = () => {
+      tooltip.style.opacity = '0'
+      map.getCanvas().style.cursor = ''
+    }
     map.on('mousemove', onMapMouseMove)
-    map.on('mouseleave', () => { tooltip.style.opacity = '0' })
+    map.on('mouseout', onMapMouseOut)
 
     // Allow selecting entities and cameras while preserving normal map interaction.
     const onMapClick = (e: maplibregl.MapMouseEvent) => {
@@ -499,7 +520,11 @@ export function MapOverlay({ map }: Props) {
 
     let last = performance.now()
     let lastLayerBuild = 0
-    const LAYER_BUILD_INTERVAL_MS = 16
+    // rAF fires every ~16.7ms, so anything <= 16 here is a no-op throttle.
+    // 33ms rebuilds layers at ~30fps — half the filter/PVB/layer-construction
+    // work per second, and PVB keeps icon motion smooth between rebuilds while
+    // MapLibre still pans/zooms the drawn frame at full 60fps.
+    const LAYER_BUILD_INTERVAL_MS = 33
 
     // When the tab is backgrounded the browser pauses/throttles rAF while the
     // WebSocket keeps delivering position updates. On return, re-anchor motion
@@ -709,7 +734,6 @@ export function MapOverlay({ map }: Props) {
             })),
       ]
 
-      layersRef.current = layers
       overlay.setProps({ layers })
 
       rafRef.current = requestAnimationFrame(tick)
@@ -721,6 +745,7 @@ export function MapOverlay({ map }: Props) {
       document.removeEventListener('visibilitychange', onVisibility)
       map.off('click', onMapClick)
       map.off('mousemove', onMapMouseMove)
+      map.off('mouseout', onMapMouseOut)
       map.removeControl(overlay as unknown as maplibregl.IControl)
       tooltip.remove()
       layerMemoRef.current = {}

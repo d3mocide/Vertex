@@ -63,6 +63,7 @@ export interface CivicStore {
   setEntities:      (entities: Entity[]) => void
   setAircraftSnapshot: (entities: Entity[]) => void
   upsertEntity:     (entity: Entity) => void
+  upsertEntities:   (entities: Entity[]) => void
   purgeStaleEntities: () => void
   appendSystemEvent: (event: SystemEvent) => void
   setSystemEvents:  (events: SystemEvent[]) => void
@@ -470,6 +471,21 @@ export const useCivicStore = create<CivicStore>()(
         entities: { ...s.entities, [entity.entity_id]: merged },
         tracks: track ? { ...s.tracks, [entity.entity_id]: track } : s.tracks,
       }
+    }),
+  // Batch variant — one store notification for a whole buffer of WS updates
+  // instead of one per message. Order within the batch is preserved.
+  upsertEntities: (list) =>
+    set((s) => {
+      if (list.length === 0) return {}
+      const entities = { ...s.entities }
+      const tracks = { ...s.tracks }
+      for (const entity of list) {
+        const merged = mergeEntityState(entities[entity.entity_id], entity)
+        entities[entity.entity_id] = merged
+        const track = entityToTrack(merged, tracks[entity.entity_id])
+        if (track) tracks[entity.entity_id] = track
+      }
+      return { entities, tracks }
     }),
   purgeStaleEntities: () =>
     set((s) => {
