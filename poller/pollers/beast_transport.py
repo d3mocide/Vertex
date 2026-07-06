@@ -21,6 +21,10 @@ from security import validate_safe_host
 
 logger = logging.getLogger(__name__)
 
+# BEAST frame type -> Mode S payload length in bytes.
+# 0x31 = 2-byte short squitter (skipped), 0x32 = 7-byte short, 0x33 = 14-byte long.
+_PAYLOAD_LEN = {0x31: 2, 0x32: 7, 0x33: 14}
+
 
 class BeastTransport:
     """Manages a BEAST TCP connection and delivers raw Mode S frames.
@@ -117,9 +121,30 @@ class BeastTransport:
         buffer after this call.
         """
         pos = 0
+        blen = len(buffer)
         messages: list[tuple[bytes, int, int]] = []
 
-        while pos < len(buffer):
+        while pos < blen:
+            # Fast path: a frame whose wire body contains no 0x1A byte needs no
+            # unescaping, so it can be sliced out directly at C speed. This is
+            # the overwhelmingly common case (0x1A appears in ~0.4% of body
+            # bytes), and it avoids the per-byte Python loop in parse_frame().
+            if buffer[pos] == 0x1A and pos + 1 < blen:
+                payload_len = _PAYLOAD_LEN.get(buffer[pos + 1])
+                if payload_len is not None:
+                    body_start = pos + 2
+                    body_end = body_start + 7 + payload_len
+                    if body_end <= blen and buffer.find(0x1A, body_start, body_end) == -1:
+                        if buffer[pos + 1] != 0x31:  # 0x31 short squitter: skip
+                            messages.append((
+                                bytes(buffer[body_start + 7:body_end]),
+                                int.from_bytes(buffer[body_start:body_start + 6], "big"),
+                                buffer[body_start + 6],
+                            ))
+                        pos = body_end
+                        continue
+
+            # Slow path: escapes present, buffer incomplete, or garbage bytes.
             consumed, message = self.parse_frame(memoryview(buffer)[pos:])
             if consumed == 0:
                 break          # incomplete frame; wait for more data
@@ -161,7 +186,7 @@ class BeastTransport:
             return -(next_sync + 1), None
 
         frame_type = view[1]
-        payload_len = {0x31: 2, 0x32: 7, 0x33: 14}.get(frame_type)
+        payload_len = _PAYLOAD_LEN.get(frame_type)
         if payload_len is None:
             return -1, None
 

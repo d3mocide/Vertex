@@ -224,20 +224,29 @@ class AdsbPoller(BasePoller):
         while True:
             msg, mlat_ticks, signal = await self._beast_queue.get()
             try:
-                entity = self._beast_decoder.ingest(msg, mlat_ticks=mlat_ticks, signal=signal)
-                if entity:
-                    icao = (entity.get("identity") or {}).get("icao24", "").lower()
+                # State-only decode: the full entity dict (trail copy, comm-B
+                # snapshot, DR projection, ISO timestamp) is built lazily below,
+                # only for the ≤1/s-per-aircraft publishes — not per frame.
+                state = self._beast_decoder.ingest_frame(msg, mlat_ticks=mlat_ticks, signal=signal)
+                # Positioned aircraft only, matching the previous behavior where
+                # a position-less decode produced no entity: recording "beast"
+                # for unpositioned aircraft would wrongly suppress the
+                # ultrafeeder/OpenSky sources in Best Mode arbitration.
+                if state is not None and state.lat is not None and state.lon is not None:
+                    icao = state.icao
                     self._record_source_seen(icao, "beast")
-                    self._unified_entities[icao] = entity
                     now = time.time()
                     if now - _last_published.get(icao, 0.0) >= _BEAST_PUBLISH_MIN_INTERVAL:
-                        _last_published[icao] = now
-                        # Dead-reckoned positions are estimates — keep them out
-                        # of the observation history (trails stay real fixes only).
-                        await publish_entity(
-                            entity,
-                            record_observation=not entity.get("position_dr"),
-                        )
+                        entity = self._beast_decoder.entity_from_state(state, now=now)
+                        if entity:
+                            _last_published[icao] = now
+                            self._unified_entities[icao] = entity
+                            # Dead-reckoned positions are estimates — keep them out
+                            # of the observation history (trails stay real fixes only).
+                            await publish_entity(
+                                entity,
+                                record_observation=not entity.get("position_dr"),
+                            )
             except Exception as exc:
                 logger.warning("[adsb] frame processing error: %s", exc)
 
@@ -249,7 +258,6 @@ class AdsbPoller(BasePoller):
 
     async def _registry_tick_loop(self):
         _SNAPSHOT_INTERVAL = 5  # publish full snapshot every N ticks (seconds)
-        _last_frames_seen = self._transport.frames_seen
 
         while True:
             await asyncio.sleep(1.0)
@@ -269,19 +277,6 @@ class AdsbPoller(BasePoller):
                         del self._last_seen_by_source[icao]
 
             try:
-                # Pull fresh BEAST positions into the unified registry when new
-                # frames have arrived since the last tick — skips the O(aircraft)
-                # entity reconstruction when the decoder state is unchanged.
-                # Also refresh on every snapshot tick regardless: dead-reckoned
-                # display positions advance with wall-clock time, so a total
-                # feed gap must not freeze the published snapshot.
-                current_frames = self._transport.frames_seen
-                if current_frames != _last_frames_seen or self._tick_count % _SNAPSHOT_INTERVAL == 0:
-                    _last_frames_seen = current_frames
-                    for ac in self._beast_decoder.snapshot_entities():
-                        icao = (ac.get("identity") or {}).get("icao24", "").lower()
-                        self._unified_entities[icao] = ac
-
                 # Evict entries silent for more than 2 minutes (runs every tick, cheap)
                 stale_cutoff = 120.0
                 to_remove = [
@@ -294,6 +289,16 @@ class AdsbPoller(BasePoller):
                 # Publish full enriched snapshot at reduced cadence — individual
                 # entity updates still arrive in real time via publish_entity().
                 if self._tick_count % _SNAPSHOT_INTERVAL == 0:
+                    # Rebuild decoder entities only here, immediately before the
+                    # snapshot that consumes them — nothing reads the registry
+                    # between snapshots (real-time flow goes via publish_entity),
+                    # so the previous every-tick O(aircraft) rebuild was 80%
+                    # wasted work. Rebuilding on the snapshot tick also keeps
+                    # dead reckoning advancing through a total feed outage.
+                    for ac in self._beast_decoder.snapshot_entities():
+                        ac_icao = (ac.get("identity") or {}).get("icao24", "").lower()
+                        self._unified_entities[ac_icao] = ac
+
                     snapshot_ents = [
                         entity for icao, entity in self._unified_entities.items()
                         if self._should_publish_from_source(icao, entity.get("source", "unknown"))
