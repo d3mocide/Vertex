@@ -5,6 +5,19 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 
 ---
 
+## 2026-07-06 — CPU usage optimization for small hosts (2-core VPS)
+
+- **Motivation**: User reported both cores pegged (load ~5.0 on 2 cores) after the ADS-B pipeline overhaul (PR #117). Benchmarked the hot paths with synthetic BEAST traffic and fixed the measured costs.
+- **Lazy entity building in the BEAST frame worker** ([beast_decoder.py](poller/normalizers/beast_decoder.py), [adsb.py](poller/pollers/adsb.py)):
+  - Split `ingest()` into `ingest_frame()` (state-only decode, runs per frame) and `entity_from_state()` (full entity dict build). The frame worker now builds the entity dict — trail copy, comm-B snapshot, DR projection, ISO timestamp — only when the ≤1/s-per-aircraft publish gate passes instead of on every decoded frame (~22% cheaper per frame; `ingest()` kept as a compat wrapper).
+  - Best Mode arbitration semantics preserved: "beast seen" is still only recorded for positioned aircraft.
+- **Registry tick loop rebuild moved to snapshot cadence** ([adsb.py](poller/pollers/adsb.py)): `snapshot_entities()` (an O(aircraft) full entity rebuild) ran every second while its only consumer — the enriched snapshot publish — runs every 5s. It now runs once per snapshot tick, immediately before the publish, cutting that work by 80%. DR still advances through a total feed outage since the rebuild happens on the same tick that publishes.
+- **Dead-reckoning republish suppression** ([bus.py](poller/bus.py)): while an aircraft is dead-reckoned, its lat/lon/altitude are synthetic wall-clock projections that made `_entity_changed` report a change every second — so previously-quiet stale aircraft flooded Redis pub/sub, the backend WS fan-out, DB writes, and frontend renders (the main per-message CPU regression from PR #117). Since the frontend already projects DR tracks client-side (pvb.ts), `_entity_changed` now skips lat/lon/altitude when both states are DR. Real telemetry changes and DR on/off transitions (`position_dr` added to compare keys) still publish immediately.
+- **Halved per-publish sanitize cost** ([bus.py](poller/bus.py), [db.py](poller/db.py)): `write_entity_observation` re-ran `sanitize_payload` (a recursive deep-copy that walks all 150 trail points, ~216µs per call) on entities its only caller `publish_entity` had already sanitized. New `sanitized=True` flag skips the redundant pass.
+- **BEAST transport fast path** ([beast_transport.py](poller/pollers/beast_transport.py)): frames whose wire body contains no 0x1A escape byte (the overwhelmingly common case) are now sliced out at C speed with `bytearray.find` instead of the per-byte Python loop — 3.7× faster frame parsing (4.0µs → 1.1µs/frame). Escaped/incomplete/garbage frames still go through `parse_frame`.
+- **Whisper transcription CPU cap** ([docker-compose.yml](docker-compose.yml), [transcription/config.py](transcription/config.py), [transcription/main.py](transcription/main.py), [.env.example](.env.example)): ctranslate2 grabbed every core whenever a P25 call transcribed, starving the poller/backend on a 2-core host. New `WHISPER_CPU_THREADS` setting (default 1) passed to `WhisperModel`, and the container's compose CPU limit reduced from 2.0 to 1.0. Base/int8 on one thread still transcribes short P25 clips faster than realtime.
+- **Tests**: new [test_beast_transport.py](poller/tests/test_beast_transport.py) (11 tests: fast path, escaped MLAT/signal/message bytes, garbage resync, incomplete buffers, 0x31 skipping) and 5 DR-dedup tests in [test_bus.py](poller/tests/test_bus.py). Full poller suite: 171 passed.
+
 ## 2026-07-06 — ADS-B pipeline overhaul: dead reckoning, signal-gap handling, stale-track rendering
 
 - **Server-side dead reckoning** ([beast_decoder.py](poller/normalizers/beast_decoder.py), [config.py](poller/config.py)):

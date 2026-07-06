@@ -61,6 +61,7 @@ class TranscriptionService:
             settings.whisper_model,
             device=settings.whisper_device,
             compute_type=settings.whisper_compute_type,
+            cpu_threads=settings.whisper_cpu_threads,
         )
         logger.info("[transcription] model ready")
 

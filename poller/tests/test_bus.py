@@ -131,6 +131,54 @@ class TestEntityChanged:
         assert not _entity_changed(a, b)
 
 
+class TestEntityChangedDeadReckoning:
+    """During ongoing dead reckoning, lat/lon/altitude are synthetic wall-clock
+    projections — they must not trigger republishes on their own (the frontend
+    projects DR tracks client-side). Real telemetry changes and the DR on/off
+    transitions still publish.
+    """
+
+    @staticmethod
+    def _dr_entity() -> dict:
+        e = _base_entity()
+        e["position_stale"] = True
+        e["position_dr"] = True
+        return e
+
+    def test_dr_projection_drift_not_changed(self):
+        a, b = self._dr_entity(), self._dr_entity()
+        b["lat"] = a["lat"] + 0.01
+        b["lon"] = a["lon"] + 0.01
+        b["altitude"] = a["altitude"] - 50.0
+        assert not _entity_changed(a, b)
+
+    def test_dr_real_telemetry_change_detected(self):
+        a, b = self._dr_entity(), self._dr_entity()
+        b["heading"] = 123.0
+        assert _entity_changed(a, b)
+
+    def test_dr_onset_transition_detected(self):
+        a, b = _base_entity(), self._dr_entity()
+        a["position_dr"] = False
+        assert _entity_changed(a, b)
+
+    def test_dr_recovery_transition_detected(self):
+        """A real fix after DR (position_dr True→False) must publish even if
+        the projected position happened to match the fix."""
+        a, b = self._dr_entity(), _base_entity()
+        b["position_dr"] = False
+        b["position_stale"] = True  # keep the stale flag equal; only DR flips
+        a["position_stale"] = True
+        assert _entity_changed(a, b)
+
+    def test_non_dr_lat_change_still_detected(self):
+        a, b = _base_entity(), _base_entity()
+        a["position_dr"] = False
+        b["position_dr"] = False
+        b["lat"] = a["lat"] + 0.01
+        assert _entity_changed(a, b)
+
+
 # ============================================================================
 # 2. _entity_cache — module-level in-memory dict
 # ============================================================================

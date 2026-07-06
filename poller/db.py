@@ -122,11 +122,17 @@ async def close_db():
         _pool = None
 
 
-async def write_entity_observation(entity: dict, record_observation: bool = True):
-    """Upsert entity row and append an observation. Runs geofence check if positioned."""
+async def write_entity_observation(entity: dict, record_observation: bool = True, sanitized: bool = False):
+    """Upsert entity row and append an observation. Runs geofence check if positioned.
+
+    Pass sanitized=True when the payload already went through sanitize_payload()
+    (publish_entity does) to skip a redundant recursive deep-copy of the entity —
+    trail-carrying aircraft entities make that copy expensive.
+    """
     if _pool is None:
         return
-    entity = sanitize_payload(entity)
+    if not sanitized:
+        entity = sanitize_payload(entity)
 
     from geofence import check_geofences  # lazy — breaks bus→db→geofence→bus cycle
 

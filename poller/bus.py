@@ -92,7 +92,10 @@ async def publish_entity(
         return
 
     try:
-        await write_entity_observation(entity, record_observation=record_observation)
+        # sanitized=True: this entity already went through sanitize_payload()
+        # above — skipping the second recursive deep-copy (which walks every
+        # trail point) roughly halves the per-publish CPU cost.
+        await write_entity_observation(entity, record_observation=record_observation, sanitized=True)
     except Exception as exc:
         import traceback
         logger.warning("DB write failed for %s: %s\n%s", entity.get("entity_id"), exc, traceback.format_exc())
@@ -126,25 +129,40 @@ async def close():
         _redis = None
 
 
+_COMPARE_KEYS = (
+    "entity_type",
+    "source",
+    "display_name",
+    "lat",
+    "lon",
+    "altitude",
+    "heading",
+    "speed",
+    "vertical_rate",
+    "status",
+    "identity",
+    "tags",
+    "position_stale",
+    "position_dr",
+    "trail_pts",
+    "comm_b",
+)
+
+# While an aircraft is being dead-reckoned, its lat/lon/altitude are synthetic
+# projections that advance with wall-clock time — every rebuild "changes" them
+# even though no new data arrived. The frontend projects DR tracks client-side
+# (pvb.ts), so republishing each projection is pure overhead: skip those keys
+# when both the previous and current state are dead-reckoned. Real telemetry
+# (heading, speed, vertical_rate, squawk, ...) and the DR on/off transitions
+# themselves still publish immediately.
+_DR_SKIP_KEYS = frozenset(("lat", "lon", "altitude"))
+
+
 def _entity_changed(previous: dict, current: dict) -> bool:
-    compare_keys = (
-        "entity_type",
-        "source",
-        "display_name",
-        "lat",
-        "lon",
-        "altitude",
-        "heading",
-        "speed",
-        "vertical_rate",
-        "status",
-        "identity",
-        "tags",
-        "position_stale",
-        "trail_pts",
-        "comm_b",
-    )
-    for key in compare_keys:
+    both_dr = bool(previous.get("position_dr")) and bool(current.get("position_dr"))
+    for key in _COMPARE_KEYS:
+        if both_dr and key in _DR_SKIP_KEYS:
+            continue
         if previous.get(key) != current.get(key):
             return True
     return False

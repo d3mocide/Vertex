@@ -14,6 +14,11 @@ class Settings(BaseSettings):
     # int8 is the fastest/lowest-RAM option for CPU inference.
     whisper_compute_type: str = "int8"
     whisper_device: str = "cpu"
+    # ctranslate2 intra-op threads. Left uncapped it grabs every core, starving
+    # the poller/backend/map on small hosts (e.g. a 2-core VPS) whenever a P25
+    # call transcribes. 1 thread still transcribes short P25 clips faster than
+    # realtime with the base/int8 model; raise on hosts with cores to spare.
+    whisper_cpu_threads: int = 1
 
     p25_audio_dir: str = "/data/audio"
     # How often (seconds) to scan the audio directory for new files.

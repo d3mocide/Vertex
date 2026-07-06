@@ -95,6 +95,28 @@ class BeastAircraftDecoder:
         self._last_prune_ts: float = 0.0
 
     def ingest(self, message_bytes: bytes, *, mlat_ticks: int | None = None, signal: int | None = None) -> dict | None:
+        """Decode one frame and return the full entity dict (or None).
+
+        Convenience wrapper around ingest_frame() + entity_from_state(). The
+        hot path (adsb frame worker) uses those two directly so the entity
+        dict is only built for the ~1/s-per-aircraft publishes instead of on
+        every decoded frame.
+        """
+        ac = self.ingest_frame(message_bytes, mlat_ticks=mlat_ticks, signal=signal)
+        if ac is None:
+            return None
+        return self._to_entity(ac)
+
+    def entity_from_state(self, ac: _AircraftState, now: float | None = None) -> dict | None:
+        """Build the publishable entity dict for a decoded aircraft state."""
+        return self._to_entity(ac, now=now)
+
+    def ingest_frame(self, message_bytes: bytes, *, mlat_ticks: int | None = None, signal: int | None = None) -> _AircraftState | None:
+        """Decode one Mode S frame into aircraft state, without building an entity.
+
+        Returns the updated _AircraftState (which may not have a position yet),
+        or None if the frame was rejected/undecodable.
+        """
         if pms is None:
             if not self._warned_missing_dep:
                 logger.warning("[adsb] pyModeS not available; BEAST decode disabled")
@@ -189,7 +211,7 @@ class BeastAircraftDecoder:
             self._prune_stale()
             self._last_prune_ts = now
 
-        return self._to_entity(ac)
+        return ac
 
     def seed_reference(self, icao: str, lat: float, lon: float, ts: float | None = None) -> bool:
         """Seed a position reference from another source (OpenSky / ultrafeeder).
