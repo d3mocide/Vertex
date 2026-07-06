@@ -5,6 +5,28 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 
 ---
 
+## 2026-07-06 — ADS-B pipeline overhaul: dead reckoning, signal-gap handling, stale-track rendering
+
+- **Server-side dead reckoning** ([beast_decoder.py](poller/normalizers/beast_decoder.py), [config.py](poller/config.py)):
+  - `_to_entity` now projects a stale position forward along the last known velocity (finally using the previously-unused `project_position` in `beast_math.py`) instead of freezing it. Velocity messages (DF17 TC19) usually keep decoding through CPR position gaps, so the track keeps moving where the aircraft actually is. Altitude is projected with the vertical rate.
+  - New `_AircraftState.last_velocity_ts` gates DR on velocity freshness; DR requires airborne status and is bounded by new `ADSB_DEAD_RECKON_MAX_SECONDS` (default 60). The stale threshold is now configurable via `ADSB_POSITION_STALE_SECONDS` (default 10).
+  - Entities carry `position_dr` and `position_age_s` alongside `position_stale`. DR positions never enter the trail ring buffer, are excluded from DB observations (`record_observation=False` in the frame worker + a hard guard in [db.py](poller/db.py)), and never trigger geofence entry/exit events.
+  - Redis-hydrated aircraft (position but no fix timestamp) now correctly report `position_stale=true` until a real fix arrives, matching the hydration docstring's intent.
+- **Cross-source CPR seeding** ([beast_decoder.py](poller/normalizers/beast_decoder.py), [adsb.py](poller/pollers/adsb.py)):
+  - New `BeastAircraftDecoder.seed_reference()` — OpenSky and ultrafeeder positions seed the decoder's Tier-2 local CPR reference, so a single odd/even frame resolves a position the moment an aircraft (re-)enters SDR range instead of waiting up to ~60s for a fresh even+odd pair (the main cause of cold-lock gaps). Local fixes stay authoritative: seeds only apply when the decoder's own fix is missing or stale, and never touch trails or snapshots.
+- **Signal-gap fixes** ([adsb.py](poller/pollers/adsb.py), [beast_decoder.py](poller/normalizers/beast_decoder.py)):
+  - The registry tick loop now refreshes decoder entities on every snapshot tick (not only when new BEAST frames arrived), so DR positions advance during a total feed outage instead of the whole snapshot freezing.
+  - The CPR heading-consistency guard is now bounded to gaps <30s — across a longer gap the aircraft may legitimately have turned, and rejecting the first good fix after a gap extended outages indefinitely.
+- **tar1090 normalizer fixes** ([aircraft.py](poller/normalizers/aircraft.py)):
+  - `alt_baro: "ground"` (readsb's actual ground signal — there is no `on_ground` key in aircraft.json) now sets `on_ground` status and no longer leaks the string `"ground"` into the numeric `altitude` field.
+  - `seen_pos` is honored: positions older than 60s are dropped, older than 10s are flagged `position_stale`; non-numeric track/gs/baro_rate values are nulled.
+- **Frontend stale/DR rendering** ([pvb.ts](frontend/src/layers/pvb.ts), [entityUtils.ts](frontend/src/entityUtils.ts), [buildEntityLayers.ts](frontend/src/layers/buildEntityLayers.ts), [storeTypes.ts](frontend/src/storeTypes.ts)):
+  - PVB keeps projecting server-dead-reckoned tracks between reports (previously stale tracks froze, then snapped to the next fix). `positionDr` is part of the report key so DR↔fix transitions re-blend smoothly.
+  - Stale/dead-reckoned local aircraft render dimmed (alpha 140) like OpenSky supplements, so estimated positions are visually distinct from live fixes.
+- **Hot-path optimization** ([beast_decoder.py](poller/normalizers/beast_decoder.py)): DF and frame length are checked on raw bytes (`byte >> 3`) before any hex-string allocation or pyModeS call — same technique as PR #115 (credit: Jules), folded in so the overhaul builds on it.
+- **Tests**: 13 new decoder tests (fast-path rejection, dead reckoning bounds, seed arbitration) in [test_beast_decoder.py](poller/tests/test_beast_decoder.py); 9 new tar1090 tests in [test_adsb_normalization.py](poller/tests/test_adsb_normalization.py). Full poller suite: 155 passed.
+- **Motivation**: User asked for an ADS-B pipeline overhaul targeting dead reckoning, odd signal gaps, and frontend rendering across both the local SDR BEAST feed and the OpenSky supplement.
+
 ## 2026-07-05 — Gated mesh nodes to region bbox and made entity filters persistent
 
 - **Mesh node bbox gating** ([meshcore.py](poller/pollers/meshcore.py), [config.py](poller/config.py)):

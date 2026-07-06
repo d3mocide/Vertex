@@ -232,7 +232,12 @@ class AdsbPoller(BasePoller):
                     now = time.time()
                     if now - _last_published.get(icao, 0.0) >= _BEAST_PUBLISH_MIN_INTERVAL:
                         _last_published[icao] = now
-                        await publish_entity(entity)
+                        # Dead-reckoned positions are estimates — keep them out
+                        # of the observation history (trails stay real fixes only).
+                        await publish_entity(
+                            entity,
+                            record_observation=not entity.get("position_dr"),
+                        )
             except Exception as exc:
                 logger.warning("[adsb] frame processing error: %s", exc)
 
@@ -264,11 +269,14 @@ class AdsbPoller(BasePoller):
                         del self._last_seen_by_source[icao]
 
             try:
-                # Pull fresh BEAST positions into the unified registry only when
-                # new frames have arrived since the last tick — skips the O(aircraft)
+                # Pull fresh BEAST positions into the unified registry when new
+                # frames have arrived since the last tick — skips the O(aircraft)
                 # entity reconstruction when the decoder state is unchanged.
+                # Also refresh on every snapshot tick regardless: dead-reckoned
+                # display positions advance with wall-clock time, so a total
+                # feed gap must not freeze the published snapshot.
                 current_frames = self._transport.frames_seen
-                if current_frames != _last_frames_seen:
+                if current_frames != _last_frames_seen or self._tick_count % _SNAPSHOT_INTERVAL == 0:
                     _last_frames_seen = current_frames
                     for ac in self._beast_decoder.snapshot_entities():
                         icao = (ac.get("identity") or {}).get("icao24", "").lower()
@@ -393,6 +401,30 @@ class AdsbPoller(BasePoller):
         # last batch write so they survive the restart.
         self._adsbdb.flush()
 
+    def _seed_decoder_reference(self, icao: str, entity: dict) -> None:
+        """Feed another source's position into the BEAST decoder as a CPR reference.
+
+        A seeded reference lets Tier-2 local CPR decode resolve a position from
+        the very first odd/even frame when an aircraft (re-)enters SDR range,
+        instead of waiting up to ~60 s for a fresh even+odd pair. The decoder
+        keeps local fixes authoritative — seeds only apply when its own fix is
+        missing or stale.
+        """
+        if not settings.adsb_enable_beast or not icao:
+            return
+        lat, lon = entity.get("lat"), entity.get("lon")
+        if not isinstance(lat, (int, float)) or not isinstance(lon, (int, float)):
+            return
+        ts: float | None = None
+        last_seen = entity.get("last_seen")
+        if isinstance(last_seen, str):
+            try:
+                from datetime import datetime
+                ts = datetime.fromisoformat(last_seen).timestamp()
+            except ValueError:
+                ts = None
+        self._beast_decoder.seed_reference(icao, float(lat), float(lon), ts=ts)
+
     # ── Best Mode Arbitration ──────────────────────────────────────────────
 
     def _record_source_seen(self, icao: str, source: str) -> None:
@@ -503,6 +535,7 @@ class AdsbPoller(BasePoller):
             if icao:
                 icao = icao.lower()
                 self._record_source_seen(icao, "opensky")
+                self._seed_decoder_reference(icao, entity)
                 if self._is_local_recent(icao):
                     skipped_local += 1
                     continue
@@ -532,6 +565,7 @@ class AdsbPoller(BasePoller):
             if entity:
                 icao = (entity.get("identity") or {}).get("icao24", "").lower()
                 self._record_source_seen(icao, "ultrafeeder")
+                self._seed_decoder_reference(icao, entity)
                 # Only update the shared entity registry when ultrafeeder is the best
                 # available source for this ICAO. If BEAST has been seen within the
                 # freshness window, keep the BEAST-decoded entity in the registry so

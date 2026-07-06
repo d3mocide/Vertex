@@ -26,6 +26,8 @@ _mock_settings.adsb_beast_reconnect_max_seconds = 30
 _mock_settings.adsb_beast_host = "localhost"
 _mock_settings.adsb_beast_port = 30005
 _mock_settings.adsb_publish_only_changes = True
+_mock_settings.adsb_position_stale_seconds = 10
+_mock_settings.adsb_dead_reckon_max_seconds = 60
 
 for _mod in [
     "config",
@@ -408,6 +410,170 @@ class TestDecoderNoPyModeS(unittest.TestCase):
     def test_snapshot_returns_empty_without_aircraft(self):
         decoder = BeastAircraftDecoder()
         self.assertEqual(decoder.snapshot_entities(), [])
+
+
+# ============================================================================
+# 5b. Ingest fast path — raw-byte DF/length rejection (no pyModeS calls)
+# ============================================================================
+class TestIngestFastPath(unittest.TestCase):
+    """Frames rejected by length/DF must never reach pyModeS (hot-path guard)."""
+
+    def _decoder_with_mock_pms(self):
+        mock_pms = MagicMock()
+        patcher = patch("normalizers.beast_decoder.pms", mock_pms)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        return BeastAircraftDecoder(), mock_pms
+
+    def test_wrong_length_rejected_before_pymodes(self):
+        decoder, mock_pms = self._decoder_with_mock_pms()
+        self.assertIsNone(decoder.ingest(b"\x8d" * 8))  # 8 bytes: not 7 or 14
+        mock_pms.icao.assert_not_called()
+        mock_pms.df.assert_not_called()
+
+    def test_irrelevant_df_rejected_before_pymodes(self):
+        decoder, mock_pms = self._decoder_with_mock_pms()
+        # First byte 0x00 → DF0 (ACAS short reply), not in the accepted set.
+        self.assertIsNone(decoder.ingest(b"\x00" + b"\x11" * 6))
+        mock_pms.icao.assert_not_called()
+
+    def test_df_derived_from_leading_byte(self):
+        # 0x8D = 10001101 → DF17 (accepted); 0x20 = 00100000 → DF4 (accepted)
+        self.assertEqual(0x8D >> 3, 17)
+        self.assertEqual(0x20 >> 3, 4)
+        self.assertEqual(0x00 >> 3, 0)
+
+
+# ============================================================================
+# 5c. Dead reckoning + cross-source seeding (no pyModeS required)
+# ============================================================================
+class TestDeadReckoning(unittest.TestCase):
+    """_to_entity projects stale positions along the last known velocity."""
+
+    def _aircraft(self, *, pos_age_s: float, vel_age_s: float | None, now: float) -> _AircraftState:
+        ac = _AircraftState(icao="abc123")
+        ac.lat = 45.0
+        ac.lon = -122.0
+        ac.altitude = 10000.0
+        ac.heading = 90.0     # due east
+        ac.speed = 360.0      # knots → 0.1 nm/s
+        ac.vertical_rate = 0.0
+        ac.on_ground = False
+        ac.last_seen_ts = now
+        ac.last_position_ts = now - pos_age_s
+        ac.last_velocity_ts = None if vel_age_s is None else now - vel_age_s
+        return ac
+
+    def test_fresh_position_not_dead_reckoned(self):
+        import time
+        now = time.time()
+        decoder = BeastAircraftDecoder()
+        ac = self._aircraft(pos_age_s=2.0, vel_age_s=1.0, now=now)
+        entity = decoder._to_entity(ac, now=now)
+        self.assertFalse(entity["position_stale"])
+        self.assertFalse(entity["position_dr"])
+        self.assertEqual(entity["lat"], 45.0)
+        self.assertEqual(entity["lon"], -122.0)
+
+    def test_stale_position_dead_reckoned_along_track(self):
+        import time
+        now = time.time()
+        decoder = BeastAircraftDecoder()
+        ac = self._aircraft(pos_age_s=30.0, vel_age_s=5.0, now=now)
+        entity = decoder._to_entity(ac, now=now)
+        self.assertTrue(entity["position_stale"])
+        self.assertTrue(entity["position_dr"])
+        self.assertAlmostEqual(entity["position_age_s"], 30.0, delta=0.5)
+        # 360 kt due east for 30 s ≈ 5.56 km → ~0.07° longitude at 45°N.
+        self.assertGreater(entity["lon"], -122.0 + 0.03)
+        self.assertAlmostEqual(entity["lat"], 45.0, delta=0.01)
+
+    def test_dead_reckoning_capped_at_max_window(self):
+        import time
+        now = time.time()
+        decoder = BeastAircraftDecoder()
+        ac = self._aircraft(pos_age_s=120.0, vel_age_s=5.0, now=now)
+        entity = decoder._to_entity(ac, now=now)
+        self.assertTrue(entity["position_stale"])
+        self.assertFalse(entity["position_dr"])
+        self.assertEqual(entity["lon"], -122.0)  # frozen at last real fix
+
+    def test_no_dead_reckoning_without_velocity_timestamp(self):
+        import time
+        now = time.time()
+        decoder = BeastAircraftDecoder()
+        ac = self._aircraft(pos_age_s=30.0, vel_age_s=None, now=now)
+        entity = decoder._to_entity(ac, now=now)
+        self.assertTrue(entity["position_stale"])
+        self.assertFalse(entity["position_dr"])
+
+    def test_hydrated_state_without_fix_ts_is_stale(self):
+        import time
+        now = time.time()
+        decoder = BeastAircraftDecoder()
+        ac = self._aircraft(pos_age_s=0.0, vel_age_s=None, now=now)
+        ac.last_position_ts = None  # Redis-hydrated: position but no fix time
+        entity = decoder._to_entity(ac, now=now)
+        self.assertTrue(entity["position_stale"])
+        self.assertFalse(entity["position_dr"])
+        self.assertIsNone(entity["position_age_s"])
+
+    def test_altitude_projected_with_vertical_rate(self):
+        import time
+        now = time.time()
+        decoder = BeastAircraftDecoder()
+        ac = self._aircraft(pos_age_s=30.0, vel_age_s=5.0, now=now)
+        ac.vertical_rate = -1200.0  # fpm descent
+        entity = decoder._to_entity(ac, now=now)
+        self.assertTrue(entity["position_dr"])
+        self.assertAlmostEqual(entity["altitude"], 10000.0 - 600.0, delta=20.0)
+
+
+class TestSeedReference(unittest.TestCase):
+    """Cross-source CPR reference seeding (OpenSky / ultrafeeder → decoder)."""
+
+    def test_seeds_unknown_aircraft(self):
+        decoder = BeastAircraftDecoder()
+        self.assertTrue(decoder.seed_reference("ABC123", 45.5, -122.3))
+        ac = decoder._aircraft.get("abc123")
+        self.assertIsNotNone(ac)
+        self.assertEqual(ac.lat, 45.5)
+        self.assertEqual(ac.lon, -122.3)
+        # Seeded-only aircraft never appear in snapshots (no real frames yet).
+        self.assertEqual(decoder.snapshot_entities(), [])
+
+    def test_does_not_override_fresh_local_fix(self):
+        import time
+        decoder = BeastAircraftDecoder()
+        ac = _AircraftState(icao="abc123")
+        ac.lat, ac.lon = 45.0, -122.0
+        ac.last_position_ts = time.time()  # fresh local CPR fix
+        decoder._aircraft["abc123"] = ac
+        self.assertFalse(decoder.seed_reference("abc123", 46.0, -121.0))
+        self.assertEqual(ac.lat, 45.0)
+
+    def test_overrides_stale_local_fix_with_newer_reference(self):
+        import time
+        decoder = BeastAircraftDecoder()
+        ac = _AircraftState(icao="abc123")
+        ac.lat, ac.lon = 45.0, -122.0
+        ac.last_position_ts = time.time() - 60.0  # stale
+        decoder._aircraft["abc123"] = ac
+        self.assertTrue(decoder.seed_reference("abc123", 46.0, -121.0))
+        self.assertEqual(ac.lat, 46.0)
+        self.assertEqual(ac.lon, -121.0)
+
+    def test_rejects_reference_older_than_local_fix(self):
+        import time
+        decoder = BeastAircraftDecoder()
+        ac = _AircraftState(icao="abc123")
+        ac.lat, ac.lon = 45.0, -122.0
+        ac.last_position_ts = time.time() - 60.0
+        decoder._aircraft["abc123"] = ac
+        self.assertFalse(
+            decoder.seed_reference("abc123", 46.0, -121.0, ts=time.time() - 300.0)
+        )
+        self.assertEqual(ac.lat, 45.0)
 
 
 # ============================================================================

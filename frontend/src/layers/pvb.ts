@@ -36,6 +36,7 @@ function reportKey(track: Track, lastTs: string): string {
     track.lon.toFixed(5),
     track.lat.toFixed(5),
     track.positionStale ? '1' : '0',
+    track.positionDr ? '1' : '0',
   ].join('|')
 }
 
@@ -79,7 +80,11 @@ export function applyPVB(
 ): [number, number] {
   const lastTs = track.trail[track.trail.length - 1]?.[4] ?? ''
   const lastReportKey = reportKey(track, lastTs)
-  const projectedSpeed = track.positionStale ? 0 : track.speedMs
+  // Stale positions freeze — except server-side dead-reckoned ones, whose
+  // lat/lon are already advancing along the last known velocity. Keep
+  // projecting those between reports so motion stays continuous instead of
+  // stepping once per snapshot.
+  const projectedSpeed = track.positionStale && !track.positionDr ? 0 : track.speedMs
   const state  = pvb[track.uid]
 
   if (!state) {

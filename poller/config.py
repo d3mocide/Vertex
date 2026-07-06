@@ -138,6 +138,14 @@ class Settings(BaseSettings):
     adsb_publish_only_changes: bool = True
     allow_private_ips: bool = False
 
+    # Seconds since the last resolved CPR fix before a BEAST track's position
+    # is flagged stale (freezes client-side extrapolation without dead reckoning).
+    adsb_position_stale_seconds: int = 10
+    # Maximum age of the last position fix (seconds) that the decoder will
+    # dead-reckon forward using the aircraft's last known velocity. Beyond
+    # this the position freezes at the last real fix. 0 disables dead reckoning.
+    adsb_dead_reckon_max_seconds: int = 60
+
     # Mode D — OpenSky supplement alongside local sources (beast or ultrafeeder).
     # When enabled, OpenSky polls on its own interval and fills in aircraft not
     # seen locally within adsb_opensky_stale_threshold seconds. On by default —
