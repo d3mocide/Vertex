@@ -40,6 +40,7 @@ class _AircraftState:
     even_ts: float | None = None
     odd_ts: float | None = None
     last_position_ts: float | None = None
+    last_velocity_ts: float | None = None
     last_mlat_ticks: int | None = None
     signal_quality: int | None = None
     msg_count: int = 0
@@ -100,17 +101,17 @@ class BeastAircraftDecoder:
                 self._warned_missing_dep = True
             return None
 
-        hex_msg = message_bytes.hex().upper()
-        if len(hex_msg) not in (14, 28):
+        # Fast path: derive Downlink Format and length from the raw bytes so the
+        # flood of irrelevant Mode S traffic is discarded before any hex-string
+        # allocation or pyModeS call (~2x hot-path speedup, credit PR #115).
+        if len(message_bytes) not in (7, 14):
             return None
 
-        try:
-            df = pms.df(hex_msg)
-        except Exception:
-            return None
-
+        df = message_bytes[0] >> 3
         if df not in (4, 5, 11, 17, 18, 20, 21):
             return None
+
+        hex_msg = message_bytes.hex().upper()
 
         try:
             icao = (pms.icao(hex_msg) or "").lower()
@@ -168,6 +169,8 @@ class BeastAircraftDecoder:
                         ac.heading = float(trk)
                     if vr is not None:
                         ac.vertical_rate = float(vr)
+                    if spd is not None and trk is not None:
+                        ac.last_velocity_ts = now
 
         if df in (4, 20):
             alt = self._decode_altitude_reply(hex_msg)
@@ -187,6 +190,40 @@ class BeastAircraftDecoder:
             self._last_prune_ts = now
 
         return self._to_entity(ac)
+
+    def seed_reference(self, icao: str, lat: float, lon: float, ts: float | None = None) -> bool:
+        """Seed a position reference from another source (OpenSky / ultrafeeder).
+
+        Gives Tier-2 local CPR decode an immediate reference so a single odd or
+        even frame resolves a position without waiting up to ~60 s for a fresh
+        even+odd pair — the main cause of cold-lock gaps when an aircraft
+        re-enters SDR range. Never touches the trail or last_seen_ts, so seeded
+        aircraft do not appear in snapshots until real frames arrive.
+
+        Returns True if the reference was applied.
+        """
+        icao = (icao or "").lower()
+        if not icao or lat is None or lon is None:
+            return False
+
+        now = time.time()
+        seed_ts = float(ts) if ts is not None else now
+
+        ac = self._aircraft.get(icao)
+        if ac is None:
+            ac = _AircraftState(icao=icao)
+            self._aircraft[icao] = ac
+        elif ac.last_position_ts is not None:
+            # Keep the local fix unless it is older than the incoming reference
+            # and already past the stale threshold — local CPR beats a supplement.
+            stale_after = float(settings.adsb_position_stale_seconds)
+            if ac.last_position_ts >= seed_ts or (now - ac.last_position_ts) <= stale_after:
+                return False
+
+        ac.lat = float(lat)
+        ac.lon = float(lon)
+        ac.last_position_ts = seed_ts
+        return True
 
     def snapshot_entities(self, stale_seconds: int = 60) -> list[dict]:
         now = time.time()
@@ -253,9 +290,13 @@ class BeastAircraftDecoder:
                 return
 
             # Heading-consistency guard: reject bad Tier-2/3 CPR decodes where
-            # the candidate bearing differs >90° from the known track.
+            # the candidate bearing differs >90° from the known track. Only
+            # applied while the elapsed gap is short — across a long gap the
+            # aircraft may legitimately have turned, and rejecting the first
+            # good fix after a gap would extend the outage indefinitely.
             if (
                 distance_km > 0.1
+                and elapsed_seconds < 30.0
                 and ac.heading is not None
                 and ac.speed is not None
                 and ac.speed > 50  # knots — ignore heading at low taxi speed
@@ -287,10 +328,38 @@ class BeastAircraftDecoder:
 
         display_lat = ac.lat
         display_lon = ac.lon
-        position_stale = (
-            ac.last_position_ts is not None
-            and (now_ts - ac.last_position_ts) > 10.0
+        display_alt = ac.altitude
+
+        stale_after = float(settings.adsb_position_stale_seconds)
+        pos_age = (
+            max(0.0, now_ts - ac.last_position_ts)
+            if ac.last_position_ts is not None else None
         )
+        # No fix timestamp (Redis-hydrated state) counts as stale until a real
+        # fix or cross-source seed arrives.
+        position_stale = pos_age is None or pos_age > stale_after
+
+        # Dead reckoning: velocity messages (TC19) usually keep decoding through
+        # CPR position gaps, so project the display position forward along the
+        # last known track instead of freezing it. Bounded by the configured
+        # window, never written to the trail, and flagged so downstream
+        # consumers (DB observations, geofences, UI) can treat it as estimated.
+        position_dr = False
+        dr_max = float(settings.adsb_dead_reckon_max_seconds)
+        if (
+            position_stale
+            and pos_age is not None
+            and pos_age <= dr_max
+            and ac.last_velocity_ts is not None
+            and (now_ts - ac.last_velocity_ts) <= dr_max
+            and not ac.on_ground
+        ):
+            projected = project_position(ac.lat, ac.lon, ac.heading, ac.speed, pos_age)
+            if projected is not None:
+                display_lat, display_lon = projected
+                position_dr = True
+                if display_alt is not None and ac.vertical_rate is not None:
+                    display_alt = max(0.0, display_alt + ac.vertical_rate * pos_age / 60.0)
 
         comm_b = self._build_comm_b_snapshot(ac, now_ts)
 
@@ -313,7 +382,9 @@ class BeastAircraftDecoder:
             "lat": display_lat,
             "lon": display_lon,
             "position_stale": position_stale,
-            "altitude": ac.altitude,
+            "position_dr": position_dr,
+            "position_age_s": round(pos_age, 1) if pos_age is not None else None,
+            "altitude": display_alt,
             "heading": ac.heading,
             "speed": ac.speed,
             "vertical_rate": ac.vertical_rate,

@@ -135,6 +135,14 @@ async def write_entity_observation(entity: dict, record_observation: bool = True
     entity_id_key = entity["entity_id"]
     now_ts = time.time()
 
+    # Dead-reckoned positions are estimates projected from the last real fix —
+    # never let them trigger geofence entry/exit events or land in the
+    # observation history. The entity row update (identity/last_seen) still runs.
+    if entity.get("position_dr"):
+        lat = None
+        lon = None
+        record_observation = False
+
     # Determine if we should update the entity row
     should_write_entity = False
     last_write = _last_entity_write_ts.get(entity_id_key, 0.0)

@@ -28,7 +28,8 @@ export function entityToTrack(entity: Entity, existing?: Track): Track | null {
   const altMeters  = isAir ? (entity.altitude ?? 0) * ALT_FT_TO_M : 0
   const speedMs    = (entity.speed ?? 0) * SPD_KT_TO_MS
   const courseTrue = entity.heading ?? 0
-  const positionStale = Boolean((entity as Entity & { position_stale?: boolean }).position_stale)
+  const positionStale = Boolean(entity.position_stale)
+  const positionDr = Boolean(entity.position_dr)
 
   // ── Build raw trail ──────────────────────────────────────────────────────
   // Trail sources (merged in order, oldest → newest):
@@ -102,6 +103,7 @@ export function entityToTrack(entity: Entity, existing?: Track): Track | null {
     source:       entity.source,
     lastSeen:     entity.last_seen,
     positionStale,
+    positionDr,
     lat:          entity.lat,
     lon:          entity.lon,
     altMeters,

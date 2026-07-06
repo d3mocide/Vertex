@@ -184,3 +184,44 @@ class TestNormalizeTar1090:
         assert result is not None
         assert result["entity_id"] == "aircraft:a1b2c3"
 
+    # ── ground / stale-position handling (readsb aircraft.json semantics) ────
+
+    def test_alt_baro_ground_string_sets_on_ground(self):
+        result = normalize_tar1090(self._ac({"alt_baro": "ground", "on_ground": None}))
+        assert result is not None
+        assert result["status"] == "on_ground"
+
+    def test_alt_baro_ground_string_does_not_leak_into_altitude(self):
+        result = normalize_tar1090(self._ac({"alt_baro": "ground", "alt_geom": None}))
+        assert result is not None
+        assert result["altitude"] is None
+
+    def test_alt_baro_ground_falls_back_to_alt_geom(self):
+        result = normalize_tar1090(self._ac({"alt_baro": "ground", "alt_geom": 150}))
+        assert result is not None
+        assert result["altitude"] == 150
+
+    def test_ancient_seen_pos_skipped(self):
+        assert normalize_tar1090(self._ac({"seen_pos": 120.0})) is None
+
+    def test_old_seen_pos_marked_stale(self):
+        result = normalize_tar1090(self._ac({"seen_pos": 30.0}))
+        assert result is not None
+        assert result["position_stale"] is True
+        assert result["position_age_s"] == 30.0
+
+    def test_fresh_seen_pos_not_stale(self):
+        result = normalize_tar1090(self._ac({"seen_pos": 1.2}))
+        assert result is not None
+        assert result["position_stale"] is False
+
+    def test_missing_seen_pos_not_stale(self):
+        result = normalize_tar1090(self._ac())
+        assert result is not None
+        assert result["position_stale"] is False
+
+    def test_non_numeric_track_dropped(self):
+        result = normalize_tar1090(self._ac({"track": "n/a"}))
+        assert result is not None
+        assert result["heading"] is None
+

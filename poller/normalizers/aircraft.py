@@ -51,10 +51,34 @@ def normalize_opensky(state: list) -> Optional[dict]:
     }
 
 
+TAR1090_POSITION_STALE_SECONDS = 10
+TAR1090_POSITION_MAX_AGE_SECONDS = 60
+
+
+def _numeric_or_none(value) -> Optional[float]:
+    return value if isinstance(value, (int, float)) and not isinstance(value, bool) else None
+
+
 def normalize_tar1090(ac: dict) -> Optional[dict]:
     icao = ac.get("hex", "").lower()
     if not icao or ac.get("lat") is None or ac.get("lon") is None:
         return None
+
+    # tar1090/readsb signals ground via alt_baro == "ground" (there is no
+    # on_ground key in the aircraft.json schema); accept both for robustness.
+    on_ground = ac.get("alt_baro") == "ground" or bool(ac.get("on_ground"))
+    altitude = _numeric_or_none(ac.get("alt_baro"))
+    if altitude is None:
+        altitude = _numeric_or_none(ac.get("alt_geom"))
+
+    # seen_pos = seconds since the last position fix. Skip aircraft whose fix is
+    # ancient (readsb retains them for minutes) and flag moderately old ones so
+    # the frontend freezes extrapolation instead of projecting stale motion.
+    seen_pos = _numeric_or_none(ac.get("seen_pos"))
+    if seen_pos is not None and seen_pos > TAR1090_POSITION_MAX_AGE_SECONDS:
+        return None
+    position_stale = seen_pos is not None and seen_pos > TAR1090_POSITION_STALE_SECONDS
+
     return {
         "entity_id": f"aircraft:{icao}",
         "entity_type": "aircraft",
@@ -68,11 +92,13 @@ def normalize_tar1090(ac: dict) -> Optional[dict]:
         },
         "lat": ac.get("lat"),
         "lon": ac.get("lon"),
-        "altitude": ac.get("alt_baro") or ac.get("alt_geom"),
-        "heading": ac.get("track"),
-        "speed": ac.get("gs"),
-        "vertical_rate": ac.get("baro_rate"),
-        "status": "on_ground" if ac.get("on_ground") else "airborne",
+        "position_stale": position_stale,
+        "position_age_s": seen_pos,
+        "altitude": altitude,
+        "heading": _numeric_or_none(ac.get("track")),
+        "speed": _numeric_or_none(ac.get("gs")),
+        "vertical_rate": _numeric_or_none(ac.get("baro_rate")),
+        "status": "on_ground" if on_ground else "airborne",
         "last_seen": _now(),
         "tags": ["aircraft"],
     }

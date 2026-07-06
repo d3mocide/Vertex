@@ -14,6 +14,12 @@ export interface Entity {
   signal_quality?: number
   status?:         string
   last_seen?:   string
+  // Position freshness (BEAST decoder / normalizers):
+  // stale = last real fix is older than the stale threshold;
+  // dr = lat/lon are dead-reckoned forward from that fix server-side.
+  position_stale?: boolean
+  position_dr?:    boolean
+  position_age_s?: number | null
   identity?:    Record<string, unknown>
   tags?:        string[]
   // Server-side position ring buffer emitted by the BEAST decoder.
@@ -57,6 +63,7 @@ export interface Track {
   source:        string
   lastSeen?:     string
   positionStale?: boolean
+  positionDr?:    boolean      // position is a server-side dead-reckoned estimate
   lat:           number
   lon:           number
   altMeters:     number        // metres MSL (0 for vessels)
