@@ -1,6 +1,7 @@
 import { IconLayer } from '@deck.gl/layers'
 import type { Entity } from '../store'
 import { getAtlasIcons } from './atlasIcons'
+import { MESH_NODE_STALE_MS } from '../config'
 
 export interface MeshNodePoint {
   entity_id: string
@@ -11,8 +12,6 @@ export interface MeshNodePoint {
   status: string
 }
 
-const STALE_MS = 10 * 60 * 1000
-
 // Atlas hue: --cat-mesh #FF8F00
 const MESH_ACTIVE: [number, number, number, number] = [255, 143,   0, 240]
 const MESH_STALE:  [number, number, number, number] = [136, 136, 136, 200]
@@ -20,7 +19,7 @@ const MESH_STALE:  [number, number, number, number] = [136, 136, 136, 200]
 function toMeshNodePoint(e: Entity, nowMs: number): MeshNodePoint | null {
   if (e.entity_type !== 'mesh_node' || e.lat == null || e.lon == null) return null
   const lastMs = e.last_seen ? Date.parse(e.last_seen) : 0
-  const stale  = !lastMs || (nowMs - lastMs > STALE_MS)
+  const stale  = !lastMs || (nowMs - lastMs > MESH_NODE_STALE_MS)
   return {
     entity_id: e.entity_id,
     name:   e.display_name ?? e.entity_id,

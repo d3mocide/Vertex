@@ -55,3 +55,11 @@ export const RADAR_FALLBACK_LAYER = import.meta.env.VITE_RADAR_FALLBACK_LAYER ||
 // Observation range ring — radius in km centered on DEFAULT_CENTER.
 // Set VITE_OBSERVATION_RANGE_KM=0 to hide the ring.
 export const OBSERVATION_RANGE_KM = Number(import.meta.env.VITE_OBSERVATION_RANGE_KM ?? 50)
+
+// Mesh node staleness window. A mesh node's last_seen is its last advert
+// timestamp, and MeshCore nodes typically advert only once every 24–48 h, so a
+// short window marks healthy-but-quiet nodes (including active repeaters) as
+// stale. Default 72 h flags a node only after it has missed roughly two advert
+// cycles. Override with VITE_MESH_NODE_STALE_HOURS.
+export const MESH_NODE_STALE_MS =
+  Number(import.meta.env.VITE_MESH_NODE_STALE_HOURS ?? 72) * 60 * 60 * 1000
