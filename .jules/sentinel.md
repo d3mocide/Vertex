@@ -26,3 +26,8 @@
 **Vulnerability:** TCP pollers (`aprs.py`, `beast_transport.py`, `cot_receiver.py`) were directly establishing outbound connections (`asyncio.open_connection()`) to user-provided or configurable hostnames/IPs without applying Server-Side Request Forgery (SSRF) validation.
 **Learning:** Poller components interacting with external configuration must be treated with the same scrutiny as web endpoints, as they can be weaponized to scan or access internal infrastructure.
 **Prevention:** Always wrap hostname/IP targets with `await validate_safe_host(host)` or `await validate_safe_url(url)` via `poller/security.py` before executing outbound requests/TCP connections.
+
+## 2026-07-10 - [Event Loop Blocking DoS via Synchronous SSRF Validation]
+**Vulnerability:** In `backend/routers/radio.py`, the `_validate_request_url` event hook used to validate URLs in `httpx.AsyncClient` with `follow_redirects=True` called `validate_safe_url` synchronously. Because `validate_safe_url` performs blocking DNS resolution (`socket.getaddrinfo`), executing it in an async context blocked the backend's main event loop, creating a Denial of Service (DoS) vulnerability.
+**Learning:** Using synchronous functions that perform network operations (like DNS resolution) within async event hooks or contexts blocks the asyncio event loop, causing severe latency and potential DoS under load.
+**Prevention:** Always offload synchronous blocking calls (such as `socket.getaddrinfo` within SSRF validation) to a separate thread using `await asyncio.get_running_loop().run_in_executor(None, func, *args)` when used within an async context.
