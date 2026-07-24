@@ -187,6 +187,12 @@ async def send_mesh_message(
     url_str = row["url"]
     from urllib.parse import urlparse, urlunparse
     import httpx
+    from security import validate_safe_url
+
+    try:
+        validate_safe_url(url_str, allowed_schemes={"http", "https"})
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=f"Invalid or unsafe MeshCore URL: {exc}")
 
     parsed = urlparse(url_str)
     api_key = parsed.username
