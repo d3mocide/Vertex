@@ -156,16 +156,16 @@ class BeastAircraftDecoder:
             signal_int = int(signal)
             ac.signal_quality = signal_int if ac.signal_quality is None else max(ac.signal_quality, signal_int)
 
-        typecode = self._safe(lambda: pms.adsb.typecode(hex_msg))
+        typecode = self._safe(pms.adsb.typecode, hex_msg)
         if df in (17, 18):
             if typecode is None:
                 return None
 
             if 1 <= typecode <= 4:
-                callsign = self._safe(lambda: pms.adsb.callsign(hex_msg))
+                callsign = self._safe(pms.adsb.callsign, hex_msg)
                 if isinstance(callsign, str):
                     ac.callsign = _normalize_callsign(callsign)
-                category = self._safe(lambda: pms.adsb.category(hex_msg))
+                category = self._safe(pms.adsb.category, hex_msg)
                 if category is not None:
                     ac.category = str(category)
 
@@ -176,13 +176,13 @@ class BeastAircraftDecoder:
             if 9 <= typecode <= 22:
                 if typecode <= 18 or typecode >= 20:
                     ac.on_ground = False
-                alt = self._safe(lambda: pms.adsb.altitude(hex_msg))
+                alt = self._safe(pms.adsb.altitude, hex_msg)
                 if alt is not None:
                     ac.altitude = float(alt)
                 self._update_cpr(ac, hex_msg, now)
 
             if typecode == 19:
-                vel = self._safe(lambda: pms.adsb.velocity(hex_msg))
+                vel = self._safe(pms.adsb.velocity, hex_msg)
                 if isinstance(vel, tuple) and len(vel) >= 3:
                     spd, trk, vr = vel[0], vel[1], vel[2]
                     if spd is not None:
@@ -262,7 +262,7 @@ class BeastAircraftDecoder:
         resolved_lat: float | None = None
         resolved_lon: float | None = None
 
-        oe = self._safe(lambda: pms.adsb.oe_flag(hex_msg))
+        oe = self._safe(pms.adsb.oe_flag, hex_msg)
         if oe == 0:
             ac.even_msg = hex_msg
             ac.even_ts = now
@@ -272,7 +272,7 @@ class BeastAircraftDecoder:
 
         # Tier 1: global CPR with even+odd pair.
         if ac.even_msg and ac.odd_msg and ac.even_ts and ac.odd_ts and abs(ac.even_ts - ac.odd_ts) <= 10:
-            latlon = self._safe(lambda: pms.adsb.position(ac.even_msg, ac.odd_msg, ac.even_ts, ac.odd_ts))
+            latlon = self._safe(pms.adsb.position, ac.even_msg, ac.odd_msg, ac.even_ts, ac.odd_ts)
             if isinstance(latlon, tuple) and len(latlon) == 2:
                 lat, lon = latlon
                 if lat is not None and lon is not None:
@@ -281,7 +281,7 @@ class BeastAircraftDecoder:
 
         # Tier 2: local CPR decode against aircraft last known position.
         if resolved_lat is None and ac.lat is not None and ac.lon is not None:
-            latlon = self._safe(lambda: pms.adsb.position_with_ref(hex_msg, ac.lat, ac.lon))
+            latlon = self._safe(pms.adsb.position_with_ref, hex_msg, ac.lat, ac.lon)
             if isinstance(latlon, tuple) and len(latlon) == 2:
                 lat, lon = latlon
                 if lat is not None and lon is not None:
@@ -290,7 +290,7 @@ class BeastAircraftDecoder:
 
         # Tier 3: local CPR decode against configured receiver reference.
         if resolved_lat is None:
-            latlon = self._safe(lambda: pms.adsb.position_with_ref(hex_msg, settings.region_lat, settings.region_lon))
+            latlon = self._safe(pms.adsb.position_with_ref, hex_msg, settings.region_lat, settings.region_lon)
             if isinstance(latlon, tuple) and len(latlon) == 2:
                 lat, lon = latlon
                 if lat is not None and lon is not None:
@@ -421,17 +421,17 @@ class BeastAircraftDecoder:
         }
 
     def _decode_altitude_reply(self, hex_msg: str) -> float | None:
-        alt = self._safe(lambda: pms.altcode(hex_msg))
+        alt = self._safe(pms.altcode, hex_msg)
         if alt is None:
-            alt = self._safe(lambda: pms.common.altcode(hex_msg))
+            alt = self._safe(pms.common.altcode, hex_msg)
         if isinstance(alt, (int, float)):
             return float(alt)
         return None
 
     def _decode_squawk_reply(self, hex_msg: str) -> str | None:
-        sq = self._safe(lambda: pms.idcode(hex_msg))
+        sq = self._safe(pms.idcode, hex_msg)
         if sq is None:
-            sq = self._safe(lambda: pms.common.idcode(hex_msg))
+            sq = self._safe(pms.common.idcode, hex_msg)
         if isinstance(sq, str) and sq.strip():
             return sq.strip()
         if isinstance(sq, (int, float)):
@@ -559,9 +559,9 @@ class BeastAircraftDecoder:
             self._aircraft.pop(icao, None)
 
     @staticmethod
-    def _safe(fn):
+    def _safe(fn, *args, **kwargs):
         try:
-            return fn()
+            return fn(*args, **kwargs)
         except Exception:
             return None
 
