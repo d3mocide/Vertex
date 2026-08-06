@@ -18,7 +18,7 @@ from sqlalchemy import select
 from db.models import AlertRule
 from db.session import async_session_factory
 from redis_bus import get_redis
-from security import validate_webhook_url
+from security import validate_webhook_url_async
 
 logger = logging.getLogger(__name__)
 
@@ -55,7 +55,7 @@ async def _generate_and_deliver(rule: AlertRule) -> None:
 
     if delivery_url:
         try:
-            validate_webhook_url(delivery_url)
+            await validate_webhook_url_async(delivery_url)
         except ValueError as exc:
             logger.warning("[sitrep_sched] blocked unsafe delivery URL rule=%s: %s", rule.id, exc)
             return
