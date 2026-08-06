@@ -13,7 +13,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from deps import get_db
-from security import validate_safe_host, validate_safe_url
+from security import validate_safe_host_async, validate_safe_url_async
 
 router = APIRouter(prefix="/admin/debug", tags=["admin"])
 
@@ -146,7 +146,7 @@ async def _http_get_check(
 ) -> tuple[dict, object | None]:
     t0 = time.perf_counter()
     try:
-        validate_safe_url(url, allowed_schemes={"http", "https"})
+        await validate_safe_url_async(url, allowed_schemes={"http", "https"})
         async with httpx.AsyncClient(auth=auth, headers=extra_headers or {}, timeout=timeout) as client:
             resp = await client.get(url)
         latency_ms = round((time.perf_counter() - t0) * 1000, 1)
@@ -182,7 +182,7 @@ async def _http_get_check(
 async def _http_post_check(url: str, body: object, auth: Optional[httpx.BasicAuth] = None, timeout: float = 10.0) -> tuple[dict, object | None]:
     t0 = time.perf_counter()
     try:
-        validate_safe_url(url, allowed_schemes={"http", "https"})
+        await validate_safe_url_async(url, allowed_schemes={"http", "https"})
         async with httpx.AsyncClient(auth=auth, timeout=timeout) as client:
             resp = await client.post(url, json=body)
         latency_ms = round((time.perf_counter() - t0) * 1000, 1)
@@ -222,7 +222,7 @@ async def _probe_ws(ws_url: str, duration_seconds: int, headers: Optional[dict[s
     ws_connected = False
 
     try:
-        validate_safe_url(ws_url, allowed_schemes={"ws", "wss"})
+        await validate_safe_url_async(ws_url, allowed_schemes={"ws", "wss"})
         async with websockets.connect(
             ws_url,
             extra_headers=headers or {},
@@ -285,7 +285,7 @@ async def _probe_aprs_tcp(url: str) -> dict:
     reader = None
     writer = None
     try:
-        validate_safe_host(host)
+        await validate_safe_host_async(host)
         reader, writer = await asyncio.wait_for(asyncio.open_connection(host, port), timeout=8)
         # Standard receive-only APRS-IS login for diagnostics.
         writer.write(b"user N0CALL pass -1 vers VertexDebug 1.0\n")
@@ -346,7 +346,7 @@ async def probe_remote_feed(body: RemoteFeedProbeRequest, db: AsyncSession = Dep
     source_url = str(source.get("url") or "")
 
     try:
-        validate_safe_url(source_url)
+        await validate_safe_url_async(source_url)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=f"Invalid or unsafe source URL: {exc}")
 

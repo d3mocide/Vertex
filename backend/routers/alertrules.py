@@ -2,24 +2,30 @@ from datetime import datetime, timezone
 from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from db.models import AlertRule
 from deps import get_db
-from security import validate_webhook_url
+from security import validate_webhook_url_async
 
 router = APIRouter(prefix="/alertrules", tags=["alertrules"])
 
 
-def _validate_action_config_url(v: dict[str, Any] | None) -> dict[str, Any] | None:
-    if v and v.get("url"):
-        try:
-            validate_webhook_url(str(v["url"]))
-        except ValueError as exc:
-            raise ValueError(f"Invalid webhook URL: {exc}") from exc
-    return v
+async def _check_action_config_url(action_config: dict[str, Any] | None) -> None:
+    """Validate action_config.url against SSRF. Raises HTTPException(400) if unsafe.
+
+    Done here (not in a pydantic field_validator) because URL validation involves
+    a DNS lookup, which must run off the event loop — pydantic validators are sync.
+    """
+    url = (action_config or {}).get("url")
+    if not url:
+        return
+    try:
+        await validate_webhook_url_async(str(url))
+    except ValueError as exc:
+        raise HTTPException(400, f"Invalid webhook URL: {exc}") from exc
 
 
 class AlertRuleCreate(BaseModel):
@@ -33,11 +39,6 @@ class AlertRuleCreate(BaseModel):
     max_per_hour: int | None = None
     dedup_key: str | None = None
 
-    @field_validator("action_config")
-    @classmethod
-    def validate_webhook_url_field(cls, v: dict[str, Any]) -> dict[str, Any]:
-        return _validate_action_config_url(v) or v
-
 
 class AlertRuleUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=128)
@@ -49,11 +50,6 @@ class AlertRuleUpdate(BaseModel):
     cooldown_seconds: int | None = None
     max_per_hour: int | None = None
     dedup_key: str | None = None
-
-    @field_validator("action_config")
-    @classmethod
-    def validate_webhook_url_field(cls, v: dict[str, Any] | None) -> dict[str, Any] | None:
-        return _validate_action_config_url(v)
 
 
 class AlertRuleResponse(BaseModel):
@@ -84,6 +80,7 @@ async def create_alert_rule(body: AlertRuleCreate, db: AsyncSession = Depends(ge
         raise HTTPException(400, "action_config.url is required for webhook_post")
     if body.action_type == "sitrep_delivery" and not body.action_config.get("interval_hours"):
         raise HTTPException(400, "action_config.interval_hours is required for sitrep_delivery")
+    await _check_action_config_url(body.action_config)
 
     now = datetime.now(timezone.utc)
     rule = AlertRule(
@@ -120,6 +117,7 @@ async def update_alert_rule(rule_id: int, body: AlertRuleUpdate, db: AsyncSessio
         raise HTTPException(400, "action_config.url is required for webhook_post")
     if rule.action_type == "sitrep_delivery" and not (rule.action_config or {}).get("interval_hours"):
         raise HTTPException(400, "action_config.interval_hours is required for sitrep_delivery")
+    await _check_action_config_url(rule.action_config)
 
     rule.updated_at = datetime.now(timezone.utc)
     await db.commit()

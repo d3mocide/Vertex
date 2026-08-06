@@ -8,7 +8,7 @@ from sqlalchemy import select
 from db.models import AlertRule
 from db.session import async_session_factory
 from redis_bus import subscribe_updates, get_redis
-from security import validate_webhook_url
+from security import validate_webhook_url_async
 
 logger = logging.getLogger(__name__)
 
@@ -99,7 +99,7 @@ async def _dispatch_webhook(rule: AlertRule, event: dict) -> None:
         return
 
     try:
-        validate_webhook_url(url)
+        await validate_webhook_url_async(url)
     except ValueError as exc:
         logger.warning("[webhook] blocked unsafe URL rule=%s: %s", rule.id, exc)
         return

@@ -1,3 +1,4 @@
+import asyncio
 import ipaddress
 import socket
 from urllib.parse import urlparse
@@ -63,6 +64,21 @@ def validate_safe_host(hostname: str) -> None:
 def validate_webhook_url(url: str) -> None:
     """Raise ValueError if url is not a safe, public http/https URL."""
     validate_safe_url(url, allowed_schemes={"http", "https"})
+
+
+async def validate_safe_url_async(url: str, allowed_schemes: set[str] | None = None) -> None:
+    """Async wrapper for validate_safe_url — offloads blocking DNS resolution to a thread."""
+    await asyncio.get_running_loop().run_in_executor(None, validate_safe_url, url, allowed_schemes)
+
+
+async def validate_safe_host_async(hostname: str) -> None:
+    """Async wrapper for validate_safe_host — offloads blocking DNS resolution to a thread."""
+    await asyncio.get_running_loop().run_in_executor(None, validate_safe_host, hostname)
+
+
+async def validate_webhook_url_async(url: str) -> None:
+    """Async wrapper for validate_webhook_url — offloads blocking DNS resolution to a thread."""
+    await validate_safe_url_async(url, allowed_schemes={"http", "https"})
 
 
 def _reject_private_ip(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> None:
