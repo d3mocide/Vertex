@@ -1,3 +1,4 @@
+import asyncio
 import json
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -385,7 +386,8 @@ async def proxy_stream(
 
     async def _validate_request_url(request: httpx.Request):
         try:
-            validate_safe_url(str(request.url))
+            loop = asyncio.get_running_loop()
+            await loop.run_in_executor(None, validate_safe_url, str(request.url))
         except ValueError as e:
             # We raise a RequestError here so httpx catches it instead of crashing.
             raise httpx.RequestError(f"SSRF validation failed: {e}", request=request)
