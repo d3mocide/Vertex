@@ -136,6 +136,21 @@ TinyGS credentials and station configuration are managed separately through the 
 
 Leave `SUMMARY_LLM_MODEL` blank to disable summary generation.
 
+## P25 Transcription (Whisper) Settings
+
+Runs in the `transcription` container. Transcribes P25 call recordings either locally (CPU, via `faster-whisper`) or remotely through LiteLLM.
+
+| Variable | Purpose | Notes |
+|----------|---------|-------|
+| `WHISPER_MODEL` | Local faster-whisper model size | `tiny`/`base`/`small`/`medium`; ignored when `WHISPER_REMOTE_MODEL` is set |
+| `WHISPER_LANGUAGE` | ISO 639-1 language code | `auto` lets Whisper detect per-call |
+| `WHISPER_COMPUTE_TYPE` | Local inference precision | `int8` is fastest/lowest-RAM for CPU |
+| `WHISPER_DEVICE` | Local inference device | `cpu` |
+| `WHISPER_CPU_THREADS` | ctranslate2 threads for local inference | Keep at `1` on small hosts to avoid starving the poller/API |
+| `WHISPER_REMOTE_MODEL` | LiteLLM model identifier for remote STT (e.g. `openai/whisper-1`, `groq/whisper-large-v3`) | Leave blank to transcribe locally; when set, skips loading the local model entirely |
+| `WHISPER_REMOTE_API_BASE` | Base URL for a local AI node or LiteLLM proxy exposing an OpenAI-compatible `/audio/transcriptions` endpoint | Same convention as `SUMMARY_LLM_API_BASE` |
+| `WHISPER_REMOTE_API_KEY` | API key for the remote STT provider, if required | |
+
 ## Anomaly Detection Settings
 
 | Variable | Purpose | Notes |

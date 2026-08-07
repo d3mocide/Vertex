@@ -5,6 +5,14 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 
 ---
 
+## 2026-08-07 — Remote STT option for P25 transcription via LiteLLM
+
+- **Remote Whisper config** ([transcription/config.py](transcription/config.py), [transcription/main.py](transcription/main.py)): new `WHISPER_REMOTE_MODEL` / `WHISPER_REMOTE_API_BASE` / `WHISPER_REMOTE_API_KEY` settings. When `WHISPER_REMOTE_MODEL` is set, the service skips loading the local `faster-whisper` model entirely and transcribes each P25 call via `litellm.atranscription()` against any OpenAI-compatible `/audio/transcriptions` endpoint (a local AI node, a LiteLLM proxy router, or a hosted provider like Groq) — same SDK-direct pattern the `summary` poller already uses for `SUMMARY_LLM_MODEL`. Local CPU transcription (`WHISPER_MODEL`/`WHISPER_DEVICE`/etc.) remains the default when left blank.
+- File reads for the remote path use `asyncio.to_thread(path.read_bytes)` rather than a sync `open()`, keeping the event loop unblocked per repo convention.
+- **Dependency**: added `litellm==1.84.0` to [transcription/requirements.txt](transcription/requirements.txt) (pinned, `pip-audit` clean). Also bumped the pre-existing `requests` pin 2.32.3 → 2.33.0 in the same file to clear two known CVEs (PYSEC-2026-1872, PYSEC-2026-2275) surfaced while auditing.
+- Documented the new variables in [.env.example](.env.example) and added a "P25 Transcription (Whisper) Settings" section to [docs/configuration/environment.md](docs/configuration/environment.md).
+- **Motivation**: user wanted to route P25 call transcription to an external STT node (a local AI box) instead of the Pi's CPU, and asked whether it could reuse the existing LiteLLM routing already used for AI summaries — it can, via the same SDK-direct call pattern, no separate proxy service required.
+
 ## 2026-07-06 — CPU usage optimization for small hosts (2-core VPS)
 
 - **Motivation**: User reported both cores pegged (load ~5.0 on 2 cores) after the ADS-B pipeline overhaul (PR #117). Benchmarked the hot paths with synthetic BEAST traffic and fixed the measured costs.
