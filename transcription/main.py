@@ -20,10 +20,13 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import asyncpg
+import litellm
 import redis.asyncio as aioredis
 from faster_whisper import WhisperModel
 
 from config import settings
+
+litellm.suppress_debug_info = True
 
 logging.basicConfig(
     level=settings.log_level.upper(),
@@ -48,22 +51,29 @@ class TranscriptionService:
         self._processed: set[str] = set()
 
     async def start(self) -> None:
-        logger.info(
-            "[transcription] loading model=%s device=%s compute_type=%s",
-            settings.whisper_model,
-            settings.whisper_device,
-            settings.whisper_compute_type,
-        )
-        # WhisperModel constructor is synchronous and may download the model on
-        # first run — run it in a thread so it doesn't block the event loop.
-        self._model = await asyncio.to_thread(
-            WhisperModel,
-            settings.whisper_model,
-            device=settings.whisper_device,
-            compute_type=settings.whisper_compute_type,
-            cpu_threads=settings.whisper_cpu_threads,
-        )
-        logger.info("[transcription] model ready")
+        if settings.whisper_remote_model:
+            logger.info(
+                "[transcription] using remote STT model=%s api_base=%s",
+                settings.whisper_remote_model,
+                settings.whisper_remote_api_base or "(provider default)",
+            )
+        else:
+            logger.info(
+                "[transcription] loading local model=%s device=%s compute_type=%s",
+                settings.whisper_model,
+                settings.whisper_device,
+                settings.whisper_compute_type,
+            )
+            # WhisperModel constructor is synchronous and may download the model
+            # on first run — run it in a thread so it doesn't block the event loop.
+            self._model = await asyncio.to_thread(
+                WhisperModel,
+                settings.whisper_model,
+                device=settings.whisper_device,
+                compute_type=settings.whisper_compute_type,
+                cpu_threads=settings.whisper_cpu_threads,
+            )
+            logger.info("[transcription] model ready")
 
         self._pool = await asyncpg.create_pool(
             _pg_url(settings.database_url), min_size=1, max_size=3
@@ -141,14 +151,7 @@ class TranscriptionService:
             logger.info("[transcription] transcribing %s", path.name)
             t0 = time.monotonic()
 
-            lang = settings.whisper_language if settings.whisper_language != "auto" else None
-            segments, _info = await asyncio.to_thread(
-                self._model.transcribe,  # type: ignore[union-attr]
-                str(path),
-                language=lang,
-                beam_size=5,
-            )
-            text = " ".join(seg.text for seg in segments).strip()
+            text = await self._transcribe(path)
             elapsed = time.monotonic() - t0
             logger.info(
                 "[transcription] %s → %d chars in %.1fs", path.name, len(text), elapsed
@@ -160,6 +163,28 @@ class TranscriptionService:
             logger.error("[transcription] failed %s: %s", path.name, exc)
             # Release the claim so the next scan cycle retries.
             self._processed.discard(str(path))
+
+    async def _transcribe(self, path: Path) -> str:
+        lang = settings.whisper_language if settings.whisper_language != "auto" else None
+
+        if settings.whisper_remote_model:
+            audio_bytes = await asyncio.to_thread(path.read_bytes)
+            response = await litellm.atranscription(
+                model=settings.whisper_remote_model,
+                file=(path.name, audio_bytes),
+                language=lang,
+                api_base=settings.whisper_remote_api_base or None,
+                api_key=settings.whisper_remote_api_key or None,
+            )
+            return (response.text or "").strip()
+
+        segments, _info = await asyncio.to_thread(
+            self._model.transcribe,  # type: ignore[union-attr]
+            str(path),
+            language=lang,
+            beam_size=5,
+        )
+        return " ".join(seg.text for seg in segments).strip()
 
     async def _persist(self, path: Path, text: str) -> None:
         rec = await self._pool.fetchrow(

@@ -20,6 +20,15 @@ class Settings(BaseSettings):
     # realtime with the base/int8 model; raise on hosts with cores to spare.
     whisper_cpu_threads: int = 1
 
+    # Remote STT via LiteLLM — routes to any OpenAI-compatible
+    # /audio/transcriptions endpoint (a local AI node running an
+    # OpenAI-compatible whisper server, a LiteLLM proxy router, Groq, etc.)
+    # instead of transcribing on this container's CPU. Leave blank to use the
+    # local faster-whisper model configured above.
+    whisper_remote_model: str = ""
+    whisper_remote_api_base: str = ""
+    whisper_remote_api_key: str = ""
+
     p25_audio_dir: str = "/data/audio"
     # How often (seconds) to scan the audio directory for new files.
     scan_interval: float = 5.0
