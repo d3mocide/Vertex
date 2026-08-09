@@ -36,6 +36,13 @@ logger = logging.getLogger("transcription")
 
 AUDIO_EXTS = {".wav", ".mp3", ".ogg", ".m4a"}
 
+# Cap retries so a file that can never transcribe (e.g. a squelch-noise-only
+# clip, or a remote STT node that consistently errors on it) doesn't get
+# resent to the STT endpoint forever — one attempt every scan cycle, with no
+# backoff or limit, turns into a permanent flood against the remote host.
+_MAX_ATTEMPTS = 3
+_RETRY_BACKOFF_BASE = 30.0  # seconds; doubles per attempt (30s, 60s, ...)
+
 
 def _pg_url(url: str) -> str:
     """Strip SQLAlchemy async driver prefix so asyncpg accepts the URL."""
@@ -49,6 +56,10 @@ class TranscriptionService:
         self._redis: aioredis.Redis | None = None
         # Tracks files already processed (or in-progress) within this run.
         self._processed: set[str] = set()
+        # Failed-attempt bookkeeping so a permanently-failing file backs off
+        # and is eventually given up on instead of retried every scan cycle.
+        self._attempts: dict[str, int] = {}
+        self._next_attempt: dict[str, float] = {}
 
     async def start(self) -> None:
         if settings.whisper_remote_model:
@@ -117,6 +128,7 @@ class TranscriptionService:
 
         while True:
             try:
+                now = time.monotonic()
                 # Recorder output is nested by date/TGID; recurse so new files are discovered.
                 candidates = [
                     f
@@ -124,6 +136,7 @@ class TranscriptionService:
                     if f.is_file()
                     and f.suffix.lower() in AUDIO_EXTS
                     and str(f) not in self._processed
+                    and self._next_attempt.get(str(f), 0.0) <= now
                 ]
                 # Process oldest files first so the log stays chronological.
                 for f in sorted(candidates, key=lambda p: p.stat().st_mtime):
@@ -158,11 +171,40 @@ class TranscriptionService:
             )
 
             await self._persist(path, text)
+            self._attempts.pop(str(path), None)
+            self._next_attempt.pop(str(path), None)
 
         except Exception as exc:
-            logger.error("[transcription] failed %s: %s", path.name, exc)
-            # Release the claim so the next scan cycle retries.
-            self._processed.discard(str(path))
+            attempts = self._attempts.get(str(path), 0) + 1
+            self._attempts[str(path)] = attempts
+
+            if attempts >= _MAX_ATTEMPTS:
+                logger.error(
+                    "[transcription] giving up on %s after %d failed attempts (last error: %s)",
+                    path.name, attempts, exc,
+                )
+                # Persist an empty transcription so this file is never
+                # reconsidered (by this run's backfill or a future restart).
+                try:
+                    await self._persist(path, "")
+                except Exception as persist_exc:
+                    logger.error(
+                        "[transcription] failed to mark %s as given up: %s",
+                        path.name, persist_exc,
+                    )
+                self._attempts.pop(str(path), None)
+                self._next_attempt.pop(str(path), None)
+            else:
+                logger.error(
+                    "[transcription] failed %s (attempt %d/%d): %s",
+                    path.name, attempts, _MAX_ATTEMPTS, exc,
+                )
+                # Release the claim so a later scan cycle retries, after a
+                # backoff that grows with each failed attempt.
+                self._processed.discard(str(path))
+                self._next_attempt[str(path)] = (
+                    time.monotonic() + _RETRY_BACKOFF_BASE * (2 ** (attempts - 1))
+                )
 
     async def _transcribe(self, path: Path) -> str:
         lang = settings.whisper_language if settings.whisper_language != "auto" else None
