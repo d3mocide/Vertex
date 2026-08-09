@@ -5,6 +5,12 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 
 ---
 
+## 2026-08-09 — Cap transcription retries to stop infinite spam against remote STT host
+
+- **Bug**: [transcription/main.py](transcription/main.py) retried a failed transcription forever — on any exception it just released the file's claim and let the next `_watch_loop` scan cycle (`SCAN_INTERVAL`, default 5s) resend it, with no attempt limit or backoff. A P25 recording that can never transcribe (e.g. a short squelch/noise-only clip, or a remote STT endpoint erroring on it) got resent indefinitely. User reported this hammering their `localai` host with repeated `/audio/transcriptions` requests for the same one or two files, each spawning a new `/tmp/whisperNNNN/<uuid>.mp3` temp dir on that box.
+- **Fix**: added bounded retry with exponential backoff. `_process()` now tracks per-file attempt counts (`self._attempts`) and next-eligible-retry time (`self._next_attempt`); failures back off 30s, 60s, ... and after `_MAX_ATTEMPTS` (3) the file is given up on — persisted with an empty `transcription` string (instead of left `NULL`) so it's never reconsidered by this run's watch loop, a future restart's backfill, or the seeded `_processed` set. `_watch_loop`'s candidate scan now skips files still inside their backoff window.
+- **Motivation**: stop Vertex from spamming a paired remote AI host with endless retranscription requests for audio that will never successfully transcribe.
+
 ## 2026-08-07 — Remote STT option for P25 transcription via LiteLLM
 
 - **Remote Whisper config** ([transcription/config.py](transcription/config.py), [transcription/main.py](transcription/main.py)): new `WHISPER_REMOTE_MODEL` / `WHISPER_REMOTE_API_BASE` / `WHISPER_REMOTE_API_KEY` settings. When `WHISPER_REMOTE_MODEL` is set, the service skips loading the local `faster-whisper` model entirely and transcribes each P25 call via `litellm.atranscription()` against any OpenAI-compatible `/audio/transcriptions` endpoint (a local AI node, a LiteLLM proxy router, or a hosted provider like Groq) — same SDK-direct pattern the `summary` poller already uses for `SUMMARY_LLM_MODEL`. Local CPU transcription (`WHISPER_MODEL`/`WHISPER_DEVICE`/etc.) remains the default when left blank.
