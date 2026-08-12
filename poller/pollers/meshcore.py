@@ -35,6 +35,23 @@ _POLL_INTERVAL = 60
 _RETRY_DELAY = 15
 _PACKET_LIMIT = 200
 
+_MESSAGE_EVENT_TYPES = (
+    "message_received",
+    "channel_message_received",
+    "channel_message",
+    "room_message_received",
+    "room_message",
+    "room_post_message",
+    "room_post",
+    "contact_message_received",
+    "contact_message",
+    "contact_msg",
+    "direct_message_received",
+    "direct_message",
+    "chat_message",
+    "message",
+)
+
 
 class MeshCorePoller(BasePoller):
     """pyMC-Repeater poller: adverts, SNR metrics, and system health via REST + SSE."""
@@ -222,6 +239,7 @@ class MeshCorePoller(BasePoller):
             })))
             await asyncio.sleep(_RETRY_DELAY)
 
+
     async def _handle_sse_event(self, event_type: str | None, data: dict, base_url: str):
         if not event_type and isinstance(data, dict):
             event_type = data.get("event")
@@ -233,8 +251,8 @@ class MeshCorePoller(BasePoller):
             if entity and _should_publish_node(entity):
                 await publish_entity(entity)
 
-        elif event_type in ("message_received", "channel_message_received"):
-            message = _normalize_repeater_message(data, base_url, event_type)
+        elif event_type in _MESSAGE_EVENT_TYPES:
+            message = _normalize_repeater_message(data, base_url, event_type or "")
             try:
                 await _save_mesh_message(message)
             except Exception as exc:
@@ -625,7 +643,11 @@ def _normalize_repeater_message(data: dict, source_url: str, event_type: str) ->
         )
 
     ts = str(ts_raw) if ts_raw is not None else ""
-    msg_type = "channel" if event_type == "channel_message_received" else "direct"
+    msg_type = (
+        "direct"
+        if any(k in (event_type or "").lower() for k in ("direct", "contact", "dm"))
+        else "channel"
+    )
     fingerprint = f"{source_url}|{companion}|{sender_pubkey}|{ts}|{text}"
     message_id = hashlib.sha1(fingerprint.encode("utf-8", errors="ignore")).hexdigest()
     return {

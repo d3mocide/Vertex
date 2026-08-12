@@ -5,6 +5,13 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 
 ---
 
+## 2026-08-12 — Fixed MeshCore Companion SSE event filtering for room and direct messages
+
+- **Bug**: Chat messages emitted over pyMC-Repeater companion SSE streams (`GET /api/companion/events?companion=<name>`) under event names such as `room_message_received`, `room_message`, `contact_message`, `direct_message_received`, and `message` were ignored by `_handle_sse_event` in [meshcore.py](poller/pollers/meshcore.py), causing live messages to be dropped before database storage or WebSocket broadcast.
+- **Fix**: Expanded `_MESSAGE_EVENT_TYPES` in [meshcore.py](poller/pollers/meshcore.py) to cover room, channel, contact, and direct message event types emitted by pyMC-Repeater. Updated `_normalize_repeater_message` to dynamically classify `msg_type` as `direct` vs `channel`.
+- **Tests**: Added unit test coverage in [test_meshcore_events.py](poller/tests/test_meshcore_events.py).
+- **Validation**: Python syntax check and TypeScript type check (`npx tsc -p frontend/tsconfig.json --noEmit`) passed with 0 errors.
+
 ## 2026-08-09 — Cap transcription retries to stop infinite spam against remote STT host
 
 - **Bug**: [transcription/main.py](transcription/main.py) retried a failed transcription forever — on any exception it just released the file's claim and let the next `_watch_loop` scan cycle (`SCAN_INTERVAL`, default 5s) resend it, with no attempt limit or backoff. A P25 recording that can never transcribe (e.g. a short squelch/noise-only clip, or a remote STT endpoint erroring on it) got resent indefinitely. User reported this hammering their `localai` host with repeated `/audio/transcriptions` requests for the same one or two files, each spawning a new `/tmp/whisperNNNN/<uuid>.mp3` temp dir on that box.
