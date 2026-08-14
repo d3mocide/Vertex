@@ -8,7 +8,6 @@ Or via Docker (recommended — matches production pyModeS version):
 """
 from __future__ import annotations
 
-import math
 import os
 import sys
 import unittest
@@ -681,7 +680,6 @@ class TestDecoderIngestV2(unittest.TestCase):
 
     def test_last_seen_not_future(self):
         """last_seen in entity dict must not be in the future."""
-        import time
         even_bytes = bytes.fromhex(self.POSITION_EVEN)
         odd_bytes  = bytes.fromhex(self.POSITION_ODD)
         self.decoder.ingest(even_bytes)
@@ -726,7 +724,6 @@ class TestCPRGuards(unittest.TestCase):
         self.decoder = BeastAircraftDecoder()
         # Pre-seed an aircraft with a known position.
         self.icao = "aabbcc"
-        from collections import deque
         ac = _AircraftState(
             icao=self.icao,
             lat=45.523,

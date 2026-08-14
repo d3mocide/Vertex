@@ -11,7 +11,6 @@ Enable via P25_AUDIO_ENABLED=true in .env. Requires a RadioStream to be configur
 
 import asyncio
 import logging
-import os
 import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -238,6 +237,6 @@ class P25AudioRecorder(BasePoller):
         if rows:
             ids = [r["id"] for r in rows]
             await get_pool().execute(
-                f"DELETE FROM p25_recordings WHERE id = ANY($1::int[])", ids
+                "DELETE FROM p25_recordings WHERE id = ANY($1::int[])", ids
             )
             logger.info("[p25_rec] purged %d recordings older than %dd", len(rows), settings.p25_audio_retention_days)

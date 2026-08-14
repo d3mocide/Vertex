@@ -288,7 +288,7 @@ class CotEmitter(BasePoller):
                 logger.warning(
                     "[cot] TCP connect failed (%d): %s — retry in %.0fs", failures, exc, delay
                 )
-            except Exception as exc:
+            except Exception:
                 failures += 1
                 logger.exception("[cot] Unexpected error (%d) — retry in %.0fs", failures, delay)
 

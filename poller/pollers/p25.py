@@ -11,7 +11,6 @@ been active beyond its priority-weighted budget, a OP25 skip command is
 sent to force the scanner to the next slot.
 """
 
-import asyncio
 import json
 import logging
 import time

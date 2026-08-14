@@ -104,7 +104,7 @@ async def main():
     except asyncio.CancelledError:
         logger.info("Gather cancelled")
         pass
-    except Exception as exc:
+    except Exception:
         logger.exception("Gather raised exception")
         raise
     finally:
