@@ -12,7 +12,6 @@ on the map with its current reading and status.
 """
 
 import logging
-from datetime import datetime, timezone
 
 import httpx
 
