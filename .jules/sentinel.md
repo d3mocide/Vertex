@@ -31,3 +31,8 @@
 **Vulnerability:** In `backend/routers/radio.py`, the `_validate_request_url` event hook used to validate URLs in `httpx.AsyncClient` with `follow_redirects=True` called `validate_safe_url` synchronously. Because `validate_safe_url` performs blocking DNS resolution (`socket.getaddrinfo`), executing it in an async context blocked the backend's main event loop, creating a Denial of Service (DoS) vulnerability.
 **Learning:** Using synchronous functions that perform network operations (like DNS resolution) within async event hooks or contexts blocks the asyncio event loop, causing severe latency and potential DoS under load.
 **Prevention:** Always offload synchronous blocking calls (such as `socket.getaddrinfo` within SSRF validation) to a separate thread using `await asyncio.get_running_loop().run_in_executor(None, func, *args)` when used within an async context.
+
+## 2025-05-28 - [SSRF in MeshCore Message Sending]
+**Vulnerability:** The `/mesh/messages` endpoint (`send_mesh_message`) fetched the `meshcore` source URL from the database and constructed an outbound HTTP POST request to pyMC-Repeater without validating the target URL via the centralized SSRF protection. If an attacker configured a malicious `meshcore` poller source URL, they could trigger an SSRF payload.
+**Learning:** Poller sources fetched from the database should not be trusted for outbound network requests without strict SSRF validation. Any outbound HTTP request dynamically constructed using user-configurable inputs stored in the database must be verified.
+**Prevention:** Always use centralized SSRF validation (`validate_safe_url_async`) before dispatching outbound HTTP requests from database-stored URLs.
