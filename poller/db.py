@@ -157,7 +157,8 @@ async def write_entity_observation(entity: dict, record_observation: bool = True
     else:
         # If critical display or identity metadata changed, update immediately
         from bus import _entity_cache
-        prev = _entity_cache.get(entity_id_key)
+        prev_entry = _entity_cache.get(entity_id_key)
+        prev = prev_entry[1] if prev_entry else None
         if prev and (prev.get("display_name") != entity.get("display_name") or prev.get("identity") != entity.get("identity")):
             should_write_entity = True
 
