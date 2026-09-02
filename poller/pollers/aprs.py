@@ -193,6 +193,20 @@ class AprsPoller(BasePoller):
                             logger.info("[aprs] %s:%d: %s", host, port, line)
                             if "logresp" in line.lower():
                                 login_ack_seen = True
+                            elif "not allowed" in line.lower():
+                                # This backend rejected our login outright (e.g.
+                                # a regional server blocklisting the generic
+                                # N0CALL/guest login) but otherwise leaves the
+                                # socket open for ~30s before hanging up on its
+                                # own. Reconnect immediately — rotate.aprs2.net
+                                # is a pool of independent servers, so the next
+                                # attempt will likely land on a different one.
+                                logger.warning(
+                                    "[aprs] %s:%d rejected our login, reconnecting "
+                                    "(check APRS_CALLSIGN/APRS_PASSCODE if this persists)",
+                                    host, port,
+                                )
+                                break
                         continue
                     if ":" not in line or ">" not in line:
                         continue
