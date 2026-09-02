@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import re
+import time
 from urllib.parse import urlparse
 
 from bus import publish_entity
@@ -159,9 +160,17 @@ class AprsPoller(BasePoller):
             try:
                 await validate_safe_host(host)
                 logger.info("[aprs] connecting to %s:%d", host, port)
+                connect_ts = time.monotonic()
                 reader, writer = await asyncio.open_connection(host, port)
                 writer.write(login.encode("utf-8"))
                 await writer.drain()
+
+                # The server's login response (a "# logresp ..." comment line)
+                # tells us whether our passcode/callsign was accepted and, if
+                # not, why — surface it instead of silently discarding every
+                # "#" line, since a rejected login looks identical to a
+                # network blip (a clean EOF) otherwise.
+                login_ack_seen = False
 
                 while True:
                     try:
@@ -170,9 +179,22 @@ class AprsPoller(BasePoller):
                         logger.warning("[aprs] read timeout, reconnecting")
                         break
                     if not raw:
+                        logger.warning(
+                            "[aprs] %s:%d closed the connection after %.1fs%s",
+                            host, port, time.monotonic() - connect_ts,
+                            "" if login_ack_seen else " (no login response received)",
+                        )
                         break
                     line = raw.decode("utf-8", errors="ignore").strip()
-                    if not line or line.startswith("#") or ":" not in line or ">" not in line:
+                    if not line:
+                        continue
+                    if line.startswith("#"):
+                        if not login_ack_seen:
+                            logger.info("[aprs] %s:%d: %s", host, port, line)
+                            if "logresp" in line.lower():
+                                login_ack_seen = True
+                        continue
+                    if ":" not in line or ">" not in line:
                         continue
 
                     header, payload = line.split(":", 1)
