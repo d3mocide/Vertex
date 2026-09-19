@@ -105,6 +105,11 @@ class Settings(BaseSettings):
     summary_llm_model: str = ""
     summary_llm_api_key: str = ""
     summary_llm_api_base: str = ""
+    # Output token budget for the summary completion. Reasoning ("thinking")
+    # models spend part of this budget on an internal reasoning trace before
+    # emitting the final answer, so a small value can starve the answer
+    # entirely — raise this if SUMMARY_LLM_MODEL is a reasoning model.
+    summary_llm_max_tokens: int = 4096
 
     # AISstream.io public cloud fallback (used when no local ais sources in DB)
     aisstream_api_key: str = ""

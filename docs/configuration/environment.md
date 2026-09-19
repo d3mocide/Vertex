@@ -133,8 +133,15 @@ TinyGS credentials and station configuration are managed separately through the 
 | `SUMMARY_LLM_MODEL` | LiteLLM-compatible model identifier |
 | `SUMMARY_LLM_API_KEY` | API key for the selected model provider |
 | `SUMMARY_LLM_API_BASE` | Custom base URL for self-hosted or proxy backends |
+| `SUMMARY_LLM_MAX_TOKENS` | Output token budget for the completion (default `4096`) |
 
 Leave `SUMMARY_LLM_MODEL` blank to disable summary generation.
+
+Reasoning ("thinking") models emit an internal reasoning trace before their
+final answer and can exhaust `SUMMARY_LLM_MAX_TOKENS` on that trace alone,
+leaving the answer empty. If the briefing panel shows nothing, or logs show
+`LLM ... produced no answer content`, raise `SUMMARY_LLM_MAX_TOKENS` (or
+disable the model's thinking mode, if the backend supports it).
 
 ## P25 Transcription (Whisper) Settings
 
