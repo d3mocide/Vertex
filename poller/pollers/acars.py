@@ -27,10 +27,8 @@ import json
 import logging
 import time
 from datetime import datetime, timezone
-from typing import Optional
 
 import websockets
-from websockets.exceptions import WebSocketException
 
 from bus import get_bus
 from db import write_acars_message, get_pool

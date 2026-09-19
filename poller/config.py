@@ -20,7 +20,8 @@ class RegionConfig(BaseModel):
 
 def load_regions(settings: Optional["Settings"] = None) -> list[RegionConfig]:
     """Load regions from sources.yml, falling back to the single bbox from settings."""
-    import yaml, os
+    import yaml
+    import os
     from config import settings as global_settings
     s = settings or global_settings
     sources_path = os.environ.get("SOURCES_YML", "/config/sources.yml")

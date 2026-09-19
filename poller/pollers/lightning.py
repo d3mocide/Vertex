@@ -20,7 +20,6 @@ import json
 import logging
 import random
 import time
-from datetime import datetime, timezone
 
 from bus import set_feed
 from config import settings

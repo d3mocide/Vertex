@@ -6,7 +6,6 @@ statistical baseline (mean ± σ over the configured window). Anomalies are
 published to Redis as 'anomaly_event' messages and persisted as Event rows.
 """
 
-import asyncio
 import json
 import logging
 import math

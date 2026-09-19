@@ -13,7 +13,7 @@ import asyncio
 import os
 import sys
 from datetime import datetime, timedelta, timezone
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 _POLLER_ROOT = os.path.join(os.path.dirname(__file__), "..")
 if _POLLER_ROOT not in sys.path:

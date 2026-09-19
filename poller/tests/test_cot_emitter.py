@@ -26,7 +26,7 @@ if _POLLER_ROOT not in sys.path:
 sys.modules.pop("pollers.cot_emitter", None)
 sys.modules.pop("cot_emitter", None)
 
-from pollers.cot_emitter import _build_cot, _build_annotation_cot  # noqa: E402
+from pollers.cot_emitter import _build_cot  # noqa: E402
 
 
 def test_build_cot_uid_resolution():
