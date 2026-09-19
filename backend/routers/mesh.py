@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from deps import get_db
 from redis_bus import get_redis
+from security import validate_safe_url_async
 
 router = APIRouter(tags=["mesh"])
 logger = logging.getLogger(__name__)
@@ -192,6 +193,11 @@ async def send_mesh_message(
     api_key = parsed.username
     netloc = parsed.hostname + (f":{parsed.port}" if parsed.port else "")
     base_url = urlunparse(parsed._replace(netloc=netloc)).rstrip("/")
+
+    try:
+        await validate_safe_url_async(base_url, allowed_schemes={"http", "https"})
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=f"Invalid or unsafe MeshCore source URL: {exc}")
 
     headers = {}
     if api_key:
