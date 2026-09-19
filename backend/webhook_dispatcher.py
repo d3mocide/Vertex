@@ -138,6 +138,16 @@ async def run_webhook_dispatcher() -> None:
                 raw = message.get("data")
                 if not raw:
                     continue
+
+                # ⚡ Bolt Optimization: Fast path bypasses json.loads for non-event messages.
+                # Avoids massive event loop lag from parsing huge snapshots and high-frequency entity_updates.
+                if isinstance(raw, bytes):
+                    if b'"type": "event"' not in raw and b'"type":"event"' not in raw:
+                        continue
+                elif isinstance(raw, str):
+                    if '"type": "event"' not in raw and '"type":"event"' not in raw:
+                        continue
+
                 try:
                     msg = json.loads(raw)
                 except Exception:
