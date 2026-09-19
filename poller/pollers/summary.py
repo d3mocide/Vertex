@@ -17,8 +17,6 @@ litellm.suppress_debug_info = True
 # Suppress Pydantic serialization warnings from LiteLLM/Pydantic V2 mismatch
 warnings.filterwarnings("ignore", category=UserWarning, message="Pydantic serializer warnings")
 
-_MAX_TOKENS = 1536
-
 _INJECTION_PATTERNS = ('###', 'SYSTEM:', '<|', '[INST]', '<<SYS>>')
 
 
@@ -233,7 +231,7 @@ class AISummaryPoller(BasePoller):
                 {"role": "system", "content": _SYSTEM},
                 {"role": "user", "content": prompt},
             ],
-            "max_tokens": _MAX_TOKENS,
+            "max_tokens": settings.summary_llm_max_tokens,
         }
         if settings.summary_llm_api_key:
             kwargs["api_key"] = settings.summary_llm_api_key
@@ -242,9 +240,25 @@ class AISummaryPoller(BasePoller):
 
         try:
             response = await litellm.acompletion(**kwargs)
-            text = response.choices[0].message.content.strip()
+            message = response.choices[0].message
+            text = (message.content or "").strip()
         except Exception as exc:
             logger.warning("[summary] LLM call failed (%s): %s", settings.summary_llm_model, exc)
+            return
+
+        if not text:
+            # Reasoning ("thinking") models emit their chain-of-thought in a
+            # separate reasoning/reasoning_content field and can burn the
+            # entire max_tokens budget on it before writing any answer,
+            # leaving `content` empty. Skip the update rather than
+            # publishing a blank briefing over the last good one.
+            reasoning = getattr(message, "reasoning_content", None) or getattr(message, "reasoning", None)
+            logger.warning(
+                "[summary] LLM %s produced no answer content (finish_reason=%s, reasoning_chars=%d) — "
+                "it likely exhausted max_tokens on internal reasoning. Raise SUMMARY_LLM_MAX_TOKENS or "
+                "disable the model's thinking/reasoning mode. Keeping previous summary.",
+                settings.summary_llm_model, response.choices[0].finish_reason, len(reasoning or ""),
+            )
             return
 
         await set_feed("summary:latest", {
