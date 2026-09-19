@@ -1,5 +1,6 @@
 import json
 import logging
+import re
 import time
 from datetime import datetime, timezone
 
@@ -35,8 +36,31 @@ _SYSTEM = (
     "Your task is to provide a high-fidelity, professional briefing based on real-time data feeds. "
     "Synthesize information across domains (Weather, Traffic, Utilities, Fire, News) to identify "
     "critical trends or compound risks. Be concise but thorough. Use professional terminology. "
-    "Avoid preamble and sign-off."
+    "Output only the briefing body, starting directly with the first substantive point. Do not "
+    "include a title, memo header, or letterhead — no 'SITUATIONAL AWARENESS BRIEFING' banner and "
+    "no TO:/FROM:/DATE:/TIME:/SOURCE:/SUBJECT: lines. Never invent a timestamp or a placeholder "
+    "like '[Current System Time]'; the display already shows one. Avoid preamble and sign-off."
 )
+
+# Some backends (especially local/reasoning models) prepend a memo-style
+# header block despite the system prompt above. Strip it defensively so a
+# non-compliant model doesn't leak "TIME: [Current System Time]"-style
+# boilerplate into the panel, which already renders its own timestamp.
+_TITLE_LINE_RE = re.compile(r'^\**\s*SITUATIONAL AWARENESS BRIEFING\s*\**\s*:?\s*$', re.IGNORECASE)
+_HEADER_LINE_RE = re.compile(r'^\**\s*(TIME|DATE|TO|FROM|SOURCE|SUBJECT|SCOPE|STATUS|RE)\s*:\s*.*$', re.IGNORECASE)
+
+
+def _strip_boilerplate(text: str) -> str:
+    lines = text.splitlines()
+    i = 0
+    while i < len(lines):
+        stripped = lines[i].strip()
+        if not stripped or _TITLE_LINE_RE.match(stripped) or _HEADER_LINE_RE.match(stripped):
+            i += 1
+            continue
+        break
+    cleaned = "\n".join(lines[i:]).strip()
+    return cleaned or text.strip()
 
 
 class AISummaryPoller(BasePoller):
@@ -260,6 +284,8 @@ class AISummaryPoller(BasePoller):
                 settings.summary_llm_model, response.choices[0].finish_reason, len(reasoning or ""),
             )
             return
+
+        text = _strip_boilerplate(text)
 
         await set_feed("summary:latest", {
             "ts": datetime.now(timezone.utc).isoformat(),
