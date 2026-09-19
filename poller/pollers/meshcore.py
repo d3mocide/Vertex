@@ -34,6 +34,9 @@ logger = logging.getLogger(__name__)
 _POLL_INTERVAL = 60
 _RETRY_DELAY = 15
 _PACKET_LIMIT = 200
+# Sender device clocks are often wrong (RTC-less nodes, unset time). Trust the
+# sender's timestamp only when it is this close to our own receive time.
+_MAX_CLOCK_SKEW_SECS = 24 * 3600
 
 _MESSAGE_EVENT_TYPES = (
     "message_received",
@@ -614,6 +617,21 @@ async def _publish_health(stats: dict, src: dict) -> None:
     })))
 
 
+def _message_time(ts_raw) -> datetime.datetime:
+    """Message time: the sender's clock if plausible, else our receive time."""
+    now = datetime.datetime.now(datetime.timezone.utc)
+    try:
+        val = float(ts_raw)
+        if val > 1e11:  # milliseconds
+            val /= 1000.0
+        sent = datetime.datetime.fromtimestamp(val, tz=datetime.timezone.utc)
+    except (TypeError, ValueError, OverflowError, OSError):
+        return now
+    if abs((sent - now).total_seconds()) > _MAX_CLOCK_SKEW_SECS:
+        return now
+    return sent
+
+
 def _normalize_repeater_message(data: dict, source_url: str, event_type: str) -> dict:
     if "arg2" in data and "arg6" in data:
         text = data.get("arg2") or ""
@@ -660,7 +678,7 @@ def _normalize_repeater_message(data: dict, source_url: str, event_type: str) ->
         "sender_key":       str(sender_pubkey),
         "outgoing":         False,
         "acked":            False,
-        "timestamp":        ts,
+        "timestamp":        _message_time(ts_raw).isoformat(),
         "source_url":       source_url,
     }
 
@@ -668,15 +686,9 @@ def _normalize_repeater_message(data: dict, source_url: str, event_type: str) ->
 async def _save_mesh_message(message: dict) -> None:
     from db import get_pool
 
-    ts_raw = message.get("timestamp")
     try:
-        val = float(ts_raw) if ts_raw else None
-        ts = (
-            datetime.datetime.fromtimestamp(val, tz=datetime.timezone.utc)
-            if val
-            else datetime.datetime.now(datetime.timezone.utc)
-        )
-    except Exception:
+        ts = datetime.datetime.fromisoformat(message["timestamp"])
+    except (KeyError, TypeError, ValueError):
         ts = datetime.datetime.now(datetime.timezone.utc)
 
     await get_pool().execute(

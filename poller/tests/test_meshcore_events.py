@@ -5,8 +5,10 @@ Run from poller/:
 """
 from __future__ import annotations
 
+import datetime
 import os
 import sys
+import time
 from unittest.mock import AsyncMock, patch
 
 _POLLER_ROOT = os.path.join(os.path.dirname(__file__), "..")
@@ -17,6 +19,7 @@ import pytest
 from pollers.meshcore import (
     MeshCorePoller,
     _MESSAGE_EVENT_TYPES,
+    _message_time,
     _normalize_repeater_message,
 )
 
@@ -57,6 +60,29 @@ class TestNormalizeRepeaterMessage:
         msg = _normalize_repeater_message(data, "http://192.168.1.10:8000", "direct_message_received")
         assert msg["msg_type"] == "direct"
         assert msg["text"] == "Private text"
+
+
+class TestMessageTime:
+    def _age(self, dt):
+        return abs((datetime.datetime.now(datetime.timezone.utc) - dt).total_seconds())
+
+    def test_plausible_sender_time_is_kept(self):
+        sent = time.time() - 120
+        assert abs(_message_time(sent).timestamp() - sent) < 1
+
+    def test_millisecond_timestamp_is_converted(self):
+        sent = time.time() - 120
+        assert abs(_message_time(sent * 1000).timestamp() - sent) < 1
+
+    @pytest.mark.parametrize("bad", [4000000000, 1000000000, "junk", None, ""])
+    def test_bad_clock_falls_back_to_receive_time(self, bad):
+        assert self._age(_message_time(bad)) < 5
+
+    def test_normalized_timestamp_is_parseable_iso(self):
+        data = {"arg0": "V", "arg1": "X", "arg2": "hi", "arg3": 4000000000, "arg6": "abcd1234"}
+        msg = _normalize_repeater_message(data, "http://x", "message")
+        parsed = datetime.datetime.fromisoformat(msg["timestamp"])
+        assert self._age(parsed) < 5
 
 
 @pytest.mark.asyncio
