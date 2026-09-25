@@ -5,6 +5,13 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 
 ---
 
+## 2026-09-19 — Fixed MeshCore chat not updating: bad sender clocks and unparseable live timestamps
+
+- **Bug**: Companion messages appeared on the pyMC server but not in Vertex's Mesh Chat. Two causes in [meshcore.py](poller/pollers/meshcore.py): (1) the sender's device timestamp was stored as the message time, and nodes with wrong clocks produced rows dated 2050/2096/2103 that sorted above every real message in both `ORDER BY ts DESC` and the frontend sort; (2) the live `mesh_message` WebSocket event carried the raw numeric timestamp string, which the frontend's `Date.parse` turns into `NaN` (time 0), so live messages sorted to the oldest position and were trimmed by the 300-message cap.
+- **Fix**: new `_message_time()` uses the sender timestamp only when within 24h of receive time (ms timestamps converted), otherwise the receive time. `_normalize_repeater_message` now emits it as an ISO string and `_save_mesh_message` parses that same value, so the database row and the live event agree.
+- **Tests**: added `TestMessageTime` to [test_meshcore_events.py](poller/tests/test_meshcore_events.py).
+- **Data cleanup**: existing future-dated `mesh_messages` rows were reset to `now()` with a one-time SQL update (12 rows).
+
 ## 2026-08-12 — Fixed MeshCore Companion SSE event filtering for room and direct messages
 
 - **Bug**: Chat messages emitted over pyMC-Repeater companion SSE streams (`GET /api/companion/events?companion=<name>`) under event names such as `room_message_received`, `room_message`, `contact_message`, `direct_message_received`, and `message` were ignored by `_handle_sse_event` in [meshcore.py](poller/pollers/meshcore.py), causing live messages to be dropped before database storage or WebSocket broadcast.
