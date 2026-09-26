@@ -33,6 +33,8 @@ _TIMEOUT = httpx.Timeout(10.0)
 # Intersections: accept a near-miss between the two streets up to this distance
 # (OSM ways often stop a few metres short of the centre line they meet).
 _INTERSECTION_TOLERANCE_M = 40
+# Nominatim's maximum results per query.
+_MAX_SEGMENTS = 40
 # Sentinel for Geocoder.lookups once the service has failed in this pass.
 _EXHAUSTED = 10**9
 
@@ -49,6 +51,16 @@ def _viewbox() -> str:
 def _in_bbox(lat: float, lon: float) -> bool:
     return (settings.bbox_min_lat <= lat <= settings.bbox_max_lat
             and settings.bbox_min_lon <= lon <= settings.bbox_max_lon)
+
+
+def _extent(lines: list[dict], pad: float = 0.005) -> str:
+    """Nominatim viewbox (left,top,right,bottom) around GeoJSON lines, padded ~500 m."""
+    pts = []
+    for g in lines:
+        coords = g["coordinates"] if g["type"] == "LineString" else [c for part in g["coordinates"] for c in part]
+        pts.extend(coords)
+    lons, lats = [p[0] for p in pts], [p[1] for p in pts]
+    return ",".join(f"{round(v, 6):g}" for v in (min(lons) - pad, max(lats) + pad, max(lons) + pad, min(lats) - pad))
 
 
 def is_geocodable(location: str | None) -> bool:
@@ -74,7 +86,8 @@ class Geocoder:
         client = self._client or httpx.AsyncClient(timeout=_TIMEOUT)
         try:
             resp = await client.get(f"{self.base}/search", params={
-                "format": "jsonv2", "countrycodes": "us", "viewbox": _viewbox(), "bounded": 1, **params,
+                "format": "jsonv2", "countrycodes": "us", "viewbox": _viewbox(), "bounded": 1,
+                "state": settings.geocoder_state, **params,
             })
             resp.raise_for_status()
             return resp.json()
@@ -126,15 +139,25 @@ class Geocoder:
         return entry["lat"], entry["lon"]
 
     async def _address(self, location: str) -> tuple[float, float] | None:
-        results = await self._get({"street": location, "state": settings.geocoder_state, "limit": 1})
+        results = await self._get({"street": location, "limit": 1, "addressdetails": 1})
         for r in results:
+            # When the house number is unknown Nominatim falls back to the
+            # street itself — possibly kilometres long. A wrong pin (and wrong
+            # geofence tag) is worse than none, so only exact matches count.
+            if not (r.get("address") or {}).get("house_number"):
+                continue
             lat, lon = float(r["lat"]), float(r["lon"])
             if _in_bbox(lat, lon):
                 return lat, lon
         return None
 
-    async def _street_geojson(self, street: str) -> list[dict]:
-        results = await self._get({"street": street, "state": settings.geocoder_state, "limit": 10, "polygon_geojson": 1})
+    async def _street_geojson(self, street: str, viewbox: str | None = None) -> list[dict]:
+        # dedupe=0: by default Nominatim merges same-named segments and returns
+        # only a handful, usually missing the one that meets the cross street.
+        params = {"street": street, "limit": _MAX_SEGMENTS, "dedupe": 0, "polygon_geojson": 1}
+        if viewbox:
+            params["viewbox"] = viewbox
+        results = await self._get(params)
         return [r["geojson"] for r in results
                 if isinstance(r.get("geojson"), dict) and r["geojson"].get("type") in ("LineString", "MultiLineString")]
 
@@ -144,6 +167,12 @@ class Geocoder:
         lines_a, lines_b = await self._street_geojson(a), await self._street_geojson(b)
         if not lines_a or not lines_b:
             return None
+        # A long road can exceed the result cap; re-query it only within the
+        # other (shorter) street's extent, which is where they can cross.
+        if len(lines_a) >= _MAX_SEGMENTS and len(lines_b) < _MAX_SEGMENTS:
+            lines_a = await self._street_geojson(a, _extent(lines_b)) or lines_a
+        elif len(lines_b) >= _MAX_SEGMENTS and len(lines_a) < _MAX_SEGMENTS:
+            lines_b = await self._street_geojson(b, _extent(lines_a)) or lines_b
         row = await self.pool.fetchrow(
             """
             WITH a AS (SELECT ST_Union(ST_SetSRID(ST_GeomFromGeoJSON(g), 4326)) AS g FROM unnest($1::text[]) g),
