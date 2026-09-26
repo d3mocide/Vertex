@@ -17,7 +17,7 @@ if _POLLER_ROOT not in sys.path:
 import pytest
 
 import pollers.summary_context as summary_context
-from pollers.summary import _extract_reasoning, _posture
+from pollers.summary import _completions_url, _extract_reasoning, _model_name, _posture
 from pollers.summary_context import (
     _TRIM_MARK,
     fit_budget,
@@ -127,12 +127,18 @@ def test_fit_budget_trims_lowest_priority_first():
 
 
 def test_extract_reasoning_from_field_and_inline_think():
-    msg = SimpleNamespace(reasoning_content="field trace", reasoning=None, provider_specific_fields=None)
-    assert _extract_reasoning(msg, "**BOTTOM LINE:** ok") == ("**BOTTOM LINE:** ok", "field trace")
+    assert _extract_reasoning({"reasoning_content": "field trace"}, "**BOTTOM LINE:** ok") == ("**BOTTOM LINE:** ok", "field trace")
+    assert _extract_reasoning({"reasoning": "llama.cpp trace"}, "Answer") == ("Answer", "llama.cpp trace")
+    assert _extract_reasoning({}, "<think>inline</think>\nAnswer") == ("Answer", "inline")
+    assert _extract_reasoning({}, "dangling</think>Answer") == ("Answer", "dangling")
 
-    bare = SimpleNamespace(reasoning_content=None, reasoning=None, provider_specific_fields={})
-    assert _extract_reasoning(bare, "<think>inline</think>\nAnswer") == ("Answer", "inline")
-    assert _extract_reasoning(bare, "dangling</think>Answer") == ("Answer", "dangling")
+
+def test_openai_compatible_model_and_url():
+    assert _model_name("openai/qwen3.5-9b-defiant-fable-mtp") == "qwen3.5-9b-defiant-fable-mtp"
+    assert _model_name("gpt-4o-mini") == "gpt-4o-mini"
+    assert _completions_url("http://192.0.2.10:8080/") == "http://192.0.2.10:8080/v1/chat/completions"
+    assert _completions_url("http://host:11434/v1") == "http://host:11434/v1/chat/completions"
+    assert _completions_url("") == "https://api.openai.com/v1/chat/completions"
 
 
 def test_posture_parsed_from_bottom_line():

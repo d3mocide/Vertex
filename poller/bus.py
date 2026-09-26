@@ -101,12 +101,17 @@ async def publish_entity(
         logger.warning("DB write failed for %s: %s\n%s", entity.get("entity_id"), exc, traceback.format_exc())
 
 
-async def set_feed(key: str, data):
+async def set_feed(key: str, data, broadcast: bool = True):
+    """Store a feed snapshot in Redis and, unless broadcast=False, push it to
+    WebSocket clients. Large feeds the UI fetches on demand over REST should
+    not be broadcast."""
     r = await get_bus()
     key = sanitize_payload(key)
     data = sanitize_payload(data)
     payload = json.dumps(data)
     await r.set(f"feed:{key}", payload)
+    if not broadcast:
+        return
     # Radio active state gets its own typed message so the frontend can react immediately
     # ⚡ Bolt Optimization: String concatenation bypasses a second json.dumps() for the wrapper
     msg_type = "radio_update" if key == "radio:active" else "feed_update"

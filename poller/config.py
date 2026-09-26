@@ -98,12 +98,16 @@ class Settings(BaseSettings):
     fire_alert_recent_hours: int = 720    # 30 days
     fire_regional_radius_km: int = 1200
     fire_regional_recent_hours: int = 336  # 14 days
+    # NIFC perimeters older than this (by last update) are not fetched.
+    nifc_perimeter_max_age_days: int = 30
 
-    # AI situational summary — configure any LiteLLM-compatible model.
-    # Examples:
-    #   anthropic/claude-haiku-4-5-20251001  (requires SUMMARY_LLM_API_KEY)
-    #   ollama/llama3.2                       (requires SUMMARY_LLM_API_BASE=http://host:11434)
-    #   openai/gpt-4o-mini                    (requires SUMMARY_LLM_API_KEY)
+    # AI situational summary — any OpenAI-compatible /chat/completions endpoint
+    # (LocalAI, llama.cpp, vLLM, Ollama, LM Studio, OpenAI). SUMMARY_LLM_API_BASE
+    # is the server root or its /v1 URL; a leading "openai/" on the model name
+    # is accepted and stripped. Examples:
+    #   SUMMARY_LLM_MODEL=qwen3.5-9b-instruct   SUMMARY_LLM_API_BASE=http://ai-node:8080
+    #   SUMMARY_LLM_MODEL=llama3.2              SUMMARY_LLM_API_BASE=http://host:11434/v1
+    #   SUMMARY_LLM_MODEL=gpt-4o-mini           (OpenAI; requires SUMMARY_LLM_API_KEY)
     # Leave SUMMARY_LLM_MODEL blank to disable the summary poller entirely.
     summary_llm_model: str = ""
     summary_llm_api_key: str = ""

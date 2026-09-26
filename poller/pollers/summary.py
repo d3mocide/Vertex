@@ -4,20 +4,15 @@ import re
 import time
 from datetime import datetime, timezone
 
-import litellm
+import httpx
 
 from bus import get_bus, set_feed
 from config import settings
 from .base import BasePoller
 from .summary_context import build_context, parse_ts
 
-import warnings
 
 logger = logging.getLogger(__name__)
-litellm.suppress_debug_info = True
-
-# Suppress Pydantic serialization warnings from LiteLLM/Pydantic V2 mismatch
-warnings.filterwarnings("ignore", category=UserWarning, message="Pydantic serializer warnings")
 
 # Redis key set by the backend when the UI requests an immediate refresh.
 _DEMAND_KEY = "summary:generate_now"
@@ -86,13 +81,25 @@ OUTPUT FORMAT — Markdown, exactly these sections in this order, no preamble or
 - Feeds that were unavailable or stale and how that limits this assessment. Omit this section if there are none."""
 
 
-def _extract_reasoning(message, content: str) -> tuple[str, str]:
-    """Return (answer, reasoning), handling separate reasoning fields and inline <think> blocks."""
-    reasoning = getattr(message, "reasoning_content", None) or getattr(message, "reasoning", None)
-    if not reasoning:
-        psf = getattr(message, "provider_specific_fields", None) or {}
-        if isinstance(psf, dict):
-            reasoning = psf.get("reasoning_content") or psf.get("reasoning")
+def _model_name(model: str) -> str:
+    """Accept LiteLLM-style "openai/<model>" strings; send the bare model id."""
+    return model.split("/", 1)[1] if model.startswith("openai/") else model
+
+
+def _completions_url(api_base: str) -> str:
+    """OpenAI-compatible chat completions URL from a base like http://host:8080 or .../v1."""
+    base = (api_base or "https://api.openai.com/v1").rstrip("/")
+    return f"{base}/chat/completions" if base.endswith("/v1") else f"{base}/v1/chat/completions"
+
+
+def _extract_reasoning(message: dict, content: str) -> tuple[str, str]:
+    """Return (answer, reasoning) from an OpenAI-compatible message.
+
+    Reasoning models return their trace in `reasoning_content` (vLLM,
+    DeepSeek) or `reasoning` (llama.cpp / LocalAI), or inline as <think>
+    blocks in the content.
+    """
+    reasoning = message.get("reasoning_content") or message.get("reasoning") or ""
     reasoning = reasoning if isinstance(reasoning, str) else ""
 
     inline = _THINK_RE.findall(content)
@@ -265,54 +272,50 @@ class AISummaryPoller(BasePoller):
             + context
         )
 
-        kwargs: dict = {
-            "model": settings.summary_llm_model,
+        body: dict = {
+            "model": _model_name(settings.summary_llm_model),
             "messages": [
                 {"role": "system", "content": system},
                 {"role": "user", "content": prompt},
             ],
             "max_tokens": settings.summary_llm_max_tokens,
-            "timeout": settings.summary_llm_timeout_s,
-            # The OpenAI client retries twice by default; for a multi-minute
-            # generation that triples the cost of a backend crash. The poll
-            # loop already retries after summary_min_regen_s.
-            "max_retries": 0,
         }
-        if settings.summary_llm_api_key:
-            kwargs["api_key"] = settings.summary_llm_api_key
-        if settings.summary_llm_api_base:
-            kwargs["api_base"] = settings.summary_llm_api_base
         if settings.summary_llm_temperature.strip():
             try:
-                kwargs["temperature"] = float(settings.summary_llm_temperature)
+                body["temperature"] = float(settings.summary_llm_temperature)
             except ValueError:
                 logger.warning("[summary] ignoring invalid SUMMARY_LLM_TEMPERATURE=%r", settings.summary_llm_temperature)
         if settings.summary_llm_reasoning_effort.strip():
-            kwargs["reasoning_effort"] = settings.summary_llm_reasoning_effort.strip()
-            # Let it through for OpenAI-compatible endpoints whose model name
-            # LiteLLM doesn't recognise as reasoning-capable.
-            kwargs["allowed_openai_params"] = ["reasoning_effort"]
+            body["reasoning_effort"] = settings.summary_llm_reasoning_effort.strip()
         if settings.summary_llm_extra_body.strip():
             try:
-                kwargs["extra_body"] = json.loads(settings.summary_llm_extra_body)
-            except json.JSONDecodeError:
-                logger.warning("[summary] ignoring invalid SUMMARY_LLM_EXTRA_BODY (not JSON)")
+                body.update(json.loads(settings.summary_llm_extra_body))
+            except (json.JSONDecodeError, TypeError, ValueError):
+                logger.warning("[summary] ignoring invalid SUMMARY_LLM_EXTRA_BODY (not a JSON object)")
+        headers = {"Authorization": f"Bearer {settings.summary_llm_api_key}"} if settings.summary_llm_api_key else {}
 
         started = time.monotonic()
         try:
-            response = await litellm.acompletion(**kwargs)
-            message = response.choices[0].message
-            finish_reason = response.choices[0].finish_reason
-            text, reasoning = _extract_reasoning(message, message.content or "")
+            # No retries: a multi-minute generation that failed once should not
+            # be re-run immediately; the poll loop retries after summary_min_regen_s.
+            async with httpx.AsyncClient(timeout=settings.summary_llm_timeout_s) as client:
+                resp = await client.post(_completions_url(settings.summary_llm_api_base), json=body, headers=headers)
+            if resp.status_code >= 400:
+                raise RuntimeError(f"HTTP {resp.status_code}: {resp.text[:300]}")
+            data = resp.json()
+            choice = data["choices"][0]
+            message = choice.get("message") or {}
+            finish_reason = choice.get("finish_reason")
+            text, reasoning = _extract_reasoning(message, message.get("content") or "")
         except Exception as exc:
             logger.warning("[summary] LLM call failed (%s): %s", settings.summary_llm_model, exc)
             return
         duration_s = round(time.monotonic() - started, 1)
 
-        usage = getattr(response, "usage", None)
+        usage = data.get("usage") or {}
         usage_dict = {
-            "prompt_tokens": getattr(usage, "prompt_tokens", None),
-            "completion_tokens": getattr(usage, "completion_tokens", None),
+            "prompt_tokens": usage.get("prompt_tokens"),
+            "completion_tokens": usage.get("completion_tokens"),
         } if usage else {}
 
         await r.set(_DEBUG_KEY, json.dumps({
