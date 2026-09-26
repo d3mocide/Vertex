@@ -4,6 +4,7 @@ import { useCivicPick } from '../../store'
 import type { RadioIncident, RadioIncidentCategory } from '../../storeTypes'
 import { MAP_STYLE, DEFAULT_CENTER } from '../../config'
 import { ensureKnownStyleImages, KNOWN_STYLE_IMAGE_FALLBACKS } from '../Map'
+import { ChipRow, Chip, EmptyState } from '../common/Page'
 
 // ─── Classification metadata ─────────────────────────────────────────────────
 
@@ -47,7 +48,7 @@ const PIN = { critical: '#C62828', serious: '#FFB800', routine: '#8C8C8C' }
 const hhmm = (iso: string) =>
   new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })
 
-function isActive(i: RadioIncident, now: number): boolean {
+export function isActive(i: RadioIncident, now: number): boolean {
   return i.status !== 'cleared' && now - Date.parse(i.last_seen) <= STALE_MS
 }
 
@@ -274,6 +275,9 @@ export function RadioIncidents() {
   const [showRoutine, setShowRoutine] = useState(false)
   const [zone, setZone] = useState('')
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  // Phones show the list or the map, not both stacked (the map pushed the
+  // list a full screen down).
+  const [mobileView, setMobileView] = useState<'list' | 'map'>('list')
   const [now, setNow] = useState(() => Date.now())
 
   // Re-evaluate "active"/"no update" labels every minute.
@@ -311,73 +315,70 @@ export function RadioIncidents() {
       || Date.parse(b.last_seen) - Date.parse(a.last_seen)),
   [base, filter, now])
 
-  const activeCount = all.filter((i) => i.severity >= 3 && isActive(i, now)).length
-
   return (
-    <section className="space-y-4" aria-labelledby="radio-incidents-heading">
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-3 border-b border-white/10 pb-3">
-        <div>
+    <section className="space-y-3" aria-labelledby="radio-incidents-heading">
+      <div className="flex items-end justify-between gap-3">
+        <div className="min-w-0">
           <h3 id="radio-incidents-heading" className="section-heading !mb-1 flex items-center gap-2">
             <span className="ms text-[16px]" aria-hidden="true">cell_tower</span>
             Dispatch Incidents
           </h3>
-          <p className="text-[11px] text-on-surface-variant">
-            Clustered from P25 dispatch audio over the last <span className="font-mono">{radioIncidents?.window_hours ?? 24}h</span>
+          <p className="text-[12px] text-on-surface-variant">
+            From P25 dispatch audio · last <span className="font-mono">{radioIncidents?.window_hours ?? 24}h</span>
             {radioIncidents?.ts && <> · updated <span className="font-mono">{hhmm(radioIncidents.ts)}</span></>}
           </p>
         </div>
-        <div className="flex gap-6 font-mono">
-          <div><div className="text-[20px] text-amber-gold leading-none">{activeCount}</div><div className="label-caps mt-1">Active now</div></div>
-          <div><div className="text-[20px] text-on-surface leading-none">{all.filter((i) => i.severity >= 3).length}</div><div className="label-caps mt-1">Significant 24h</div></div>
-          <div><div className="text-[20px] text-on-surface leading-none">{all.filter((i) => i.severity >= 3 && i.lat != null).length}</div><div className="label-caps mt-1">On map</div></div>
+        <div className="lg:hidden flex shrink-0 border border-white/10" role="group" aria-label="View">
+          {(['list', 'map'] as const).map((v) => (
+            <button
+              key={v}
+              type="button"
+              onClick={() => setMobileView(v)}
+              aria-pressed={mobileView === v}
+              className={`h-8 px-3 flex items-center gap-1 font-mono text-[11px] uppercase tracking-widest ${mobileView === v ? 'bg-amber-gold text-onyx-black font-bold' : 'text-on-surface-variant'}`}
+            >
+              <span className="ms text-[16px] leading-none" aria-hidden="true">{v === 'list' ? 'list' : 'map'}</span>
+              {v}
+            </button>
+          ))}
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
+      <ChipRow>
         {FILTERS.map((f) => (
-          <button
-            key={f.id}
-            onClick={() => setFilter(f.id)}
-            aria-pressed={filter === f.id}
-            className={`px-2.5 py-1 border text-[11px] font-bold uppercase tracking-widest transition-colors focus:outline-none ${filter === f.id ? 'border-amber-gold text-amber-gold bg-amber-gold/10' : 'border-white/10 text-on-surface-variant hover:border-white/25'}`}
-          >
-            {f.label} <span className="font-mono font-normal">{counts[f.id] ?? 0}</span>
-          </button>
+          <Chip key={f.id} active={filter === f.id} onClick={() => setFilter(f.id)}
+            activeClass="border-amber-gold text-amber-gold bg-amber-gold/10 font-bold">
+            {f.label} <span className="opacity-70">{counts[f.id] ?? 0}</span>
+          </Chip>
         ))}
-        <span className="w-px h-5 bg-white/10 mx-1" aria-hidden="true" />
-        <button
-          onClick={() => setActiveOnly((v) => !v)}
-          aria-pressed={activeOnly}
-          className={`px-2.5 py-1 border text-[11px] uppercase tracking-widest transition-colors focus:outline-none ${activeOnly ? 'border-amber-gold text-amber-gold bg-amber-gold/10' : 'border-white/10 text-on-surface-variant hover:border-white/25'}`}
-        >
+        <span className="w-px h-5 bg-white/10" aria-hidden="true" />
+        <Chip active={activeOnly} onClick={() => setActiveOnly((v) => !v)}
+          activeClass="border-amber-gold text-amber-gold bg-amber-gold/10">
           Active now
-        </button>
-        <button
-          onClick={() => setShowRoutine((v) => !v)}
-          aria-pressed={showRoutine}
-          className={`px-2.5 py-1 border text-[11px] uppercase tracking-widest transition-colors focus:outline-none ${showRoutine ? 'border-amber-gold text-amber-gold bg-amber-gold/10' : 'border-white/10 text-on-surface-variant hover:border-white/25'}`}
-        >
+        </Chip>
+        <Chip active={showRoutine} onClick={() => setShowRoutine((v) => !v)}
+          activeClass="border-amber-gold text-amber-gold bg-amber-gold/10">
           Include routine
-        </button>
+        </Chip>
         {zones.length > 0 && (
           <select
             value={zone}
             onChange={(e) => setZone(e.target.value)}
             aria-label="Filter by zone"
-            className="bg-onyx-deep border border-white/10 text-on-surface text-[11px] uppercase tracking-widest px-2 py-1 focus:outline-none focus:border-amber-gold/60"
+            className="h-8 bg-onyx-deep border border-white/10 text-on-surface font-mono text-[11px] uppercase tracking-widest px-2 focus:outline-none focus:border-amber-gold/60"
           >
             <option value="">All zones</option>
             {zones.map((z) => <option key={z} value={z}>{z}</option>)}
           </select>
         )}
-      </div>
+      </ChipRow>
 
       <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] gap-4 items-start">
-        <div className="order-2 lg:order-1">
+        <div className={mobileView === 'list' ? '' : 'hidden lg:block'}>
           {radioIncidents == null ? (
-            <p className="text-[11px] text-on-surface-variant italic">Waiting for dispatch data…</p>
+            <EmptyState icon="hourglass_empty">Waiting for dispatch data…</EmptyState>
           ) : shown.length === 0 ? (
-            <p className="text-[11px] text-on-surface-variant italic border border-white/5 p-4">No incidents match these filters.</p>
+            <EmptyState icon="filter_alt_off">No incidents match these filters.</EmptyState>
           ) : (
             <ul className="space-y-2 lg:max-h-[560px] lg:overflow-y-auto lg:pr-1">
               {shown.map((i) => (
@@ -392,7 +393,7 @@ export function RadioIncidents() {
             </ul>
           )}
         </div>
-        <div className="order-1 lg:order-2 lg:sticky lg:top-4">
+        <div className={`lg:sticky lg:top-4 ${mobileView === 'map' ? '' : 'hidden lg:block'}`}>
           <IncidentMap incidents={shown} selectedId={selectedId} onSelect={setSelectedId} />
         </div>
       </div>
