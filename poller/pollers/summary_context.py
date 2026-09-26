@@ -414,6 +414,9 @@ def _minor_quake(details, band: str) -> bool:
     return mag < (2.5 if band == "LOCAL" else 4.5)
 
 
+# Event types from worldwide sources (USGS quakes, GDACS disasters).
+_GLOBAL_FEEDS = {"seismic", "gdacs"}
+
 _ANOMALY_RE = re.compile(r"^(?P<metric>[\w ]+?) count (?P<dir>spike|drop)", re.I)
 
 
@@ -450,11 +453,19 @@ def format_event_activity(counts, prior_counts, recent, now: datetime, baseline:
         by_type.setdefault(etype, {})[sev or "info"] = n
     prior = {etype: n for etype, n in prior_counts}
     lines = []
+    worldwide = []
     for etype in sorted(by_type, key=lambda t: -sum(by_type[t].values())):
         total = sum(by_type[etype].values())
+        if etype in _GLOBAL_FEEDS:
+            # Worldwide feeds: a global count says nothing about the region and
+            # its "unusual" flags misled the model; regional events are listed below.
+            worldwide.append(f"{etype} {total}")
+            continue
         sev_text = ", ".join(f"{s} {n}" for s, n in sorted(by_type[etype].items(), key=lambda x: -x[1]))
         base = baseline_note(total, baseline.get(etype, 0.0)) if baseline is not None else ""
         lines.append(f"- {etype}: {total} ({sev_text}); prior window {prior.get(etype, 0)}{base}")
+    if worldwide:
+        lines.append(f"- worldwide feeds (not regional activity — only regional events are listed below): {', '.join(worldwide)}")
     header = "SYSTEM EVENT ACTIVITY (count this window; 'prior window' = the equivalent period before it"
     header += f"; '{baseline_label()} median' = typical count per window):" if baseline is not None else "):"
     out = header + "\n" + "\n".join(lines)

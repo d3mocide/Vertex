@@ -8,7 +8,7 @@ export * from './storeTypes'
 import type {
   Entity, Track, AlertItem, NewsItem, WeatherState, RadioState,
   TrafficCamera, SystemEvent, CustomLayerItem, SystemHealth, TrafficIncident,
-  SummaryState, TrailPoint, AirportSnapshot, AppMode, NavTab, EntityTypeFilter,
+  SummaryState, RadioIncidentFeed, TrailPoint, AirportSnapshot, AppMode, NavTab, EntityTypeFilter,
   RangeFilter, ReplayData, EntityMissionTag, AnnotationItem,
   TrafficFlowSensor, UtilityStatus, OregonStatus, MeshMessage, MeshLink,
   AcarsMessage,
@@ -27,6 +27,7 @@ export interface CivicStore {
   cameras:          TrafficCamera[]
   trafficFlow:      TrafficFlowSensor[]
   trafficIncidents: TrafficIncident[]
+  radioIncidents:   RadioIncidentFeed | null
   utilityStatus:    UtilityStatus | null
   oregonStatus:     OregonStatus | null
   trail:            TrailPoint[]
@@ -74,6 +75,7 @@ export interface CivicStore {
   setCameras:       (cameras: TrafficCamera[]) => void
   setTrafficFlow:   (flow: TrafficFlowSensor[]) => void
   setTrafficIncidents: (incidents: TrafficIncident[]) => void
+  setRadioIncidents:   (feed: RadioIncidentFeed) => void
   setUtilityStatus: (status: UtilityStatus) => void
   setOregonStatus:  (status: OregonStatus) => void
   setTrail:         (trail: TrailPoint[]) => void
@@ -345,6 +347,7 @@ export const useCivicStore = create<CivicStore>()(
   cameras:          [],
   trafficFlow:      [],
   trafficIncidents: [],
+  radioIncidents:   null,
   utilityStatus:    null,
   oregonStatus:     null,
   trail:            [],
@@ -547,6 +550,7 @@ export const useCivicStore = create<CivicStore>()(
   setCameras:   (cameras) => set({ cameras }),
   setTrafficFlow: (trafficFlow) => set({ trafficFlow }),
   setTrafficIncidents: (trafficIncidents) => set({ trafficIncidents }),
+  setRadioIncidents:   (radioIncidents) => set({ radioIncidents }),
   setUtilityStatus: (utilityStatus) => set({ utilityStatus }),
   setOregonStatus: (oregonStatus) => set({ oregonStatus }),
   setTrail:     (trail)   => set({ trail }),

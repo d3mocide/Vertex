@@ -218,6 +218,24 @@ async def get_active():
         return {"state": "idle", "tgid": None, "tag": None}
 
 
+@router.get("/incidents")
+async def get_incidents():
+    """Structured incidents extracted from dispatch transcripts (see poller radio_incidents).
+
+    Same payload the poller publishes as feed:radio:incidents over the WebSocket;
+    used for the initial load of the Incidents page.
+    """
+    raw = await get_redis().get("feed:radio:incidents")
+    empty = {"ts": None, "window_hours": None, "incident_count": 0, "located_count": 0,
+             "transcribed_calls": 0, "by_category": {}, "incidents": []}
+    if not raw:
+        return empty
+    try:
+        return json.loads(raw)
+    except (json.JSONDecodeError, TypeError):
+        return empty
+
+
 @router.get("/calls")
 async def get_calls(
     hours: int = Query(24, ge=1, le=168),

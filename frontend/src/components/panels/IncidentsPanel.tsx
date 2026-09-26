@@ -4,6 +4,7 @@ import { isMajorTrafficIncident, isIncidentInRadius } from '../../incidentUtils'
 import ReactMarkdown from 'react-markdown'
 import { API_BASE } from '../../config'
 import { authHeaders } from '../../auth'
+import { RadioIncidents } from './RadioIncidents'
 
 function formatIncidentLocation(incident: { location?: string; lat?: number; lon?: number }): string | undefined {
   const location = incident.location?.trim()
@@ -168,6 +169,9 @@ export function IncidentsPanel() {
           </p>
         </div>
       </header>
+
+      {/* DISPATCH INCIDENTS — clustered from P25 radio (list + map) */}
+      <RadioIncidents />
 
       {/* 1. WEATHER ADVISORIES */}
       {weatherAlerts.length > 0 && (

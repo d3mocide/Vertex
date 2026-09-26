@@ -38,6 +38,41 @@ export interface TrafficIncident {
   severity?: string
 }
 
+// ─── Radio-derived incidents (poller radio_incidents.py) ─────────────────────
+export type RadioIncidentCategory =
+  | 'water_rescue' | 'structure_fire' | 'violence' | 'rescue' | 'hazmat' | 'gas_leak'
+  | 'carbon_monoxide' | 'train_or_ped_struck' | 'crash' | 'vehicle_fire' | 'outside_fire'
+  | 'fire' | 'assault' | 'fire_alarm' | 'medical' | 'other'
+
+export interface RadioIncident {
+  id: string
+  category: RadioIncidentCategory
+  severity: number             // 1 routine … 5 life safety
+  location: string | null      // corrected street name when ASR garbled it
+  location_heard: string | null
+  first_seen: string
+  last_seen: string
+  call_count: number
+  units: string[]
+  status: 'active' | 'on_scene' | 'contained' | 'cleared'
+  acuity: string | null        // MPDS level (alpha … echo)
+  talkgroups: string[]
+  quote: string
+  lat: number | null
+  lon: number | null
+  geofences: string[]          // "<name> (<zone_type>)"
+}
+
+export interface RadioIncidentFeed {
+  ts: string | null
+  window_hours: number | null
+  incident_count: number
+  located_count: number
+  transcribed_calls: number
+  by_category: Record<string, number>
+  incidents: RadioIncident[]
+}
+
 export type SummaryPosture = 'NORMAL' | 'ELEVATED' | 'HIGH'
 
 export interface SummaryState {

@@ -93,6 +93,7 @@ def test_event_activity_rolls_up_anomalies_and_drops_distant_quakes():
     ]
     text = format_event_activity([("anomaly", "high", 2), ("seismic", "high", 1)], [("anomaly", 1)], recent, NOW)
     assert "aircraft: 1 spike, 1 drop" in text
+    assert "- seismic:" not in text and "worldwide feeds (not regional activity" in text
     assert "Molalla" in text
     assert "New Caledonia" not in text and "Carbonado" not in text
     assert "2 distant or minor seismic/disaster events omitted" in text
