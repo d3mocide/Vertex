@@ -135,6 +135,11 @@
   /* iOS safe-area helpers — require viewport-fit=cover in index.html to resolve.
      On non-notched devices / desktop the env() values are 0, so these are no-ops. */
   .pt-safe { padding-top: env(safe-area-inset-top, 0px); }
+  /* Top safe area plus 8px of breathing room, only where there is a top
+     inset (min(8px, inset × 100) is 0 when the inset is 0): keeps the header
+     and advisory strip off the status bar / Dynamic Island on iOS. */
+  .pt-safe-chrome { padding-top: calc(env(safe-area-inset-top, 0px) + min(8px, env(safe-area-inset-top, 0px) * 100)); }
+  .h-safe-chrome { height: calc(env(safe-area-inset-top, 0px) + min(8px, env(safe-area-inset-top, 0px) * 100)); }
   .pb-safe { padding-bottom: env(safe-area-inset-bottom, 0px); }
   .pl-safe { padding-left: env(safe-area-inset-left, 0px); }
   .pr-safe { padding-right: env(safe-area-inset-right, 0px); }

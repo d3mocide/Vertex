@@ -63,7 +63,7 @@ function Dashboard() {
 
   return (
     <div
-      className="dark h-full w-full overflow-hidden flex flex-col font-body text-sm antialiased bg-onyx-black text-on-surface pt-safe pb-[calc(3.5rem_+_env(safe-area-inset-bottom))] lg:pb-0"
+      className="dark h-full w-full overflow-hidden flex flex-col font-body text-sm antialiased bg-onyx-black text-on-surface pt-safe-chrome pb-[calc(3.5rem_+_env(safe-area-inset-bottom))] lg:pb-0"
       data-mode={mode}
     >
       {/* Map Background Layer */}
@@ -77,12 +77,12 @@ function Dashboard() {
         <Map />
       </div>
 
-      {/* Status-bar scrim — gives the iOS status bar / Dynamic Island a steady
-          dark glass backdrop so the chrome doesn't appear to bleed into the
-          live map under the notch. Collapses to 0 height off iOS. */}
+      {/* Status-bar band — a solid backdrop for the iOS status bar / Dynamic
+          Island (plus the 8px gap above the chrome). Solid rather than frosted:
+          a blurred live map read as a smear, and its edge dimmed the advisory
+          strip below. Collapses to 0 height off iOS. */}
       <div
-        className="fixed top-0 inset-x-0 z-30 pointer-events-none bg-onyx-deep/80 backdrop-blur-md"
-        style={{ height: 'env(safe-area-inset-top, 0px)' }}
+        className="fixed top-0 inset-x-0 z-30 pointer-events-none bg-onyx-deep h-safe-chrome"
         aria-hidden="true"
       />
 
