@@ -149,13 +149,17 @@ async def main():
         StreamGaugePoller(),
         GdacsPoller(),
         NifcPoller(),
-        AcarsPoller(),
         GtfsRtPoller(),
         AmtrakPoller(),
         RailInfrastructurePoller(),
     ]
 
-    pollers.append(MqttSubscriberPoller())
+    # Optional integrations — off unless a source exists (they only logged
+    # "not configured" and held a task open otherwise).
+    if settings.acars_enabled:
+        pollers.append(AcarsPoller())
+    if settings.mqtt_enabled:
+        pollers.append(MqttSubscriberPoller())
 
     tasks = [asyncio.create_task(p.run()) for p in pollers]
     if settings.poller_memprofile_minutes > 0:

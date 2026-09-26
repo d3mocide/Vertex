@@ -52,6 +52,9 @@ class Settings(BaseSettings):
     redis_url: str = "redis://localhost:6379"
     database_url: str = "postgresql+asyncpg://vertex:vertex@localhost:5432/vertex"
     log_level: str = "INFO"
+    # Optional integrations; enable when an ACARS decoder / MQTT broker source exists.
+    acars_enabled: bool = False
+    mqtt_enabled: bool = False
     # Diagnostic: when > 0, trace allocations and log the top sites every N
     # minutes. Adds memory/CPU overhead — leave at 0 in normal operation.
     poller_memprofile_minutes: int = 0
@@ -100,7 +103,7 @@ class Settings(BaseSettings):
     fire_alert_radius_km: int = 150
     fire_alert_recent_hours: int = 720    # 30 days
     fire_regional_radius_km: int = 1200
-    fire_regional_recent_hours: int = 336  # 14 days
+    fire_regional_recent_hours: int = 72   # 3 days — only recently updated (active) fires
     # NIFC perimeters older than this (by last update) are not fetched.
     nifc_perimeter_max_age_days: int = 30
 
