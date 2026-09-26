@@ -4,6 +4,7 @@ import { useCivicStore, useCivicPick } from '../store'
 import type { Entity, EntityTypeFilter } from '../storeTypes'
 import { wsTokenParam, authHeaders } from '../auth'
 import { initNotifications, maybeNotify, notifyMeshMessage } from '../notifications'
+import { parseSummary } from '../summaryUtils'
 
 const RECONNECT_DELAY_INITIAL_MS = 1000
 const RECONNECT_DELAY_MAX_MS = 60_000
@@ -288,11 +289,7 @@ export function useWebSocket() {
             } else if (msg.key === 'lightning:strikes' && Array.isArray(msg.data)) {
               appendLightningStrikes(msg.data as Parameters<typeof appendLightningStrikes>[0])
             } else if (msg.key === 'summary:latest' && msgData) {
-              setSummary({
-                summary: typeof msgData.summary === 'string' ? msgData.summary : '',
-                ts: typeof msgData.ts === 'string' ? msgData.ts : null,
-                model: typeof msgData.model === 'string' ? msgData.model : null,
-              })
+              setSummary(parseSummary(msgData))
             }
             break
           case 'mesh_message':

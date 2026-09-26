@@ -13,12 +13,14 @@ def normalize_observation(data: dict) -> dict:
     props = data.get("properties", {})
     temp_c = _val(props.get("temperature"))
     wind_kmh = _val(props.get("windSpeed"))
+    gust_kmh = _val(props.get("windGust"))
     
     return {
         "station": props.get("station", ""),
         "timestamp": props.get("timestamp"),
         "temp_f": round(temp_c * 9/5 + 32, 1) if temp_c is not None else None,
         "wind_mph": round(wind_kmh * 0.621371, 1) if wind_kmh is not None else None,
+        "wind_gust_mph": round(gust_kmh * 0.621371, 1) if gust_kmh is not None else None,
         "wind_dir": _degrees_to_compass(_val(props.get("windDirection"))),
         "condition": props.get("textDescription", ""),
         "humidity": round(_val(props.get("relativeHumidity")) or 0),

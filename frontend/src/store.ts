@@ -326,6 +326,9 @@ const defaultSummary: SummaryState = {
   summary: '',
   ts: null,
   model: null,
+  posture: null,
+  windowHours: null,
+  dataGaps: [],
 }
 
 export const useCivicStore = create<CivicStore>()(

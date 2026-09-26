@@ -318,17 +318,18 @@ class WeatherPoller(BasePoller):
 
     async def _fetch_nwws_products(self) -> list[dict]:
         """Fetch recent NWS text products (AFD, HWO, LSR) for the local forecast office."""
-        office = settings.nws_office or "PDX"
+        office = settings.nws_office or "PQR"
+        climate = settings.nws_climate_station or "PDX"
         product_types = [
-            ("AFD", "Area Forecast Discussion"),
-            ("HWO", "Hazardous Weather Outlook"),
-            ("LSR", "Local Storm Report"),
-            ("CF6", "F6 Climate Data"),
+            ("AFD", "Area Forecast Discussion", office),
+            ("HWO", "Hazardous Weather Outlook", office),
+            ("LSR", "Local Storm Report", office),
+            ("CF6", "F6 Climate Data", climate),
         ]
         results: list[dict] = []
         async with httpx.AsyncClient(timeout=15, headers=_HEADERS) as client:
-            for code, name in product_types:
-                url = f"{NWS_BASE}/products/types/{code}/locations/{office}"
+            for code, name, location in product_types:
+                url = f"{NWS_BASE}/products/types/{code}/locations/{location}"
                 try:
                     resp = await client.get(url)
                     if resp.status_code != 200:
@@ -350,7 +351,7 @@ class WeatherPoller(BasePoller):
                         results.append({
                             "code": code,
                             "name": name,
-                            "office": office,
+                            "office": location,
                             "issuance_time": item.get("issuanceTime"),
                             "text": (text or "").strip(),
                         })

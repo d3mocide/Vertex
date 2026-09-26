@@ -61,6 +61,8 @@ class Settings(BaseSettings):
     region_lat: float = 45.3842
     region_lon: float = -122.7635
     region_name: str = "Tualatin Valley"
+    # IANA timezone used to render local times in the AI briefing.
+    region_timezone: str = "America/Los_Angeles"
 
     # Tualatin/Portland Metro bounding box
     bbox_min_lat: float = 44.8
@@ -111,6 +113,29 @@ class Settings(BaseSettings):
     # emitting the final answer, so a small value can starve the answer
     # entirely — raise this if SUMMARY_LLM_MODEL is a reasoning model.
     summary_llm_max_tokens: int = 4096
+    # How often the briefing is regenerated, and how many hours of history it covers.
+    summary_interval_minutes: int = 60
+    summary_window_hours: int = 24
+    # Minimum seconds between generations (rate-limits on-demand refreshes
+    # from the UI and retries after a failed LLM call).
+    summary_min_regen_s: int = 600
+    # Request timeout — reasoning models on local hardware can take minutes.
+    summary_llm_timeout_s: int = 600
+    # Optional sampling / reasoning controls. Blank = provider default.
+    summary_llm_temperature: str = ""
+    summary_llm_reasoning_effort: str = ""   # low | medium | high
+    # Raw JSON merged into the request body, for server-specific knobs, e.g.
+    # {"chat_template_kwargs": {"enable_thinking": true}} on vLLM/llama.cpp.
+    summary_llm_extra_body: str = ""
+    # Past briefings kept in Redis (newest first) for trend comparison.
+    summary_history_len: int = 24
+    # Most recent P25 transcripts included in the briefing context.
+    summary_max_transcripts: int = 30
+    # Character budget for the data context (~4 chars per token). Lowest-priority
+    # sections (news, then transcripts) are trimmed first to fit. The model's
+    # context window must hold this + the system prompt (~1k tokens) + the
+    # whole reasoning trace + the answer — size it accordingly.
+    summary_context_max_chars: int = 24000
 
     # AISstream.io public cloud fallback (used when no local ais sources in DB)
     aisstream_api_key: str = ""
@@ -225,8 +250,12 @@ class Settings(BaseSettings):
     p25_audio_retention_days: int = 7
     p25_audio_delay_seconds: float = 0.0
 
-    # NWS text products (NWWS-style). Office code for the local forecast office.
-    nws_office: str = "PDX"
+    # NWS text products (NWWS-style). The API files products under different
+    # location ids: forecaster products (AFD, HWO, LSR) under the Weather
+    # Forecast Office id (Portland = PQR), climate reports (CF6) under the
+    # climate station id (Portland = PDX).
+    nws_office: str = "PQR"
+    nws_climate_station: str = "PDX"
 
     # Weather Underground / Weather Company Personal Weather Station.
     # Obtain an API key at https://www.wunderground.com/member/api-keys

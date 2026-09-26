@@ -3,6 +3,7 @@ import { API_BASE, ALERTS_POLL_MS, NEWS_POLL_MS, WEATHER_POLL_MS, CAMERAS_POLL_M
 import { useCivicPick } from '../store'
 import { authHeaders, clearToken } from '../auth'
 import type { TrafficFlowSensor, UtilityStatus, OregonStatus } from '../storeTypes'
+import { parseSummary } from '../summaryUtils'
 
 async function fetchJson<T>(url: string): Promise<T | null> {
   try {
@@ -86,11 +87,7 @@ export function useAlerts() {
     const pollSummary = async () => {
       const data = await fetchJson<Record<string, unknown>>(`${API_BASE}/summary`)
       if (!data) return
-      setSummary({
-        summary: typeof data.summary === 'string' ? data.summary : '',
-        ts: typeof data.ts === 'string' ? data.ts : null,
-        model: typeof data.model === 'string' ? data.model : null,
-      })
+      setSummary(parseSummary(data))
     }
 
     // Fetch utilities

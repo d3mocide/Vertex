@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { WeatherAlert, SystemEvent, useCivicPick } from '../../store'
+import { WeatherAlert, SystemEvent, SummaryPosture, useCivicPick } from '../../store'
 import { isMajorTrafficIncident, isIncidentInRadius } from '../../incidentUtils'
 import ReactMarkdown from 'react-markdown'
 import { API_BASE } from '../../config'
@@ -36,6 +36,12 @@ function deriveIncidentTitle(incident: {
   return 'Traffic incident'
 }
 
+function postureClass(posture: SummaryPosture): string {
+  if (posture === 'HIGH') return 'border-red-emergency bg-red-emergency/10 text-red-emergency'
+  if (posture === 'ELEVATED') return 'border-amber-gold bg-amber-gold/10 text-amber-gold'
+  return 'border-green-ais bg-green-ais/10 text-green-ais'
+}
+
 function AiTrafficSummary() {
   const { summary } = useCivicPick('summary')
   if (!summary.summary) return null
@@ -54,17 +60,27 @@ function AiTrafficSummary() {
             AI Situational Briefing
           </h3>
         </div>
-        <span className="text-[11px] font-mono text-on-surface-variant uppercase tracking-widest">
-          {summary.ts
-            ? new Date(summary.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-            : 'No timestamp'}
-        </span>
+        <div className="flex items-center gap-3">
+          {summary.posture && (
+            <span className={`border px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest ${postureClass(summary.posture)}`}>
+              {summary.posture}
+            </span>
+          )}
+          <span className="text-[11px] font-mono text-on-surface-variant uppercase tracking-widest">
+            {summary.windowHours ? `${summary.windowHours}H · ` : ''}
+            {summary.ts
+              ? new Date(summary.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+              : 'No timestamp'}
+          </span>
+        </div>
       </div>
 
       <div className="text-[12px] text-on-surface leading-relaxed relative z-10 font-sans">
         <ReactMarkdown
           components={{
             strong: ({ ...props }) => <strong className="text-amber-gold font-bold" {...props} />,
+            h2: ({ ...props }) => <h4 className="section-heading mt-4 mb-2 first:mt-0" {...props} />,
+            h3: ({ ...props }) => <h4 className="section-heading mt-4 mb-2 first:mt-0" {...props} />,
             ul: ({ ...props }) => <ul className="list-disc list-outside ml-4 my-2 space-y-1" {...props} />,
             li: ({ ...props }) => <li className="pl-1" {...props} />,
             p: ({ ...props }) => <p className="mb-3 last:mb-0" {...props} />,
@@ -73,6 +89,17 @@ function AiTrafficSummary() {
           {summary.summary}
         </ReactMarkdown>
       </div>
+
+      {summary.dataGaps.length > 0 && (
+        <div className="mt-3 pt-2 border-t border-amber-gold/10 relative z-10">
+          <span className="label-caps">Data gaps</span>
+          <ul className="mt-1 space-y-0.5">
+            {summary.dataGaps.map((gap) => (
+              <li key={gap} className="text-[11px] text-on-surface-variant">{gap}</li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {summary.model && (
         <div className="mt-3 pt-2 border-t border-amber-gold/10 flex justify-end relative z-10">

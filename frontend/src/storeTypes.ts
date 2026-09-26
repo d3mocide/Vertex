@@ -38,10 +38,15 @@ export interface TrafficIncident {
   severity?: string
 }
 
+export type SummaryPosture = 'NORMAL' | 'ELEVATED' | 'HIGH'
+
 export interface SummaryState {
   summary: string
   ts: string | null
   model: string | null
+  posture: SummaryPosture | null
+  windowHours: number | null
+  dataGaps: string[]
 }
 
 // ─── Trail ────────────────────────────────────────────────────────────────────
