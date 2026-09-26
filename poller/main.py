@@ -15,6 +15,7 @@ from pollers.utilities import UtilityPoller
 from pollers.p25 import P25Poller
 from pollers.meshcore import MeshCorePoller
 from pollers.summary import AISummaryPoller
+from pollers.radio_incident_poller import RadioIncidentPoller
 from pollers.seismic import SeismicPoller
 from pollers.fire import FirePoller
 from pollers.aprs import AprsPoller
@@ -76,6 +77,7 @@ async def main():
         P25Poller(),
         MeshCorePoller(),
         AISummaryPoller(),
+        RadioIncidentPoller(),
         SeismicPoller(),
         FirePoller(),
         AprsPoller(),

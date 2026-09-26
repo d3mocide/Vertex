@@ -129,8 +129,11 @@ class Settings(BaseSettings):
     summary_llm_extra_body: str = ""
     # Past briefings kept in Redis (newest first) for trend comparison.
     summary_history_len: int = 24
-    # Most recent P25 transcripts included in the briefing context.
-    summary_max_transcripts: int = 30
+    # Hours of P25 transcripts mined for structured radio incidents
+    # (feed:radio:incidents and the briefing's radio section).
+    radio_incidents_window_hours: int = 24
+    # Days of history used as the "normal" baseline for event and radio volume.
+    summary_baseline_days: int = 7
     # Character budget for the data context (~4 chars per token). Lowest-priority
     # sections (news, then transcripts) are trimmed first to fit. The model's
     # context window must hold this + the system prompt (~1k tokens) + the

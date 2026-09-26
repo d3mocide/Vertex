@@ -14,6 +14,7 @@ import json
 import logging
 import math
 import re
+import statistics
 from datetime import datetime, timedelta, timezone
 from email.utils import parsedate_to_datetime
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -270,6 +271,7 @@ def format_fire_perimeters(payload, now: datetime) -> str:
         lines.append(
             f"- [{distance_band(dist)}] {sanitise(props.get('name') or 'Wildfire', 80)} "
             f"({props.get('state') or '?'}) — {dist_text}, {', '.join(bits)}, updated {fmt_ts(props.get('updated'), now)}"
+            + (f" [in {', '.join(props['_geofences'])}]" if props.get("_geofences") else "")
         )
     return f"MAPPED FIRE PERIMETERS (NIFC, nearest first){stale_note}:\n" + "\n".join(lines)
 
@@ -309,8 +311,9 @@ def format_traffic(incidents, now: datetime, window_start: datetime) -> str:
         loc = sanitise(i.get("location"), 120)
         desc = sanitise(i.get("description"), desc_len)
         detail = f"; {desc}" if desc and desc != loc else ""
+        fences = f" [in {', '.join(i['_geofences'])}]" if i.get("_geofences") else ""
         return (f"- {sanitise(i.get('title'), 90)} [{sanitise(i.get('severity'), 40) or 'impact n/a'}] {loc} — "
-                f"{dist_text} from centre, updated {fmt_ts(i.get('pubDate'), now)}{detail}")
+                f"{dist_text} from centre{fences}, updated {fmt_ts(i.get('pubDate'), now)}{detail}")
 
     out = [f"TRAFFIC — ACTIVE DISRUPTIONS ({len(active)}, nearest first):"]
     out += [line(i, 200) for i in active[:12]] or ["- None."]
@@ -414,10 +417,31 @@ def _minor_quake(details, band: str) -> bool:
 _ANOMALY_RE = re.compile(r"^(?P<metric>[\w ]+?) count (?P<dir>spike|drop)", re.I)
 
 
-def format_event_activity(counts, prior_counts, recent, now: datetime) -> str:
-    """Summarise DB events: per-type counts vs the prior window, anomaly roll-up, notable items.
+def baseline_note(current: int, baseline: float | None) -> str:
+    """Compare a count with its per-window baseline; flag only clear departures."""
+    if baseline is None:
+        return ""
+    note = f"; {baseline_label()} median {baseline:.0f}" if baseline >= 10 else f"; {baseline_label()} median {baseline:.1f}"
+    if baseline >= 3 and current >= 2 * baseline:
+        note += " — UNUSUALLY HIGH"
+    elif baseline >= 4 and current <= baseline / 2:
+        note += " — UNUSUALLY LOW"
+    elif baseline < 1 and current >= 3:
+        note += " — UNUSUALLY HIGH (normally near zero)"
+    return note
+
+
+def baseline_label() -> str:
+    return f"{settings.summary_baseline_days}-day"
+
+
+def format_event_activity(counts, prior_counts, recent, now: datetime, baseline: dict[str, float] | None = None) -> str:
+    """Summarise DB events: per-type counts vs the prior window and the multi-day
+    baseline, anomaly roll-up, and notable items (with geofence tags when the
+    event details carry `_geofences`).
 
     `recent` rows are (ts, event_type, severity, summary, details) newest first.
+    `baseline` maps event_type -> average count per window over the baseline days.
     """
     if not counts and not recent:
         return "SYSTEM EVENTS: None recorded in the window."
@@ -429,8 +453,11 @@ def format_event_activity(counts, prior_counts, recent, now: datetime) -> str:
     for etype in sorted(by_type, key=lambda t: -sum(by_type[t].values())):
         total = sum(by_type[etype].values())
         sev_text = ", ".join(f"{s} {n}" for s, n in sorted(by_type[etype].items(), key=lambda x: -x[1]))
-        lines.append(f"- {etype}: {total} ({sev_text}); prior window {prior.get(etype, 0)}")
-    out = "SYSTEM EVENT ACTIVITY (count this window; 'prior window' = the equivalent period before it):\n" + "\n".join(lines)
+        base = baseline_note(total, baseline.get(etype, 0.0)) if baseline is not None else ""
+        lines.append(f"- {etype}: {total} ({sev_text}); prior window {prior.get(etype, 0)}{base}")
+    header = "SYSTEM EVENT ACTIVITY (count this window; 'prior window' = the equivalent period before it"
+    header += f"; '{baseline_label()} median' = typical count per window):" if baseline is not None else "):"
+    out = header + "\n" + "\n".join(lines)
 
     # Statistical count anomalies fire constantly — roll them up per metric.
     anomalies: dict[str, dict[str, int]] = {}
@@ -445,12 +472,17 @@ def format_event_activity(counts, prior_counts, recent, now: datetime) -> str:
             continue
         if etype.startswith("geofence"):
             continue  # counted above; individual crossings are routine
+        if isinstance(details, str):
+            details = _loads(details)
         dist = event_distance_km(details)
         band = distance_band(dist)
         if band == "DISTANT" or (etype == "seismic" and _minor_quake(details, band)):
             distant += 1
             continue
         where = f"{band}, {round(dist)} km" if dist is not None else band
+        fences = (details or {}).get("_geofences") if isinstance(details, dict) else None
+        if fences:
+            where += f", in {', '.join(fences)}"
         notable.append((rank.get(str(sev).lower(), 3), ts, etype, sev, summary, where))
 
     if anomalies:
@@ -469,22 +501,95 @@ def format_event_activity(counts, prior_counts, recent, now: datetime) -> str:
     return out
 
 
-def format_radio(talkgroups, transcripts, now: datetime) -> str | None:
-    if not talkgroups and not transcripts:
+_CATEGORY_LABEL = {
+    "water_rescue": "WATER/BRIDGE RESCUE", "structure_fire": "STRUCTURE FIRE", "violence": "VIOLENCE (shooting/stabbing)",
+    "rescue": "RESCUE", "hazmat": "HAZMAT", "gas_leak": "GAS LEAK", "carbon_monoxide": "CARBON MONOXIDE",
+    "train_or_ped_struck": "PERSON STRUCK (train/vehicle)", "crash": "TRAFFIC CRASH", "vehicle_fire": "VEHICLE FIRE",
+    "outside_fire": "OUTSIDE/VEGETATION FIRE", "fire": "FIRE (type unclear)", "assault": "ASSAULT",
+    "fire_alarm": "FIRE ALARM", "medical": "MEDICAL", "other": "OTHER",
+}
+
+
+# Radio incidents with no traffic for this long are reported as likely resolved:
+# dispatch rarely broadcasts an explicit "clear" for every call.
+_STALE_AFTER = timedelta(hours=3)
+
+
+def incident_status(inc, now: datetime) -> str:
+    quiet = now - inc.last_seen
+    if inc.status in ("active", "on_scene") and quiet > _STALE_AFTER:
+        return f"no radio update for {int(quiet.total_seconds() // 3600)}h — likely resolved"
+    return inc.status.replace("_", " ")
+
+
+def format_checklist(radio_incidents, traffic_disruptions, now: datetime, window_start: datetime) -> str | None:
+    """A short must-cover list: small models honour an explicit checklist far more
+    reliably than a general instruction to "include life-safety incidents"."""
+    items = []
+    for i in radio_incidents:
+        # Same freshness rule as incident_status(): stale incidents are history, not must-cover.
+        if i.severity >= 4 and now - i.last_seen <= _STALE_AFTER and i.status != "cleared":
+            items.append(f"- {_CATEGORY_LABEL.get(i.category, i.category)} — {sanitise(i.location, 60) or 'location not stated'} "
+                         f"(radio, {fmt_ts(i.first_seen, now)})")
+    for t in traffic_disruptions:
+        updated = parse_ts(t.get("pubDate"))
+        if "closure" in str(t.get("severity", "")).lower() and updated and updated >= now - timedelta(hours=6):
+            items.append(f"- Traffic closure — {sanitise(t.get('location'), 70)} (updated {fmt_ts(t.get('pubDate'), now)})")
+    if not items:
+        return None
+    return ("MUST-COVER CHECKLIST — recent serious items. Each must appear in the briefing, or be explicitly "
+            "dismissed with a reason:\n" + "\n".join(items[:6]))
+
+
+def format_radio_activity(talkgroups, call_volume: int | None, baseline_volume: float | None,
+                          incidents, now: datetime) -> str | None:
+    """Radio section: dispatch volume vs baseline, busiest talkgroups, and the
+    incidents extracted from transcripts (see radio_incidents.py) — significant
+    ones listed, routine ones only counted."""
+    if not talkgroups and not incidents and not call_volume:
         return None
     parts = []
+    head = "P25 RADIO ACTIVITY:"
+    if call_volume is not None:
+        head += f"\n- Dispatch calls this window: {call_volume}{baseline_note(call_volume, baseline_volume)}"
     if talkgroups:
-        tg = [f"- {sanitise(tag, 60) or 'untagged'} (TGID {tgid}): {n} calls" for tag, tgid, n in talkgroups]
-        parts.append("P25 RADIO — busiest talkgroups this window:\n" + "\n".join(tg))
-    if transcripts:
-        tr = [
-            f"- {fmt_ts(ts, now)} [{sanitise(tag, 50) or tgid}] \"{sanitise(text, 220)}\""
-            for ts, tgid, tag, text in transcripts
-        ]
-        parts.append(
-            "P25 RADIO TRANSCRIPTS (automatic speech recognition — expect errors; corroborate before relying on them):\n"
-            + "\n".join(tr)
-        )
+        head += "\n- Busiest talkgroups: " + ", ".join(
+            f"{sanitise(tag, 40) or 'untagged'} {n}" for tag, _tgid, n in talkgroups)
+    parts.append(head)
+
+    if incidents:
+        significant = [i for i in incidents if i.severity >= 3]
+        lines = []
+        for i in significant[:20]:
+            span = fmt_ts(i.first_seen, now)
+            if (i.last_seen - i.first_seen).total_seconds() >= 120:
+                span += f" → {i.last_seen.astimezone(region_tz()).strftime('%H:%M')}"
+            bits = [f"{len(i.calls)} call{'s' if len(i.calls) != 1 else ''}", incident_status(i, now)]
+            if i.units:
+                bits.append("units " + ", ".join(i.units[:6]))
+            if i.acuity:
+                bits.append(f"MPDS {i.acuity}")
+            if i.geofences:
+                bits.append("in " + ", ".join(i.geofences))
+            lines.append(f"- {span} {_CATEGORY_LABEL.get(i.category, i.category.upper())} — "
+                         f"{sanitise(i.location, 80) or 'location not stated'} ({'; '.join(bits)})\n"
+                         f"  radio: \"{sanitise(i.summary_quote, 150)}\"")
+        routine: dict[str, int] = {}
+        high_acuity = 0
+        for i in incidents:
+            if i.severity < 3:
+                routine[i.category] = routine.get(i.category, 0) + 1
+                if i.acuity in ("delta", "echo"):
+                    high_acuity += 1
+        section = ("RADIO-DERIVED INCIDENTS (clustered automatically from dispatch transcripts; ASR text can garble "
+                   "names and numbers — treat as unverified leads unless another source corroborates):\n")
+        section += "\n".join(lines) if lines else "- No significant incidents (fires, rescues, hazards, crashes) dispatched."
+        if routine:
+            section += "\n- Routine calls (counted only): " + ", ".join(
+                f"{_CATEGORY_LABEL.get(k, k).lower()} {v}" for k, v in sorted(routine.items(), key=lambda x: -x[1]))
+            if high_acuity:
+                section += f"; {high_acuity} high-acuity (MPDS Delta/Echo) medical"
+        parts.append(section)
     return "\n\n".join(parts)
 
 
@@ -507,9 +612,39 @@ def format_previous(previous: dict | None, now: datetime) -> str | None:
 
 # ── Data collection (I/O) ────────────────────────────────────────────────────
 
-async def _db_sections(pool, now: datetime, window_start: datetime) -> list[str]:
+def _robust_median(values: list[float]) -> float:
+    """Median of per-window counts, ignoring outage-shaped windows for busy signals.
+
+    A window with under 35% of the busiest window's volume almost always means
+    Vertex or the feed was down, not a quiet day — for signals busy enough to
+    tell (peak >= 20). Sparse signals (quakes, disasters) keep every window.
+    """
+    peak = max(values) if values else 0
+    kept = [v for v in values if v >= 0.35 * peak] if peak >= 20 else values
+    return statistics.median(kept or values or [0])
+
+
+async def _db_sections(pool, now: datetime, window_start: datetime) -> tuple[list[str], list]:
+    """Event, radio and entity sections from PostgreSQL. Returns (sections, radio_incidents)."""
+    from geo_tags import geofences_for_points
+    from .radio_incident_poller import load_incidents
+
     sections: list[str] = []
-    prior_start = window_start - (now - window_start)
+    window = now - window_start
+    prior_start = window_start - window
+    base_start = window_start - timedelta(days=settings.summary_baseline_days)
+    # The baseline is the MEDIAN count per window-sized bucket over the
+    # baseline days: robust to days when Vertex (or a feed) was down, which
+    # would drag a mean down and make normal days look "unusually high".
+    n_buckets = max(1, round((window_start - base_start) / window))
+    bucket_s = window.total_seconds()
+
+    def median_by_key(rows) -> dict:
+        buckets: dict = {}
+        for key, b, n in rows:
+            if 0 <= b < n_buckets:
+                buckets.setdefault(key, [0] * n_buckets)[b] = n
+        return {k: _robust_median(v) for k, v in buckets.items()}
 
     try:
         counts = await pool.fetch(
@@ -522,40 +657,62 @@ async def _db_sections(pool, now: datetime, window_start: datetime) -> list[str]
             "WHERE ts >= $1 AND ts < $2 AND event_type NOT LIKE 'p25%' GROUP BY 1",
             prior_start, window_start,
         )
-        recent = await pool.fetch(
+        base = await pool.fetch(
+            "SELECT event_type, floor(extract(epoch FROM ($2 - ts)) / $3)::int, count(*) FROM events "
+            "WHERE ts >= $1 AND ts < $2 AND event_type NOT LIKE 'p25%' GROUP BY 1, 2",
+            base_start, window_start, bucket_s,
+        )
+        recent = [list(r) for r in await pool.fetch(
             "SELECT ts, event_type, severity, summary, details FROM events "
             "WHERE ts >= $1 AND event_type NOT LIKE 'p25%' AND event_type NOT LIKE 'geofence%' "
             "ORDER BY ts DESC LIMIT 500",
             window_start,
-        )
+        )]
+        # Tag located events (quakes, disasters) with the geofences they fall in.
+        for row in recent:
+            if isinstance(row[4], str):
+                row[4] = _loads(row[4])
+        located = [r for r in recent if isinstance(r[4], dict) and r[1] != "anomaly"]
+        tags = await geofences_for_points(pool, [(r[4].get("lat"), r[4].get("lon")) for r in located])
+        for row, names in zip(located, tags):
+            if names:
+                row[4]["_geofences"] = names
         sections.append(format_event_activity(
             [tuple(r) for r in counts], [tuple(r) for r in prior], [tuple(r) for r in recent], now,
+            baseline=median_by_key([tuple(r) for r in base]),
         ))
     except Exception as exc:
         logger.warning("[summary] event history query failed: %s", exc)
         sections.append("SYSTEM EVENTS: History unavailable (database query failed).")
 
-    talkgroups, transcripts = [], []
+    talkgroups: list[tuple] = []
+    call_volume: int | None = None
+    baseline_volume: float | None = None
+    incidents: list = []
     try:
         talkgroups = [tuple(r) for r in await pool.fetch(
             "SELECT details->>'tag', details->>'tgid', count(*) FROM events "
             "WHERE ts >= $1 AND event_type = 'p25_call_start' "
-            "GROUP BY 1, 2 ORDER BY 3 DESC LIMIT 8",
+            "GROUP BY 1, 2 ORDER BY 3 DESC LIMIT 6",
             window_start,
         )]
+        call_volume = await pool.fetchval(
+            "SELECT count(*) FROM events WHERE ts >= $1 AND event_type = 'p25_call_start'", window_start,
+        )
+        vol = await pool.fetch(
+            "SELECT 'p25', floor(extract(epoch FROM ($2 - ts)) / $3)::int, count(*) FROM events "
+            "WHERE ts >= $1 AND ts < $2 AND event_type = 'p25_call_start' GROUP BY 2",
+            base_start, window_start, bucket_s,
+        )
+        baseline_volume = median_by_key([tuple(r) for r in vol]).get("p25")
     except Exception as exc:
         logger.debug("[summary] talkgroup query failed: %s", exc)
     try:
-        transcripts = [tuple(r) for r in await pool.fetch(
-            "SELECT started_at, tgid, tag, transcription FROM p25_recordings "
-            "WHERE started_at >= $1 AND length(coalesce(transcription, '')) >= 25 "
-            "ORDER BY started_at DESC LIMIT $2",
-            window_start, settings.summary_max_transcripts,
-        )]
+        incidents, _ = await load_incidents(pool, window_start)
     except Exception as exc:
         # p25_recordings is created by the backend; absent on radio-less installs.
-        logger.debug("[summary] transcript query failed: %s", exc)
-    radio = format_radio(talkgroups, transcripts, now)
+        logger.debug("[summary] radio incident extraction failed: %s", exc)
+    radio = format_radio_activity(talkgroups, call_volume, baseline_volume, incidents, now)
     if radio:
         sections.append(radio)
 
@@ -572,7 +729,7 @@ async def _db_sections(pool, now: datetime, window_start: datetime) -> list[str]
     except Exception as exc:
         logger.debug("[summary] entity activity query failed: %s", exc)
 
-    return sections
+    return sections, incidents
 
 
 _TRIM_MARK = "- (remaining items trimmed to fit the model's context window)"
@@ -610,9 +767,18 @@ def fit_budget(sections: list[tuple[int, str]], budget: int) -> list[str]:
 _P_KEEP, _P_HIGH, _P_MED, _P_LOW = 100, 60, 40, 20
 
 
-async def build_context(r, pool, now: datetime, window_hours: int, previous: dict | None) -> tuple[str, list[str]]:
-    """Return (context_text, data_gaps). `pool` may be None if the DB is down."""
+async def build_context(r, pool, now: datetime, window_hours: int,
+                        previous: dict | None) -> tuple[str, list[str], dict]:
+    """Return (context_text, data_gaps, facts). `pool` may be None if the DB is down.
+
+    `facts` carries the structured items the briefing is expected to cover
+    (significant radio incidents, active traffic disruptions) so the caller
+    can score each briefing's coverage.
+    """
+    from geo_tags import geofences_for_points
+
     window_start = now - timedelta(hours=window_hours)
+    facts: dict = {"radio_incidents": [], "traffic_disruptions": []}
     sections: list[tuple[int, str]] = [(_P_KEEP, format_header(now, window_hours, previous.get("ts") if previous else None))]
 
     wx = _loads(await r.get("feed:weather:current"))
@@ -629,9 +795,23 @@ async def build_context(r, pool, now: datetime, window_hours: int, previous: dic
         if isinstance(ent, dict):
             fire_entities.append(ent)
     sections.append((_P_HIGH, format_fire_incidents(fire_entities, now)))
-    sections.append((_P_HIGH, format_fire_perimeters(_loads(await r.get("feed:fire:perimeters")), now)))
+
+    perimeters = _loads(await r.get("feed:fire:perimeters"))
+    feats = perimeters.get("features", []) if isinstance(perimeters, dict) else []
+    if pool is not None and feats:
+        props = [f.get("properties") or {} for f in feats if isinstance(f, dict)]
+        for pr, names in zip(props, await geofences_for_points(pool, [(p.get("centroid_lat"), p.get("centroid_lon")) for p in props])):
+            if names:
+                pr["_geofences"] = names
+    sections.append((_P_HIGH, format_fire_perimeters(perimeters, now)))
 
     traffic = _loads(await r.get("feed:traffic:incidents"))
+    if pool is not None and isinstance(traffic, list) and traffic:
+        for inc, names in zip(traffic, await geofences_for_points(pool, [(i.get("lat"), i.get("lon")) for i in traffic])):
+            if names:
+                inc["_geofences"] = names
+    if isinstance(traffic, list):
+        facts["traffic_disruptions"] = [i for i in traffic if is_active_disruption(i, window_start)][:8]
     sections.append((_P_HIGH + 5, format_traffic(traffic, now, window_start)))
 
     oregon = _loads(await r.get("feed:utility:oregon"))
@@ -643,14 +823,15 @@ async def build_context(r, pool, now: datetime, window_hours: int, previous: dic
         sections.append((_P_HIGH + 10, flash))
 
     if pool is not None:
-        db_sections = await _db_sections(pool, now, window_start)
+        db_sections, radio_incidents = await _db_sections(pool, now, window_start)
+        facts["radio_incidents"] = [i for i in radio_incidents if i.severity >= 3][:20]
         for text in db_sections:
             if text.startswith("P25 RADIO"):
-                # Split so transcripts (large, noisy) trim before talkgroup counts.
-                head, sep, transcripts = text.partition("\n\nP25 RADIO TRANSCRIPTS")
+                # Split so the (valuable) incident list outlives the volume stats.
+                head, sep, incidents = text.partition("\n\nRADIO-DERIVED INCIDENTS")
                 sections.append((_P_MED + 5, head))
                 if sep:
-                    sections.append((_P_LOW + 10, "P25 RADIO TRANSCRIPTS" + transcripts))
+                    sections.append((_P_HIGH + 8, "RADIO-DERIVED INCIDENTS" + incidents))
             elif text.startswith("TRACKED ENTITY"):
                 sections.append((_P_LOW + 5, text))
             else:
@@ -668,7 +849,12 @@ async def build_context(r, pool, now: datetime, window_hours: int, previous: dic
     if prev:
         sections.append((_P_MED, prev))
 
+    checklist = format_checklist(facts["radio_incidents"], facts["traffic_disruptions"], now, window_start)
+    if checklist:
+        # Last in the prompt, where small models attend most reliably.
+        sections.append((_P_KEEP, checklist))
+
     texts = fit_budget(sections, settings.summary_context_max_chars)
     gaps = [t.split("\n", 1)[0] for t in texts
             if "unavailable" in t.split("\n", 1)[0].lower() or "not synced" in t.split("\n", 1)[0].lower()]
-    return "\n\n".join(texts), gaps
+    return "\n\n".join(texts), gaps, facts

@@ -43,6 +43,20 @@ async def get_summary_history(
     return history
 
 
+@router.get("/metrics")
+async def get_summary_metrics(limit: int = Query(24, ge=1, le=100)):
+    """Per-briefing quality metrics (coverage, format, timing), newest first — for tracking prompt tuning."""
+    rows = await get_redis().lrange(_HISTORY_KEY, 0, limit - 1)
+    out = []
+    for raw in rows:
+        try:
+            item = json.loads(raw)
+        except (json.JSONDecodeError, TypeError):
+            continue
+        out.append({k: item.get(k) for k in ("ts", "model", "posture", "duration_s", "usage", "metrics")})
+    return out
+
+
 @router.get("/debug")
 async def get_summary_debug():
     """Exact system/user prompt and response metadata from the last LLM run — for prompt tuning."""

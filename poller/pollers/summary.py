@@ -44,7 +44,8 @@ HOW TO THINK (do this in your reasoning — the output only carries the conclusi
 2. Reconcile. Where sources disagree or only partly overlap (e.g. news reports downed lines while outage counts are low; a hazard appears in news but not in NWS alerts), decide which to trust and why. Check timestamps — a report 20 hours old may already be resolved.
 3. Compare. Contrast with the previous briefing and with the prior-window event counts: what is new, escalating, easing or resolved. Call out real changes in activity levels, not noise.
 4. Test compound risks. A compound risk is two or more INDEPENDENT hazards whose effects interact (e.g. a wind event downing lines while a highway closure limits crew access). One incident and its own consequences (a fire causing a road closure) is a single development, not a compound risk. Several unrelated closures or incidents that merely happen at the same time are not a compound risk either — you must name the specific way one makes the other worse. A compound risk needs overlap in place AND time plus a plausible mechanism. For each candidate, trace the chain (cause → effect → impact), weigh the evidence, and note what would confirm or rule it out. Drop candidates that fail — do not pad.
-5. Mine the radio. Dispatch transcripts are the only source for many live incidents. Pull out every distinct incident with a type and location (structure/vegetation fire, gas leak, hazmat, crash, rescue, multi-unit response); ignore routine medical calls and garbled fragments. Match them to other sources where you can.
+5. Work the radio. The RADIO-DERIVED INCIDENTS section is already clustered from dispatch audio (type, location, units, status, call count). Account for every listed incident: put it in Key Developments or consciously treat it as minor. Multi-unit responses, fires, rescues, gas/CO/hazmat and people struck are rarely minor. Match incidents to other sources (traffic, agency alerts, news) where you can. Use the quoted radio text to sanity-check the extracted type and location — ASR garbles names.
+   Items tagged "[in <zone>]" or "in <zone>" fall inside the operator's own monitored geofences — call that out. Counts flagged UNUSUALLY HIGH/LOW are compared with the multi-day baseline — use them for trends; unflagged counts are normal variation.
 6. Look ahead with the NWS forecaster products: what is likely to change in the next 24 hours, and when.
 7. Set the posture: NORMAL = routine activity, incidents are isolated and handled by normal operations; ELEVATED = an active hazard or incident with material impact on many people or key infrastructure (warning-level weather, major closure of a primary route during the window, significant outages, a fire threatening structures); HIGH = life-safety emergency or major infrastructure failure affecting the region. Isolated ramp closures, small fires and low outage counts are NORMAL.
 8. Only then plan the briefing. Spend your thinking on analysis, not on formatting — the format is fixed below.
@@ -55,6 +56,8 @@ RULES:
 - Recommendations must be concrete actions for an operations center (notify, pre-position, reroute, verify with an agency, update a geofence) naming the road, area or asset and the trigger. Do not start a recommendation with "Monitor" — watch items belong in Next 24 Hours. If nothing warrants action, write "No action required."
 - Ongoing major disruptions (full closure of an interstate or primary route, multi-day outages) belong in Key Developments even if they are not new.
 - Only state activity figures that appear in the data; do not infer that something is active from a total count.
+- The MUST-COVER CHECKLIST at the end of the data lists recent serious items; every one must be covered or explicitly dismissed with a reason.
+- Radio incidents marked "likely resolved" are history: report them as past events, never as active.
 - Any incident with a person in immediate danger (water or bridge rescue, entrapment, structure fire with occupants, active violence) must appear in Key Developments and be named in the bottom line, even when the overall posture is NORMAL.
 - Forecasts may come only from the NWS forecaster products section. If that section is absent, write "No forecast data available." under Next 24 Hours — never describe an outlook you were not given.
 - Radio transcripts and keyword-flagged news are unverified leads — label them as such unless corroborated.
@@ -101,6 +104,63 @@ def _extract_reasoning(message, content: str) -> tuple[str, str]:
         head, _, content = content.partition("</think>")
         reasoning = "\n\n".join([reasoning, head]).strip()
     return content.strip(), reasoning.strip()
+
+
+_REQUIRED_SECTIONS = ("changes since last briefing", "key developments", "compound risks",
+                      "next 24 hours", "recommended actions")
+_LOC_NOISE = {"north", "south", "east", "west", "ave", "st", "blvd", "rd", "dr", "way", "hwy", "pkwy", "ct",
+              "pl", "ln", "ter", "cir", "loop", "fwy", "landmark", "the"}
+_CATEGORY_WORDS = {
+    "water_rescue": ("bridge", "water", "railing", "jumper", "rescue"),
+    "structure_fire": ("structure fire", "house fire", "apartment fire"),
+    "rescue": ("rescue", "collapse", "trapped"),
+    "gas_leak": ("gas",), "carbon_monoxide": ("carbon monoxide", "co "),
+    "hazmat": ("hazmat", "spill", "fuel"), "violence": ("shooting", "stabbing"),
+    "train_or_ped_struck": ("train", "struck"), "crash": ("crash", "collision"),
+}
+
+
+def _mentions(text: str, location: str | None, category: str | None = None) -> bool:
+    """Does the briefing mention this item — by a distinctive location word, else by its type?"""
+    words = [w for w in re.findall(r"[a-z0-9-]+", (location or "").lower())
+             if w not in _LOC_NOISE and len(w) >= 4 and not w.isdigit()]
+    if words:
+        return any(w in text for w in words)
+    return any(k in text for k in _CATEGORY_WORDS.get(category or "", ()))
+
+
+def _section(text: str, name: str) -> str:
+    m = re.search(r"###\s*" + name + r".*?\n(.*?)(?=\n###|\Z)", text, re.S | re.I)
+    return m.group(1) if m else ""
+
+
+def score_briefing(text: str, facts: dict) -> dict:
+    """Cheap, deterministic quality metrics for one briefing, for tracking tuning over time."""
+    low = text.lower()
+    bottom = low.split("\n", 1)[0]
+    radio = facts.get("radio_incidents") or []
+    serious = [i for i in radio if i.severity >= 4]
+    traffic = facts.get("traffic_disruptions") or []
+    life = [i for i in radio if i.severity >= 5]
+
+    def rate(hits: int, total: int):
+        return round(hits / total, 2) if total else None
+
+    radio_hits = sum(_mentions(low, i.location, i.category) for i in serious)
+    traffic_hits = sum(_mentions(low, i.get("location") or i.get("title")) for i in traffic)
+    actions = _section(text, "Recommended Actions")
+    risks = _section(text, "Compound Risks")
+    return {
+        "radio_serious_total": len(serious),
+        "radio_coverage": rate(radio_hits, len(serious)),
+        "traffic_total": len(traffic),
+        "traffic_coverage": rate(traffic_hits, len(traffic)),
+        "life_safety_total": len(life),
+        "life_safety_in_bottom_line": (any(_mentions(bottom, i.location, i.category) for i in life) if life else None),
+        "format_ok": all(f"### {s}" in low for s in _REQUIRED_SECTIONS) and low.startswith("**bottom line:**"),
+        "monitor_actions": len(re.findall(r"^\s*[-*]\s*\**monitor", actions, re.I | re.M)),
+        "compound_risks": 0 if "none identified" in risks.lower() else len(re.findall(r"^\s*[-*]\s", risks, re.M)),
+    }
 
 
 def _posture(text: str) -> str | None:
@@ -197,7 +257,7 @@ class AISummaryPoller(BasePoller):
         except Exception:
             pool = None
 
-        context, gaps = await build_context(r, pool, now, window_hours, previous)
+        context, gaps, facts = await build_context(r, pool, now, window_hours, previous)
         system = _system_prompt(window_hours)
         prompt = (
             f"Write the situational awareness briefing for the last {window_hours} hours from the data below. "
@@ -281,9 +341,11 @@ class AISummaryPoller(BasePoller):
         if finish_reason == "length":
             logger.warning("[summary] briefing hit max_tokens and may be truncated — raise SUMMARY_LLM_MAX_TOKENS")
 
+        metrics = score_briefing(text, facts)
         briefing = {
             "ts": now.isoformat(),
             "summary": text,
+            "metrics": metrics,
             "reasoning": reasoning[:_MAX_REASONING_CHARS],
             "posture": _posture(text),
             "window_hours": window_hours,
@@ -297,7 +359,8 @@ class AISummaryPoller(BasePoller):
         await r.ltrim(_HISTORY_KEY, 0, max(settings.summary_history_len, 1) - 1)
         self._last_generated = time.time()
         logger.info(
-            "[summary] briefing updated via %s in %.1fs (posture=%s, answer=%d chars, reasoning=%d chars, prompt_tokens=%s)",
+            "[summary] briefing updated via %s in %.1fs (posture=%s, answer=%d chars, reasoning=%d chars, "
+            "prompt_tokens=%s, metrics=%s)",
             settings.summary_llm_model, duration_s, briefing["posture"], len(text), len(reasoning),
-            usage_dict.get("prompt_tokens"),
+            usage_dict.get("prompt_tokens"), metrics,
         )

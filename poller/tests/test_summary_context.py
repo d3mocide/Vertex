@@ -138,3 +138,68 @@ def test_extract_reasoning_from_field_and_inline_think():
 def test_posture_parsed_from_bottom_line():
     assert _posture("**BOTTOM LINE:** Posture ELEVATED — wind damage.\n...") == "ELEVATED"
     assert _posture("No posture here\nHIGH later") is None
+
+
+# ── Baseline, radio section, briefing metrics ────────────────────────────────
+
+from pollers.summary import score_briefing
+from pollers.summary_context import _robust_median, baseline_note, format_radio_activity
+from radio_incidents import extract
+
+
+def test_baseline_note_flags_only_clear_departures(monkeypatch):
+    monkeypatch.setattr(summary_context, "settings", SimpleNamespace(summary_baseline_days=7))
+    assert "UNUSUALLY HIGH" in baseline_note(20, 8)
+    assert "UNUSUALLY LOW" in baseline_note(3, 10)
+    assert "UNUSUALLY" not in baseline_note(843, 539)
+    assert "normally near zero" in baseline_note(4, 0.0)
+
+
+def test_robust_median_ignores_outage_days_for_busy_signals():
+    # Two outage-shaped days (92, 140) must not drag the baseline down.
+    assert _robust_median([92, 341, 140, 504, 548, 717, 674]) == 548
+    # Sparse signals keep every window.
+    assert _robust_median([0, 1, 0, 3, 1, 0, 2]) == 1
+
+
+RADIO_ROWS = [
+    (NOW - timedelta(hours=3), 1809, "MC Fire Disp",
+     "standing on the railing on the bridge staring down into the water fireboat 21 truck 13"),
+    (NOW - timedelta(hours=5), 1809, "MC Fire Disp",
+     "delta level gas odor suspected leak 8008 north clarendon avenue engine 26 truck 22"),
+    (NOW - timedelta(hours=6), 1809, "MC Fire Disp", "priority 4 charlie sick person 12345 northeast holiday street medic 1343"),
+]
+
+
+def test_format_radio_activity_lists_significant_and_counts_routine(monkeypatch):
+    monkeypatch.setattr(summary_context, "settings", SimpleNamespace(
+        summary_baseline_days=7, region_timezone="America/Los_Angeles"))
+    text = format_radio_activity([("MC Fire Disp", "1809", 480)], 843, 539, extract(RADIO_ROWS), NOW)
+    assert "Dispatch calls this window: 843; 7-day median 539" in text
+    assert "WATER/BRIDGE RESCUE" in text and "GAS LEAK — 8008 N Clarendon Ave" in text
+    assert "Routine calls (counted only): medical 1" in text
+    assert "12345" not in text  # routine medical call is counted, not listed
+
+
+def test_score_briefing_measures_coverage_and_format():
+    facts = {
+        "radio_incidents": [i for i in extract(RADIO_ROWS) if i.severity >= 3],
+        "traffic_disruptions": [{"location": "I405 NB - I-405, Intersection with US26", "title": "ramp closed"}],
+    }
+    good = (
+        "**BOTTOM LINE:** Posture NORMAL. A person on a bridge railing drew Fireboat 21.\n\n"
+        "### Changes Since Last Briefing\n- none\n\n### Key Developments\n- Gas leak on N Clarendon Ave.\n"
+        "- I-405 ramp closed.\n\n### Compound Risks\nNone identified.\n\n### Next 24 Hours\n- dry\n\n"
+        "### Recommended Actions\n- Verify the bridge incident.\n- Monitor the gas leak.\n"
+    )
+    m = score_briefing(good, facts)
+    assert m["radio_coverage"] == 1.0 and m["radio_serious_total"] == 2
+    assert m["traffic_coverage"] == 1.0
+    assert m["life_safety_in_bottom_line"] is True
+    assert m["format_ok"] is True
+    assert m["monitor_actions"] == 1
+    assert m["compound_risks"] == 0
+
+    bad = score_briefing("Everything is quiet.", facts)
+    assert bad["radio_coverage"] == 0.0 and bad["format_ok"] is False
+    assert bad["life_safety_in_bottom_line"] is False
