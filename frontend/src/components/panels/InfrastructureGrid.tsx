@@ -61,12 +61,12 @@ function CctvThumbnail({
       {/* Favorite bookmark */}
       <button
         onClick={onToggleFavorite}
-        className="absolute top-1 left-1 p-0.5 text-amber-gold hover:scale-110 transition-transform"
+        className="absolute top-0 left-0 p-2 lg:top-1 lg:left-1 lg:p-0.5 text-amber-gold hover:scale-110 transition-transform"
         aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
         title={isFavorite ? 'Remove from favorites' : 'Bookmark feed'}
       >
         <span
-          className="ms text-[16px] leading-none"
+          className="ms text-[20px] lg:text-[16px] leading-none"
           aria-hidden="true"
           style={{ fontVariationSettings: `'FILL' ${isFavorite ? 1 : 0}` }}
         >
@@ -74,13 +74,13 @@ function CctvThumbnail({
         </span>
       </button>
       {/* Camera label overlay */}
-      <div className="absolute bottom-0 left-0 right-0 px-2 py-1 flex items-center justify-between">
-        <span className="font-mono text-[11px] text-amber-gold uppercase truncate mr-1">
+      <div className="absolute bottom-0 left-0 right-0 px-2 pt-5 pb-1 flex items-center justify-between bg-gradient-to-t from-black/90 via-black/60 to-transparent">
+        <span className="text-[12px] font-semibold text-on-surface truncate mr-1">
           {cam.name}
         </span>
         <div className="flex items-center gap-1.5 shrink-0">
           {cam.dist_km && (
-            <span className="font-mono text-[11px] text-on-surface-variant">
+            <span className="font-mono text-[11px] text-on-surface/70">
               {cam.dist_km}km
             </span>
           )}
@@ -270,7 +270,22 @@ export function InfrastructureGrid() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {/* Phones: one swipeable row of every camera in range, so the
+                  camera wall doesn't push status and incidents off-screen. */}
+              <div className="lg:hidden -mx-4 px-4 flex gap-2 overflow-x-auto no-scrollbar snap-x snap-mandatory">
+                {filteredCameras.map((cam) => (
+                  <div key={cam.id} className="w-[78%] shrink-0 snap-start cursor-pointer" onClick={() => setSelectedCamId(cam.id)}>
+                    <CctvThumbnail
+                      cam={cam}
+                      ldi={ldiMode}
+                      isFavorite={favoriteCamIds.includes(cam.id)}
+                      onToggleFavorite={(e) => { e.stopPropagation(); toggleFavoriteCam(cam.id) }}
+                    />
+                  </div>
+                ))}
+              </div>
+
+              <div className="hidden lg:grid grid-cols-3 gap-2">
                 {displayCameras.map((cam) => (
                   <div key={cam.id} className="cursor-pointer" onClick={() => setSelectedCamId(cam.id)}>
                     <CctvThumbnail
@@ -285,12 +300,12 @@ export function InfrastructureGrid() {
 
               <div className="flex items-center justify-between mt-3">
                 <p className="font-mono text-[11px] text-on-surface-variant uppercase tracking-widest">
-                  {filteredCameras.length} units in range
+                  {filteredCameras.length} cameras in range
                 </p>
 
-                {/* Pagination */}
+                {/* Pagination (desktop grid; phones swipe the strip) */}
                 {totalPages > 1 && (
-                  <div className="flex items-center gap-2">
+                  <div className="hidden lg:flex items-center gap-2">
                     <button
                       disabled={page === 0}
                       onClick={() => setPage(p => p - 1)}

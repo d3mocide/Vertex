@@ -57,6 +57,8 @@ function Dashboard() {
   }, [news, appendSystemEvent])
 
   const { activeTab, mode } = useCivicPick('activeTab', 'mode')
+  // Phones: map tools (replay / zones / annotate) sit behind one button.
+  const [mapToolsOpen, setMapToolsOpen] = useState(false)
   const isCritical = mode === 'critical'
 
   return (
@@ -122,10 +124,21 @@ function Dashboard() {
               <>
                 <EntitySearchPanel />
                 <EntityDetail />
-                <div className="absolute top-14 lg:top-28 left-2 lg:left-[352px] flex gap-2 z-30 pointer-events-none *:pointer-events-auto">
-                  <PlaybackController />
-                  <GeofenceController />
-                  <AnnotationController />
+                <div className="absolute top-14 lg:top-28 left-2 lg:left-[352px] flex flex-col lg:flex-row items-start gap-2 z-30 pointer-events-none *:pointer-events-auto">
+                  <button
+                    type="button"
+                    onClick={() => setMapToolsOpen((v) => !v)}
+                    aria-expanded={mapToolsOpen}
+                    className={`lg:hidden h-10 px-3 flex items-center gap-2 border backdrop-blur-md font-bold text-[11px] uppercase tracking-widest transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-amber-gold ${mapToolsOpen ? 'bg-amber-gold text-onyx-black border-amber-gold' : 'bg-onyx-black/70 border-amber-gold/40 text-amber-gold'}`}
+                  >
+                    <span className="ms text-[18px] leading-none" aria-hidden="true">{mapToolsOpen ? 'close' : 'construction'}</span>
+                    Tools
+                  </button>
+                  <div className={`${mapToolsOpen ? 'flex' : 'hidden'} lg:flex flex-col lg:flex-row items-start gap-2`}>
+                    <PlaybackController />
+                    <GeofenceController />
+                    <AnnotationController />
+                  </div>
                 </div>
               </>
             )}
