@@ -1,7 +1,6 @@
 import { useEffect, useRef } from 'react'
 import maplibregl from 'maplibre-gl'
-import { API_BASE } from '../../config'
-import { authHeaders } from '../../auth'
+import { fetchRailGeoJSON } from '../../layers/railData'
 import { useCivicStore } from '../../store'
 
 interface Props {
@@ -25,10 +24,8 @@ export function RailLayer({ map }: Props) {
     const loadOsm = async () => {
       if (osmLoadedRef.current) return
       try {
-        const res = await fetch(`${API_BASE}/rail/tracks`, { headers: authHeaders() })
-        if (!res.ok) return
-        const geojson = await res.json()
-        if (map.getSource(OSM_SRC_ID)) return
+        const geojson = await fetchRailGeoJSON('tracks')
+        if (!geojson || map.getSource(OSM_SRC_ID)) return
 
         map.addSource(OSM_SRC_ID, { type: 'geojson', data: geojson })
         // Insert OSM below the GTFS layer if it already loaded; otherwise append
@@ -59,12 +56,9 @@ export function RailLayer({ map }: Props) {
     const loadGtfs = async () => {
       if (gtfsLoadedRef.current) return
       try {
-        const res = await fetch(`${API_BASE}/rail/gtfs-shapes`, { headers: authHeaders() })
-        if (!res.ok) return
-        const geojson = await res.json()
-        // Empty means the poller hasn't run yet; retry later
-        if (!geojson.features?.length) return
-        if (map.getSource(GTFS_SRC_ID)) return
+        // Null until the poller has cached the shapes; retried below
+        const geojson = await fetchRailGeoJSON('gtfs-shapes')
+        if (!geojson || map.getSource(GTFS_SRC_ID)) return
 
         map.addSource(GTFS_SRC_ID, { type: 'geojson', data: geojson })
         map.addLayer({
@@ -90,7 +84,8 @@ export function RailLayer({ map }: Props) {
       map.once('load', loadAll)
     }
 
-    // Retry every 5 s until both sources are loaded (Overpass and poller cache warm-up)
+    // Retry every 5 s until both sources are loaded (Overpass and poller cache warm-up).
+    // fetchRailGeoJSON shares an in-flight request, so a slow download isn't re-fetched.
     const retryInterval = setInterval(() => {
       if (!osmLoadedRef.current || !gtfsLoadedRef.current) loadAll()
     }, 5_000)

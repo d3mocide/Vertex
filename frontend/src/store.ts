@@ -59,7 +59,6 @@ export interface CivicStore {
   camerasVisible:   boolean
   geofencesVisible: boolean
   trailsVisible:    boolean
-  radarReflectivityVisible: boolean
   nwsAlertsVisible:         boolean
   lightningDensityVisible:  boolean
   railTracksVisible:        boolean
@@ -113,7 +112,6 @@ export interface CivicStore {
   setCamerasVisible:   (v: boolean) => void
   setGeofencesVisible: (v: boolean) => void
   setTrailsVisible:    (v: boolean) => void
-  setRadarReflectivityVisible: (v: boolean) => void
   setNwsAlertsVisible:         (v: boolean) => void
   setLightningDensityVisible:  (v: boolean) => void
   setRailTracksVisible:        (v: boolean) => void
@@ -403,7 +401,6 @@ export const useCivicStore = create<CivicStore>()(
   camerasVisible:         false,
   geofencesVisible:    true,
   trailsVisible:       true,
-  radarReflectivityVisible: false,
   nwsAlertsVisible:         false,
   lightningDensityVisible:  false,
   railTracksVisible:        true,
@@ -642,7 +639,6 @@ export const useCivicStore = create<CivicStore>()(
   setCamerasVisible:        (camerasVisible)        => set({ camerasVisible }),
   setGeofencesVisible: (geofencesVisible) => set({ geofencesVisible }),
   setTrailsVisible:    (trailsVisible)    => set({ trailsVisible }),
-  setRadarReflectivityVisible: (radarReflectivityVisible) => set({ radarReflectivityVisible }),
   setNwsAlertsVisible:         (nwsAlertsVisible)         => set({ nwsAlertsVisible }),
   setLightningDensityVisible:  (lightningDensityVisible)  => set({ lightningDensityVisible }),
   setRailTracksVisible:        (railTracksVisible)        => set({ railTracksVisible }),
@@ -758,7 +754,6 @@ export const useCivicStore = create<CivicStore>()(
       geofencesVisible:   state.geofencesVisible,
       annotationsVisible: state.annotationsVisible,
       lightningVisible:   state.lightningVisible,
-      radarReflectivityVisible: state.radarReflectivityVisible,
       nwsAlertsVisible:         state.nwsAlertsVisible,
       lightningDensityVisible:  state.lightningDensityVisible,
       railTracksVisible:        state.railTracksVisible,

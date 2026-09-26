@@ -16,6 +16,7 @@ import { buildStreamGaugeLayers, type StreamGaugePoint } from '../layers/buildSt
 import { buildMeshNodeLayers, type MeshNodePoint } from '../layers/buildMeshNodeLayer'
 
 import { extractRailSegments, snapPointToRail, type RailSegment } from '../layers/railSnap'
+import { fetchRailGeoJSON } from '../layers/railData'
 import { applyPVB, type PVBState } from '../layers/pvb'
 import { DEFAULT_CENTER, OBSERVATION_RANGE_KM, API_BASE } from '../config'
 import { authHeaders } from '../auth'
@@ -206,10 +207,8 @@ export function MapOverlay({ map }: Props) {
 
     const loadRailSegments = async () => {
       try {
-        const res = await fetch(`${API_BASE}/rail/tracks`, { headers: authHeaders() })
-        if (!res.ok || cancelled) return
-        const geojson = await res.json()
-        if (cancelled) return
+        const geojson = await fetchRailGeoJSON('tracks')
+        if (!geojson || cancelled) return
         const segments = extractRailSegments(geojson)
         if (segments.length > 0) railSegmentsRef.current = segments
       } catch {
@@ -232,6 +231,13 @@ export function MapOverlay({ map }: Props) {
     let cancelled = false
 
     const loadGaugeFallback = async () => {
+      // Live gauges arrive over the WebSocket; only poll REST until they do.
+      // Dropping the fallback also stops it churning the gauge layer memo.
+      const entities = useCivicStore.getState().entities
+      if (Object.values(entities).some((e) => e.entity_type === 'stream_gauge')) {
+        if (gaugeFallbackRef.current.length > 0) gaugeFallbackRef.current = []
+        return
+      }
       try {
         const res = await fetch(`${API_BASE}/entities?entity_type=stream_gauge`, {
           headers: authHeaders(),

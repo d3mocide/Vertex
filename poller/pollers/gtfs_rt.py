@@ -230,14 +230,23 @@ class GtfsRtPoller(BasePoller):
                             continue
                         shape_pts.setdefault(sid, []).append((seq, lon, lat))
 
-            # Sort each shape by sequence and flatten to [lon, lat] pairs
+            # Sort each shape by sequence and flatten to [lon, lat] pairs,
+            # rounded to 5 dp (~1 m) with repeated points dropped.
             sorted_shapes: dict[str, list[list[float]]] = {}
             for sid, pts in shape_pts.items():
                 pts.sort(key=lambda x: x[0])
-                sorted_shapes[sid] = [[lon, lat] for _, lon, lat in pts]
+                coords: list[list[float]] = []
+                for _, lon, lat in pts:
+                    pt = [round(lon, 5), round(lat, 5)]
+                    if not coords or coords[-1] != pt:
+                        coords.append(pt)
+                sorted_shapes[sid] = coords
 
             # Group shapes into one MultiLineString per route (rail types only)
+            # Trip patterns of a route often share an identical shape; keep one
+            # copy of each (~75% of TriMet's rail shape points are duplicates).
             route_lines: dict[str, list[list[list[float]]]] = {}
+            seen: dict[str, set[tuple]] = {}
             for shape_id, route_id in shape_to_route.items():
                 info = route_map.get(route_id)
                 if info is None or info["type"] not in allowed_types:
@@ -245,6 +254,10 @@ class GtfsRtPoller(BasePoller):
                 coords = sorted_shapes.get(shape_id)
                 if not coords or len(coords) < 2:
                     continue
+                key = tuple(map(tuple, coords))
+                if key in seen.setdefault(route_id, set()):
+                    continue
+                seen[route_id].add(key)
                 route_lines.setdefault(route_id, []).append(coords)
 
             features = []
@@ -268,7 +281,7 @@ class GtfsRtPoller(BasePoller):
             geojson = {"type": "FeatureCollection", "features": features}
             redis_key = f"cache:gtfs:{feed_name}:shapes"
             r = await get_bus()
-            await r.set(redis_key, json.dumps(geojson), ex=int(_STATIC_CACHE_TTL) + 3600)
+            await r.set(redis_key, json.dumps(geojson, separators=(',', ':')), ex=int(_STATIC_CACHE_TTL) + 3600)
             logger.info(
                 "[gtfs_rt:%s] cached %d route shapes to Redis (%s)",
                 feed_name, len(features), redis_key,
