@@ -3,6 +3,7 @@ import { MeshMessage, Entity, SystemEvent, Track, MeshLink, useCivicPick } from 
 import { getDistanceMeters } from '../../layers/geoUtils'
 import { DEFAULT_CENTER, API_BASE } from '../../config'
 import { MeshFleetPanel } from './MeshFleetPanel'
+import { P25CallLog } from './P25CallLog'
 import { PageHeader, StatusDot } from '../common/Page'
 import { authHeaders } from '../../auth'
 
@@ -47,39 +48,6 @@ function NodeRow({ node, distM }: { node: Entity; distM: number }) {
       <div className="text-right">
         <span className="font-mono text-[11px] text-amber-gold font-bold">{km} KM</span>
       </div>
-    </div>
-  )
-}
-
-function TransmissionRow({ event }: { event: SystemEvent }) {
-  const isStart = event.event_type === 'p25_call_start'
-  const isTranscript = event.event_type === 'p25_transcript'
-  const transcriptText = event.details?.transcript as string | undefined
-
-  return (
-    <div className="flex items-start justify-between p-2 px-3 border-b border-white/5 hover:bg-white/5 transition-colors gap-3">
-      <div className="flex items-start gap-3 min-w-0">
-        <span className={`ms text-[14px] mt-0.5 ${isStart ? 'text-green-ais' : isTranscript ? 'text-amber-gold' : 'text-on-surface-variant'} opacity-70`}>
-          {isStart ? 'podcasts' : isTranscript ? 'chat_bubble' : 'stop_circle'}
-        </span>
-        <div className="flex flex-col min-w-0">
-          <span className="text-[11px] font-bold text-on-surface uppercase tracking-tight truncate">
-            {event.summary}
-          </span>
-          {isTranscript && transcriptText ? (
-            <span className="text-[11px] text-on-surface-variant italic leading-snug mt-0.5 line-clamp-2">
-              "{transcriptText}"
-            </span>
-          ) : (
-            <span className="font-mono text-[11px] text-on-surface-variant uppercase tracking-widest">
-              {isStart ? 'Call Start' : 'Call End'}
-            </span>
-          )}
-        </div>
-      </div>
-      <span className="font-mono text-[11px] text-on-surface-variant shrink-0 whitespace-nowrap mt-0.5">
-        {new Date(event.ts).toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-      </span>
     </div>
   )
 }
@@ -416,14 +384,6 @@ export function CommsPanel() {
       ev.event_type === 'p25_call_end' ||
       ev.event_type === 'p25_transcript'
     ).reverse().slice(0, 8)
-  }, [systemEvents])
-
-  const p25EventsLog = useMemo(() => {
-    return systemEvents.filter(ev =>
-      ev.event_type === 'p25_call_start' ||
-      ev.event_type === 'p25_call_end' ||
-      ev.event_type === 'p25_transcript'
-    ).reverse().slice(0, 30)
   }, [systemEvents])
 
   const conversationNames = useMemo(() => {
@@ -859,24 +819,7 @@ export function CommsPanel() {
 
           {activeTab === 'p25' && (
             <div className="flex flex-col gap-3 flex-1 min-h-0">
-              <div className="flex-1 min-h-0 border border-white/10 bg-onyx-deep/40 rounded-sm overflow-hidden flex flex-col">
-                <div className="bg-white/5 px-4 py-2.5 border-b border-white/10 flex justify-between items-center shrink-0">
-                  <span className="font-mono text-[11px] text-on-surface-variant uppercase tracking-widest">
-                    Recent Voice & Metadata Feed (30 Events)
-                  </span>
-                  <span className="flex items-center gap-1.5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-amber-gold animate-pulse" />
-                    <span className="font-mono text-[11px] text-amber-gold uppercase tracking-wider">Tuned</span>
-                  </span>
-                </div>
-                <div className="flex-1 overflow-y-auto p-2 pb-4 space-y-1.5 custom-scrollbar">
-                  {p25EventsLog.length > 0 ? (
-                    p25EventsLog.map(ev => <TransmissionRow key={ev.event_id} event={ev} />)
-                  ) : (
-                    <div className="py-12 text-center text-[11px] uppercase font-mono opacity-30">No recent transmissions</div>
-                  )}
-                </div>
-              </div>
+              <P25CallLog />
             </div>
           )}
         </div>
