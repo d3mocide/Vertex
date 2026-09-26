@@ -132,7 +132,6 @@ export function EnvironmentPanel() {
     <div className="flex flex-col h-full z-10">
       <PageHeader
         icon="eco"
-        iconClass="text-green-ais"
         title="Environment"
         subtitle={<span className="flex items-center gap-2">Tualatin, OR <FeedAge feedKey="weather:current" prefix="Updated" className="text-[11px]" /></span>}
       />
