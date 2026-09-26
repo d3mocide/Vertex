@@ -129,19 +129,33 @@ async def get_mesh_status():
 
 @router.get("/mesh/messages")
 async def list_mesh_messages(
-    limit: int = Query(100, ge=1, le=1000),
+    limit: int = Query(1000, ge=1, le=5000),
+    per_conversation: int = Query(100, ge=1, le=1000),
+    conversation: Optional[str] = Query(None, max_length=128),
+    before: Optional[datetime] = Query(None),
     db: AsyncSession = Depends(get_db),
 ):
-    """Return recent mesh network messages from the database."""
+    """Recent mesh messages, newest first.
+
+    Up to `per_conversation` messages per channel/DM (so a busy channel such as
+    Public cannot crowd every other conversation out of the result), capped at
+    `limit` overall. `conversation` restricts to one channel/DM and `before`
+    pages back through its history.
+    """
     try:
         await _ensure_mesh_messages_columns(db)
     except Exception:
         logger.debug("[mesh] unable to ensure optional mesh_messages columns", exc_info=True)
 
     query = text(
-        "SELECT id, msg_type, conversation_key, channel_name, text, sender_name, sender_key, outgoing, acked, ts as timestamp, source_url "
-        "FROM mesh_messages ORDER BY ts DESC LIMIT :limit"
-    ).bindparams(limit=limit)
+        "SELECT id, msg_type, conversation_key, channel_name, text, sender_name, sender_key, outgoing, acked, ts AS timestamp, source_url "
+        "FROM ("
+        "  SELECT *, row_number() OVER (PARTITION BY conversation_key ORDER BY ts DESC) AS rn"
+        "  FROM mesh_messages"
+        "  WHERE (CAST(:conversation AS text) IS NULL OR conversation_key = :conversation)"
+        "    AND (CAST(:before AS timestamptz) IS NULL OR ts < :before)"
+        ") m WHERE rn <= :per_conversation ORDER BY ts DESC LIMIT :limit"
+    ).bindparams(limit=limit, per_conversation=per_conversation, conversation=conversation, before=before)
     try:
         result = await db.execute(query)
     except ProgrammingError as exc:

@@ -277,7 +277,9 @@ function normalizeIncomingLightning(
   return out
 }
 
-const MESH_MESSAGES_MAX = 300
+// Cap per conversation, not overall: a busy channel (Public) must not push
+// every other channel's history out of memory.
+const MESH_MESSAGES_PER_CONVERSATION = 200
 
 function meshMsgTime(msg: MeshMessage): number {
   if (!msg?.timestamp) return 0
@@ -304,9 +306,19 @@ function mergeMeshMessages(existing: MeshMessage[], incoming: MeshMessage[]): Me
     byKey.set(meshMsgFingerprint(msg), msg)
   }
 
-  return Array.from(byKey.values())
-    .sort((a, b) => meshMsgTime(a) - meshMsgTime(b))
-    .slice(-MESH_MESSAGES_MAX)
+  const byConversation = new Map<string, MeshMessage[]>()
+  for (const msg of byKey.values()) {
+    const conv = msg.conversation_key || 'general'
+    const list = byConversation.get(conv)
+    if (list) list.push(msg)
+    else byConversation.set(conv, [msg])
+  }
+  const kept: MeshMessage[] = []
+  for (const list of byConversation.values()) {
+    list.sort((a, b) => meshMsgTime(a) - meshMsgTime(b))
+    kept.push(...list.slice(-MESH_MESSAGES_PER_CONVERSATION))
+  }
+  return kept.sort((a, b) => meshMsgTime(a) - meshMsgTime(b))
 }
 
 const emptyRadio: RadioState = {

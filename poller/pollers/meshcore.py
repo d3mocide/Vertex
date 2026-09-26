@@ -185,7 +185,7 @@ class MeshCorePoller(BasePoller):
         base_url = src["base_url"]
         headers = _api_headers(src.get("api_key"))
         sse_url = f"{base_url}/api/companion/events"
-        params = {"companion": companion_name}
+        params = companion_params(companion_name)
 
         while True:
             try:
@@ -379,6 +379,16 @@ def _extract_self_pubkey(stats: dict) -> str | None:
             if isinstance(v, str) and len(v) >= 8 and v != "0" * len(v):
                 return v
     return None
+
+
+def companion_params(companion_name: str) -> dict[str, str]:
+    """Query params selecting a companion on pyMC-Repeater's /api/companion/* routes.
+
+    The server reads `companion_name`; an unknown parameter (we used to send
+    `companion`) is silently ignored and the server falls back to its default
+    companion — another identity with different channels.
+    """
+    return {"companion_name": companion_name}
 
 
 def _api_headers(api_key: str | None) -> dict[str, str]:

@@ -108,3 +108,11 @@ class TestHandleSseEvent:
         assert saved_msg["text"] == "Testing room msg"
         assert saved_msg["conversation_key"] == "Vertex"
         assert mock_bus.publish.called
+
+
+
+def test_companion_is_selected_with_companion_name_param():
+    # Regression: `companion=` is ignored by pyMC-Repeater, which then streams
+    # the default companion's channels instead of the configured one.
+    from pollers.meshcore import companion_params
+    assert companion_params("Vertex") == {"companion_name": "Vertex"}
