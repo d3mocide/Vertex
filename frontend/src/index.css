@@ -41,7 +41,7 @@
        - html is extended by the gap and stops clipping (the script pins
          window scroll at 0);
        - #root is positioned in the page (absolute) instead of against the
-         short viewport, sized to the full screen;
+         short viewport, sized to the full screen (100lvh);
        - contain: layout makes #root the containing block for its
          position:fixed children (nav, audio bar, map, modals) so they anchor
          to the real screen edge. Not a transform: a screen-sized transformed
@@ -59,7 +59,9 @@
     right: 0;
     bottom: auto;
     left: 0;
-    height: calc(100dvh + var(--ios-bottom-shim, 0px));
+    /* The full screen. Not 100dvh + shim: iOS may correct dvh to the full
+       height after launch, which double-counted the gap (#root 1018px). */
+    height: 100lvh;
     contain: layout;
   }
 
