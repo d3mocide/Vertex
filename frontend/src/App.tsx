@@ -101,8 +101,11 @@ function Dashboard() {
 
           <div className="absolute inset-0 overflow-hidden pointer-events-none *:pointer-events-auto">
 
+            {/* Page scroller. Bottom padding reserves room for the audio bar
+                (docked above the nav on mobile, floating on desktop) so it
+                never covers the end of a page. */}
             {activeTab !== 'safety' && (
-              <div className="absolute top-24 inset-x-0 bottom-0 z-10 bg-onyx-black/40 backdrop-blur-sm overflow-y-auto">
+              <div id="page-scroll" className="absolute top-12 lg:top-24 inset-x-0 bottom-0 z-10 bg-onyx-black/40 backdrop-blur-sm overflow-y-auto pb-14 lg:pb-24">
                 {activeTab === 'infrastructure' && <InfrastructureGrid />}
                 {activeTab === 'environment'    && <EnvironmentPanel   />}
                 {activeTab === 'intel'          && <IntelPanel         />}
@@ -119,7 +122,7 @@ function Dashboard() {
               <>
                 <EntitySearchPanel />
                 <EntityDetail />
-                <div className="absolute top-28 left-2 lg:left-[352px] flex gap-2 z-30 pointer-events-none *:pointer-events-auto">
+                <div className="absolute top-14 lg:top-28 left-2 lg:left-[352px] flex gap-2 z-30 pointer-events-none *:pointer-events-auto">
                   <PlaybackController />
                   <GeofenceController />
                   <AnnotationController />

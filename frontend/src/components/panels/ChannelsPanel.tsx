@@ -199,7 +199,7 @@ export function ChannelsPanel({ visibleTalkgroups, managedTalkgroups, playing, o
   }
 
   return (
-    <div className="hud-panel w-80 mb-4 overflow-hidden pointer-events-auto origin-bottom-right animate-in fade-in slide-in-from-bottom-2 duration-200">
+    <div className="hud-panel w-full lg:w-80 lg:mb-4 max-h-[60vh] overflow-y-auto pointer-events-auto origin-bottom-right animate-in fade-in slide-in-from-bottom-2 duration-200">
       {/* Tab bar */}
       <div className="flex border-b border-amber-gold-muted/30">
         {(['streams', 'talkgroups', 'recordings'] as ChannelTab[]).map((tab) => (

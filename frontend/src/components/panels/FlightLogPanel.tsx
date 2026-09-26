@@ -4,6 +4,7 @@ import { Entity, useCivicPick } from '../../store'
 import type { AcarsMessage } from '../../storeTypes'
 import { API_BASE, MAP_STYLE, DEFAULT_CENTER } from '../../config'
 import { authHeaders } from '../../auth'
+import { PageHeader, StatusDot, Chip } from '../common/Page'
 import { ensureKnownStyleImages, KNOWN_STYLE_IMAGE_FALLBACKS } from '../Map'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -184,32 +185,32 @@ function AcarsMessageRow({ msg }: { msg: AcarsMessage }) {
         onClick={() => hasText && setExpanded(e => !e)}
       >
         <div className="flex flex-col items-center shrink-0 mt-0.5">
-          <span className="font-mono text-[10px] text-cyan-adsb/70 uppercase bg-cyan-adsb/10 px-1 rounded-sm leading-tight">
+          <span className="font-mono text-[11px] text-cyan-adsb/70 uppercase bg-cyan-adsb/10 px-1 rounded-sm leading-tight">
             {msg.label || '??'}
           </span>
-          <span className="font-mono text-[9px] text-on-surface-variant/50 mt-0.5 leading-none">{msg.freq}</span>
+          <span className="font-mono text-[11px] text-on-surface-variant/50 mt-0.5 leading-none">{msg.freq}</span>
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             {msg.flight && (
               <span className="font-mono text-[11px] font-bold text-amber-gold">{msg.flight}</span>
             )}
-            <span className="font-mono text-[10px] text-on-surface-variant/60 uppercase">{acarsLabelName(msg.label)}</span>
+            <span className="font-mono text-[11px] text-on-surface-variant/60 uppercase">{acarsLabelName(msg.label)}</span>
             {msg.error > 0 && (
-              <span className="font-mono text-[9px] text-red-400/70 uppercase">err:{msg.error}</span>
+              <span className="font-mono text-[11px] text-red-400/70 uppercase">err:{msg.error}</span>
             )}
           </div>
           {hasText && !expanded && (
-            <div className="font-mono text-[10px] text-on-surface/60 truncate mt-0.5">{msg.msg_text}</div>
+            <div className="font-mono text-[11px] text-on-surface/60 truncate mt-0.5">{msg.msg_text}</div>
           )}
           {expanded && (
-            <pre className="font-mono text-[10px] text-on-surface/80 whitespace-pre-wrap break-all mt-1 bg-white/5 rounded-sm p-1.5">
+            <pre className="font-mono text-[11px] text-on-surface/80 whitespace-pre-wrap break-all mt-1 bg-white/5 rounded-sm p-1.5">
               {msg.msg_text}
             </pre>
           )}
         </div>
         <div className="flex flex-col items-end shrink-0">
-          <span className="font-mono text-[10px] text-on-surface-variant/40">{time}</span>
+          <span className="font-mono text-[11px] text-on-surface-variant/40">{time}</span>
           {hasText && (
             <span className="ms text-[11px] text-on-surface-variant/30 mt-0.5">
               {expanded ? 'expand_less' : 'expand_more'}
@@ -273,7 +274,7 @@ function AircraftRow({
             {hasAcars && reg && (
               <span
                 title={`ACARS data available for ${reg}`}
-                className="font-mono text-[8px] uppercase tracking-widest px-1 py-px rounded-sm bg-cyan-adsb/15 text-cyan-adsb/80 border border-cyan-adsb/20 leading-tight shrink-0"
+                className="font-mono text-[11px] uppercase tracking-widest px-1 py-px rounded-sm bg-cyan-adsb/15 text-cyan-adsb/80 border border-cyan-adsb/20 leading-tight shrink-0"
               >
                 ACARS
               </span>
@@ -762,68 +763,37 @@ export function FlightLogPanel() {
   return (
     <div className="relative w-full h-full z-10 flex flex-col overflow-hidden bg-onyx-black/20 backdrop-blur-md">
 
-      {/* ── Header ── */}
-      <div className="px-4 py-2.5 border-b border-amber-gold-muted flex items-center gap-3 shrink-0 overflow-x-auto no-scrollbar">
-        <div className="flex items-center gap-3 shrink-0">
-          <span className="ms text-[18px] text-cyan-adsb leading-none" style={{ fontVariationSettings: "'FILL' 1" }}>
-            flight
-          </span>
-          <h2 className="font-bold text-sm uppercase tracking-tight text-on-surface whitespace-nowrap">Flight Log</h2>
-        </div>
-
-        {/* Time window */}
-        <div className="flex items-center gap-1 ml-2 shrink-0">
-          {TIME_WINDOWS.map(w => (
-            <button
-              key={w.label}
-              type="button"
-              onClick={() => setTimeWindow(w.minutes)}
-              className={`font-mono text-[11px] px-2 py-0.5 uppercase tracking-widest transition-colors whitespace-nowrap ${
-                timeWindow === w.minutes
-                  ? 'bg-cyan-adsb text-onyx-black font-bold'
-                  : 'text-on-surface-variant hover:text-cyan-adsb border border-white/10 hover:border-cyan-adsb/40'
-              }`}
-            >
-              {w.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Divider */}
-        <div className="w-px h-4 bg-white/10 shrink-0" />
-
-        {/* Log update frequency */}
-        <div className="flex items-center gap-1 shrink-0">
-          <span className="font-mono text-[11px] text-on-surface-variant uppercase tracking-widest mr-1">Log</span>
-          {UPDATE_INTERVALS.map(u => (
-            <button
-              key={u.label}
-              type="button"
-              onClick={() => setUpdateHz(u.ms)}
-              className={`font-mono text-[11px] px-2 py-0.5 uppercase tracking-widest transition-colors whitespace-nowrap ${
-                updateHz === u.ms
-                  ? 'bg-amber-gold text-onyx-black font-bold'
-                  : 'text-on-surface-variant hover:text-amber-gold border border-white/10 hover:border-amber-gold/40'
-              }`}
-            >
-              {u.label}
-            </button>
-          ))}
-        </div>
-
-        <div className="ml-auto flex items-center gap-2 shrink-0">
+      <PageHeader
+        icon="flight"
+        iconClass="text-cyan-adsb"
+        title="Flight Log"
+        status={<>
           {loadingReplay && (
-            <span className="font-mono text-[11px] text-on-surface-variant/60 animate-pulse uppercase whitespace-nowrap">Fetching...</span>
+            <span className="font-mono text-[11px] text-on-surface-variant/60 animate-pulse uppercase whitespace-nowrap">Fetching…</span>
           )}
-          <span className="w-1.5 h-1.5 rounded-full bg-cyan-adsb animate-pulse" />
-          <span className="font-mono text-[11px] text-cyan-adsb uppercase tracking-widest whitespace-nowrap">ADS-B</span>
-        </div>
-      </div>
+          <StatusDot label="ADS-B" tone="accent" />
+        </>}
+        controls={<>
+          {TIME_WINDOWS.map(w => (
+            <Chip key={w.label} active={timeWindow === w.minutes} onClick={() => setTimeWindow(w.minutes)}
+              activeClass="bg-cyan-adsb text-onyx-black border-cyan-adsb font-bold">
+              {w.label}
+            </Chip>
+          ))}
+          <span className="w-px h-4 bg-white/10" aria-hidden="true" />
+          <span className="font-mono text-[11px] text-on-surface-variant uppercase tracking-widest">Log</span>
+          {UPDATE_INTERVALS.map(u => (
+            <Chip key={u.label} active={updateHz === u.ms} onClick={() => setUpdateHz(u.ms)}>
+              {u.label}
+            </Chip>
+          ))}
+        </>}
+      />
 
       {/* ── Body: Split pane layout ── */}
       <div className="flex-1 min-h-0 flex flex-col lg:flex-row overflow-y-auto lg:overflow-hidden bg-onyx-black/5">
         {isMobile ? (
-          <div className="flex flex-col gap-6 p-4 pb-28 overflow-y-auto">
+          <div className="flex flex-col gap-6 p-4 pb-6 overflow-y-auto">
             {/* 1. Live Position Map */}
             <section className="border border-white/10 p-4 bg-white/5 flex flex-col gap-2 rounded-sm bg-onyx-black/35 backdrop-blur-sm shrink-0 order-1">
               <div className="flex items-center justify-between shrink-0">
@@ -943,7 +913,7 @@ export function FlightLogPanel() {
               {/* Pagination Controls */}
               {filteredFlights.length > MOBILE_PAGE_SIZE && (
                 <div className="px-3 py-2 border-t border-white/5 bg-white/5 flex items-center justify-between gap-2">
-                  <span className="font-mono text-[10px] text-on-surface-variant uppercase tracking-widest">
+                  <span className="font-mono text-[11px] text-on-surface-variant uppercase tracking-widest">
                     Showing {(mobilePage - 1) * MOBILE_PAGE_SIZE + 1}-{Math.min(mobilePage * MOBILE_PAGE_SIZE, filteredFlights.length)} of {filteredFlights.length}
                   </span>
                   <div className="flex items-center gap-1">
@@ -951,18 +921,18 @@ export function FlightLogPanel() {
                       type="button"
                       onClick={() => setMobilePage(p => Math.max(1, p - 1))}
                       disabled={mobilePage === 1}
-                      className="px-2.5 py-1 font-mono text-[10px] uppercase tracking-widest border border-white/15 text-on-surface disabled:opacity-30 disabled:cursor-not-allowed hover:border-cyan-adsb transition-colors"
+                      className="px-2.5 py-1 font-mono text-[11px] uppercase tracking-widest border border-white/15 text-on-surface disabled:opacity-30 disabled:cursor-not-allowed hover:border-cyan-adsb transition-colors"
                     >
                       Prev
                     </button>
-                    <span className="font-mono text-[10px] text-on-surface-variant px-1.5">
+                    <span className="font-mono text-[11px] text-on-surface-variant px-1.5">
                       {mobilePage}/{mobileTotalPages}
                     </span>
                     <button
                       type="button"
                       onClick={() => setMobilePage(p => Math.min(mobileTotalPages, p + 1))}
                       disabled={mobilePage === mobileTotalPages}
-                      className="px-2.5 py-1 font-mono text-[10px] uppercase tracking-widest border border-white/15 text-on-surface disabled:opacity-30 disabled:cursor-not-allowed hover:border-cyan-adsb transition-colors"
+                      className="px-2.5 py-1 font-mono text-[11px] uppercase tracking-widest border border-white/15 text-on-surface disabled:opacity-30 disabled:cursor-not-allowed hover:border-cyan-adsb transition-colors"
                     >
                       Next
                     </button>
@@ -1072,8 +1042,8 @@ export function FlightLogPanel() {
                     <div className="p-3 border border-white/10 bg-white/5 rounded-sm">
                       <div className="font-mono text-[11px] text-on-surface-variant uppercase tracking-widest mb-2 flex items-center gap-2">
                         Flight Statistics
-                        <span className="text-amber-gold/60 text-[7px]">({twLabel})</span>
-                        {loadingTrail && <span className="ml-auto animate-pulse text-[7px] text-on-surface-variant/50">loading…</span>}
+                        <span className="text-amber-gold/60 text-[11px]">({twLabel})</span>
+                        {loadingTrail && <span className="ml-auto animate-pulse text-[11px] text-on-surface-variant/50">loading…</span>}
                       </div>
                       {selectedFlightStats ? (
                         <>
@@ -1087,11 +1057,11 @@ export function FlightLogPanel() {
                           </div>
                           <div className="mt-3 pt-2 border-t border-white/5 grid grid-cols-2 gap-3">
                             <div>
-                              <div className="font-mono text-[7px] text-on-surface-variant/60 uppercase">First Seen</div>
+                              <div className="font-mono text-[11px] text-on-surface-variant/60 uppercase">First Seen</div>
                               <div className="font-mono text-[11px] text-on-surface mt-0.5">{fmtDateTime(selectedFlightStats.firstSeen)}</div>
                             </div>
                             <div>
-                              <div className="font-mono text-[7px] text-on-surface-variant/60 uppercase">Last Seen</div>
+                              <div className="font-mono text-[11px] text-on-surface-variant/60 uppercase">Last Seen</div>
                               <div className="font-mono text-[11px] text-on-surface mt-0.5">{fmtDateTime(selectedFlightStats.lastSeen)}</div>
                             </div>
                           </div>
@@ -1113,10 +1083,10 @@ export function FlightLogPanel() {
                         <span className="text-on-surface-variant/40 normal-case tracking-normal">({selectedRegistration})</span>
                       )}
                       {loadingAcars && (
-                        <span className="ml-auto animate-pulse text-[9px] text-on-surface-variant/40">loading…</span>
+                        <span className="ml-auto animate-pulse text-[11px] text-on-surface-variant/40">loading…</span>
                       )}
                       {mergedAcars.length > 0 && !loadingAcars && (
-                        <span className="ml-auto font-mono text-[10px] text-on-surface-variant/40">{mergedAcars.length}</span>
+                        <span className="ml-auto font-mono text-[11px] text-on-surface-variant/40">{mergedAcars.length}</span>
                       )}
                     </div>
                     {mergedAcars.length > 0 ? (
@@ -1257,7 +1227,7 @@ export function FlightLogPanel() {
             </div>
 
             {/* ── Right Column: Live Map & Details ── */}
-            <div className="flex-1 min-w-0 flex flex-col lg:h-full lg:overflow-y-auto p-4 lg:p-6 gap-6 pb-28 lg:pb-36">
+            <div className="flex-1 min-w-0 flex flex-col lg:h-full lg:overflow-y-auto p-4 lg:p-6 gap-6 pb-6">
               {/* ── Live Position Map ── */}
               <section className="border border-white/10 p-4 bg-white/5 flex flex-col gap-2 rounded-sm bg-onyx-black/35 backdrop-blur-sm shrink-0">
                 <div className="flex items-center justify-between shrink-0">
@@ -1382,8 +1352,8 @@ export function FlightLogPanel() {
                         <div className="p-3 border border-white/10 bg-white/5 rounded-sm">
                           <div className="font-mono text-[11px] text-on-surface-variant uppercase tracking-widest mb-2 flex items-center gap-2">
                             Flight Statistics
-                            <span className="text-amber-gold/60 text-[7px]">({twLabel})</span>
-                            {loadingTrail && <span className="ml-auto animate-pulse text-[7px] text-on-surface-variant/50">loading…</span>}
+                            <span className="text-amber-gold/60 text-[11px]">({twLabel})</span>
+                            {loadingTrail && <span className="ml-auto animate-pulse text-[11px] text-on-surface-variant/50">loading…</span>}
                           </div>
                           {selectedFlightStats ? (
                             <>
@@ -1397,11 +1367,11 @@ export function FlightLogPanel() {
                               </div>
                               <div className="mt-3 pt-2 border-t border-white/5 grid grid-cols-2 gap-3">
                                 <div>
-                                  <div className="font-mono text-[7px] text-on-surface-variant/60 uppercase">First Seen</div>
+                                  <div className="font-mono text-[11px] text-on-surface-variant/60 uppercase">First Seen</div>
                                   <div className="font-mono text-[11px] text-on-surface mt-0.5">{fmtDateTime(selectedFlightStats.firstSeen)}</div>
                                 </div>
                                 <div>
-                                  <div className="font-mono text-[7px] text-on-surface-variant/60 uppercase">Last Seen</div>
+                                  <div className="font-mono text-[11px] text-on-surface-variant/60 uppercase">Last Seen</div>
                                   <div className="font-mono text-[11px] text-on-surface mt-0.5">{fmtDateTime(selectedFlightStats.lastSeen)}</div>
                                 </div>
                               </div>
@@ -1424,10 +1394,10 @@ export function FlightLogPanel() {
                           <span className="text-on-surface-variant/40 normal-case tracking-normal">({selectedRegistration})</span>
                         )}
                         {loadingAcars && (
-                          <span className="ml-auto animate-pulse text-[9px] text-on-surface-variant/40">loading…</span>
+                          <span className="ml-auto animate-pulse text-[11px] text-on-surface-variant/40">loading…</span>
                         )}
                         {mergedAcars.length > 0 && !loadingAcars && (
-                          <span className="ml-auto font-mono text-[10px] text-on-surface-variant/40">{mergedAcars.length}</span>
+                          <span className="ml-auto font-mono text-[11px] text-on-surface-variant/40">{mergedAcars.length}</span>
                         )}
                       </div>
                       {mergedAcars.length > 0 ? (

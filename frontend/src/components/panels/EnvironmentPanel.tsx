@@ -99,19 +99,19 @@ export function EnvironmentPanel() {
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 px-6 py-3 border-b border-white/5">
         <div className="flex flex-wrap items-center gap-4 sm:gap-6">
           <div className="flex flex-col min-w-0">
-            <span className="text-[8px] lg:text-[11px] font-mono text-on-surface-variant uppercase tracking-[0.2em] whitespace-nowrap">Region Center</span>
-            <span className="text-[10px] lg:text-[11px] font-mono text-on-surface font-bold uppercase tracking-widest">
+            <span className="text-[11px] font-mono text-on-surface-variant uppercase tracking-[0.2em] whitespace-nowrap">Region Center</span>
+            <span className="text-[11px] font-mono text-on-surface font-bold uppercase tracking-widest">
               Tualatin, OR <span className="opacity-30">·</span> 45.38°N 122.76°W
             </span>
           </div>
           <div className="w-px h-6 bg-white/10 shrink-0" />
           <div className="flex flex-col shrink-0">
-            <span className="text-[8px] lg:text-[11px] font-mono text-on-surface-variant uppercase tracking-[0.2em] whitespace-nowrap">Last Update</span>
-            <FeedAge feedKey="weather:current" prefix="" className="text-[10px] lg:text-[11px] font-bold tracking-widest whitespace-nowrap" />
+            <span className="text-[11px] font-mono text-on-surface-variant uppercase tracking-[0.2em] whitespace-nowrap">Last Update</span>
+            <FeedAge feedKey="weather:current" prefix="" className="text-[11px] font-bold tracking-widest whitespace-nowrap" />
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 font-mono text-[9px] lg:text-[11px] text-on-surface-variant uppercase tracking-widest shrink-0">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 font-mono text-[11px] text-on-surface-variant uppercase tracking-widest shrink-0">
           <span className="flex items-center gap-1.5 whitespace-nowrap"><span className="w-1.5 h-1.5 rounded-full bg-green-500/40" /> NWS</span>
           <span className="flex items-center gap-1.5 whitespace-nowrap"><span className="w-1.5 h-1.5 rounded-full bg-amber-500/40" /> EPA</span>
           <span className="flex items-center gap-1.5 whitespace-nowrap"><span className="w-1.5 h-1.5 rounded-full bg-blue-500/40" /> LOCAL SENSORS</span>
@@ -119,7 +119,7 @@ export function EnvironmentPanel() {
       </div>
 
       {/* Scrollable body */}
-      <div className="flex-1 overflow-y-auto min-h-0 pb-24">
+      <div className="flex-1 overflow-y-auto min-h-0 pb-6">
         {isMobile ? (
           <div className="flex flex-col gap-8 p-2 sm:p-4">
             {/* 1. NWS Alerts */}
@@ -131,7 +131,7 @@ export function EnvironmentPanel() {
                 </div>
                 <div className="flex flex-col items-center">
                   <p className="font-mono text-[12px] lg:text-[14px] text-on-surface font-bold uppercase tracking-[0.2em]">Systems Nominal</p>
-                  <p className="font-mono text-[9px] lg:text-[11px] text-on-surface-variant uppercase tracking-widest mt-1">No active weather advisories for this region</p>
+                  <p className="font-mono text-[11px] text-on-surface-variant uppercase tracking-widest mt-1">No active weather advisories for this region</p>
                 </div>
               </div>
             ) : (
@@ -144,7 +144,7 @@ export function EnvironmentPanel() {
 
             {/* 2. Hazard quick cards */}
             <div>
-              <div className="label-caps text-[10px] lg:text-[11px] text-on-surface-variant mb-3 flex items-center gap-2">
+              <div className="label-caps text-[11px] text-on-surface-variant mb-3 flex items-center gap-2">
                 <span className="h-px flex-1 bg-white/5" />
                 HAZARD STATUS INDICATORS
                 <span className="h-px flex-1 bg-white/5" />
@@ -177,8 +177,8 @@ export function EnvironmentPanel() {
                       {h.icon}
                     </span>
                     <div className="flex flex-col">
-                      <span className={`text-[10px] lg:text-[11px] font-black uppercase tracking-tight ${h.state.active ? 'text-on-surface' : 'text-on-surface-variant/60'}`}>{h.label}</span>
-                      <span className={`font-mono text-[8px] lg:text-[11px] font-bold mt-0.5 tracking-widest ${h.state.active ? h.state.color : 'text-on-surface-variant/30'}`}>{h.state.label}</span>
+                      <span className={`text-[11px] font-black uppercase tracking-tight ${h.state.active ? 'text-on-surface' : 'text-on-surface-variant/60'}`}>{h.label}</span>
+                      <span className={`font-mono text-[11px] font-bold mt-0.5 tracking-widest ${h.state.active ? h.state.color : 'text-on-surface-variant/30'}`}>{h.state.label}</span>
                     </div>
                   </div>
                 ))}
@@ -235,7 +235,7 @@ export function EnvironmentPanel() {
                     </div>
                     <div className="flex flex-col items-center">
                       <p className="font-mono text-[12px] lg:text-[14px] text-on-surface font-bold uppercase tracking-[0.2em]">Systems Nominal</p>
-                      <p className="font-mono text-[9px] lg:text-[11px] text-on-surface-variant uppercase tracking-widest mt-1">No active weather advisories for this region</p>
+                      <p className="font-mono text-[11px] text-on-surface-variant uppercase tracking-widest mt-1">No active weather advisories for this region</p>
                     </div>
                   </div>
                 ) : (
@@ -248,7 +248,7 @@ export function EnvironmentPanel() {
 
                 {/* Hazard quick cards */}
                 <div className="mt-6">
-                  <div className="label-caps text-[10px] lg:text-[11px] text-on-surface-variant mb-3 flex items-center gap-2">
+                  <div className="label-caps text-[11px] text-on-surface-variant mb-3 flex items-center gap-2">
                     <span className="h-px flex-1 bg-white/5" />
                     HAZARD STATUS INDICATORS
                     <span className="h-px flex-1 bg-white/5" />
@@ -281,8 +281,8 @@ export function EnvironmentPanel() {
                           {h.icon}
                         </span>
                         <div className="flex flex-col">
-                          <span className={`text-[10px] lg:text-[11px] font-black uppercase tracking-tight ${h.state.active ? 'text-on-surface' : 'text-on-surface-variant/60'}`}>{h.label}</span>
-                          <span className={`font-mono text-[8px] lg:text-[11px] font-bold mt-0.5 tracking-widest ${h.state.active ? h.state.color : 'text-on-surface-variant/30'}`}>{h.state.label}</span>
+                          <span className={`text-[11px] font-black uppercase tracking-tight ${h.state.active ? 'text-on-surface' : 'text-on-surface-variant/60'}`}>{h.label}</span>
+                          <span className={`font-mono text-[11px] font-bold mt-0.5 tracking-widest ${h.state.active ? h.state.color : 'text-on-surface-variant/30'}`}>{h.state.label}</span>
                         </div>
                       </div>
                     ))}

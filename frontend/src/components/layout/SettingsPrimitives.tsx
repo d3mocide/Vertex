@@ -19,7 +19,7 @@ export function MetricCard({ label, value, unit, icon, warn = false }: {
       <div className={`font-mono text-[13px] font-bold leading-tight ${warn ? 'text-red-emergency' : 'text-on-surface'}`}>
         {value}<span className="text-[11px] text-on-surface-variant ml-0.5">{unit}</span>
       </div>
-      <div className="text-on-surface-variant uppercase tracking-wider text-[7px]">{label}</div>
+      <div className="text-on-surface-variant uppercase tracking-wider text-[11px]">{label}</div>
     </div>
   )
 }

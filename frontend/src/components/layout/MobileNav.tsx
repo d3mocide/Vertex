@@ -58,6 +58,24 @@ export function MobileNav() {
                 </button>
               ))}
             </div>
+
+            {/* Tools that live in the desktop header */}
+            <div className="grid grid-cols-3 gap-3 mt-3">
+              {[
+                { icon: 'photo_camera', label: 'Snapshot', run: () => exportDashboardSnapshot() },
+                { icon: 'help_outline', label: 'Help',     run: () => setHelpOpen(true) },
+                { icon: 'settings',     label: 'Settings', run: () => setSettingsOpen(true) },
+              ].map((a) => (
+                <button
+                  key={a.label}
+                  onClick={() => { setShowMore(false); a.run() }}
+                  className="flex flex-col items-center gap-1.5 py-3 border bg-white/[0.03] border-white/5 text-on-surface-variant hover:text-white transition-colors"
+                >
+                  <span className="ms text-[20px]" aria-hidden="true">{a.icon}</span>
+                  <span className="text-[11px] font-bold tracking-widest uppercase">{a.label}</span>
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       )}

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { TrafficCamera, useCivicPick } from '../../store'
 import { isMajorTrafficIncident } from '../../incidentUtils'
+import { PageHeader } from '../common/Page'
 import { formatAge, useFeedFreshness } from '../common/FeedAge'
 
 function CctvThumbnail({
@@ -211,22 +212,11 @@ export function InfrastructureGrid() {
       aria-label="Infrastructure panel"
     >
 
-      {/* Panel header */}
-      <div className="px-4 py-3 border-b border-amber-gold-muted flex items-center gap-4 shrink-0">
-        <span
-          className="ms text-[18px] text-amber-gold leading-none"
-          aria-hidden="true"
-          style={{ fontVariationSettings: "'FILL' 1" }}
-        >
-          traffic
-        </span>
-        <h2 className="font-bold text-sm uppercase tracking-tight text-on-surface">
-          Infrastructure Monitor
-        </h2>
-
-        {/* LDI toggle */}
-        <div className="ml-auto flex items-center gap-2">
-          <span className="label-caps">LDI</span>
+      <PageHeader
+        icon="traffic"
+        title="Infrastructure"
+        status={<>
+          <span className="label-caps" title="Show the last daylight image for night cameras">LDI</span>
           <button
             onClick={() => setLdiMode(!ldiMode)}
             className={`
@@ -244,10 +234,10 @@ export function InfrastructureGrid() {
               `}
             />
           </button>
-        </div>
-      </div>
+        </>}
+      />
 
-      <div className="flex-1 overflow-y-auto p-4 pb-24 flex flex-col gap-6">
+      <div className="flex-1 overflow-y-auto p-4 pb-6 flex flex-col gap-6">
 
         {/* ── Two-column body ────────────────────────────────────────── */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">

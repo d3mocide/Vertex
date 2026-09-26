@@ -37,8 +37,8 @@ export function EnvBar() {
   return (
     <div
       className={`
-        border-b shrink-0 relative transition-all duration-500
-        h-10 px-3 lg:px-6 py-0
+        hidden lg:block border-b shrink-0 relative transition-all duration-500
+        h-10 px-6 py-0
         transition-all duration-500
         ${hasSevere && mode === 'critical'
           ? 'bg-red-emergency/5 border-red-emergency/20 backdrop-blur-md'
@@ -50,56 +50,8 @@ export function EnvBar() {
       {/* Subtle top light for depth */}
       <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-white/5 to-transparent pointer-events-none" />
 
-      {/* Mobile: single-row compact strip */}
-      <div className="lg:hidden w-full h-full flex items-center gap-3 overflow-x-auto whitespace-nowrap">
-        <div className="flex items-center gap-1 shrink-0">
-          <span className="ms text-[12px] text-amber-gold leading-none" aria-hidden="true">air</span>
-          <span className="label-caps">AQI</span>
-          <span className={`font-mono text-[11px] font-bold ${aqiColor(weather.aqi)}`}>
-            {weather.aqi != null ? weather.aqi : '—'}
-          </span>
-        </div>
-
-        <span className="h-3 w-px bg-white/10 shrink-0" aria-hidden="true" />
-
-        <div className="flex items-center gap-1 shrink-0">
-          <span className="ms text-[12px] text-amber-gold leading-none" aria-hidden="true">device_thermostat</span>
-          <span className="label-caps">TEMP</span>
-          <span className="font-mono text-[11px] text-on-surface">
-            {weather.temp_f != null ? `${Math.round(weather.temp_f)}°F` : '—'}
-          </span>
-        </div>
-
-        <span className="h-3 w-px bg-white/10 shrink-0" aria-hidden="true" />
-
-        <div className="flex items-center gap-1 shrink-0">
-          <span className="ms text-[12px] text-amber-gold leading-none" aria-hidden="true">air</span>
-          <span className="label-caps">WIND</span>
-          <span className="font-mono text-[11px] text-on-surface">
-            {weather.wind_mph != null ? `${Math.round(weather.wind_mph)} MPH` : '—'}
-          </span>
-        </div>
-
-        <span className="h-3 w-px bg-white/10 shrink-0" aria-hidden="true" />
-
-        {topAlert ? (
-          <div className={`flex items-center gap-1 shrink-0 ${hasSevere ? 'text-red-emergency' : 'text-amber-gold'}`} role="alert" aria-live="polite">
-            <span className="ms text-[12px] leading-none" aria-hidden="true" style={{ fontVariationSettings: "'FILL' 1" }}>
-              {hasSevere ? 'emergency_home' : 'warning'}
-            </span>
-            <span className="font-mono text-[11px] uppercase tracking-widest">NWS ALERT</span>
-          </div>
-        ) : (
-          <div className="flex items-center gap-1 text-on-surface-variant shrink-0">
-            <span className="ms text-[12px] leading-none" aria-hidden="true">check_circle</span>
-            <span className="font-mono text-[11px] uppercase tracking-widest">NWS OK</span>
-          </div>
-        )}
-
-      </div>
-
       {/* Desktop: full ticker bar */}
-      <div className="hidden lg:flex items-center gap-6 h-full overflow-x-auto">
+      <div className="flex items-center gap-6 h-full overflow-x-auto">
         {/* AQI */}
         <div className="flex items-center gap-2 shrink-0">
           <span className="ms text-[14px] text-amber-gold leading-none" aria-hidden="true">air</span>
@@ -186,5 +138,43 @@ export function EnvBar() {
         </div>
       </div>
     </div>
+  )
+}
+
+
+/**
+ * Mobile header summary: temperature, AQI and NWS status in one tappable
+ * chip that opens the Environment page. Replaces the separate mobile env
+ * strip so the chrome above page content is a single 48px bar.
+ */
+export function EnvChips() {
+  const { weather, setActiveTab } = useCivicPick('weather', 'setActiveTab')
+  const hasSevere = weather.alerts.some((a) => a.severity === 'Extreme' || a.severity === 'Severe')
+  const alertCount = weather.alerts.length
+  return (
+    <button
+      type="button"
+      onClick={() => setActiveTab('environment')}
+      className="flex items-center gap-2.5 h-9 px-2.5 border border-white/10 bg-black/30 font-mono text-[12px] text-on-surface min-w-0 focus:outline-none focus-visible:ring-1 focus-visible:ring-amber-gold"
+      aria-label={`Conditions: ${weather.temp_f != null ? Math.round(weather.temp_f) + ' degrees' : 'temperature unknown'}, AQI ${weather.aqi ?? 'unknown'}, ${alertCount ? alertCount + ' NWS alerts' : 'no NWS alerts'}. Open environment.`}
+    >
+      <span>{weather.temp_f != null ? `${Math.round(weather.temp_f)}°` : '—'}</span>
+      <span className="h-3 w-px bg-white/15" aria-hidden="true" />
+      <span className="flex items-center gap-1">
+        <span className="text-on-surface-variant">AQI</span>
+        <span className={`font-bold ${aqiColor(weather.aqi)}`}>{weather.aqi ?? '—'}</span>
+      </span>
+      <span className="h-3 w-px bg-white/15" aria-hidden="true" />
+      {alertCount ? (
+        <span className={`flex items-center gap-1 ${hasSevere ? 'text-red-emergency' : 'text-amber-gold'}`}>
+          <span className="ms text-[16px] leading-none" aria-hidden="true" style={{ fontVariationSettings: "'FILL' 1" }}>
+            {hasSevere ? 'emergency_home' : 'warning'}
+          </span>
+          <span className="font-bold">{alertCount}</span>
+        </span>
+      ) : (
+        <span className="ms text-[16px] leading-none text-green-ais" aria-hidden="true">check_circle</span>
+      )}
+    </button>
   )
 }

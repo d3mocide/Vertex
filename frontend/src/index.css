@@ -106,6 +106,9 @@
 
 
 @layer utilities {
+  /* Hide scrollbars on horizontally-scrolling chip rows (still swipeable). */
+  .no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
+  .no-scrollbar::-webkit-scrollbar { display: none; }
   /* iOS safe-area helpers — require viewport-fit=cover in index.html to resolve.
      On non-notched devices / desktop the env() values are 0, so these are no-ops. */
   .pt-safe { padding-top: env(safe-area-inset-top, 0px); }
@@ -147,7 +150,7 @@
 
   /* Typography utilities */
   .label-caps {
-    @apply font-bold text-[10px] lg:text-[11px] tracking-widest uppercase text-on-surface-variant;
+    @apply font-bold text-[11px] tracking-widest uppercase text-on-surface-variant;
   }
 
   .data-value {
@@ -156,13 +159,13 @@
 
   /* Navigation links */
   .nav-link {
-    @apply tracking-widest uppercase text-[10px] lg:text-[11px] font-bold text-on-surface-variant
+    @apply tracking-widest uppercase text-[11px] font-bold text-on-surface-variant
            hover:text-amber-gold transition-colors h-full flex items-center cursor-pointer
            focus:outline-none focus-visible:ring-1 focus-visible:ring-amber-gold;
   }
 
   .nav-link-active {
-    @apply tracking-widest uppercase text-[10px] lg:text-[11px] font-bold text-amber-gold
+    @apply tracking-widest uppercase text-[11px] font-bold text-amber-gold
            border-b border-amber-gold h-full flex items-center cursor-pointer
            focus:outline-none focus-visible:ring-1 focus-visible:ring-amber-gold;
   }
@@ -176,7 +179,7 @@
 
   /* Section headings */
   .section-heading {
-    @apply font-bold text-[10px] lg:text-[11px] tracking-widest text-amber-gold uppercase
+    @apply font-bold text-[11px] tracking-widest text-amber-gold uppercase
            flex items-center gap-2 mb-3;
   }
 
@@ -189,7 +192,7 @@
 
   /* Ghost button */
   .btn-ghost {
-    @apply border border-amber-gold text-amber-gold font-bold text-[10px] lg:text-[11px]
+    @apply border border-amber-gold text-amber-gold font-bold text-[11px]
            uppercase tracking-widest px-3 py-1 hover:bg-amber-gold hover:text-onyx-black
            transition-all focus:outline-none focus-visible:ring-1 focus-visible:ring-amber-gold;
   }

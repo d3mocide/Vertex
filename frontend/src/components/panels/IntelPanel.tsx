@@ -87,6 +87,7 @@ function FeedCard({ item }: { item: FeedItem }) {
   )
 }
 
+import { PageHeader, StatusDot } from '../common/Page'
 import { CRITICAL_KEYWORDS } from '../../intelProcessor'
 
 function toFeedItem(item: AlertItem | NewsItem, i: number, isAlert: boolean): FeedItem {
@@ -173,34 +174,18 @@ export function IntelPanel() {
       aria-label="Intel feed panel"
     >
 
-      {/* Panel header */}
-      <div className="px-4 py-3 border-b border-amber-gold-muted flex items-center gap-3 shrink-0">
-        <span
-          className="ms text-[18px] text-amber-gold leading-none"
-          aria-hidden="true"
-          style={{ fontVariationSettings: "'FILL' 1" }}
-        >
-          psychology
-        </span>
-        <h2 className="font-bold text-sm uppercase tracking-tight text-on-surface">
-          Intel Feed
-        </h2>
-        <div className="ml-auto flex items-center gap-3">
-          <span className="font-mono text-[11px] text-on-surface-variant uppercase">
-            {alerts.length} alerts · {news.length} news
-          </span>
-          <div className="flex items-center gap-1.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-green-ais animate-pulse" aria-hidden="true" />
-            <span className="font-mono text-[11px] text-green-ais uppercase">LIVE</span>
-          </div>
-        </div>
-      </div>
+      <PageHeader
+        icon="psychology"
+        title="Intel Feed"
+        subtitle={`${alerts.length} alert${alerts.length === 1 ? '' : 's'} · ${news.length} news`}
+        status={<StatusDot label="Live" />}
+      />
 
 
 
       {/* Feed */}
       <div
-        className="flex-1 overflow-y-auto p-4 pb-24"
+        className="flex-1 overflow-y-auto p-4 pb-6"
         role="feed"
         aria-label="Community news and alert feed"
         aria-live="polite"

@@ -3,6 +3,7 @@ import { MeshMessage, Entity, SystemEvent, Track, MeshLink, useCivicPick } from 
 import { getDistanceMeters } from '../../layers/geoUtils'
 import { DEFAULT_CENTER, API_BASE } from '../../config'
 import { MeshFleetPanel } from './MeshFleetPanel'
+import { PageHeader, StatusDot } from '../common/Page'
 import { authHeaders } from '../../auth'
 
 function formatTime(iso: string) {
@@ -216,7 +217,7 @@ function SpectralMonitor({ links, history, status }: { links: MeshLink[]; histor
           </div>
         </div>
 
-        <div className="space-y-3 font-mono text-[10px]">
+        <div className="space-y-3 font-mono text-[11px]">
           {op25Online ? (
             <>
               {radio.freq_hz != null && (
@@ -247,7 +248,7 @@ function SpectralMonitor({ links, history, status }: { links: MeshLink[]; histor
               )}
             </>
           ) : (
-            <div className="py-1 px-1 text-on-surface-variant/40 uppercase tracking-wider text-[9px] italic">
+            <div className="py-1 px-1 text-on-surface-variant/40 uppercase tracking-wider text-[11px] italic">
               Waiting for tuner metadata...
             </div>
           )}
@@ -273,7 +274,7 @@ function SpectralMonitor({ links, history, status }: { links: MeshLink[]; histor
           </div>
         </div>
 
-        <div className="space-y-3 font-mono text-[10px]">
+        <div className="space-y-3 font-mono text-[11px]">
           <div className="flex justify-between items-center px-1">
             <span className="text-on-surface-variant uppercase">IGate Stations</span>
             <span className="text-[11px] font-bold text-on-surface">
@@ -297,7 +298,7 @@ function SpectralMonitor({ links, history, status }: { links: MeshLink[]; histor
               </div>
             </>
           ) : (
-            <div className="py-1 px-1 text-on-surface-variant/40 uppercase tracking-wider text-[9px] italic">
+            <div className="py-1 px-1 text-on-surface-variant/40 uppercase tracking-wider text-[11px] italic">
               No APRS packets decoded...
             </div>
           )}
@@ -490,19 +491,7 @@ export function CommsPanel() {
 
   return (
     <div className="relative w-full h-full z-10 flex flex-col overflow-hidden bg-onyx-black/20 backdrop-blur-md">
-      {/* Header */}
-      <div className="px-4 py-3 border-b border-amber-gold-muted flex items-center gap-3 shrink-0">
-        <span className="ms text-[18px] text-amber-gold leading-none" style={{ fontVariationSettings: "'FILL' 1" }}>
-          forum
-        </span>
-        <h2 className="font-bold text-sm uppercase tracking-tight text-on-surface">
-          Comms
-        </h2>
-        <div className="ml-auto flex items-center gap-1.5">
-          <span className="w-1.5 h-1.5 rounded-full bg-green-ais animate-pulse" />
-          <span className="font-mono text-[11px] text-green-ais uppercase tracking-widest">ACTIVE</span>
-        </div>
-      </div>
+      <PageHeader icon="forum" title="Comms" status={<StatusDot label="Active" />} />
       {/* ── Body: Split pane layout ── */}
       <div className="flex-1 min-h-0 flex flex-col lg:flex-row overflow-y-auto lg:overflow-hidden bg-onyx-black/5">
         {/* ── Left Column: Radio & Topology ── */}
@@ -590,12 +579,12 @@ export function CommsPanel() {
         </div>
 
         {/* ── Right Column: Tabbed View (Mesh Messages, Mesh Fleet, P25 Radio Log) ── */}
-        <div className="flex-1 min-w-0 flex flex-col lg:h-full p-4 lg:p-6 gap-6 pb-28 lg:pb-6">
+        <div className="flex-1 min-w-0 flex flex-col lg:h-full p-4 lg:p-6 gap-6 pb-6">
           {/* ── Tab Switcher Header ── */}
           <div className="flex border border-white/10 bg-white/5 rounded-sm p-1 gap-1 shrink-0 select-none">
             <button
               onClick={() => setActiveTab('chat')}
-              className={`flex-1 py-1.5 md:py-2 px-2 md:px-3 rounded-sm font-mono text-[10px] md:text-[11px] font-bold uppercase tracking-wider md:tracking-widest flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-2 transition-all ${activeTab === 'chat'
+              className={`flex-1 py-1.5 md:py-2 px-2 md:px-3 rounded-sm font-mono text-[11px] font-bold uppercase tracking-wider md:tracking-widest flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-2 transition-all ${activeTab === 'chat'
                 ? 'bg-amber-gold text-onyx-black shadow-[0_0_8px_rgba(255,184,0,0.3)]'
                 : 'text-on-surface-variant hover:text-on-surface hover:bg-white/5'
                 }`}
@@ -605,7 +594,7 @@ export function CommsPanel() {
             </button>
             <button
               onClick={() => setActiveTab('fleet')}
-              className={`flex-1 py-1.5 md:py-2 px-2 md:px-3 rounded-sm font-mono text-[10px] md:text-[11px] font-bold uppercase tracking-wider md:tracking-widest flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-2 transition-all ${activeTab === 'fleet'
+              className={`flex-1 py-1.5 md:py-2 px-2 md:px-3 rounded-sm font-mono text-[11px] font-bold uppercase tracking-wider md:tracking-widest flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-2 transition-all ${activeTab === 'fleet'
                 ? 'bg-amber-gold text-onyx-black shadow-[0_0_8px_rgba(255,184,0,0.3)]'
                 : 'text-on-surface-variant hover:text-on-surface hover:bg-white/5'
                 }`}
@@ -615,7 +604,7 @@ export function CommsPanel() {
             </button>
             <button
               onClick={() => setActiveTab('p25')}
-              className={`flex-1 py-1.5 md:py-2 px-2 md:px-3 rounded-sm font-mono text-[10px] md:text-[11px] font-bold uppercase tracking-wider md:tracking-widest flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-2 transition-all ${activeTab === 'p25'
+              className={`flex-1 py-1.5 md:py-2 px-2 md:px-3 rounded-sm font-mono text-[11px] font-bold uppercase tracking-wider md:tracking-widest flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-2 transition-all ${activeTab === 'p25'
                 ? 'bg-amber-gold text-onyx-black shadow-[0_0_8px_rgba(255,184,0,0.3)]'
                 : 'text-on-surface-variant hover:text-on-surface hover:bg-white/5'
                 }`}
@@ -635,7 +624,7 @@ export function CommsPanel() {
                   <div className="flex gap-1.5 p-2 border-b border-white/10 bg-white/5 overflow-x-auto shrink-0 scrollbar-thin">
                     <button
                       onClick={() => setSelectedConv('all')}
-                      className={`font-mono text-[10px] uppercase tracking-widest px-2.5 py-1 rounded-full whitespace-nowrap shrink-0 transition-colors ${selectedConv === 'all'
+                      className={`font-mono text-[11px] uppercase tracking-widest px-2.5 py-1 rounded-full whitespace-nowrap shrink-0 transition-colors ${selectedConv === 'all'
                         ? 'bg-amber-gold text-onyx-black font-bold'
                         : 'bg-white/10 text-on-surface-variant hover:bg-white/20'
                         }`}
@@ -646,7 +635,7 @@ export function CommsPanel() {
                       <button
                         key={conv.key}
                         onClick={() => setSelectedConv(conv.key)}
-                        className={`font-mono text-[10px] uppercase tracking-widest px-2.5 py-1 rounded-full whitespace-nowrap shrink-0 transition-colors ${selectedConv === conv.key
+                        className={`font-mono text-[11px] uppercase tracking-widest px-2.5 py-1 rounded-full whitespace-nowrap shrink-0 transition-colors ${selectedConv === conv.key
                           ? 'bg-amber-gold text-onyx-black font-bold'
                           : 'bg-white/10 text-on-surface-variant hover:bg-white/20'
                           }`}
@@ -704,13 +693,13 @@ export function CommsPanel() {
                   className="p-2 border-b border-white/10 bg-white/5 flex flex-col gap-2 shrink-0"
                 >
                   {meshStatus?.connected && meshStatus?.companion && !showFilter && (
-                    <div className="text-[10px] font-mono text-gray-500 uppercase tracking-widest px-1 flex items-center gap-1.5 select-none">
+                    <div className="text-[11px] font-mono text-gray-500 uppercase tracking-widest px-1 flex items-center gap-1.5 select-none">
                       <span className="w-1.5 h-1.5 rounded-full bg-green-ais animate-pulse" />
                       <span>Transmitting via <span className="text-amber-gold/80 font-bold">{meshStatus.companion}</span></span>
                     </div>
                   )}
                   {showFilter && (
-                    <div className="text-[10px] font-mono text-gray-500 uppercase tracking-widest px-1 flex items-center gap-1.5 select-none">
+                    <div className="text-[11px] font-mono text-gray-500 uppercase tracking-widest px-1 flex items-center gap-1.5 select-none">
                       <span className="w-1.5 h-1.5 rounded-full bg-amber-gold animate-pulse" />
                       <span>Active Search Filter Mode</span>
                     </div>
@@ -787,11 +776,11 @@ export function CommsPanel() {
                       <span className="ms text-[14px]">{showFilter ? 'chat' : 'search'}</span>
                     </button>
                   </div>
-                  {sendError && <div className="text-[10px] text-red-400 font-mono px-1">{sendError}</div>}
+                  {sendError && <div className="text-[11px] text-red-400 font-mono px-1">{sendError}</div>}
                 </form>
 
                 {/* Message Feed — grouped by conversation */}
-                <div className="flex-1 overflow-y-auto p-4 pb-24 lg:pb-28 space-y-4 custom-scrollbar">
+                <div className="flex-1 overflow-y-auto p-4 pb-4 space-y-4 custom-scrollbar">
                   {messageGroups.length > 0 ? (
                     messageGroups.map(group => (
                       <div key={group.key}>
@@ -799,10 +788,10 @@ export function CommsPanel() {
                         {selectedConv === 'all' && (
                           <div className="flex items-center gap-2 mb-2 sticky top-0 bg-onyx-deep/80 backdrop-blur-sm py-1 z-10">
                             <span className="ms text-[12px] text-amber-gold/60">forum</span>
-                            <span className="font-mono text-[10px] text-amber-gold/80 uppercase tracking-widest">
+                            <span className="font-mono text-[11px] text-amber-gold/80 uppercase tracking-widest">
                               {prettyConversationLabel(group.key, conversationNames.get(group.key))}
                             </span>
-                            <span className="font-mono text-[10px] text-on-surface-variant/50">{group.msgs.length} msg{group.msgs.length !== 1 ? 's' : ''}</span>
+                            <span className="font-mono text-[11px] text-on-surface-variant/50">{group.msgs.length} msg{group.msgs.length !== 1 ? 's' : ''}</span>
                             <div className="flex-1 h-px bg-white/5" />
                           </div>
                         )}
@@ -850,7 +839,7 @@ export function CommsPanel() {
 
           {activeTab === 'fleet' && (
             <div className="flex flex-col gap-3 flex-1 min-h-0">
-              <div className="flex-1 min-h-0 overflow-y-auto pb-24 lg:pb-28 custom-scrollbar">
+              <div className="flex-1 min-h-0 overflow-y-auto pb-4 custom-scrollbar">
                 <MeshFleetPanel entities={Object.values(entities)} />
               </div>
             </div>
@@ -865,10 +854,10 @@ export function CommsPanel() {
                   </span>
                   <span className="flex items-center gap-1.5">
                     <span className="w-1.5 h-1.5 rounded-full bg-amber-gold animate-pulse" />
-                    <span className="font-mono text-[10px] text-amber-gold uppercase tracking-wider">Tuned</span>
+                    <span className="font-mono text-[11px] text-amber-gold uppercase tracking-wider">Tuned</span>
                   </span>
                 </div>
-                <div className="flex-1 overflow-y-auto p-2 pb-24 lg:pb-28 space-y-1.5 custom-scrollbar">
+                <div className="flex-1 overflow-y-auto p-2 pb-4 space-y-1.5 custom-scrollbar">
                   {p25EventsLog.length > 0 ? (
                     p25EventsLog.map(ev => <TransmissionRow key={ev.event_id} event={ev} />)
                   ) : (

@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { SystemEvent, NavTab, useCivicPick } from '../../store'
 import { exportDashboardSnapshot } from '../../snapshotExport'
+import { EnvChips } from './EnvBar'
 
 const TABS: { id: NavTab; label: string; icon: string }[] = [
   { id: 'safety',         label: 'Overview',       icon: 'dashboard'      },
@@ -68,7 +69,7 @@ export function Header() {
   return (
     <header
       className={`
-        border-b flex justify-between items-center w-full px-3 sm:px-4 lg:px-6 h-14 shrink-0
+        border-b flex justify-between items-center gap-2 w-full px-3 sm:px-4 lg:px-6 h-12 lg:h-14 shrink-0
         transition-all duration-500 relative overflow-visible z-50
         ${mode === 'critical'
           ? 'bg-red-emergency/5 border-red-emergency/20 backdrop-blur-md'
@@ -122,9 +123,14 @@ export function Header() {
           <polygon points="16,7 25,16 16,25 7,16" fill="none" stroke="currentColor" strokeWidth="2"/>
           <rect x="14" y="14" width="4" height="4" fill="#FFB800"/>
         </svg>
-        <span className="font-black text-[11px] tracking-[0.2em] uppercase text-amber-gold leading-none truncate">
+        <span className="hidden min-[380px]:inline font-black text-[11px] tracking-[0.2em] uppercase text-amber-gold leading-none truncate">
           VERTEX
         </span>
+      </div>
+
+      {/* Mobile conditions summary (replaces the separate env strip) */}
+      <div className="lg:hidden flex-1 min-w-0 flex justify-center relative z-10">
+        <EnvChips />
       </div>
 
       {/* Right controls */}
@@ -136,7 +142,7 @@ export function Header() {
           <div className="relative" ref={notifRef}>
             <button
               onClick={() => setNotificationsOpen((o) => !o)}
-              className={`hover:text-amber-gold transition-colors p-1 focus:outline-none focus-visible:ring-1 focus-visible:ring-amber-gold relative ${notificationsOpen ? 'text-amber-gold' : ''}`}
+              className={`hover:text-amber-gold transition-colors p-2 lg:p-1 focus:outline-none focus-visible:ring-1 focus-visible:ring-amber-gold relative ${notificationsOpen ? 'text-amber-gold' : ''}`}
               aria-label={`Notifications${systemEvents.length > 0 ? ` (${systemEvents.length})` : ''}`}
               aria-expanded={notificationsOpen}
             >
@@ -151,7 +157,7 @@ export function Header() {
           </div>
           <button
             onClick={() => exportDashboardSnapshot()}
-            className="hover:text-amber-gold transition-colors p-1 focus:outline-none focus-visible:ring-1 focus-visible:ring-amber-gold"
+            className="hidden lg:block hover:text-amber-gold transition-colors p-2 lg:p-1 focus:outline-none focus-visible:ring-1 focus-visible:ring-amber-gold"
             aria-label="Export snapshot"
             title="Export map snapshot"
           >
@@ -159,7 +165,7 @@ export function Header() {
           </button>
           <button
             onClick={() => setHelpOpen(true)}
-            className="hover:text-amber-gold transition-colors p-1 focus:outline-none focus-visible:ring-1 focus-visible:ring-amber-gold"
+            className="hidden lg:block hover:text-amber-gold transition-colors p-2 lg:p-1 focus:outline-none focus-visible:ring-1 focus-visible:ring-amber-gold"
             aria-label="Documentation"
             title="Documentation"
           >
@@ -167,7 +173,7 @@ export function Header() {
           </button>
           <button
             onClick={() => setSettingsOpen(true)}
-            className="hover:text-amber-gold transition-colors p-1 focus:outline-none focus-visible:ring-1 focus-visible:ring-amber-gold"
+            className="hover:text-amber-gold transition-colors p-2 lg:p-1 focus:outline-none focus-visible:ring-1 focus-visible:ring-amber-gold"
             aria-label="Settings"
           >
             <span className="ms text-[18px]">settings</span>

@@ -63,7 +63,7 @@ function AiTrafficSummary() {
         </div>
         <div className="flex items-center gap-3">
           {summary.posture && (
-            <span className={`border px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest ${postureClass(summary.posture)}`}>
+            <span className={`border px-2 py-0.5 text-[11px] font-bold uppercase tracking-widest ${postureClass(summary.posture)}`}>
               {summary.posture}
             </span>
           )}
@@ -154,7 +154,7 @@ export function IncidentsPanel() {
   const totalAlerts = weatherAlerts.length + significantTraffic.length + prioritySystemEvents.length
 
   return (
-    <div className="p-4 md:p-6 pb-24 md:pb-24 space-y-8">
+    <div className="p-4 md:p-6 space-y-8">
       
       {/* AI SUMMARY AT TOP */}
       <AiTrafficSummary />

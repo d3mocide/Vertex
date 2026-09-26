@@ -253,7 +253,9 @@ export function TacticalAudio() {
 
   return (
     <aside
-      className={`absolute bottom-5 lg:bottom-6 left-1/2 -translate-x-1/2 z-40 flex flex-col justify-end items-end w-[1040px] max-w-[98vw] pointer-events-none transition-all duration-300 ${isCritical ? 'scale-105 origin-bottom' : 'scale-100 origin-bottom'}`}
+      // Mobile: a flat bar docked directly above the bottom nav (the page
+      // scroller reserves its height). Desktop: the floating console pill.
+      className={`fixed lg:absolute inset-x-0 bottom-[calc(3.5rem_+_env(safe-area-inset-bottom))] lg:inset-x-auto lg:bottom-6 lg:left-1/2 lg:-translate-x-1/2 z-40 flex flex-col justify-end items-end w-full lg:w-[1040px] lg:max-w-[98vw] pointer-events-none transition-all duration-300 ${isCritical ? 'lg:scale-105 origin-bottom' : 'scale-100 origin-bottom'}`}
       aria-label="Tactical audio console"
     >
       {/* Pop-up Channels Panel */}
@@ -267,17 +269,17 @@ export function TacticalAudio() {
       )}
 
       {/* Main Bottom Bar */}
-      <div className="bg-white/[0.03] border border-white/10 backdrop-blur-md rounded-full h-12 w-full flex items-center px-4 md:px-5 pointer-events-auto relative shadow-[0_8px_32px_rgba(0,0,0,0.4)]">
+      <div className="bg-onyx-deep/90 lg:bg-white/[0.03] border-t lg:border border-white/10 backdrop-blur-md lg:rounded-full h-12 w-full flex items-center px-3 lg:px-5 pointer-events-auto relative lg:shadow-[0_8px_32px_rgba(0,0,0,0.4)]">
 
         {/* Left Section */}
-        <div className="flex flex-1 items-center gap-2 min-w-0 mr-[78px] sm:mr-[110px] md:mr-[120px] lg:mr-[150px]">
+        <div className="flex flex-1 items-center gap-2 min-w-0 mr-2 lg:mr-[150px]">
           <div className="w-8 h-8 rounded-full border border-amber-gold/30 flex items-center justify-center bg-black/40 shrink-0">
             <span className="ms text-[18px] text-amber-gold leading-none" aria-hidden="true" style={{ fontVariationSettings: "'FILL' 1" }}>cell_tower</span>
           </div>
           <div className="min-w-0 flex items-center gap-2 sm:gap-2.5">
-            <h2 className="font-bold text-[11px] sm:text-[11px] tracking-tight text-on-surface uppercase truncate">{activeTag}</h2>
-            <div className="hidden sm:block w-px h-3 bg-white/10 shrink-0" />
-            <div className="hidden sm:flex items-center gap-2 font-mono text-[11px] text-on-surface-variant truncate">
+            <h2 className="font-bold text-[12px] lg:text-[11px] tracking-tight text-on-surface uppercase truncate">{activeTag}</h2>
+            <div className="hidden lg:block w-px h-3 bg-white/10 shrink-0" />
+            <div className="hidden lg:flex items-center gap-2 font-mono text-[11px] text-on-surface-variant truncate">
               <span>
                 {selectedTg && selectedTg.tgid !== radio?.tgid
                   ? `TGID ${selectedTg.tgid}`
@@ -309,11 +311,11 @@ export function TacticalAudio() {
         </div>
 
         {/* Middle Section — Playback Controls */}
-        <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-3 shrink-0 h-full">
+        <div className="lg:absolute lg:left-1/2 lg:-translate-x-1/2 flex items-center gap-3 shrink-0 h-full">
           <button
             onClick={() => skipChannel(-1)}
             disabled={visibleTalkgroups.length === 0}
-            className="text-on-surface-variant hover:text-amber-gold transition-colors focus:outline-none flex disabled:opacity-30"
+            className="hidden lg:flex text-on-surface-variant hover:text-amber-gold transition-colors focus:outline-none disabled:opacity-30"
             aria-label="Previous channel"
           >
             <span className="ms text-[18px]">skip_previous</span>
@@ -333,7 +335,7 @@ export function TacticalAudio() {
           <button
             onClick={() => skipChannel(1)}
             disabled={visibleTalkgroups.length === 0}
-            className="text-on-surface-variant hover:text-amber-gold transition-colors focus:outline-none flex disabled:opacity-30"
+            className="hidden lg:flex text-on-surface-variant hover:text-amber-gold transition-colors focus:outline-none disabled:opacity-30"
             aria-label="Next channel"
           >
             <span className="ms text-[18px]">skip_next</span>
@@ -341,14 +343,14 @@ export function TacticalAudio() {
         </div>
 
         {/* Right Section */}
-        <div className="flex flex-1 items-center justify-end gap-3 sm:gap-5 min-w-0 ml-[86px] sm:ml-[120px] md:ml-[140px] lg:ml-[180px]">
-          <div className="hidden sm:flex items-center">
+        <div className="flex lg:flex-1 items-center justify-end gap-3 lg:gap-5 min-w-0 ml-3 lg:ml-[180px]">
+          <div className="hidden lg:flex items-center">
             <span className="font-mono text-[11px] text-amber-gold w-14 tracking-wider text-right font-semibold">
               {playing ? formatElapsed(elapsed) : '00:00:00'}
             </span>
           </div>
 
-          <div className="hidden sm:flex items-center gap-2">
+          <div className="hidden lg:flex items-center gap-2">
             <span className="ms text-[18px] text-on-surface-variant" aria-hidden="true">
               {volume === 0 ? 'volume_off' : volume < 0.5 ? 'volume_down' : 'volume_up'}
             </span>
@@ -377,7 +379,8 @@ export function TacticalAudio() {
 
           <button
             onClick={() => setShowChannels(!showChannels)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-amber-gold/30 text-[11px] font-bold tracking-widest uppercase transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-amber-gold ${showChannels ? 'bg-amber-gold text-onyx-black border-amber-gold' : 'text-amber-gold hover:bg-amber-gold/10 hover:border-amber-gold/50'}`}
+            aria-label="Channels"
+            className={`flex items-center gap-1.5 px-3 py-2 lg:py-1.5 lg:rounded-full border border-amber-gold/30 text-[11px] font-bold tracking-widest uppercase transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-amber-gold ${showChannels ? 'bg-amber-gold text-onyx-black border-amber-gold' : 'text-amber-gold hover:bg-amber-gold/10 hover:border-amber-gold/50'}`}
           >
             <span className="ms text-[14px] leading-none">format_list_bulleted</span>
             <span className="hidden md:inline text-[11px]">CHANNELS</span>

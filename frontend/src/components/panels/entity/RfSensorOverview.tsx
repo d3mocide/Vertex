@@ -83,7 +83,7 @@ export function RfSensorOverview({ entity, getIdentity }: OverviewProps) {
                 <div key={f.key} className="bg-white/5 border border-white/10 p-2 rounded-sm">
                   <div className="flex items-center gap-1 mb-0.5 text-on-surface-variant">
                     <span className="ms text-[11px]">{f.icon}</span>
-                    <span className="label-caps text-[10px]">{f.label}</span>
+                    <span className="label-caps text-[11px]">{f.label}</span>
                   </div>
                   <div className="font-mono text-[13px] text-lime-rf">
                     {isNaN(val) ? '--' : `${Number.isInteger(val) ? val : val.toFixed(1)}${f.unit}`}
