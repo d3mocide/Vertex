@@ -311,6 +311,8 @@ class Incident:
     lat: float | None = None
     lon: float | None = None
     geofences: list[str] = field(default_factory=list)
+    # Real street name when the one heard on the radio was ASR-garbled.
+    location_corrected: str | None = None
 
     @property
     def summary_quote(self) -> str:
@@ -324,7 +326,8 @@ class Incident:
                   + re.sub(r"[^a-z0-9]+", "-", (self.key or self.location or self.category).lower()).strip("-")[:40],
             "category": self.category,
             "severity": self.severity,
-            "location": self.location,
+            "location": self.location_corrected or self.location,
+            "location_heard": self.location if self.location_corrected else None,
             "first_seen": self.first_seen.isoformat(),
             "last_seen": self.last_seen.isoformat(),
             "call_count": len(self.calls),

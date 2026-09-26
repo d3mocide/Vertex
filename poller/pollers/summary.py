@@ -167,7 +167,7 @@ def score_briefing(text: str, facts: dict) -> dict:
         "life_safety_total": len(life),
         "life_safety_in_bottom_line": (any(_mentions(bottom, m["location"], m["category"]) for m in life) if life else None),
         "radio_24h_serious": len(radio),
-        "radio_24h_coverage": rate(sum(_mentions(low, i.location, i.category) for i in radio), len(radio)),
+        "radio_24h_coverage": rate(sum(_mentions(low, i.location_corrected or i.location, i.category) for i in radio), len(radio)),
         "traffic_total": len(traffic),
         "traffic_coverage": rate(sum(_mentions(low, t.get("location") or t.get("title")) for t in traffic), len(traffic)),
         "format_ok": all(f"### {s}" in low for s in _REQUIRED_SECTIONS) and low.startswith("**bottom line:**"),

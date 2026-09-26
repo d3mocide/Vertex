@@ -143,3 +143,46 @@ def test_intersection_uses_street_geometries_and_postgis():
     assert [c["street"] for c in calls] == ["NW 9th Ave", "NW Lovejoy St"]
     assert calls[0]["polygon_geojson"] == "1" and calls[0]["dedupe"] == "0" and calls[0]["limit"] == "40"
     assert g_calls[0][0] == line and g_calls[0][2] == 40
+
+
+# ── Fuzzy street-name corrections ────────────────────────────────────────────
+
+import street_names
+
+
+@pytest.mark.parametrize("name, expected", [
+    ("North Clarendon Avenue", ("N", "clarendon", "Ave")),
+    ("N Clariton Ave", ("N", "clariton", "Ave")),
+    ("Lloyd Court Southeast", ("SE", "lloyd", "Ct")),
+    ("N Mlk Junior Blvd", ("N", "martin luther king junior", "Blvd")),
+    ("Broadway", None),
+])
+def test_parse_street(name, expected):
+    assert street_names.parse_street(name) == expected
+
+
+def test_fuzzy_correction_is_used_only_when_the_house_number_validates(monkeypatch):
+    async def fake_suggest(pool, street, limit=3):
+        return ["N Clark Ave", "N Clarendon Ave"]
+    monkeypatch.setattr(street_names, "suggest", fake_suggest)
+
+    def handler(request):
+        street = request.url.params["street"]
+        if street == "700 N Clarendon Ave":
+            return httpx.Response(200, json=[{"lat": "45.58", "lon": "-122.72", "address": {"house_number": "700"}}])
+        # Heard name and the wrong candidate: street-level fallback only (no house number).
+        return httpx.Response(200, json=[{"lat": "45.0", "lon": "-122.0", "address": {}}])
+
+    g, calls = make(handler)
+    entry = run(g.lookup("700 N Clariton Ave"))
+    assert (entry["lat"], entry["lon"]) == (45.58, -122.72)
+    assert entry["how"] == "address_fuzzy" and entry["corrected"] == "700 N Clarendon Ave"
+    assert [c["street"] for c in calls] == ["700 N Clariton Ave", "700 N Clark Ave", "700 N Clarendon Ave"]
+
+
+def test_unvalidated_corrections_are_a_miss(monkeypatch):
+    async def fake_suggest(pool, street, limit=3):
+        return ["SE Park St"]
+    monkeypatch.setattr(street_names, "suggest", fake_suggest)
+    g, _ = make(lambda r: httpx.Response(200, json=[{"lat": "45.5", "lon": "-122.6", "address": {}}]))
+    assert run(g.lookup("12345 SE Dark St")) is None

@@ -6,6 +6,7 @@ calls (see radio_incidents.py), tag any located ones with geofences, and
 publish `feed:radio:incidents` for the UI and the AI briefing. The feed is
 only republished when its content changes.
 """
+import asyncio
 import hashlib
 import json
 import logging
@@ -45,9 +46,10 @@ async def load_incidents(pool, since: datetime, geocoder=None, live_lookups: int
     incidents = extract([tuple(r) for r in rows])
     if geocoder is not None and geocoder.enabled:
         for inc in incidents:
-            point = await geocoder.geocode(inc.location, cache_only=geocoder.lookups >= live_lookups)
-            if point:
-                inc.lat, inc.lon = point
+            entry = await geocoder.lookup(inc.location, cache_only=geocoder.lookups >= live_lookups)
+            if entry:
+                inc.lat, inc.lon = entry["lat"], entry["lon"]
+                inc.location_corrected = entry.get("corrected")
     tags = await geofences_for_points(pool, [(i.lat, i.lon) for i in incidents])
     for inc, names in zip(incidents, tags):
         inc.geofences = names
@@ -60,6 +62,19 @@ class RadioIncidentPoller(BasePoller):
 
     def __init__(self):
         self._last_hash = ""
+
+    async def setup(self):
+        if settings.geocoder_url:
+            # Street gazetteer for fuzzy geocoding; refreshes monthly, loads in
+            # the background so a slow Overpass never delays the poll loop.
+            asyncio.create_task(self._refresh_streets())
+
+    async def _refresh_streets(self):
+        from street_names import refresh_if_stale
+        try:
+            await refresh_if_stale(get_pool())
+        except Exception as exc:
+            logger.warning("[radio_incidents] street-name gazetteer refresh failed: %s", exc)
 
     async def poll(self):
         now = datetime.now(timezone.utc)

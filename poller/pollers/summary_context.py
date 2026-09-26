@@ -532,9 +532,10 @@ def must_cover(radio_incidents, traffic_disruptions, now: datetime) -> list[dict
     for i in radio_incidents:
         # Same freshness rule as incident_status(): stale incidents are history, not must-cover.
         if i.severity >= 4 and now - i.last_seen <= _STALE_AFTER and i.status != "cleared":
-            items.append({"kind": "radio", "category": i.category, "severity": i.severity, "location": i.location,
+            items.append({"kind": "radio", "category": i.category, "severity": i.severity,
+                          "location": i.location_corrected or i.location,
                           "label": f"{_CATEGORY_LABEL.get(i.category, i.category)} — "
-                                   f"{sanitise(i.location, 60) or 'location not stated'} (radio, {fmt_ts(i.first_seen, now)})"})
+                                   f"{sanitise(i.location_corrected or i.location, 60) or 'location not stated'} (radio, {fmt_ts(i.first_seen, now)})"})
     for t in traffic_disruptions:
         updated = parse_ts(t.get("pubDate"))
         if "closure" in str(t.get("severity", "")).lower() and updated and updated >= now - timedelta(hours=6):
@@ -584,8 +585,11 @@ def format_radio_activity(talkgroups, call_volume: int | None, baseline_volume: 
                 bits.append(f"{round(haversine_km(settings.region_lat, settings.region_lon, i.lat, i.lon))} km from centre")
             if i.geofences:
                 bits.append("in " + ", ".join(i.geofences))
+            where = sanitise(i.location_corrected or i.location, 80) or "location not stated"
+            if i.location_corrected:
+                where += f" (heard as '{sanitise(i.location, 60)}')"
             lines.append(f"- {span} {_CATEGORY_LABEL.get(i.category, i.category.upper())} — "
-                         f"{sanitise(i.location, 80) or 'location not stated'} ({'; '.join(bits)})\n"
+                         f"{where} ({'; '.join(bits)})\n"
                          f"  radio: \"{sanitise(i.summary_quote, 150)}\"")
         routine: dict[str, int] = {}
         high_acuity = 0

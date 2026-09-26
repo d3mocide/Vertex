@@ -105,13 +105,23 @@ class Geocoder:
             return None
         return entry
 
-    async def _store(self, key: str, lat: float | None, lon: float | None, how: str) -> dict:
-        entry = {"lat": lat, "lon": lon, "how": how, "ts": time.time()}
+    async def _store(self, key: str, lat: float | None, lon: float | None, how: str,
+                     corrected: str | None = None) -> dict:
+        entry = {"lat": lat, "lon": lon, "how": how, "corrected": corrected, "ts": time.time()}
         await self.redis.hset(_CACHE_KEY, key, json.dumps(entry))
         return entry
 
     async def geocode(self, location: str | None, cache_only: bool = False) -> tuple[float, float] | None:
         """Return (lat, lon) for an extracted incident location, or None."""
+        entry = await self.lookup(location, cache_only)
+        return (entry["lat"], entry["lon"]) if entry else None
+
+    async def lookup(self, location: str | None, cache_only: bool = False) -> dict | None:
+        """Resolve a location to {"lat", "lon", "how", "corrected"}, or None.
+
+        `corrected` is set when the street name heard on the radio was
+        replaced by a real street (see street_names.py) to get the match.
+        """
         if not self.enabled or not is_geocodable(location):
             return None
         key = cache_key(location)
@@ -121,22 +131,46 @@ class Geocoder:
                 return None
             self.lookups += 1
             try:
-                if " & " in location:
-                    point = await self._intersection(*location.split(" & ", 1))
-                    how = "intersection"
-                else:
-                    point = await self._address(location)
-                    how = "address"
+                point, how, corrected = await self._resolve(location)
             except Exception as exc:
                 # Service down or slow: don't cache, and stop live lookups for
                 # the rest of this pass so a dead geocoder can't stall the caller.
                 logger.warning("[geocoder] lookup failed for %r (%s) — pausing live lookups this cycle", location, exc)
                 self.lookups = _EXHAUSTED
                 return None
-            entry = await self._store(key, *(point or (None, None)), how if point else "miss")
-        if entry.get("lat") is None:
-            return None
-        return entry["lat"], entry["lon"]
+            entry = await self._store(key, *(point or (None, None)), how if point else "miss", corrected)
+        return entry if entry.get("lat") is not None else None
+
+    async def _resolve(self, location: str) -> tuple[tuple[float, float] | None, str, str | None]:
+        """Exact lookup first; on a miss, retry with fuzzy street-name corrections."""
+        from street_names import suggest
+
+        if " & " in location:
+            a, b = location.split(" & ", 1)
+            point = await self._intersection(a, b)
+            if point:
+                return point, "intersection", None
+            alt_a = [a] + await suggest(self.pool, a, 2)
+            alt_b = [b] + await suggest(self.pool, b, 2)
+            for ca in alt_a:
+                for cb in alt_b:
+                    if (ca, cb) == (a, b):
+                        continue
+                    point = await self._intersection(ca, cb)
+                    if point:  # validated: the corrected streets really cross
+                        return point, "intersection_fuzzy", f"{ca} & {cb}"
+            return None, "miss", None
+
+        point = await self._address(location)
+        if point:
+            return point, "address", None
+        num, _, street = location.partition(" ")
+        for alt in await suggest(self.pool, street, 2):
+            corrected = f"{num} {alt}"
+            point = await self._address(corrected)
+            if point:  # validated: this exact house number exists on the corrected street
+                return point, "address_fuzzy", corrected
+        return None, "miss", None
 
     async def _address(self, location: str) -> tuple[float, float] | None:
         results = await self._get({"street": location, "limit": 1, "addressdetails": 1})
