@@ -93,6 +93,7 @@ export function MapOverlay({ map }: Props) {
   // Layer instances lets deck.gl skip re-diffing them entirely.
   const layerMemoRef      = useRef<Record<string, { deps: unknown[]; layers: any[] }>>({})
   const entitiesRef       = useRef<Record<string, Entity>>({})
+  const typeVersionRef    = useRef<Record<string, number>>({})
   const tracksRef         = useRef<Record<string, Track>>({})
   const pvbRef            = useRef<Record<string, PVBState>>({})
   const selectedRef       = useRef<string | null>(null)
@@ -112,6 +113,7 @@ export function MapOverlay({ map }: Props) {
   // Keep refs in sync — no loop restart on state change
   const tracks           = useCivicStore((s) => s.tracks)
   const entities         = useCivicStore((s) => s.entities)
+  const entityTypeVersion = useCivicStore((s) => s.entityTypeVersion)
   const selectedId       = useCivicStore((s) => s.selectedEntityId)
   const cameras          = useCivicStore((s) => s.cameras)
   const selectedCamId    = useCivicStore((s) => s.selectedCamId)
@@ -168,6 +170,7 @@ export function MapOverlay({ map }: Props) {
   const lightningVisibleRef = useRef(true)
   const gaugesVisibleRef = useRef(true)
   useEffect(() => { entitiesRef.current = entities }, [entities])
+  useEffect(() => { typeVersionRef.current = entityTypeVersion }, [entityTypeVersion])
   useEffect(() => { gaugesVisibleRef.current = gaugesVisible }, [gaugesVisible])
   useEffect(() => { lightningRef.current = lightningStrikes }, [lightningStrikes])
   useEffect(() => { lightningVisibleRef.current = lightningVisible }, [lightningVisible])
@@ -547,6 +550,18 @@ export function MapOverlay({ map }: Props) {
       return layers
     }
 
+    // Opt-in frame profiling: localStorage.vertexPerf = '1', then read
+    // window.__vertexPerf (per-phase ms, rolling averages over build frames).
+    let perfOn = false
+    try { perfOn = localStorage.getItem('vertexPerf') === '1' } catch { /* storage blocked */ }
+    const perfStats: Record<string, { n: number; total: number; max: number }> = {}
+    const perfMark = (name: string, t0: number) => {
+      const d = performance.now() - t0
+      const st = perfStats[name] ?? (perfStats[name] = { n: 0, total: 0, max: 0 })
+      st.n++; st.total += d; if (d > st.max) st.max = d
+    }
+    if (perfOn) (window as unknown as { __vertexPerf: unknown }).__vertexPerf = perfStats
+
     const tick = (now: number) => {
       // Clamp dt so a paused/throttled rAF can't fast-forward the pulse phase.
       const dt = Math.min(now - last, 100)
@@ -562,6 +577,8 @@ export function MapOverlay({ map }: Props) {
         return
       }
       lastLayerBuild = now
+      const tFrame = perfOn ? performance.now() : 0
+      let tPhase = tFrame
 
       const pvb = pvbRef.current
       const sel = selectedRef.current
@@ -610,6 +627,8 @@ export function MapOverlay({ map }: Props) {
           rawTracks[uid] = track
         }
       }
+
+      if (perfOn) { perfMark('filter', tPhase); tPhase = performance.now() }
 
       // Project each track forward from both the last server report and the last
       // visual position, then blend between them (Projective Velocity Blending).
@@ -684,8 +703,18 @@ export function MapOverlay({ map }: Props) {
         }
       }
 
+      if (perfOn) { perfMark('pvb', tPhase); tPhase = performance.now() }
+
       const zoom = map.getZoom()
-      const timeBucket = Math.floor(nowMs / 5000)  // coarse clock for stale styling
+      // Icon layers only change look at zoom 6 and 9: key them on the bucket so
+      // a zoom animation doesn't rebuild ~1.3k mesh icons every frame.
+      const zoomBucket = zoom >= 9 ? 9 : zoom >= 6 ? 6 : 0
+      const minuteBucket = Math.floor(nowMs / 60_000)  // mesh stale styling (hours-scale threshold)
+      const typeVer = typeVersionRef.current
+      const timed = <T,>(name: string, fn: () => T): T => {
+        if (!perfOn) return fn()
+        const t0 = performance.now(); const out = fn(); perfMark(name, t0); return out
+      }
       const layers = [
           ...memoGroup('custom', [customLayersRef.current],
             () => buildCustomLayers(customLayersRef.current)),
@@ -693,29 +722,40 @@ export function MapOverlay({ map }: Props) {
             () => buildGeofenceLayers(geofencesRef.current, geofencesVisibleRef.current)),
           ...memoGroup('obsRing', [],
             () => buildObservationRingLayers(DEFAULT_CENTER, OBSERVATION_RANGE_KM, true)),
-          ...memoGroup('mesh', [entitiesRef.current, entityFilterRef.current.mesh_node, zoom, timeBucket],
-            () => buildMeshNodeLayers(
+          // Rebuilt only when mesh nodes change (not on every aircraft update).
+          ...memoGroup('mesh', [typeVer.mesh_node, entityFilterRef.current.mesh_node, zoomBucket, minuteBucket],
+            () => timed('mesh', () => buildMeshNodeLayers(
               Object.values(entitiesRef.current),
               entityFilterRef.current.mesh_node,
               nowMs,
-              zoom,
-            )),
-          ...memoGroup('gauge', [entitiesRef.current, gaugeFallbackRef.current, gaugesVisibleRef.current, zoom],
+              zoomBucket,
+              minuteBucket,
+            ))),
+          ...memoGroup('gauge', [typeVer.stream_gauge, gaugeFallbackRef.current, gaugesVisibleRef.current, zoomBucket],
             () => {
               const wsGauges = Object.values(entitiesRef.current).filter((e) => e.entity_type === 'stream_gauge')
               const source = wsGauges.length > 0 ? wsGauges : gaugeFallbackRef.current
-              return buildStreamGaugeLayers(source, gaugesVisibleRef.current, zoom)
+              return timed('gauge', () => buildStreamGaugeLayers(source, gaugesVisibleRef.current, zoomBucket))
             }),
           // Dynamic — rebuilt every frame for PVB motion / pulse animation.
-          ...buildTrailLayers(pvbTracks, sel, trailsVisibleRef.current),
-          ...buildEntityLayers(pvbTracks, sel, cycleRef.current, zoom, missionTagsRef.current),
-          ...buildEventLayers(systemEventsRef.current, nowMs),
+          // Trail history only changes when a report arrives: cache it on the
+          // track store + filters instead of re-tessellating every path each frame.
+          ...memoGroup('trailHistory', [
+            tracksRef.current, sel, trailsVisibleRef.current, entityFilterRef.current, searchQueryRef.current,
+            altRangeRef.current, speedRangeRef.current, replayModeRef.current ? replayTsRef.current : 0,
+          ], () => timed('trails', () => buildTrailLayers(rawTracks, sel, trailsVisibleRef.current, 'history'))),
+          ...timed('trailsDyn', () => buildTrailLayers(pvbTracks, sel, trailsVisibleRef.current, 'dynamic')),
+          ...memoGroup('trailSelected', [
+            tracksRef.current, sel, trailsVisibleRef.current, replayModeRef.current ? replayTsRef.current : 0,
+          ], () => buildTrailLayers(rawTracks, sel, trailsVisibleRef.current, 'selected')),
+          ...timed('entities', () => buildEntityLayers(pvbTracks, sel, cycleRef.current, zoom, missionTagsRef.current)),
+          ...timed('events', () => buildEventLayers(systemEventsRef.current, nowMs)),
           ...(lightningVisibleRef.current
             ? buildLightningLayer(lightningRef.current, nowMs, zoom)
             : []),
-          ...memoGroup('camera', [camerasVisibleRef.current, camerasRef.current, selectedCamRef.current, zoom],
+          ...memoGroup('camera', [camerasVisibleRef.current, camerasRef.current, selectedCamRef.current, zoomBucket],
             () => (camerasVisibleRef.current
-              ? [buildCameraLayer(camerasRef.current, selectedCamRef.current, zoom)]
+              ? [buildCameraLayer(camerasRef.current, selectedCamRef.current, zoomBucket)]
               : [])),
           // Draw preview intentionally omitted: AnnotationOverlay owns the
           // interactive drawing UX and already renders the preview via its
@@ -724,7 +764,16 @@ export function MapOverlay({ map }: Props) {
             () => buildAnnotationLayers(annotationsRef.current, annotationsVisibleRef.current)),
       ]
 
+      if (perfOn) { perfMark('build', tPhase); tPhase = performance.now() }
       overlay.setProps({ layers })
+      if (perfOn) {
+        perfMark('setProps', tPhase)
+        perfMark('frameTotal', tFrame)
+        ;(window as unknown as { __vertexPerfCounts: unknown }).__vertexPerfCounts = {
+          tracks: Object.keys(pvbTracks).length,
+          entities: Object.keys(entitiesRef.current).length,
+        }
+      }
 
       rafRef.current = requestAnimationFrame(tick)
     }

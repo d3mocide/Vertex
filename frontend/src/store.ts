@@ -19,6 +19,9 @@ import { ALT_RANGE_DEFAULT, SPD_RANGE_DEFAULT } from './storeTypes'
 export interface CivicStore {
   // Live data
   entities:         Record<string, Entity>
+  // Per-entity-type change counters: layers keyed on a type's version rebuild
+  // only when that type changes, not on every aircraft update.
+  entityTypeVersion: Record<string, number>
   tracks:           Record<string, Track>
   alerts:           AlertItem[]
   news:             NewsItem[]
@@ -283,6 +286,14 @@ function normalizeIncomingLightning(
 // every other channel's history out of memory.
 const MESH_MESSAGES_PER_CONVERSATION = 200
 
+/** Increment the version of each entity type present in `types`. */
+function bumpTypes(prev: Record<string, number>, types: string[]): Record<string, number> {
+  if (types.length === 0) return prev
+  const next = { ...prev }
+  for (const t of new Set(types)) next[t] = (next[t] ?? 0) + 1
+  return next
+}
+
 function meshMsgTime(msg: MeshMessage): number {
   if (!msg?.timestamp) return 0
   const ts = Date.parse(msg.timestamp)
@@ -352,6 +363,7 @@ export const useCivicStore = create<CivicStore>()(
     (set) => ({
   // Data
   entities:         {},
+  entityTypeVersion: {},
   tracks:           {},
   alerts:           [],
   news:             [],
@@ -439,7 +451,7 @@ export const useCivicStore = create<CivicStore>()(
       const t = entityToTrack(e)
       if (t) tracks[t.uid] = t
     }
-    set({ entities, tracks })
+    set((s) => ({ entities, tracks, entityTypeVersion: bumpTypes(s.entityTypeVersion, list.map((e) => e.entity_type)) }))
   },
   setAircraftSnapshot: (list) =>
     set((s) => {
@@ -482,7 +494,7 @@ export const useCivicStore = create<CivicStore>()(
         if (track) nextTracks[entity.entity_id] = track
       }
 
-      return { entities: nextEntities, tracks: nextTracks }
+      return { entities: nextEntities, tracks: nextTracks, entityTypeVersion: bumpTypes(s.entityTypeVersion, ['aircraft']) }
     }),
   upsertEntity: (entity) =>
     set((s) => {
@@ -491,6 +503,7 @@ export const useCivicStore = create<CivicStore>()(
       return {
         entities: { ...s.entities, [entity.entity_id]: merged },
         tracks: track ? { ...s.tracks, [entity.entity_id]: track } : s.tracks,
+        entityTypeVersion: bumpTypes(s.entityTypeVersion, [merged.entity_type]),
       }
     }),
   // Batch variant — one store notification for a whole buffer of WS updates
@@ -506,20 +519,22 @@ export const useCivicStore = create<CivicStore>()(
         const track = entityToTrack(merged, tracks[entity.entity_id])
         if (track) tracks[entity.entity_id] = track
       }
-      return { entities, tracks }
+      return { entities, tracks, entityTypeVersion: bumpTypes(s.entityTypeVersion, list.map((e) => e.entity_type)) }
     }),
   purgeStaleEntities: () =>
     set((s) => {
       const now = Date.now()
       const next = { ...s.entities }
       let changed = false
+      const removedTypes: string[] = []
       const STALE_MS: Record<string, number> = {
         aircraft:       120_000,   // 2 min  — Matches backend stale cutoff
         vessel:         600_000,   // 10 min — AIS updates are infrequent
         mesh_node:    604_800_000, // 7 days — mesh nodes are semi-permanent infrastructure
         satellite:    1_800_000,   // 30 min — matches poller TTL
         rf_sensor:        900_000,   // 15 min — matches poller TTL, sensors broadcast every few min
-        stream_gauge:     600_000,   // 10 min — gauges are polled every 5 min
+        // last_seen is NOAA's observation time; many gauges report hourly or less.
+        stream_gauge:  21_600_000,   // 6 h
         tak_client:     300_000,   // 5 min  — TAK SA ping is every 30 s–2 min
         train:          600_000,   // 10 min — Amtrak polls every 60 s
       }
@@ -533,6 +548,7 @@ export const useCivicStore = create<CivicStore>()(
           if (age > limit) {
             delete next[id]
             changed = true
+            removedTypes.push(e.entity_type)
           }
         }
       }
@@ -541,7 +557,7 @@ export const useCivicStore = create<CivicStore>()(
       for (const id of Object.keys(s.tracks)) {
         if (!(id in next)) delete nextTracks[id]
       }
-      return { entities: next, tracks: nextTracks }
+      return { entities: next, tracks: nextTracks, entityTypeVersion: bumpTypes(s.entityTypeVersion, removedTypes) }
     }),
   appendSystemEvent: (event) =>
     set((s) => {

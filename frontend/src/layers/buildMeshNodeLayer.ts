@@ -41,7 +41,9 @@ function iconSize(zoom: number): number {
   return 8
 }
 
-export function buildMeshNodeLayers(entities: Entity[], visible: boolean, nowMs: number, zoom: number) {
+export function buildMeshNodeLayers(
+  entities: Entity[], visible: boolean, nowMs: number, zoom: number, staleEpoch: number,
+) {
   if (!visible) return []
   const points = entities
     .map((e) => toMeshNodePoint(e, nowMs))
@@ -67,7 +69,9 @@ export function buildMeshNodeLayers(entities: Entity[], visible: boolean, nowMs:
     updateTriggers: {
       getIcon:  zoom,
       getSize:  zoom,
-      getColor: points.map(p => p.stale),
+      // Scalar trigger: an array here is a new object every build, so deck
+      // always recomputed colours. Staleness only changes as time passes.
+      getColor: staleEpoch,
     },
   })
 

@@ -28,13 +28,18 @@ export function buildTrailLayers(
   tracks: Record<string, Track>,
   selectedUid: string | null,
   trailsVisible: boolean,
+  // 'history' and 'selected' depend only on reported positions and can be
+  // cached between reports; 'dynamic' (gap bridges, predicted paths) follows
+  // the smoothed icon position and must be rebuilt every frame.
+  part: 'all' | 'history' | 'dynamic' | 'selected' = 'all',
 ): Layer[] {
   const trackArr = Object.values(tracks)
+  const want = (p: 'history' | 'dynamic' | 'selected') => part === 'all' || part === p
 
   // ── All non-selected history trails ─────────────────────────────────────
   const trailLayer = new PathLayer<Track>({
     id:             'history-trails',
-    data:           trailsVisible
+    data:           trailsVisible && want('history')
       ? trackArr.filter(t =>
         t.type !== 'rail' && t.uid !== selectedUid && (t.smoothedTrail.length >= 2 || t.trail.length >= 2),
       )
@@ -55,7 +60,7 @@ export function buildTrailLayers(
   // BEAST lost the aircraft between sessions — don't draw a cross-map line.
   const MAX_GAP_BRIDGE_M = 15_000  // 15 km — anything larger is a tracking gap
   const gapData: GapBridge[] = []
-  if (trailsVisible) {
+  if (trailsVisible && want('dynamic')) {
     for (const t of trackArr) {
       if (!t.smoothedTrail.length) continue
       const last = t.smoothedTrail[t.smoothedTrail.length - 1]
@@ -87,7 +92,7 @@ export function buildTrailLayers(
   const predictedPathLayer = new PathLayer<Track>({
     id:             'predicted-path',
     // Trains follow fixed tracks — straight-line prediction is misleading, so exclude them.
-    data:           trackArr.filter(t => t.predictedPath.length > 1 && t.type !== 'rail'),
+    data:           want('dynamic') ? trackArr.filter(t => t.predictedPath.length > 1 && t.type !== 'rail') : [],
     getPath:        (t: Track) => [pos([t.lon, t.lat]), ...posA(t.predictedPath)],
     getColor:       (t: Track) => {
       const [r, g, b] = entityColor(t)
@@ -118,5 +123,9 @@ export function buildTrailLayers(
     capRounded:     true,
   })
 
-  return [trailLayer, gapBridgeLayer, predictedPathLayer, selectedTrailLayer]
+  const out: Layer[] = []
+  if (want('history')) out.push(trailLayer)
+  if (want('dynamic')) out.push(gapBridgeLayer, predictedPathLayer)
+  if (want('selected')) out.push(selectedTrailLayer)
+  return out
 }
