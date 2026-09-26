@@ -132,6 +132,9 @@ class Settings(BaseSettings):
     # Hours of P25 transcripts mined for structured radio incidents
     # (feed:radio:incidents and the briefing's radio section).
     radio_incidents_window_hours: int = 24
+    # Self-hosted Nominatim for locating radio incidents (see infra/nominatim/).
+    # Blank disables geocoding.
+    geocoder_url: str = ""
     # Days of history used as the "normal" baseline for event and radio volume.
     summary_baseline_days: int = 7
     # Character budget for the data context (~4 chars per token). Lowest-priority

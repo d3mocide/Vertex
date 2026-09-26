@@ -569,6 +569,8 @@ def format_radio_activity(talkgroups, call_volume: int | None, baseline_volume: 
                 bits.append("units " + ", ".join(i.units[:6]))
             if i.acuity:
                 bits.append(f"MPDS {i.acuity}")
+            if i.lat is not None:
+                bits.append(f"{round(haversine_km(settings.region_lat, settings.region_lon, i.lat, i.lon))} km from centre")
             if i.geofences:
                 bits.append("in " + ", ".join(i.geofences))
             lines.append(f"- {span} {_CATEGORY_LABEL.get(i.category, i.category.upper())} — "
@@ -624,7 +626,7 @@ def _robust_median(values: list[float]) -> float:
     return statistics.median(kept or values or [0])
 
 
-async def _db_sections(pool, now: datetime, window_start: datetime) -> tuple[list[str], list]:
+async def _db_sections(pool, now: datetime, window_start: datetime, r=None) -> tuple[list[str], list]:
     """Event, radio and entity sections from PostgreSQL. Returns (sections, radio_incidents)."""
     from geo_tags import geofences_for_points
     from .radio_incident_poller import load_incidents
@@ -708,7 +710,9 @@ async def _db_sections(pool, now: datetime, window_start: datetime) -> tuple[lis
     except Exception as exc:
         logger.debug("[summary] talkgroup query failed: %s", exc)
     try:
-        incidents, _ = await load_incidents(pool, window_start)
+        from geocoder import Geocoder
+        # Cache only: the briefing must never wait on the geocoding service.
+        incidents, _ = await load_incidents(pool, window_start, Geocoder(r, pool) if r is not None else None, 0)
     except Exception as exc:
         # p25_recordings is created by the backend; absent on radio-less installs.
         logger.debug("[summary] radio incident extraction failed: %s", exc)
@@ -823,7 +827,7 @@ async def build_context(r, pool, now: datetime, window_hours: int,
         sections.append((_P_HIGH + 10, flash))
 
     if pool is not None:
-        db_sections, radio_incidents = await _db_sections(pool, now, window_start)
+        db_sections, radio_incidents = await _db_sections(pool, now, window_start, r)
         facts["radio_incidents"] = [i for i in radio_incidents if i.severity >= 3][:20]
         for text in db_sections:
             if text.startswith("P25 RADIO"):
