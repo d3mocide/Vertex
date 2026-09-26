@@ -18,6 +18,23 @@ _AVIATION_INTERVAL = 900
 _aviation_tick = 0
 
 
+# Margin (degrees, ~200 km) around the operating box for aviation hazards.
+_AVIATION_MARGIN_DEG = 2.0
+
+
+def _near_region(coords) -> bool:
+    """True if a SIGMET/AIRMET polygon's extent overlaps the padded operating box.
+    Hazards without coordinates are kept (can't be placed, so don't hide them)."""
+    pts = [c for c in (coords or []) if isinstance(c, dict) and c.get("lat") is not None and c.get("lon") is not None]
+    if not pts:
+        return True
+    lats = [float(c["lat"]) for c in pts]
+    lons = [float(c["lon"]) for c in pts]
+    m = _AVIATION_MARGIN_DEG
+    return not (max(lats) < settings.bbox_min_lat - m or min(lats) > settings.bbox_max_lat + m
+                or max(lons) < settings.bbox_min_lon - m or min(lons) > settings.bbox_max_lon + m)
+
+
 class WeatherPoller(BasePoller):
     name = "weather"
     interval = 300  # 5 minutes
@@ -213,6 +230,10 @@ class WeatherPoller(BasePoller):
                         for s in data:
                             raw = s.get("rawAirSigmet")
                             if not raw: continue
+                            # The feed is CONUS-wide; keep only hazards over or near
+                            # the region (the UI was listing Kansas convective SIGMETs).
+                            if not _near_region(s.get("coords")):
+                                continue
                             entry = {
                                 "type": s.get("airSigmetType"),
                                 "hazard": s.get("hazard"),

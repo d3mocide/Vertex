@@ -62,6 +62,8 @@ app.add_middleware(AuthMiddleware)
 app.add_middleware(RateLimitMiddleware, calls=600, period=60)
 
 app.include_router(health.router)
+# Also under /api/v1 so the UI (API_BASE) can reach /health/feeds.
+app.include_router(health.router, prefix="/api/v1")
 app.include_router(auth.router, prefix="/api/v1")
 app.include_router(entities.router, prefix="/api/v1")
 app.include_router(observations.router, prefix="/api/v1")

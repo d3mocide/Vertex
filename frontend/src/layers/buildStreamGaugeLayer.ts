@@ -14,11 +14,16 @@ export interface StreamGaugePoint {
 }
 
 const STAGE_COLOR: Record<string, [number, number, number, number]> = {
+  // Official NOAA NWPS flood categories (per-gauge flood stages).
   normal:          [79,  195, 247, 255],   // atlas --cat-stream #4FC3F7
+  'no flood stages': [79, 195, 247, 255],
+  action:          [255, 241, 118, 255],
   elevated:        [255, 241, 118, 255],
   'minor flood':   [255, 183,  77, 255],
   'moderate flood':[239,  83,  80, 255],
   'major flood':   [183,  28,  28, 255],
+  stale:           [144, 164, 174, 255],
+  'out of service': [144, 164, 174, 255],
   unknown:         [144, 164, 174, 255],
 }
 

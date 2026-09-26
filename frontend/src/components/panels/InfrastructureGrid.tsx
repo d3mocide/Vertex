@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { TrafficCamera, useCivicPick } from '../../store'
 import { isMajorTrafficIncident } from '../../incidentUtils'
+import { formatAge, useFeedFreshness } from '../common/FeedAge'
 
 function CctvThumbnail({
   cam, ldi, isFavorite, onToggleFavorite,
@@ -191,6 +192,9 @@ export function InfrastructureGrid() {
     last_updated: '—',
   }
 
+  // Real feed age (was a hard-coded "Just now" with a permanent OK status).
+  const utilityAge = useFeedFreshness('utility:oregon')
+
   const oregon = oregonStatus || {
     status: 'Operational',
     state_affected: 0,
@@ -341,7 +345,11 @@ export function InfrastructureGrid() {
                 <div className="label-caps mb-2">Major Providers</div>
                 <UtilityStatusRow label="PGE (Portland General)" value={String(oregon.pge_affected)}          status={oregon.pge_affected > 50 ? 'warn' : 'ok'} />
                 <UtilityStatusRow label="Pacific Power (PAC)"    value={String(oregon.pacificorp_affected)}   status={oregon.pacificorp_affected > 50 ? 'warn' : 'ok'} />
-                <UtilityStatusRow label="Last Sync"              value={oregon.last_updated}                  status="ok" />
+                <UtilityStatusRow
+                  label="Last Sync"
+                  value={utilityAge.ageS == null ? 'No data yet' : formatAge(utilityAge.ageS)}
+                  status={utilityAge.state === 'dead' ? 'down' : utilityAge.state === 'fresh' ? 'ok' : 'warn'}
+                />
               </div>
             </section>
 

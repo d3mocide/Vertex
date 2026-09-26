@@ -63,6 +63,8 @@ class MeshCorePoller(BasePoller):
     interval = _POLL_INTERVAL
 
     def __init__(self):
+        # entity_id -> last-heard time already published (skip unchanged contacts)
+        self._last_heard: dict[str, str | None] = {}
         self._sources: list[dict] = []
 
     async def poll(self):
@@ -145,6 +147,13 @@ class MeshCorePoller(BasePoller):
                         if not _should_publish_node(entity):
                             skipped += 1
                             continue
+                        # Only republish when the repeater has heard the node
+                        # again; re-sending unchanged contacts every poll wrote
+                        # ~17k redundant observation rows a day.
+                        eid = entity["entity_id"]
+                        if self._last_heard.get(eid) == entity.get("last_seen"):
+                            continue
+                        self._last_heard[eid] = entity.get("last_seen")
                         await publish_entity(entity)
                         count += 1
                     logger.debug(

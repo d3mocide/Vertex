@@ -8,7 +8,7 @@ export * from './storeTypes'
 import type {
   Entity, Track, AlertItem, NewsItem, WeatherState, RadioState,
   TrafficCamera, SystemEvent, CustomLayerItem, SystemHealth, TrafficIncident,
-  SummaryState, RadioIncidentFeed, TrailPoint, AirportSnapshot, AppMode, NavTab, EntityTypeFilter,
+  SummaryState, RadioIncidentFeed, FeedMetaEntry, TrailPoint, AirportSnapshot, AppMode, NavTab, EntityTypeFilter,
   RangeFilter, ReplayData, EntityMissionTag, AnnotationItem,
   TrafficFlowSensor, UtilityStatus, OregonStatus, MeshMessage, MeshLink,
   AcarsMessage,
@@ -28,6 +28,7 @@ export interface CivicStore {
   trafficFlow:      TrafficFlowSensor[]
   trafficIncidents: TrafficIncident[]
   radioIncidents:   RadioIncidentFeed | null
+  feedMeta:         Record<string, FeedMetaEntry>
   utilityStatus:    UtilityStatus | null
   oregonStatus:     OregonStatus | null
   trail:            TrailPoint[]
@@ -76,6 +77,7 @@ export interface CivicStore {
   setTrafficFlow:   (flow: TrafficFlowSensor[]) => void
   setTrafficIncidents: (incidents: TrafficIncident[]) => void
   setRadioIncidents:   (feed: RadioIncidentFeed) => void
+  setFeedMeta:         (patch: Record<string, Partial<FeedMetaEntry> & { ts: string }>) => void
   setUtilityStatus: (status: UtilityStatus) => void
   setOregonStatus:  (status: OregonStatus) => void
   setTrail:         (trail: TrailPoint[]) => void
@@ -360,6 +362,7 @@ export const useCivicStore = create<CivicStore>()(
   trafficFlow:      [],
   trafficIncidents: [],
   radioIncidents:   null,
+  feedMeta:         {},
   utilityStatus:    null,
   oregonStatus:     null,
   trail:            [],
@@ -563,6 +566,11 @@ export const useCivicStore = create<CivicStore>()(
   setTrafficFlow: (trafficFlow) => set({ trafficFlow }),
   setTrafficIncidents: (trafficIncidents) => set({ trafficIncidents }),
   setRadioIncidents:   (radioIncidents) => set({ radioIncidents }),
+  setFeedMeta:         (patch) => set((s) => {
+    const next = { ...s.feedMeta }
+    for (const [key, entry] of Object.entries(patch)) next[key] = { ...next[key], ...entry }
+    return { feedMeta: next }
+  }),
   setUtilityStatus: (utilityStatus) => set({ utilityStatus }),
   setOregonStatus: (oregonStatus) => set({ oregonStatus }),
   setTrail:     (trail)   => set({ trail }),

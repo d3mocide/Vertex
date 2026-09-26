@@ -1,4 +1,5 @@
 import { useCivicStore } from '../../../store'
+import { FeedAge } from '../../common/FeedAge'
 
 export function WeatherCard() {
   const weather = useCivicStore((s) => s.weather)
@@ -40,10 +41,7 @@ export function WeatherCard() {
         <span className="text-[7px] lg:text-[11px] font-mono text-on-surface-variant/60 uppercase tracking-widest">
           Weather Service: NOAA/NWS
         </span>
-        <div className="flex items-center gap-1.5">
-          <span className="w-1 h-1 rounded-full bg-green-ais animate-pulse" />
-          <span className="text-[7px] lg:text-[11px] font-mono text-on-surface-variant/60 uppercase">Data Live</span>
-        </div>
+        <FeedAge feedKey="weather:current" prefix="Observed" className="text-[7px] lg:text-[11px]" />
       </div>
     </div>
   )

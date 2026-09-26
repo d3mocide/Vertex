@@ -8,7 +8,7 @@ from email.utils import parsedate_to_datetime
 import httpx
 
 from bus import get_bus
-from db import write_event
+from db import event_recorded, write_event
 from normalizers.beast_math import haversine_km
 from config import settings
 from sanitize import sanitize_payload
@@ -41,7 +41,10 @@ _EVENT_LABELS = {
 _seen: dict[str, float] = {}
 
 
-def _alert_severity(level: str) -> str:
+def _alert_severity(level: str, dist_km: float) -> str:
+    """GDACS level for disasters that can affect the region; distant ones are context only."""
+    if dist_km > 1500:
+        return "info"
     return {"Red": "high", "Orange": "medium"}.get(level, "low")
 
 
@@ -171,7 +174,12 @@ class GdacsPoller(BasePoller):
                 "pub_ts": pub_dt.isoformat() if pub_dt else None,
             }
 
-            severity = _alert_severity(alert_level)
+            # Persistent dedupe: `_seen` is in-memory, so every poller restart
+            # re-recorded every open event (the same drought 3x in the UI).
+            if await event_recorded("gdacs", {"gdacs_event_id": event_id, "gdacs_episode_id": episode_id}):
+                _seen[dedup_key] = time.time()
+                continue
+            severity = _alert_severity(alert_level, dist_km)
             try:
                 ev_id = await write_event(
                     event_type="gdacs",

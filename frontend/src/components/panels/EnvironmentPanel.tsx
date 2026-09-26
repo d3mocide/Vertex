@@ -13,6 +13,7 @@ import { MetarCard } from './environment/MetarCard'
 import { GdacsCard } from './environment/GdacsCard'
 import { NwwsCard } from './environment/NwwsCard'
 import { PWSCard } from './environment/PWSCard'
+import { FeedAge } from '../common/FeedAge'
 
 export function EnvironmentPanel() {
   const weather = useCivicStore((s) => s.weather)
@@ -106,7 +107,7 @@ export function EnvironmentPanel() {
           <div className="w-px h-6 bg-white/10 shrink-0" />
           <div className="flex flex-col shrink-0">
             <span className="text-[8px] lg:text-[11px] font-mono text-on-surface-variant uppercase tracking-[0.2em] whitespace-nowrap">Last Update</span>
-            <span className="text-[10px] lg:text-[11px] font-mono text-on-surface font-bold uppercase tracking-widest whitespace-nowrap">DATA LIVE</span>
+            <FeedAge feedKey="weather:current" prefix="" className="text-[10px] lg:text-[11px] font-bold tracking-widest whitespace-nowrap" />
           </div>
         </div>
 

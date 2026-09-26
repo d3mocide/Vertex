@@ -76,10 +76,10 @@ class Settings(BaseSettings):
     # NWS
     nws_station_primary: str = "KHIO"
     nws_station_secondary: str = "KUAO"
-    nws_zone: str = "ORZ006"
+    nws_zone: str = "ORZ109"
     # Fallback alert zones used only if alert_zone_configs table is empty on startup.
     # Populated from sources.yml alert_zones section after first run.
-    nws_alert_zones: str = "ORZ006,ORZ005,ORZ007"
+    nws_alert_zones: str = "ORZ108,ORZ109,ORZ111,ORZ112,ORZ115,ORC067,ORC051,ORC005,ORZ684"
 
     # ODOT TripCheck Data API (free key from developer.odot.state.or.us)
     odot_incidents_url: str = ""  # deprecated RSS URL, kept for backward compat

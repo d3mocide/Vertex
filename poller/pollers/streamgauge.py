@@ -1,158 +1,140 @@
 """
-USGS Stream Gauge poller — fetches real-time streamflow and water level
-readings from active gauging stations within the configured bounding box.
+River gauge poller — official river stage and flood status from NOAA's
+National Water Prediction Service (NWPS).
 
-API: https://waterservices.usgs.gov/nwis/iv/
-  parameterCd 00060 = Discharge (streamflow), ft³/s
-  parameterCd 00065 = Gage height, ft
-No API key required.
+API: https://api.water.noaa.gov/nwps/v1/gauges (bbox query, no key)
+  Each gauge reports observed stage (ft) and flow, the official flood
+  category for its own flood stages (no_flooding / action / minor /
+  moderate / major), the forecast crest category, and observation times.
 
-Publishes each active site as a `stream_gauge` entity so it appears
-on the map with its current reading and status.
+Replaces the USGS legacy WaterServices feed, which (a) is being retired —
+503s and timeouts even for single sites — and (b) was classified with fixed
+flow thresholds for every river, so the Willamette at Portland (19,800 cfs,
+normal) and the Columbia at Vancouver (122,000 cfs, normal) showed as
+"major flood". Flood status now comes from NOAA's per-gauge flood stages.
+
+Publishes each gauge as a `stream_gauge` entity.
 """
 
 import logging
+import math
 
 import httpx
 
-import math
-
-from bus import publish_entity
+from bus import publish_entity, set_feed
 from config import settings
 from .base import BasePoller
 
 logger = logging.getLogger(__name__)
 
-def _distance_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-    radius_km = 6371.0
-    phi1 = math.radians(lat1)
-    phi2 = math.radians(lat2)
-    d_phi = math.radians(lat2 - lat1)
-    d_lambda = math.radians(lon2 - lon1)
-    a = (
-        math.sin(d_phi / 2) ** 2
-        + math.cos(phi1) * math.cos(phi2) * math.sin(d_lambda / 2) ** 2
-    )
-    return 2 * radius_km * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+_NWPS_GAUGES_URL = "https://api.water.noaa.gov/nwps/v1/gauges"
+_HEADERS = {"User-Agent": "Vertex/1.0 situational-awareness"}
+_ENTITY_TTL = 1800  # gauges report every 15-60 min; keep through a missed poll
 
-_USGS_IV_URL = "https://waterservices.usgs.gov/nwis/iv/"
-_PARAMS = {
-    "format":      "json",
-    "parameterCd": "00060,00065",   # discharge + gage height
-    "siteType":    "ST",
-    "siteStatus":  "active",
+# NWPS floodCategory -> stage label used by the map layer and panels.
+_CATEGORY = {
+    "no_flooding":     "normal",
+    "action":          "action",
+    "minor":           "minor flood",
+    "moderate":        "moderate flood",
+    "major":           "major flood",
+    "not_defined":     "no flood stages",
+    "obs_not_current": "stale",
+    "out_of_service":  "out of service",
 }
-_HEADERS = {"User-Agent": "Vertex/1.0 situational-awareness (github.com/vertex-project)"}
-_ENTITY_TTL = 600    # 10 min — gauges are polled every 5 min
-
-# USGS National Weather Service flood stage classifications (approximate thresholds)
-# We use simple relative thresholds since absolute flood stages vary per site.
-# Color classes: normal | elevated | minor | moderate | major
-_FLOW_STAGE_THRESHOLDS = [500, 2000, 5000, 10000]  # ft³/s
-_STAGE_LABELS = ["normal", "elevated", "minor flood", "moderate flood", "major flood"]
+# Worst-first, for summarising.
+_SEVERITY = ["major flood", "moderate flood", "minor flood", "action"]
 
 
-def _classify_flow(flow_cfs: float | None) -> str:
-    if flow_cfs is None:
-        return "unknown"
-    for i, threshold in enumerate(_FLOW_STAGE_THRESHOLDS):
-        if flow_cfs < threshold:
-            return _STAGE_LABELS[i]
-    return _STAGE_LABELS[-1]
+def _distance_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    p1, p2 = math.radians(lat1), math.radians(lat2)
+    a = (math.sin(math.radians(lat2 - lat1) / 2) ** 2
+         + math.cos(p1) * math.cos(p2) * math.sin(math.radians(lon2 - lon1) / 2) ** 2)
+    return 2 * 6371.0 * math.asin(math.sqrt(a))
+
+
+def _value(v):
+    """NWPS uses -999 for 'no value'."""
+    return None if v is None or v == -999 else v
+
+
+def gauge_entity(g: dict) -> dict | None:
+    """NWPS gauge record -> stream_gauge entity (None if unlocated)."""
+    lat, lon = g.get("latitude"), g.get("longitude")
+    if lat is None or lon is None or not g.get("lid"):
+        return None
+    status = g.get("status") or {}
+    obs, fc = status.get("observed") or {}, status.get("forecast") or {}
+    stage = _CATEGORY.get(obs.get("floodCategory"), "unknown")
+    forecast_stage = _CATEGORY.get(fc.get("floodCategory"))
+    height = _value(obs.get("primary")) if obs.get("primaryUnit") == "ft" else None
+    flow = _value(obs.get("secondary"))
+    if flow is not None and obs.get("secondaryUnit") == "kcfs":
+        flow = flow * 1000
+    return {
+        "entity_id":    f"nwps:gauge:{g['lid']}",
+        "entity_type":  "stream_gauge",
+        "source":       "nwps",
+        "display_name": g.get("name") or g["lid"],
+        "lat":          float(lat),
+        "lon":          float(lon),
+        "status":       stage,
+        # Real observation time, not our poll time.
+        "last_seen":    obs.get("validTime"),
+        "distance_km":  round(_distance_km(settings.region_lat, settings.region_lon, lat, lon), 2),
+        "identity": {
+            "lid":                g["lid"],
+            "flow_cfs":           flow,
+            "height_ft":          height,
+            "gauge_height_ft":    height,   # key read by the entity detail panel
+            "stage":              stage,
+            "flood_category":     obs.get("floodCategory"),
+            "forecast_stage":     forecast_stage,
+            "forecast_height_ft": _value(fc.get("primary")) if fc.get("primaryUnit") == "ft" else None,
+            "forecast_time":      fc.get("validTime"),
+            "last_reading_ts":    obs.get("validTime"),
+            "wfo":                (g.get("wfo") or {}).get("abbreviation"),
+            "provider":           "NOAA NWPS",
+        },
+        "tags": ["nwps", "stream_gauge", "hydrology"],
+    }
 
 
 class StreamGaugePoller(BasePoller):
     name     = "streamgauge"
-    interval = 300   # 5-minute poll
+    interval = 600   # NWPS observations update every 15-60 min
 
     async def poll(self):
-        bbox = (
-            f"{settings.bbox_min_lon},{settings.bbox_min_lat},"
-            f"{settings.bbox_max_lon},{settings.bbox_max_lat}"
-        )
-        params = {**_PARAMS, "bBox": bbox}
-
+        params = {
+            "bbox.xmin": settings.bbox_min_lon, "bbox.ymin": settings.bbox_min_lat,
+            "bbox.xmax": settings.bbox_max_lon, "bbox.ymax": settings.bbox_max_lat,
+            "srid": "EPSG_4326",
+        }
         try:
-            async with httpx.AsyncClient(timeout=20, headers=_HEADERS) as client:
-                resp = await client.get(_USGS_IV_URL, params=params)
+            async with httpx.AsyncClient(timeout=30, headers=_HEADERS) as client:
+                resp = await client.get(_NWPS_GAUGES_URL, params=params)
                 resp.raise_for_status()
-                data = resp.json()
+                gauges = resp.json().get("gauges") or []
         except Exception as exc:
-            logger.warning("[streamgauge] USGS fetch failed: %s", exc)
+            logger.warning("[streamgauge] NWPS fetch failed: %s", exc)
             return
 
-        time_series = data.get("value", {}).get("timeSeries", [])
-        # Group series by site number so we can combine discharge + gage height
-        sites: dict[str, dict] = {}
-
-        for series in time_series:
-            src = series.get("sourceInfo") or {}
-            geo = ((src.get("geoLocation") or {}).get("geogLocation")) or {}
-            site_codes = src.get("siteCode") or []
-            site_id = site_codes[0].get("value") if site_codes else None
-            if not site_id:
-                continue
-
-            lat = geo.get("latitude")
-            lon = geo.get("longitude")
-            if lat is None or lon is None:
-                continue
-
-            if site_id not in sites:
-                sites[site_id] = {
-                    "site_id":   site_id,
-                    "name":      src.get("siteName") or f"USGS {site_id}",
-                    "lat":       float(lat),
-                    "lon":       float(lon),
-                    "flow_cfs":  None,
-                    "height_ft": None,
-                    "ts":        None,
-                }
-
-            var_code_list = (series.get("variable") or {}).get("variableCode") or []
-            var_code = var_code_list[0].get("value") if var_code_list else ""
-            values_block = (series.get("values") or [{}])[0]
-            readings = values_block.get("value") or []
-
-            if readings:
-                latest = readings[-1]
-                raw_val = latest.get("value")
-                ts_str  = latest.get("dateTime")
-                try:
-                    val = float(raw_val)
-                    if var_code == "00060":
-                        sites[site_id]["flow_cfs"] = val
-                    elif var_code == "00065":
-                        sites[site_id]["height_ft"] = val
-                    if ts_str and sites[site_id]["ts"] is None:
-                        sites[site_id]["ts"] = ts_str
-                except (TypeError, ValueError):
-                    pass
-
-        published = 0
-        for site in sites.values():
-            flow = site["flow_cfs"]
-            stage = _classify_flow(flow)
-            entity = {
-                "entity_id":    f"usgs:gauge:{site['site_id']}",
-                "entity_type":  "stream_gauge",
-                "source":       "usgs",
-                "display_name": site["name"],
-                "lat":          site["lat"],
-                "lon":          site["lon"],
-                "status":       stage,
-                "distance_km":  round(_distance_km(settings.region_lat, settings.region_lon, site["lat"], site["lon"]), 2),
-                "identity": {
-                    "site_id":   site["site_id"],
-                    "flow_cfs":  flow,
-                    "height_ft": site["height_ft"],
-                    "stage":     stage,
-                    "last_reading_ts": site["ts"],
-                },
-                "tags": ["usgs", "stream_gauge", "hydrology"],
-            }
+        entities = [e for e in (gauge_entity(g) for g in gauges) if e]
+        for entity in entities:
             await publish_entity(entity, ttl=_ENTITY_TTL)
-            published += 1
 
-        if published:
-            logger.info("[streamgauge] published %d stream gauges", published)
+        flooding = [e for e in entities if e["status"] in _SEVERITY]
+        forecast = [e for e in entities if e["identity"]["forecast_stage"] in _SEVERITY]
+        # Small summary feed for the briefing / UI: only gauges at or above action stage.
+        await set_feed("hydro:status", {
+            "gauges": len(entities),
+            "observed_flooding": [{"name": e["display_name"], "stage": e["status"],
+                                   "height_ft": e["identity"]["height_ft"], "time": e["last_seen"]}
+                                  for e in sorted(flooding, key=lambda e: _SEVERITY.index(e["status"]))],
+            "forecast_flooding": [{"name": e["display_name"], "stage": e["identity"]["forecast_stage"],
+                                   "height_ft": e["identity"]["forecast_height_ft"],
+                                   "time": e["identity"]["forecast_time"]}
+                                  for e in sorted(forecast, key=lambda e: _SEVERITY.index(e["identity"]["forecast_stage"]))],
+        }, broadcast=False)
+        logger.info("[streamgauge] %d NWPS gauges (%d at/above action stage, %d forecast to)",
+                    len(entities), len(flooding), len(forecast))

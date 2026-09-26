@@ -4,6 +4,7 @@ import { API_BASE } from '../../../config'
 import { authHeaders, clearToken } from '../../../auth'
 
 interface GdacsDetails {
+  gdacs_event_id?: string
   lat?: number
   lon?: number
   event_type_code?: string
@@ -50,7 +51,16 @@ export function GdacsCard() {
         if (!res.ok) return
         const data = await res.json() as SystemEvent[]
         if (cancelled || !Array.isArray(data)) return
-        setEvents(data.filter((ev) => ev.event_type === 'gdacs'))
+        // Regional only: distant disasters are recorded as severity "info"
+        // (context for the briefing), and each GDACS event appears once.
+        const seen = new Set<string>()
+        setEvents(data.filter((ev) => {
+          if (ev.event_type !== 'gdacs' || ev.severity === 'info') return false
+          const id = String((ev.details as GdacsDetails)?.gdacs_event_id ?? ev.event_id)
+          if (seen.has(id)) return false
+          seen.add(id)
+          return true
+        }))
       } catch { /* keep last known */ }
     }
 
@@ -91,7 +101,7 @@ export function GdacsCard() {
       {events.length === 0 ? (
         <div className="border border-white/10 bg-white/[0.02] px-3 py-2">
           <span className="font-mono text-[9px] lg:text-[11px] text-on-surface-variant uppercase tracking-widest">
-            No significant global alerts
+            No regional disaster alerts · distant events omitted
           </span>
         </div>
       ) : (

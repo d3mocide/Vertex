@@ -364,7 +364,9 @@ class GtfsRtPoller(BasePoller):
                 "tags": [feed.label, short_name] if short_name else [feed.label],
             }
 
-            await publish_entity(entity, ttl=300, record_observation=True)
+            # Live position only: fixed-route trains every 15 s were ~60% of all
+            # stored observations (~90k rows/day) for trails nobody replays.
+            await publish_entity(entity, ttl=300, record_observation=False)
             published += 1
 
         state.poll_count += 1

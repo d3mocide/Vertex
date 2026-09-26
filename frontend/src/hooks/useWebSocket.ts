@@ -104,12 +104,13 @@ export function useWebSocket() {
     setTrafficIncidents,
     setSummary,
     setRadioIncidents,
+    setFeedMeta,
     appendLightningStrikes,
     appendMeshMessage,
     updateLinkHistory,
     setMeshStatus,
     appendAcarsMessage,
-  } = useCivicPick('setEntities', 'setAircraftSnapshot', 'upsertEntities', 'purgeStaleEntities', 'setConnected', 'setRadio', 'appendSystemEvent', 'setUtilityStatus', 'setOregonStatus', 'setAirports', 'setWeather', 'setAlerts', 'setNews', 'setCameras', 'setTrafficFlow', 'setTrafficIncidents', 'setRadioIncidents', 'setSummary', 'appendLightningStrikes', 'appendMeshMessage', 'updateLinkHistory', 'setMeshStatus', 'appendAcarsMessage')
+  } = useCivicPick('setEntities', 'setAircraftSnapshot', 'upsertEntities', 'purgeStaleEntities', 'setConnected', 'setRadio', 'appendSystemEvent', 'setUtilityStatus', 'setOregonStatus', 'setAirports', 'setWeather', 'setAlerts', 'setNews', 'setCameras', 'setTrafficFlow', 'setTrafficIncidents', 'setRadioIncidents', 'setFeedMeta', 'setSummary', 'appendLightningStrikes', 'appendMeshMessage', 'updateLinkHistory', 'setMeshStatus', 'appendAcarsMessage')
 
   useEffect(() => {
     let cancelled = false
@@ -259,6 +260,9 @@ export function useWebSocket() {
           }
           case 'feed_update':
           case 'radio_update':
+            if (typeof msg.key === 'string' && typeof (msg as { ts?: unknown }).ts === 'string') {
+              setFeedMeta({ [msg.key]: { ts: (msg as { ts: string }).ts } })
+            }
             if (msg.key === 'radio:active' || msg.type === 'radio_update') {
               setRadio((msgData ?? msg) as unknown as Parameters<typeof setRadio>[0])
             } else if (msg.key === 'utility:pge') {

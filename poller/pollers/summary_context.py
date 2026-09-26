@@ -326,6 +326,18 @@ def format_traffic(incidents, now: datetime, window_start: datetime) -> str:
     return "\n".join(out)
 
 
+def format_hydro(status, now: datetime) -> str | None:
+    """River gauges from NOAA NWPS: official per-gauge flood categories."""
+    if not isinstance(status, dict):
+        return None
+    obs, fc = status.get("observed_flooding") or [], status.get("forecast_flooding") or []
+    if not obs and not fc:
+        return f"RIVERS (NOAA NWPS, {status.get('gauges', 0)} gauges): none at or above action stage, none forecast to reach it."
+    lines = [f"- NOW {g['stage'].upper()}: {sanitise(g['name'], 60)} at {g.get('height_ft')} ft (observed {fmt_ts(g.get('time'), now)})" for g in obs]
+    lines += [f"- FORECAST {g['stage'].upper()}: {sanitise(g['name'], 60)} to {g.get('height_ft')} ft by {fmt_ts(g.get('time'), now)}" for g in fc]
+    return f"RIVERS (NOAA NWPS official flood categories, {status.get('gauges', 0)} gauges):\n" + "\n".join(lines)
+
+
 def format_utilities(oregon, pge) -> str:
     if not oregon and not pge:
         return "POWER: Outage feed unavailable."
@@ -843,6 +855,10 @@ async def build_context(r, pool, now: datetime, window_hours: int,
     if isinstance(traffic, list):
         facts["traffic_disruptions"] = [i for i in traffic if is_active_disruption(i, window_start)][:8]
     sections.append((_P_HIGH + 5, format_traffic(traffic, now, window_start)))
+
+    hydro = format_hydro(_loads(await r.get("feed:hydro:status")), now)
+    if hydro:
+        sections.append((_P_HIGH, hydro))
 
     oregon = _loads(await r.get("feed:utility:oregon"))
     pge = _loads(await r.get("feed:utility:pge"))

@@ -196,3 +196,22 @@ class TestEntityCache:
 
     def test_cache_miss_returns_none(self):
         assert _entity_cache.get("aircraft:does_not_exist") is None
+
+
+# ── BasePoller backoff after consecutive failures ────────────────────────────
+
+def test_poller_backs_off_exponentially_and_caps():
+    from pollers.base import BasePoller
+
+    class P(BasePoller):
+        name, interval = "t", 60
+        async def poll(self): ...
+
+    p = P()
+    assert p._next_delay() == 60
+    p._error_count = 1
+    assert p._next_delay() == 60
+    p._error_count = 3
+    assert p._next_delay() == 240
+    p._error_count = 50
+    assert p._next_delay() == 900

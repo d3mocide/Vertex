@@ -38,6 +38,12 @@ export interface TrafficIncident {
   severity?: string
 }
 
+// ─── Feed freshness (backend /health/feeds + WebSocket feed_update.ts) ───────
+export interface FeedMetaEntry {
+  ts: string                 // ISO time the poller last produced/confirmed this feed
+  max_age_s?: number | null  // age after which the feed counts as stale
+}
+
 // ─── Radio-derived incidents (poller radio_incidents.py) ─────────────────────
 export type RadioIncidentCategory =
   | 'water_rescue' | 'structure_fire' | 'violence' | 'rescue' | 'hazmat' | 'gas_leak'

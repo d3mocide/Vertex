@@ -3,7 +3,7 @@ import json
 import time
 from datetime import datetime, timezone
 import httpx
-from db import write_event
+from db import event_recorded, write_event
 from bus import get_bus
 from config import settings
 from sanitize import sanitize_payload
@@ -14,6 +14,19 @@ logger = logging.getLogger(__name__)
 
 _USGS_FEED = "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_hour.geojson"
 _HEADERS = {"User-Agent": "Vertex/1.0 (Situational Awareness Dashboard)"}
+
+def _severity(mag: float, dist_km: float) -> str:
+    """Severity by what the quake means for the region, not its global size.
+
+    Distant quakes are recorded for context only: a M6.6 near New Caledonia
+    used to be "high" and surfaced as a priority threat on the Incidents page.
+    """
+    if dist_km > 1500:
+        return "info"
+    if dist_km <= 300:
+        return "high" if mag >= 3.5 else "medium" if mag >= 2.5 else "low"
+    return "high" if mag >= 5.0 else "medium" if mag >= 4.0 else "low"
+
 
 # In-memory deduplication for this process lifetime.
 # On restart, at most ~1 hour of earthquakes may be re-written — acceptable.
@@ -75,12 +88,7 @@ class SeismicPoller(BasePoller):
                 if mag < 5.0:
                     continue  # Global: accept >= 5.0
 
-            if mag >= 5.0:
-                severity = "high"
-            elif mag >= 3.0:
-                severity = "medium"
-            else:
-                severity = "low"
+            severity = _severity(mag, dist_km)
 
             summary = f"{mag_type}{mag:.1f} — {place}"
             if depth_km is not None:
@@ -98,6 +106,10 @@ class SeismicPoller(BasePoller):
             }
 
             try:
+                # Persistent dedupe: the in-memory set resets on restart.
+                if await event_recorded("seismic", {"usgs_id": eid}, within_days=7):
+                    _seen_ids[eid] = time.time()
+                    continue
                 event_id = await write_event(
                     event_type="seismic",
                     entity_id=None,

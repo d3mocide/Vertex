@@ -8,6 +8,8 @@ from sanitize import sanitize_payload
 logger = logging.getLogger(__name__)
 
 _HEARTBEAT_KEY = "metrics:poller_heartbeats"
+# Longest delay between polls of a source that keeps failing.
+_MAX_BACKOFF_S = 900
 
 
 class BasePoller(ABC):
@@ -45,15 +47,28 @@ class BasePoller(ABC):
             while True:
                 try:
                     await self.poll()
+                    if self._error_count:
+                        logger.info("[%s] recovered after %d failed poll(s)", self.name, self._error_count)
                     self._error_count = 0
                     await self._heartbeat("ok")
                 except Exception as exc:
                     self._error_count += 1
-                    logger.error("[%s] poll error: %s", self.name, exc)
+                    # First failure and every 10th: a dead source used to log an
+                    # ERROR on every cycle indefinitely.
+                    if self._error_count == 1 or self._error_count % 10 == 0:
+                        logger.error("[%s] poll error (%d consecutive): %s", self.name, self._error_count, exc)
                     await self._heartbeat("error", str(exc)[:256])
-                await asyncio.sleep(self.interval)
+                await asyncio.sleep(self._next_delay())
         finally:
             await self.close()
+
+    def _next_delay(self) -> float:
+        """Normal interval; after consecutive failures, back off exponentially
+        (up to 15 min, or the interval if that is longer) to stop hammering a
+        dead source."""
+        if not self._error_count:
+            return self.interval
+        return min(self.interval * 2 ** min(self._error_count - 1, 6), max(self.interval, _MAX_BACKOFF_S))
 
     async def close(self):
         """Called when the polling loop is shutting down. Override to perform cleanup tasks."""

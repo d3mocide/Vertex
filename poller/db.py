@@ -1,3 +1,4 @@
+import datetime
 import json
 import logging
 import uuid
@@ -122,6 +123,19 @@ async def close_db():
         _pool = None
 
 
+def _reported_time(value):
+    """Entity-reported last_seen as an aware datetime, or None."""
+    if not value:
+        return None
+    if isinstance(value, datetime.datetime):
+        return value if value.tzinfo else value.replace(tzinfo=datetime.timezone.utc)
+    try:
+        dt = datetime.datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return dt if dt.tzinfo else dt.replace(tzinfo=datetime.timezone.utc)
+
+
 async def write_entity_observation(entity: dict, record_observation: bool = True, sanitized: bool = False):
     """Upsert entity row and append an observation. Runs geofence check if positioned.
 
@@ -169,12 +183,15 @@ async def write_entity_observation(entity: dict, record_observation: bool = True
                 """
                 INSERT INTO entities
                     (entity_id, entity_type, source, display_name, identity, tags, first_seen, last_seen)
-                VALUES ($1::text, $2::text, $3::text, $4::text, $5::jsonb, $6::jsonb, NOW(), NOW())
+                VALUES ($1::text, $2::text, $3::text, $4::text, $5::jsonb, $6::jsonb, NOW(),
+                        LEAST(COALESCE($7::timestamptz, NOW()), NOW()))
                 ON CONFLICT (entity_id) DO UPDATE SET
                     display_name = COALESCE(EXCLUDED.display_name, entities.display_name),
                     identity     = entities.identity || EXCLUDED.identity,
                     tags         = EXCLUDED.tags,
-                    last_seen    = NOW()
+                    -- The source's own "last heard/observed" time when it has one
+                    -- (mesh contacts, river gauges); poll time otherwise.
+                    last_seen    = EXCLUDED.last_seen
                 """,
                 entity["entity_id"],
                 entity["entity_type"],
@@ -182,6 +199,7 @@ async def write_entity_observation(entity: dict, record_observation: bool = True
                 entity.get("display_name"),
                 json.dumps(entity.get("identity") or {}),
                 json.dumps(entity.get("tags") or []),
+                _reported_time(entity.get("last_seen")),
             )
 
         mode = (settings.adsb_history_mode or "record").strip().lower()
@@ -289,6 +307,20 @@ async def write_event(
             json.dumps(details),
         )
     return event_id
+
+
+async def event_recorded(event_type: str, match: dict[str, str], within_days: int = 30) -> bool:
+    """True if an event of this type whose details match every key/value was
+    already written in the last `within_days`. Persistent dedupe for pollers
+    whose in-memory "seen" sets reset on every restart (duplicate events)."""
+    if _pool is None or not match:
+        return False
+    clauses = " AND ".join(f"details->>${i + 3} = ${i + 3 + len(match)}" for i in range(len(match)))
+    row = await _pool.fetchval(
+        f"SELECT 1 FROM events WHERE event_type = $1 AND ts > now() - make_interval(days => $2) AND {clauses} LIMIT 1",
+        event_type, within_days, *match.keys(), *[str(v) for v in match.values()],
+    )
+    return row is not None
 
 
 async def write_acars_message(msg: dict) -> bool:

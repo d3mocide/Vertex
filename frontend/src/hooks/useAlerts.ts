@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react'
 import { API_BASE, ALERTS_POLL_MS, NEWS_POLL_MS, WEATHER_POLL_MS, CAMERAS_POLL_MS } from '../config'
 import { useCivicPick } from '../store'
 import { authHeaders, clearToken } from '../auth'
-import type { TrafficFlowSensor, UtilityStatus, OregonStatus, RadioIncidentFeed } from '../storeTypes'
+import type { TrafficFlowSensor, UtilityStatus, OregonStatus, RadioIncidentFeed, FeedMetaEntry } from '../storeTypes'
 import { parseSummary } from '../summaryUtils'
 
 async function fetchJson<T>(url: string): Promise<T | null> {
@@ -28,7 +28,8 @@ export function useAlerts() {
     setOregonStatus,
     setSummary,
     setRadioIncidents,
-  } = useCivicPick('setAlerts', 'setNews', 'setWeather', 'setCameras', 'setTrafficFlow', 'setTrafficIncidents', 'setUtilityStatus', 'setOregonStatus', 'setSummary', 'setRadioIncidents')
+    setFeedMeta,
+  } = useCivicPick('setAlerts', 'setNews', 'setWeather', 'setCameras', 'setTrafficFlow', 'setTrafficIncidents', 'setUtilityStatus', 'setOregonStatus', 'setSummary', 'setRadioIncidents', 'setFeedMeta')
   const timers = useRef<ReturnType<typeof setInterval>[]>([])
 
   useEffect(() => {
@@ -97,6 +98,12 @@ export function useAlerts() {
       if (data && Array.isArray(data.incidents)) setRadioIncidents(data)
     }
 
+    // Feed freshness (ages and stale thresholds for every data feed)
+    const pollFeedMeta = async () => {
+      const data = await fetchJson<Record<string, FeedMetaEntry>>(`${API_BASE}/health/feeds`)
+      if (data && typeof data === 'object') setFeedMeta(data)
+    }
+
     // Fetch utilities
     const pollUtilities = async () => {
       const [pge, oregon] = await Promise.all([
@@ -117,6 +124,7 @@ export function useAlerts() {
     pollUtilities()
     pollSummary()
     pollRadioIncidents()
+    pollFeedMeta()
 
     // Schedule polling
     timers.current = [
@@ -129,6 +137,7 @@ export function useAlerts() {
       setInterval(pollUtilities, 60000), // 60s for utilities
       setInterval(pollSummary, 60000), // 60s for summary display freshness
       setInterval(pollRadioIncidents, 120000), // fallback; WebSocket pushes changes
+      setInterval(pollFeedMeta, 60000),
     ]
 
     return () => timers.current.forEach(clearInterval)

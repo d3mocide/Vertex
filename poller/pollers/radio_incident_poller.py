@@ -13,7 +13,7 @@ import logging
 from collections import Counter
 from datetime import datetime, timedelta, timezone
 
-from bus import get_bus, set_feed
+from bus import get_bus, set_feed, touch_feed
 from config import settings
 from db import get_pool
 from geocoder import Geocoder
@@ -99,6 +99,7 @@ class RadioIncidentPoller(BasePoller):
         }
         digest = hashlib.sha1(json.dumps(body, sort_keys=True, default=str).encode()).hexdigest()
         if digest == self._last_hash:
+            await touch_feed("radio:incidents")
             return
         self._last_hash = digest
         await set_feed("radio:incidents", {"ts": now.isoformat(), **body})

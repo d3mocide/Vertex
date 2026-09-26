@@ -93,3 +93,24 @@ class TestExtractLinksSelfId:
             self.PACKETS, "http://h:8000", "mesh_node:selfkey"
         )
         assert links[0]["node_a"] == "mesh_node:selfkey"
+
+
+# ── Last-heard time must come from the receiver, not the sender's clock ─────
+
+from datetime import datetime, timezone
+from normalizers.mesh_node import normalize_pymc_repeater_advert
+
+
+def _advert(**kw):
+    return {"pubkey": "ab" * 32, "public_key": "ab" * 32, "name": "Node", "node_name": "Node", **kw}
+
+
+def test_contact_list_last_seen_is_used():
+    heard = 1_790_000_000
+    e = normalize_pymc_repeater_advert(_advert(last_seen=heard), "http://mesh")
+    assert e["last_seen"] == datetime.fromtimestamp(heard, tz=timezone.utc).isoformat()
+
+
+def test_sender_rtc_is_ignored_in_favour_of_receiver_lastmod():
+    e = normalize_pymc_repeater_advert(_advert(last_advert_timestamp=1_717_433_553, lastmod=1_790_398_946), "http://mesh")
+    assert e["last_seen"].startswith("2026-")  # lastmod (receiver), not the 2024 sender clock
