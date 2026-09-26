@@ -375,7 +375,9 @@ export function CommsPanel() {
   const { radio, meshMessages, entities, systemEvents, tracks, meshLinks, linkHistory, meshStatus } = useCivicPick('radio', 'meshMessages', 'entities', 'systemEvents', 'tracks', 'meshLinks', 'linkHistory', 'meshStatus')
   const [msgFilter, setMsgFilter] = useState('')
   const [selectedConv, setSelectedConv] = useState<string>('all')
-  const [activeTab, setActiveTab] = useState<'chat' | 'fleet' | 'p25'>('chat')
+  // 'rf' is phone-only: the radio/RF column shows as its own tab instead of
+  // stacking above the chat.
+  const [activeTab, setActiveTab] = useState<'chat' | 'fleet' | 'p25' | 'rf'>('chat')
 
   // Chat send state
   const [newMsgText, setNewMsgText] = useState('')
@@ -495,7 +497,7 @@ export function CommsPanel() {
       {/* ── Body: Split pane layout ── */}
       <div className="flex-1 min-h-0 flex flex-col lg:flex-row overflow-y-auto lg:overflow-hidden bg-onyx-black/5">
         {/* ── Left Column: Radio & Topology ── */}
-        <div className="w-full lg:w-[420px] shrink-0 flex flex-col border-b lg:border-b-0 lg:border-r border-white/10 bg-onyx-black/10 lg:h-full lg:overflow-y-auto p-4 lg:p-6 gap-6 pb-4 lg:pb-36 custom-scrollbar">
+        <div className={`${activeTab === 'rf' ? 'flex' : 'hidden'} lg:flex order-2 lg:order-1 w-full lg:w-[420px] shrink-0 flex-col border-b lg:border-b-0 lg:border-r border-white/10 bg-onyx-black/10 lg:h-full lg:overflow-y-auto p-4 lg:p-6 gap-6 pb-4 lg:pb-36 custom-scrollbar`}>
           {/* RF Communications Card */}
           <section>
             <h3 className="section-heading mb-3 flex items-center gap-2">
@@ -532,9 +534,9 @@ export function CommsPanel() {
                   </div>
                 </div>
               ) : (
-                <div className="flex flex-col items-center py-4 text-on-surface-variant/40">
-                  <span className="ms text-3xl mb-2 animate-pulse">settings_input_antenna</span>
-                  <span className="text-[11px] uppercase tracking-widest font-mono">Scanning P25 Network...</span>
+                <div className="flex items-center gap-2 text-[13px] text-on-surface-variant">
+                  <span className="ms text-[18px] animate-pulse" aria-hidden="true">settings_input_antenna</span>
+                  Scanning P25 — no active call
                 </div>
               )}
             </div>
@@ -579,7 +581,7 @@ export function CommsPanel() {
         </div>
 
         {/* ── Right Column: Tabbed View (Mesh Messages, Mesh Fleet, P25 Radio Log) ── */}
-        <div className="flex-1 min-w-0 flex flex-col lg:h-full p-4 lg:p-6 gap-6 pb-6">
+        <div className={`order-1 lg:order-2 flex-1 min-w-0 flex flex-col lg:h-full p-4 lg:p-6 gap-6 ${activeTab === 'rf' ? 'pb-0 lg:pb-6' : 'pb-6'}`}>
           {/* ── Tab Switcher Header ── */}
           <div className="flex border border-white/10 bg-white/5 rounded-sm p-1 gap-1 shrink-0 select-none">
             <button
@@ -611,6 +613,16 @@ export function CommsPanel() {
             >
               <span className="ms text-[14px]">radio</span>
               <span>P25 <span className="hidden sm:inline">Call </span>Log</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('rf')}
+              className={`lg:hidden flex-1 py-1.5 md:py-2 px-2 md:px-3 font-mono text-[11px] font-bold uppercase tracking-wider flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-2 transition-all ${activeTab === 'rf'
+                ? 'bg-amber-gold text-onyx-black shadow-[0_0_8px_rgba(255,184,0,0.3)]'
+                : 'text-on-surface-variant hover:text-on-surface hover:bg-white/5'
+                }`}
+            >
+              <span className="ms text-[14px]">settings_input_antenna</span>
+              <span>RF</span>
             </button>
           </div>
 

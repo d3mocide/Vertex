@@ -755,9 +755,16 @@ export function FlightLogPanel() {
 
   const twLabel = TIME_WINDOWS.find(w => w.minutes === timeWindow)?.label ?? ''
 
+  const mobileScrollRef = useRef<HTMLDivElement>(null)
   const handleSelectFlight = useCallback((entityId: string) => {
-    selectEntity(selectedEntityId === entityId ? null : entityId)
-  }, [selectedEntityId, selectEntity])
+    const next = selectedEntityId === entityId ? null : entityId
+    selectEntity(next)
+    // On phones the map + details appear above the list; bring them into view.
+    if (next && isMobile) {
+      mobileScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
+      document.getElementById('page-scroll')?.scrollTo({ top: 0, behavior: 'smooth' })
+    }
+  }, [selectedEntityId, selectEntity, isMobile])
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
@@ -793,9 +800,10 @@ export function FlightLogPanel() {
       {/* ── Body: Split pane layout ── */}
       <div className="flex-1 min-h-0 flex flex-col lg:flex-row overflow-y-auto lg:overflow-hidden bg-onyx-black/5">
         {isMobile ? (
-          <div className="flex flex-col gap-6 p-4 pb-6 overflow-y-auto">
-            {/* 1. Live Position Map */}
-            <section className="border border-white/10 p-4 bg-white/5 flex flex-col gap-2 rounded-sm bg-onyx-black/35 backdrop-blur-sm shrink-0 order-1">
+          <div ref={mobileScrollRef} className="flex flex-col gap-6 p-4 pb-6 overflow-y-auto">
+            {/* 1. Live Position Map — only once a flight is selected; with
+                nothing selected the page opens on the summary and the list. */}
+            <section className={`border border-white/10 p-4 bg-white/5 flex-col gap-2 bg-onyx-black/35 backdrop-blur-sm shrink-0 order-1 ${selectedEntityId ? 'flex' : 'hidden'}`}>
               <div className="flex items-center justify-between shrink-0">
                 <h3 className="section-heading flex items-center gap-2">
                   <span className="ms text-[14px] text-cyan-adsb">map</span>
@@ -824,7 +832,7 @@ export function FlightLogPanel() {
             </section>
 
             {/* 2. Traffic Summary */}
-            <section className="p-4 border border-white/10 bg-white/5 bg-onyx-black/35 backdrop-blur-sm rounded-sm shrink-0 order-4">
+            <section className={`p-4 border border-white/10 bg-white/5 bg-onyx-black/35 backdrop-blur-sm shrink-0 ${selectedEntityId ? 'order-4' : 'order-1'}`}>
               <h3 className="section-heading mb-3 flex items-center gap-2">
                 <span className="ms text-[14px] text-cyan-adsb">analytics</span>
                 Traffic Summary
@@ -1111,14 +1119,7 @@ export function FlightLogPanel() {
                   <span className="ms text-3xl animate-pulse">radar</span>
                   <span className="text-[11px] uppercase tracking-widest font-mono text-center">Loading aircraft data…</span>
                 </div>
-              ) : (
-                <div className="flex flex-col items-center justify-center gap-3 text-on-surface-variant/30 p-8 h-full border border-white/10 bg-white/5 rounded-sm bg-onyx-black/35 backdrop-blur-sm min-h-[300px]">
-                  <span className="ms text-5xl">flight</span>
-                  <span className="text-[11px] uppercase tracking-[0.2em] font-mono text-center leading-relaxed">
-                    Select an aircraft<br />to view flight details
-                  </span>
-                </div>
-              )}
+              ) : null}
             </div>
           </div>
         ) : (
