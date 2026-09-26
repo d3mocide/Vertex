@@ -19,27 +19,34 @@
   }
 
   /* Full-bleed app shell.
-     On an iOS standalone PWA the layout viewport is the *small* viewport: it
-     excludes the status-bar / Dynamic Island band. Measured on iOS 18.7 at
-     dpr 3, `screen` is 956px tall but `window.innerHeight` (and `100svh` /
-     `100dvh`) is 894px — the 62px difference is exactly the top safe-area
-     inset. The large-viewport units over-report: `100vh` and `100lvh` resolve
-     to the full 956px, so a `height: 100vh` shell renders 62px too tall and
-     shoves content down under the island.
-     Pinning #root with `position: fixed; inset: 0` anchors it to that 894px
-     layout viewport, so it fills the window edge-to-edge with no letterbox
-     gap (verified: html / body / #root all measure 894, GAP innerH−rootBot is
-     0). #root does *not* paint the 62px island band — that stays UA chrome,
-     and it reads as seamless only because the app is dark-only. `100dvh` is
-     the matching fallback for engines that don't honour the fixed-inset trick;
-     never substitute `100vh` here. Safe-area padding *inside* the shell
-     (pt-safe / pb-safe, applied per component) keeps chrome clear of the
-     unsafe zones. */
+     #root is pinned with `position: fixed; inset: 0` and sized to the
+     dynamic viewport — correct in browsers, where the toolbar can cover part
+     of the large viewport. */
   #root {
     position: fixed;
     inset: 0;
     height: 100%;
     height: 100dvh;
+  }
+
+  /* iOS standalone PWA (measured on iOS 18.7, dpr 3, black-translucent status
+     bar + viewport-fit=cover): the web view covers the whole 956px screen and
+     the app paints under the status bar from y=0, but the layout viewport —
+     innerHeight, 100% and 100dvh — is only 894px, anchored at the top. Sized to
+     it, the shell stops 62px short and leaves an unpainted black band at the
+     *bottom* (not under the island, as an earlier note assumed). `100lvh`
+     reports the full screen there, so the installed app sizes to that.
+     The transform makes #root the containing block for its position:fixed
+     descendants (bottom nav, audio bar, modals); without it they anchor to the
+     short layout viewport and float 62px above the screen edge. Safe-area
+     padding inside the shell (pt-safe / pb-safe) still keeps chrome clear of
+     the status bar and home indicator. Where lvh equals dvh this is a no-op. */
+  @media (display-mode: standalone) {
+    #root {
+      bottom: auto;
+      height: 100lvh;
+      transform: translateZ(0);
+    }
   }
 
   body {

@@ -39,6 +39,7 @@ interface Metrics {
   // DOM layer geometry
   layers: { html: LayerRect; body: LayerRect; root: LayerRect }
   gap: number // innerH − #root.bottom (≠0 ⇒ shell doesn't match the window)
+  screenGap: number // screen.height − #root.bottom (the real gap on iOS standalone)
   // mode
   iosVer: string
   navStandalone: boolean
@@ -126,6 +127,8 @@ function readMetrics(): Metrics {
     dvh: units.dvh,
     layers,
     gap: window.innerHeight - layers.root.bottom,
+    // The one that matters on iOS standalone, where innerHeight is short.
+    screenGap: window.screen.height - layers.root.bottom,
     iosVer: readIosVersion(),
     navStandalone,
     displayMode,
@@ -154,6 +157,7 @@ function buildReport(m: Metrics): string {
     L('body', m.layers.body),
     L('#root', m.layers.root),
     `GAP innerH − rootBot  ${m.gap}px`,
+    `GAP screen − rootBot  ${m.screenGap}px`,
     `orientation           ${m.orientation}`,
   ].join('\n')
 }
@@ -394,6 +398,12 @@ export function DevInsetInspector() {
               <span className="text-on-surface-variant">GAP innerH−rootBot</span>
               <span className={`font-mono ${metrics.gap === 0 ? 'text-green-ais' : 'text-red-emergency'}`}>
                 {metrics.gap}px
+              </span>
+            </div>
+            <div className="flex items-center justify-between gap-4 pt-0.5">
+              <span className="text-on-surface-variant">GAP screen−rootBot</span>
+              <span className={`font-mono ${metrics.screenGap === 0 ? 'text-green-ais' : 'text-red-emergency'}`}>
+                {metrics.screenGap}px
               </span>
             </div>
           </div>
