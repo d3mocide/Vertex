@@ -522,23 +522,34 @@ def incident_status(inc, now: datetime) -> str:
     return inc.status.replace("_", " ")
 
 
-def format_checklist(radio_incidents, traffic_disruptions, now: datetime, window_start: datetime) -> str | None:
-    """A short must-cover list: small models honour an explicit checklist far more
-    reliably than a general instruction to "include life-safety incidents"."""
-    items = []
+def must_cover(radio_incidents, traffic_disruptions, now: datetime) -> list[dict]:
+    """Recent, unresolved serious items the briefing is expected to cover.
+
+    Shared by the prompt checklist and the briefing quality metrics, so the
+    model is scored on exactly what it was asked to cover.
+    """
+    items: list[dict] = []
     for i in radio_incidents:
         # Same freshness rule as incident_status(): stale incidents are history, not must-cover.
         if i.severity >= 4 and now - i.last_seen <= _STALE_AFTER and i.status != "cleared":
-            items.append(f"- {_CATEGORY_LABEL.get(i.category, i.category)} — {sanitise(i.location, 60) or 'location not stated'} "
-                         f"(radio, {fmt_ts(i.first_seen, now)})")
+            items.append({"kind": "radio", "category": i.category, "severity": i.severity, "location": i.location,
+                          "label": f"{_CATEGORY_LABEL.get(i.category, i.category)} — "
+                                   f"{sanitise(i.location, 60) or 'location not stated'} (radio, {fmt_ts(i.first_seen, now)})"})
     for t in traffic_disruptions:
         updated = parse_ts(t.get("pubDate"))
         if "closure" in str(t.get("severity", "")).lower() and updated and updated >= now - timedelta(hours=6):
-            items.append(f"- Traffic closure — {sanitise(t.get('location'), 70)} (updated {fmt_ts(t.get('pubDate'), now)})")
+            items.append({"kind": "traffic", "category": "traffic", "severity": 3, "location": t.get("location"),
+                          "label": f"Traffic closure — {sanitise(t.get('location'), 70)} (updated {fmt_ts(t.get('pubDate'), now)})"})
+    return items[:6]
+
+
+def format_checklist(items: list[dict]) -> str | None:
+    """A short must-cover list: small models honour an explicit checklist far more
+    reliably than a general instruction to "include life-safety incidents"."""
     if not items:
         return None
     return ("MUST-COVER CHECKLIST — recent serious items. Each must appear in the briefing, or be explicitly "
-            "dismissed with a reason:\n" + "\n".join(items[:6]))
+            "dismissed with a reason:\n" + "\n".join(f"- {i['label']}" for i in items))
 
 
 def format_radio_activity(talkgroups, call_volume: int | None, baseline_volume: float | None,
@@ -782,7 +793,7 @@ async def build_context(r, pool, now: datetime, window_hours: int,
     from geo_tags import geofences_for_points
 
     window_start = now - timedelta(hours=window_hours)
-    facts: dict = {"radio_incidents": [], "traffic_disruptions": []}
+    facts: dict = {"radio_incidents": [], "traffic_disruptions": [], "must_cover": []}
     sections: list[tuple[int, str]] = [(_P_KEEP, format_header(now, window_hours, previous.get("ts") if previous else None))]
 
     wx = _loads(await r.get("feed:weather:current"))
@@ -853,7 +864,8 @@ async def build_context(r, pool, now: datetime, window_hours: int,
     if prev:
         sections.append((_P_MED, prev))
 
-    checklist = format_checklist(facts["radio_incidents"], facts["traffic_disruptions"], now, window_start)
+    facts["must_cover"] = must_cover(facts["radio_incidents"], facts["traffic_disruptions"], now)
+    checklist = format_checklist(facts["must_cover"])
     if checklist:
         # Last in the prompt, where small models attend most reliably.
         sections.append((_P_KEEP, checklist))

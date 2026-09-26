@@ -187,11 +187,19 @@ def test_format_radio_activity_lists_significant_and_counts_routine(monkeypatch)
     assert "12345" not in text  # routine medical call is counted, not listed
 
 
-def test_score_briefing_measures_coverage_and_format():
+def test_score_briefing_measures_coverage_and_format(monkeypatch):
+    monkeypatch.setattr(summary_context, "settings", SimpleNamespace(
+        summary_baseline_days=7, region_timezone="America/Los_Angeles"))
+    incidents = [i for i in extract(RADIO_ROWS) if i.severity >= 3]
+    traffic = [{"location": "I405 NB - I-405, Intersection with US26", "title": "ramp closed",
+                "severity": "Closure", "pubDate": (NOW - timedelta(hours=1)).isoformat()}]
     facts = {
-        "radio_incidents": [i for i in extract(RADIO_ROWS) if i.severity >= 3],
-        "traffic_disruptions": [{"location": "I405 NB - I-405, Intersection with US26", "title": "ramp closed"}],
+        "radio_incidents": incidents,
+        "traffic_disruptions": traffic,
+        "must_cover": summary_context.must_cover(incidents, traffic, NOW),
     }
+    # Bridge (3h ago) is fresh enough; the gas leak (5h ago) is stale -> not must-cover.
+    assert [m["category"] for m in facts["must_cover"]] == ["water_rescue", "traffic"]
     good = (
         "**BOTTOM LINE:** Posture NORMAL. A person on a bridge railing drew Fireboat 21.\n\n"
         "### Changes Since Last Briefing\n- none\n\n### Key Developments\n- Gas leak on N Clarendon Ave.\n"
@@ -199,13 +207,14 @@ def test_score_briefing_measures_coverage_and_format():
         "### Recommended Actions\n- Verify the bridge incident.\n- Monitor the gas leak.\n"
     )
     m = score_briefing(good, facts)
-    assert m["radio_coverage"] == 1.0 and m["radio_serious_total"] == 2
-    assert m["traffic_coverage"] == 1.0
+    assert m["must_cover_coverage"] == 1.0 and m["must_cover_total"] == 2
     assert m["life_safety_in_bottom_line"] is True
+    assert m["radio_24h_coverage"] == 1.0 and m["radio_24h_serious"] == 2
+    assert m["traffic_coverage"] == 1.0
     assert m["format_ok"] is True
     assert m["monitor_actions"] == 1
     assert m["compound_risks"] == 0
 
     bad = score_briefing("Everything is quiet.", facts)
-    assert bad["radio_coverage"] == 0.0 and bad["format_ok"] is False
+    assert bad["must_cover_coverage"] == 0.0 and bad["format_ok"] is False
     assert bad["life_safety_in_bottom_line"] is False

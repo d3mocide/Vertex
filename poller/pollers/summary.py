@@ -142,28 +142,34 @@ def _section(text: str, name: str) -> str:
 
 
 def score_briefing(text: str, facts: dict) -> dict:
-    """Cheap, deterministic quality metrics for one briefing, for tracking tuning over time."""
+    """Cheap, deterministic quality metrics for one briefing, for tracking tuning over time.
+
+    The headline number is `must_cover_coverage`: of the recent serious items
+    the prompt's checklist asked for, how many the briefing mentions. The
+    24h radio/traffic coverage figures are context, not targets — a good
+    briefing should not re-list every incident of the day.
+    """
     low = text.lower()
     bottom = low.split("\n", 1)[0]
-    radio = facts.get("radio_incidents") or []
-    serious = [i for i in radio if i.severity >= 4]
+    must = facts.get("must_cover") or []
+    life = [m for m in must if m["severity"] >= 5]
+    radio = [i for i in (facts.get("radio_incidents") or []) if i.severity >= 4]
     traffic = facts.get("traffic_disruptions") or []
-    life = [i for i in radio if i.severity >= 5]
 
     def rate(hits: int, total: int):
         return round(hits / total, 2) if total else None
 
-    radio_hits = sum(_mentions(low, i.location, i.category) for i in serious)
-    traffic_hits = sum(_mentions(low, i.get("location") or i.get("title")) for i in traffic)
     actions = _section(text, "Recommended Actions")
     risks = _section(text, "Compound Risks")
     return {
-        "radio_serious_total": len(serious),
-        "radio_coverage": rate(radio_hits, len(serious)),
-        "traffic_total": len(traffic),
-        "traffic_coverage": rate(traffic_hits, len(traffic)),
+        "must_cover_total": len(must),
+        "must_cover_coverage": rate(sum(_mentions(low, m["location"], m["category"]) for m in must), len(must)),
         "life_safety_total": len(life),
-        "life_safety_in_bottom_line": (any(_mentions(bottom, i.location, i.category) for i in life) if life else None),
+        "life_safety_in_bottom_line": (any(_mentions(bottom, m["location"], m["category"]) for m in life) if life else None),
+        "radio_24h_serious": len(radio),
+        "radio_24h_coverage": rate(sum(_mentions(low, i.location, i.category) for i in radio), len(radio)),
+        "traffic_total": len(traffic),
+        "traffic_coverage": rate(sum(_mentions(low, t.get("location") or t.get("title")) for t in traffic), len(traffic)),
         "format_ok": all(f"### {s}" in low for s in _REQUIRED_SECTIONS) and low.startswith("**bottom line:**"),
         "monitor_actions": len(re.findall(r"^\s*[-*]\s*\**monitor", actions, re.I | re.M)),
         "compound_risks": 0 if "none identified" in risks.lower() else len(re.findall(r"^\s*[-*]\s", risks, re.M)),

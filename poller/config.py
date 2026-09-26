@@ -52,6 +52,9 @@ class Settings(BaseSettings):
     redis_url: str = "redis://localhost:6379"
     database_url: str = "postgresql+asyncpg://vertex:vertex@localhost:5432/vertex"
     log_level: str = "INFO"
+    # Diagnostic: when > 0, trace allocations and log the top sites every N
+    # minutes. Adds memory/CPU overhead — leave at 0 in normal operation.
+    poller_memprofile_minutes: int = 0
 
     @property
     def regions(self) -> list[RegionConfig]:

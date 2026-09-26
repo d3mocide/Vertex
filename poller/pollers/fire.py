@@ -13,6 +13,18 @@ logger = logging.getLogger(__name__)
 _EONET_BASE_URL = "https://eonet.gsfc.nasa.gov/api/v3/events?status=open&category=wildfires"
 
 
+def _with_region_bbox(url: str) -> str:
+    """Scope an unbounded EONET URL to the region.
+
+    The stock source is the global open-wildfire feed (~7k events, ~5 MB of
+    JSON every poll) of which a handful are relevant; parsing it spiked poller
+    memory by hundreds of MB. Non-EONET URLs and URLs with a bbox are kept.
+    """
+    if "eonet.gsfc.nasa.gov" in url and "bbox=" not in url:
+        return _eonet_bbox_url().replace(_EONET_BASE_URL, url, 1)
+    return url
+
+
 def _eonet_bbox_url() -> str:
     """Append a geographic bbox to the EONET URL so the API pre-filters events.
 
@@ -139,7 +151,7 @@ class FirePoller(BasePoller):
         rows = await get_pool().fetch(
             "SELECT url FROM poller_sources WHERE type = 'fire' AND enabled = TRUE"
         )
-        self._source_urls = [r["url"] for r in rows if r.get("url")]
+        self._source_urls = [_with_region_bbox(r["url"]) for r in rows if r.get("url")]
         if not self._source_urls:
             bbox_url = _eonet_bbox_url()
             self._source_urls = [bbox_url]
