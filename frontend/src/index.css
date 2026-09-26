@@ -29,24 +29,38 @@
     height: 100dvh;
   }
 
-  /* iOS standalone PWA (measured on iOS 18.7, dpr 3, black-translucent status
-     bar + viewport-fit=cover): the web view covers the whole 956px screen and
-     the app paints under the status bar from y=0, but the layout viewport —
-     innerHeight, 100% and 100dvh — is only 894px, anchored at the top. Sized to
-     it, the shell stops 62px short and leaves an unpainted black band at the
-     *bottom* (not under the island, as an earlier note assumed). `100lvh`
-     reports the full screen there, so the installed app sizes to that.
-     The transform makes #root the containing block for its position:fixed
-     descendants (bottom nav, audio bar, modals); without it they anchor to the
-     short layout viewport and float 62px above the screen edge. Safe-area
-     padding inside the shell (pt-safe / pb-safe) still keeps chrome clear of
-     the status bar and home indicator. Where lvh equals dvh this is a no-op. */
-  @media (display-mode: standalone) {
-    #root {
-      bottom: auto;
-      height: 100lvh;
-      transform: translateZ(0);
-    }
+  /* iOS standalone PWA (iOS 18.7, dpr 3, black-translucent + viewport-fit=
+     cover): the web view covers the whole 956px screen and paints from y=0,
+     but the layout viewport — innerHeight, 100%, 100dvh — is 894px, so the
+     shell stops 62px short and leaves an unpainted band at the *bottom* (not
+     under the island, as an earlier note assumed). Growing #root alone does
+     not help: html/body at 894px with overflow:hidden clip everything to the
+     viewport. A script in index.html measures screen.height − innerHeight
+     into --ios-bottom-shim and adds .ios-shim only when that gap exists, and
+     then:
+       - html is extended by the gap and stops clipping (the script pins
+         window scroll at 0);
+       - #root is positioned in the page (absolute) instead of against the
+         short viewport, sized to the full screen;
+       - contain: layout makes #root the containing block for its
+         position:fixed children (nav, audio bar, map, modals) so they anchor
+         to the real screen edge. Not a transform: a screen-sized transformed
+         layer rasterised the header text blurry on iOS. */
+  html.ios-shim {
+    height: calc(100% + var(--ios-bottom-shim, 0px));
+    overflow: visible;
+  }
+  html.ios-shim body {
+    overflow: visible;
+  }
+  html.ios-shim #root {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: auto;
+    left: 0;
+    height: calc(100dvh + var(--ios-bottom-shim, 0px));
+    contain: layout;
   }
 
   body {
