@@ -18,6 +18,19 @@ Any always-on machine on the LAN:
 It does not need to run on the Vertex host (a Raspberry Pi or small VM is
 usually too tight for the import).
 
+## Region
+
+The compose file defaults to the Oregon extract, matching Vertex's
+`.env.example` region. For another area, set these (e.g. in a `.env` next
+to the compose file) to any extract from https://download.geofabrik.de/:
+
+```
+NOMINATIM_PBF_URL=https://download.geofabrik.de/north-america/us/washington-latest.osm.pbf
+NOMINATIM_REPLICATION_URL=https://download.geofabrik.de/north-america/us/washington-updates/
+```
+
+and set `GEOCODER_STATE` in Vertex's `.env` to the matching state name.
+
 ## Start
 
 ```bash
@@ -28,7 +41,7 @@ docker compose -f infra/nominatim/docker-compose.yml logs -f   # wait for "Nomin
 Check it:
 
 ```bash
-curl "http://<host>:8088/search?street=1221%20SW%204th%20Ave&city=Portland&state=Oregon&format=jsonv2"
+curl "http://<host>:8088/search?street=1221%20SW%204th%20Ave&state=Oregon&format=jsonv2"
 ```
 
 ## Point Vertex at it
@@ -37,6 +50,7 @@ In Vertex's `.env`:
 
 ```
 GEOCODER_URL=http://<host>:8088
+GEOCODER_STATE=Oregon
 ```
 
 and restart the poller. Leave `GEOCODER_URL` blank to disable geocoding.

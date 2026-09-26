@@ -35,7 +35,7 @@ class FakeRedis:
 @pytest.fixture(autouse=True)
 def _settings(monkeypatch):
     monkeypatch.setattr(geo, "settings", SimpleNamespace(
-        geocoder_url="http://nominatim:8088/",
+        geocoder_url="http://nominatim:8088/", geocoder_state="Oregon",
         bbox_min_lat=44.8, bbox_max_lat=45.9, bbox_min_lon=-123.5, bbox_max_lon=-121.8,
     ))
 

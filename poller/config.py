@@ -135,6 +135,8 @@ class Settings(BaseSettings):
     # Self-hosted Nominatim for locating radio incidents (see infra/nominatim/).
     # Blank disables geocoding.
     geocoder_url: str = ""
+    # State name passed to structured searches (must match the imported extract).
+    geocoder_state: str = "Oregon"
     # Days of history used as the "normal" baseline for event and radio volume.
     summary_baseline_days: int = 7
     # Character budget for the data context (~4 chars per token). Lowest-priority

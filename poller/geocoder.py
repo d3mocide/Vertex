@@ -126,7 +126,7 @@ class Geocoder:
         return entry["lat"], entry["lon"]
 
     async def _address(self, location: str) -> tuple[float, float] | None:
-        results = await self._get({"street": location, "state": "Oregon", "limit": 1})
+        results = await self._get({"street": location, "state": settings.geocoder_state, "limit": 1})
         for r in results:
             lat, lon = float(r["lat"]), float(r["lon"])
             if _in_bbox(lat, lon):
@@ -134,7 +134,7 @@ class Geocoder:
         return None
 
     async def _street_geojson(self, street: str) -> list[dict]:
-        results = await self._get({"street": street, "state": "Oregon", "limit": 10, "polygon_geojson": 1})
+        results = await self._get({"street": street, "state": settings.geocoder_state, "limit": 10, "polygon_geojson": 1})
         return [r["geojson"] for r in results
                 if isinstance(r.get("geojson"), dict) and r["geojson"].get("type") in ("LineString", "MultiLineString")]
 

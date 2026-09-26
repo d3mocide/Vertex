@@ -1,4 +1,5 @@
-# Local Nominatim geocoder for Vertex — Oregon OpenStreetMap extract.
+# Local Nominatim geocoder for Vertex — OpenStreetMap extract for your region
+# (default: Oregon, matching .env.example).
 #
 # Runs on any always-on machine on the LAN (it does not need to share a host
 # with Vertex). Vertex reaches it via GEOCODER_URL, e.g. http://<host>:8088.
@@ -6,7 +7,7 @@
 #   docker compose -f infra/nominatim/docker-compose.yml up -d
 #   docker compose -f infra/nominatim/docker-compose.yml logs -f   # watch the import
 #
-# First start imports Oregon (~30-90 min depending on CPU/disk) and then keeps
+# First start imports the region (Oregon: ~30-90 min depending on CPU/disk) and then keeps
 # the data current from Geofabrik's daily diffs. Budget ~10 GB disk; peak RAM
 # during import ~3-4 GB, ~1 GB afterwards.
 services:
@@ -16,8 +17,10 @@ services:
     ports:
       - "8088:8080"
     environment:
-      PBF_URL: https://download.geofabrik.de/north-america/us/oregon-latest.osm.pbf
-      REPLICATION_URL: https://download.geofabrik.de/north-america/us/oregon-updates/
+      # Region extract — defaults match Vertex's .env.example region (Oregon).
+      # Pick another state/region from https://download.geofabrik.de/.
+      PBF_URL: ${NOMINATIM_PBF_URL:-https://download.geofabrik.de/north-america/us/oregon-latest.osm.pbf}
+      REPLICATION_URL: ${NOMINATIM_REPLICATION_URL:-https://download.geofabrik.de/north-america/us/oregon-updates/}
       REPLICATION_UPDATE_INTERVAL: "86400"
       REPLICATION_RECHECK_INTERVAL: "900"
       UPDATE_MODE: continuous
