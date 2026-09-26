@@ -2,7 +2,7 @@ import json
 import logging
 import uuid
 import time
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 from sanitize import sanitize_payload, sanitize_text
 
 logger = logging.getLogger(__name__)
@@ -13,10 +13,33 @@ logger = logging.getLogger(__name__)
 #   entry_emitted: whether geofence_entry has been emitted
 _entity_state: dict[str, dict[int, dict[str, object]]] = {}
 
+# entity_id -> last time (epoch s) the entity was checked. Eviction is by
+# last-seen, NOT by fence state: evicting entities that were merely outside
+# every fence made their next entry look like a first observation, which is
+# silently seeded — so entries were almost never emitted while exits were
+# (e.g. 10k exits vs 5 entries/week for transit vehicles).
+_entity_last_seen: dict[str, float] = {}
+_EVICT_AFTER_S = 6 * 3600
+_EVICT_EVERY_S = 300.0
+_last_eviction = 0.0
+
 # Rate-limit PostGIS ST_Contains queries — run at most once per N seconds per entity.
 # Aircraft update at 1-2 Hz from BEAST; a 30s gate cuts 97% of spatial queries.
 _GEOFENCE_CHECK_INTERVAL = 30.0
 _last_geofence_check: dict[str, float] = {}
+
+
+def _evict_unseen(now_ts: float) -> None:
+    """Forget entities not seen for _EVICT_AFTER_S (bounded memory), at most every few minutes."""
+    global _last_eviction
+    if now_ts - _last_eviction < _EVICT_EVERY_S:
+        return
+    _last_eviction = now_ts
+    cutoff = now_ts - _EVICT_AFTER_S
+    for eid in [e for e, seen in _entity_last_seen.items() if seen < cutoff]:
+        _entity_last_seen.pop(eid, None)
+        _entity_state.pop(eid, None)
+        _last_geofence_check.pop(eid, None)
 
 
 async def check_geofences(entity: dict, conn) -> None:
@@ -36,12 +59,16 @@ async def check_geofences(entity: dict, conn) -> None:
     if now_ts - _last_geofence_check.get(entity_id, 0.0) < _GEOFENCE_CHECK_INTERVAL:
         return
     _last_geofence_check[entity_id] = now_ts
+    _evict_unseen(now_ts)
 
     current_rows = await conn.fetch(
         """
         SELECT id, name, zone_type, geofence_shape, dwell_seconds
         FROM geofences
         WHERE active = TRUE
+          -- "area" zones (city limits, corridors) only label incidents; they
+          -- would otherwise emit an entry/exit for every overflight.
+          AND zone_type <> 'area'
           AND ST_Contains(geom, ST_SetSRID(ST_MakePoint($1::float, $2::float), 4326))
         """,
         lon,
@@ -60,6 +87,7 @@ async def check_geofences(entity: dict, conn) -> None:
             fid: {"entered_at": now, "entry_emitted": True}
             for fid in current_ids
         }
+        _entity_last_seen[entity_id] = now_ts
         return
 
     state = previous_state
@@ -103,28 +131,7 @@ async def check_geofences(entity: dict, conn) -> None:
 
     _entity_state[entity_id] = state
 
-    # Evict entries older than 6 hours to bound memory
-    # ⚡ Bolt Optimization: Extracted `datetime.now(timezone.utc)` from the inner loop
-    # and unrolled the `all()` generator to reduce overhead and prevent redundant system calls.
-    # Benchmarks show ~2.5x speedup per run, which is measurable in this high-frequency loop.
-    now = datetime.now(timezone.utc)
-    cutoff = now - timedelta(hours=6)
-
-    stale = []
-    for eid, fence_state in _entity_state.items():
-        is_stale = True
-        for s in fence_state.values():
-            entered_at = s.get("entered_at")
-            if not isinstance(entered_at, datetime):
-                entered_at = now
-            if entered_at >= cutoff:
-                is_stale = False
-                break
-        if is_stale:
-            stale.append(eid)
-
-    for eid in stale:
-        del _entity_state[eid]
+    _entity_last_seen[entity_id] = now_ts
 
     from bus import get_bus  # lazy import — breaks the db→geofence→bus→db cycle
 

@@ -53,8 +53,8 @@ INSERT INTO geofences (name, description, zone_type, geom, active) VALUES
     TRUE
 ),
 (
-    'TTD — Twin Oaks Airpark',
-    'Twin Oaks Airpark (KTTD) Troutdale operations area',
+    'TTD — Troutdale Airport',
+    'Portland-Troutdale Airport (KTTD) operations area',
     'airport',
     ST_GeomFromText(
         'POLYGON((-122.415 45.540, -122.385 45.540, -122.385 45.555, -122.415 45.555, -122.415 45.540))',

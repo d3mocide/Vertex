@@ -117,7 +117,9 @@ class Geofence(Base):
     center_lon: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     radius_m: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     dwell_seconds: Mapped[int] = mapped_column(default=0)
-    geom: Mapped[object] = mapped_column(Geometry("POLYGON", srid=4326))
+    # Polygon or MultiPolygon (city limits can have detached parts); matches the
+    # GEOMETRY(GEOMETRY, 4326) column in db/init/01_schema.sql.
+    geom: Mapped[object] = mapped_column(Geometry("GEOMETRY", srid=4326))
     active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 

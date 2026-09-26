@@ -60,6 +60,8 @@ class TestGeofenceStateTransitions:
     def setup_method(self):
         gf._entity_state.clear()
         gf._last_geofence_check.clear()
+        gf._entity_last_seen.clear()
+        gf._last_eviction = 0.0
         self._original_check_interval = gf._GEOFENCE_CHECK_INTERVAL
         # Keep unit tests focused on transition logic, not query throttling.
         gf._GEOFENCE_CHECK_INTERVAL = 0.0
@@ -139,3 +141,46 @@ class TestGeofenceStateTransitions:
         assert "aircraft:aaa" in gf._entity_state
         assert "aircraft:bbb" in gf._entity_state
         assert gf._entity_state["aircraft:aaa"] is not gf._entity_state["aircraft:bbb"]
+
+
+class TestEvictionRegression:
+    """Entities outside every fence must keep their state, or their next entry
+    is treated as a first observation and silently seeded (no entry event)."""
+
+    def setup_method(self):
+        gf._entity_state.clear()
+        gf._last_geofence_check.clear()
+        gf._entity_last_seen.clear()
+        gf._last_eviction = 0.0
+
+    def _check(self, conn, entity_id="gtfs:trimet:210"):
+        gf._last_geofence_check.pop(entity_id, None)  # bypass the 30 s rate limit
+        run(gf.check_geofences(_entity(entity_id), conn))
+
+    def _event_types(self, conn):
+        return [c.args[2] for c in conn.execute.call_args_list]
+
+    def test_entry_is_emitted_after_being_outside(self):
+        self._check(_make_conn([]))                   # first sight, outside: seeded silently
+        conn = _make_conn([_fence_row()])
+        self._check(conn)                            # enters
+        assert self._event_types(conn) == ["geofence_entry"]
+
+    def test_repeated_crossings_produce_paired_events(self):
+        events = []
+        self._check(_make_conn([]))
+        for _ in range(3):
+            c_in = _make_conn([_fence_row()])
+            self._check(c_in)
+            c_out = _make_conn([], exited_rows=[_fence_row()])
+            self._check(c_out)
+            events += self._event_types(c_in) + self._event_types(c_out)
+        assert events == ["geofence_entry", "geofence_exit"] * 3
+
+    def test_unseen_entities_are_evicted_by_last_seen(self):
+        self._check(_make_conn([]), "aircraft:old")
+        gf._entity_last_seen["aircraft:old"] -= gf._EVICT_AFTER_S + 1
+        gf._last_eviction = 0.0
+        self._check(_make_conn([]), "aircraft:new")
+        assert "aircraft:old" not in gf._entity_state
+        assert "aircraft:new" in gf._entity_state
