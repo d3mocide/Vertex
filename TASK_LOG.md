@@ -2006,3 +2006,18 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 ### I1 — TLS / HTTPS Termination
 - **`frontend/nginx-tls.conf`**: New Nginx config with HTTP→HTTPS redirect (port 80 → 301) and HTTPS (port 443) with TLSv1.2/1.3, HSTS, and all security headers. Mirrors `nginx.conf` proxy rules.
 - **`docker-compose.tls.yml`**: Compose override that adds port 443, mounts `nginx-tls.conf` over default, and mounts cert files from `TLS_CERT_PATH` / `TLS_KEY_PATH`. Usage: `docker compose -f docker-compose.yml -f docker-compose.tls.yml up -d`.
+
+## 2026-09-26 — Situational-awareness overhaul (branch feat/sitrep-harness)
+
+### AI briefing harness
+- **`poller/pollers/summary_context.py`** (new): 24h context builder — region/time grounding, distance bands, NWS forecaster products, event counts vs prior window and a robust 7-day median baseline, radio-derived incidents, geofence tags, river status, dated news, previous briefing, must-cover checklist, priority-based character budget.
+- **`poller/pollers/summary.py`**: analytic system prompt with fixed output format; reasoning capture; history (`/summary/history`), exact-prompt debug (`/summary/debug`) and per-briefing quality metrics (`/summary/metrics`); direct OpenAI-compatible calls (LiteLLM removed from the poller). Production model: `qwen3.5-9b-defiant-fable-mtp` (benchmarked vs 5 installed models).
+
+### Radio, geocoding, geofences
+- **`poller/radio_incidents.py`** + **`RadioIncidentPoller`**: deterministic incident extraction from P25 dispatch transcripts (type, severity, MPDS, address/intersection, units, status), clustered per address; `feed:radio:incidents`.
+- **`poller/geocoder.py`**, **`poller/street_names.py`**, **`infra/nominatim/`**: self-hosted Nominatim geocoding with fuzzy street-name correction (OSM gazetteer, pg_trgm + Double Metaphone, validated by exact house number).
+- **Geofences**: `area` zone type (label-only), boundary lookup (`/geofences/boundaries`, city/county via Nominatim, ZIP via Census), MultiPolygon support; engine eviction bug fixed (entries are now emitted).
+- **Incidents page**: Dispatch Incidents list + embedded map with filters.
+
+### Data-source audit fixes
+- Real feed timestamps (`feed:meta`, `/health/feeds`, `FeedAge`); mesh-node last-heard from the repeater; NOAA NWPS river gauges (official flood categories) replace USGS legacy thresholds; honest severities for anomalies/distant quakes/GDACS with persistent dedupe; region-filtered SIGMETs; ODOT markup/significance; NWS zones updated for the 2026-04-16 Oregon renumbering plus county/fire zones; MeshCore `companion_name` fix and per-channel history; poller backoff for dead sources; memory (compact aircraft DB, NIFC scoping, heap trim).
