@@ -689,17 +689,17 @@ async def _db_sections(pool, now: datetime, window_start: datetime, r=None) -> t
     try:
         counts = await pool.fetch(
             "SELECT event_type, severity, count(*) FROM events "
-            "WHERE ts >= $1 AND event_type NOT LIKE 'p25%' GROUP BY 1, 2",
+            "WHERE ts >= $1 AND event_type NOT LIKE 'p25%' AND event_type NOT LIKE 'geofence%' GROUP BY 1, 2",
             window_start,
         )
         prior = await pool.fetch(
             "SELECT event_type, count(*) FROM events "
-            "WHERE ts >= $1 AND ts < $2 AND event_type NOT LIKE 'p25%' GROUP BY 1",
+            "WHERE ts >= $1 AND ts < $2 AND event_type NOT LIKE 'p25%' AND event_type NOT LIKE 'geofence%' GROUP BY 1",
             prior_start, window_start,
         )
         base = await pool.fetch(
             "SELECT event_type, floor(extract(epoch FROM ($2 - ts)) / $3)::int, count(*) FROM events "
-            "WHERE ts >= $1 AND ts < $2 AND event_type NOT LIKE 'p25%' GROUP BY 1, 2",
+            "WHERE ts >= $1 AND ts < $2 AND event_type NOT LIKE 'p25%' AND event_type NOT LIKE 'geofence%' GROUP BY 1, 2",
             base_start, window_start, bucket_s,
         )
         recent = [list(r) for r in await pool.fetch(

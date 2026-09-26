@@ -28,6 +28,9 @@ _last_eviction = 0.0
 _GEOFENCE_CHECK_INTERVAL = 30.0
 _last_geofence_check: dict[str, float] = {}
 
+# Entity types never evaluated against zones (fixed-route transit).
+_NEVER_ZONED = frozenset({"train"})
+
 
 def _evict_unseen(now_ts: float) -> None:
     """Forget entities not seen for _EVICT_AFTER_S (bounded memory), at most every few minutes."""
@@ -54,6 +57,11 @@ async def check_geofences(entity: dict, conn) -> None:
 
     if lat is None or lon is None:
         return
+    entity_type = entity.get("entity_type")
+    # Fixed-route transit crosses the same zones on every trip (bridges, the
+    # MAX lines past HIO/PDX) — ~80% of all zone events, none of them news.
+    if entity_type in _NEVER_ZONED:
+        return
 
     now_ts = time.time()
     if now_ts - _last_geofence_check.get(entity_id, 0.0) < _GEOFENCE_CHECK_INTERVAL:
@@ -69,10 +77,15 @@ async def check_geofences(entity: dict, conn) -> None:
           -- "area" zones (city limits, corridors) only label incidents; they
           -- would otherwise emit an entry/exit for every overflight.
           AND zone_type <> 'area'
+          -- Zone types watch what they are for: airports → aircraft,
+          -- rivers/ports → vessels. Other zones watch everything.
+          AND (zone_type <> 'airport'  OR $3 = 'aircraft')
+          AND (zone_type <> 'maritime' OR $3 = 'vessel')
           AND ST_Contains(geom, ST_SetSRID(ST_MakePoint($1::float, $2::float), 4326))
         """,
         lon,
         lat,
+        entity_type or "",
     )
 
     now = datetime.now(timezone.utc)

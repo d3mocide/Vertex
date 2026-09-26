@@ -184,3 +184,23 @@ class TestEvictionRegression:
         self._check(_make_conn([]), "aircraft:new")
         assert "aircraft:old" not in gf._entity_state
         assert "aircraft:new" in gf._entity_state
+
+
+class TestZoneTypeFiltering:
+    def setup_method(self):
+        gf._entity_state.clear()
+        gf._last_geofence_check.clear()
+        gf._entity_last_seen.clear()
+
+    def test_fixed_route_transit_is_never_evaluated(self):
+        conn = _make_conn([_fence_row()])
+        run(gf.check_geofences({**_entity("gtfs:trimet:239"), "entity_type": "train"}, conn))
+        conn.fetch.assert_not_called()
+
+    def test_entity_type_is_passed_to_the_zone_query(self):
+        # airport/maritime zones filter on it in SQL
+        conn = _make_conn([])
+        run(gf.check_geofences({**_entity(), "entity_type": "aircraft"}, conn))
+        sql, *args = conn.fetch.call_args.args
+        assert "zone_type <> 'airport'" in sql and "zone_type <> 'maritime'" in sql
+        assert args[2] == "aircraft"
