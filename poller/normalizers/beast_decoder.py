@@ -40,6 +40,12 @@ class _AircraftState:
     even_ts: float | None = None
     odd_ts: float | None = None
     last_position_ts: float | None = None
+    # CPR decode reference seeded from another source (OpenSky / ultrafeeder).
+    # Kept apart from lat/lon so a seed never becomes the displayed position:
+    # it would be published as a fresh local fix without a trail point.
+    ref_lat: float | None = None
+    ref_lon: float | None = None
+    ref_ts: float | None = None
     last_velocity_ts: float | None = None
     last_mlat_ticks: int | None = None
     signal_quality: int | None = None
@@ -173,9 +179,13 @@ class BeastAircraftDecoder:
                 ac.on_ground = True
                 self._update_cpr(ac, hex_msg, now)
 
-            if 9 <= typecode <= 22:
-                if typecode <= 18 or typecode >= 20:
-                    ac.on_ground = False
+            # Airborne position: TC 9-18 (baro altitude) and 20-22 (GNSS).
+            # TC 19 is velocity and carries no CPR position — decoding it as
+            # one put garbage frames into the even/odd pair and produced
+            # occasional plausible-looking bad fixes (icons hopping, then
+            # snapping back).
+            if 9 <= typecode <= 22 and typecode != 19:
+                ac.on_ground = False
                 alt = self._safe(pms.adsb.altitude, hex_msg)
                 if alt is not None:
                     ac.altitude = float(alt)
@@ -242,9 +252,9 @@ class BeastAircraftDecoder:
             if ac.last_position_ts >= seed_ts or (now - ac.last_position_ts) <= stale_after:
                 return False
 
-        ac.lat = float(lat)
-        ac.lon = float(lon)
-        ac.last_position_ts = seed_ts
+        ac.ref_lat = float(lat)
+        ac.ref_lon = float(lon)
+        ac.ref_ts = seed_ts
         return True
 
     def snapshot_entities(self, stale_seconds: int = 60) -> list[dict]:
@@ -279,9 +289,17 @@ class BeastAircraftDecoder:
                     resolved_lat = float(lat)
                     resolved_lon = float(lon)
 
+        # Reference for Tier 2 and the plausibility guards: the last local fix,
+        # or a newer seeded reference from another source.
+        ref_lat, ref_lon, ref_ts = ac.lat, ac.lon, ac.last_position_ts
+        if ac.ref_lat is not None and ac.ref_lon is not None and (
+            ref_lat is None or (ac.ref_ts or 0.0) > (ref_ts or 0.0)
+        ):
+            ref_lat, ref_lon, ref_ts = ac.ref_lat, ac.ref_lon, ac.ref_ts
+
         # Tier 2: local CPR decode against aircraft last known position.
-        if resolved_lat is None and ac.lat is not None and ac.lon is not None:
-            latlon = self._safe(pms.adsb.position_with_ref, hex_msg, ac.lat, ac.lon)
+        if resolved_lat is None and ref_lat is not None and ref_lon is not None:
+            latlon = self._safe(pms.adsb.position_with_ref, hex_msg, ref_lat, ref_lon)
             if isinstance(latlon, tuple) and len(latlon) == 2:
                 lat, lon = latlon
                 if lat is not None and lon is not None:
@@ -304,10 +322,15 @@ class BeastAircraftDecoder:
         candidate_lon = resolved_lon
 
         # Drop geographically implausible jumps from occasional decode noise.
-        if ac.lat is not None and ac.lon is not None:
-            elapsed_seconds = max(0.0, now - (ac.last_position_ts or now))
-            budget_km = max(10.0, elapsed_seconds * 0.5)
-            distance_km = haversine_km(ac.lat, ac.lon, candidate_lat, candidate_lon)
+        if ref_lat is not None and ref_lon is not None:
+            elapsed_seconds = max(0.0, now - (ref_ts or now))
+            if ref_ts is not None and ac.speed is not None and ac.speed > 0 and elapsed_seconds < 60.0:
+                # Known ground speed: allow 1.5x the distance it could have
+                # covered plus 2 km of slack, instead of a flat 10 km.
+                budget_km = ac.speed * 0.000514 * elapsed_seconds * 1.5 + 2.0
+            else:
+                budget_km = max(10.0, elapsed_seconds * 0.5)
+            distance_km = haversine_km(ref_lat, ref_lon, candidate_lat, candidate_lon)
             if distance_km > budget_km:
                 return
 
@@ -323,7 +346,7 @@ class BeastAircraftDecoder:
                 and ac.speed is not None
                 and ac.speed > 50  # knots — ignore heading at low taxi speed
             ):
-                candidate_bearing = bearing_deg(ac.lat, ac.lon, candidate_lat, candidate_lon)
+                candidate_bearing = bearing_deg(ref_lat, ref_lon, candidate_lat, candidate_lon)
                 angle_diff = abs((candidate_bearing - ac.heading + 180) % 360 - 180)
                 if angle_diff > 90:
                     return
@@ -331,6 +354,7 @@ class BeastAircraftDecoder:
         ac.lat = candidate_lat
         ac.lon = candidate_lon
         ac.last_position_ts = now
+        ac.ref_lat = ac.ref_lon = ac.ref_ts = None
         ac.pos_history.append((
             candidate_lat,
             candidate_lon,
@@ -406,6 +430,7 @@ class BeastAircraftDecoder:
             "position_stale": position_stale,
             "position_dr": position_dr,
             "position_age_s": round(pos_age, 1) if pos_age is not None else None,
+            "position_ts": ac.last_position_ts,
             "altitude": display_alt,
             "heading": ac.heading,
             "speed": ac.speed,

@@ -137,6 +137,11 @@ class AdsbPoller(BasePoller):
                 ac.speed = entity.get("speed")
                 ac.callsign = (entity.get("identity") or {}).get("callsign")
                 ac.last_seen_ts = 0.0  # forces position_stale until a fresh fix arrives
+                pos_ts = entity.get("position_ts")
+                if isinstance(pos_ts, (int, float)) and pos_ts > 0:
+                    # Real fix time, so decode plausibility checks scale with
+                    # how long the aircraft has been out of view.
+                    ac.last_position_ts = float(pos_ts)
                 self._beast_decoder._aircraft[icao.lower()] = ac
                 hydrated += 1
             if hydrated:
@@ -597,6 +602,14 @@ class AdsbPoller(BasePoller):
 
     async def _publish_aircraft_snapshot(self, aircraft: list[dict]):
         enriched, airports = self._enrich_aircraft_cache_only(aircraft)
+        # Entities are held between snapshots, so a fix age computed when one was
+        # received goes stale; recompute it so clients can anchor motion at the
+        # real fix time instead of treating an old position as current.
+        send_ts = time.time()
+        for item in enriched:
+            pos_ts = item.get("position_ts")
+            if isinstance(pos_ts, (int, float)) and pos_ts > 0:
+                item["position_age_s"] = round(max(0.0, send_ts - pos_ts), 1)
         positioned = sum(1 for item in enriched if isinstance(item.get("lat"), (int, float)) and isinstance(item.get("lon"), (int, float)))
         now_ts = time.time()
         beast_connected = self._beast_task is not None and not self._beast_task.done()

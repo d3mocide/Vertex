@@ -41,6 +41,9 @@ def normalize_opensky(state: list) -> Optional[dict]:
         "lat": state[6],
         "lon": state[5],
         "position_stale": position_stale,
+        # Epoch of the position fix; the snapshot refreshes position_age_s from it.
+        "position_ts": float(state[3]) if state[3] else None,
+        "position_age_s": round(now_epoch - float(state[3]), 1) if state[3] else None,
         "altitude": altitude,
         "heading": state[10],
         "speed": speed,
@@ -94,6 +97,7 @@ def normalize_tar1090(ac: dict) -> Optional[dict]:
         "lon": ac.get("lon"),
         "position_stale": position_stale,
         "position_age_s": seen_pos,
+        "position_ts": datetime.now(timezone.utc).timestamp() - seen_pos if seen_pos is not None else None,
         "altitude": altitude,
         "heading": _numeric_or_none(ac.get("track")),
         "speed": _numeric_or_none(ac.get("gs")),

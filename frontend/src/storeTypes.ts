@@ -20,6 +20,7 @@ export interface Entity {
   position_stale?: boolean
   position_dr?:    boolean
   position_age_s?: number | null
+  position_ts?:    number | null   // epoch seconds of the position fix (server clock)
   identity?:    Record<string, unknown>
   tags?:        string[]
   // Server-side position ring buffer emitted by the BEAST decoder.
@@ -110,6 +111,7 @@ export interface Track {
   lastSeen?:     string
   positionStale?: boolean
   positionDr?:    boolean      // position is a server-side dead-reckoned estimate
+  fixTimeMs?:     number       // local wall-clock time the position was measured
   lat:           number
   lon:           number
   altMeters:     number        // metres MSL (0 for vessels)

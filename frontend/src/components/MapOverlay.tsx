@@ -691,7 +691,7 @@ export function MapOverlay({ map }: Props) {
         if (replayModeRef.current || snappedBase.type === 'rail') {
           pvbTracks[uid] = snappedBase
         } else {
-          const [lon, lat] = applyPVB(pvb, snappedBase, now)
+          const [lon, lat] = applyPVB(pvb, snappedBase, nowMs)
           pvbTracks[uid] = (lon === snappedBase.lon && lat === snappedBase.lat)
             ? snappedBase
             : { ...snappedBase, lon, lat }
