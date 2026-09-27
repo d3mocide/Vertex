@@ -97,10 +97,13 @@ class P25AudioRecorder(BasePoller):
 
         # Kick off daily retention cleanup
         cleanup_task = asyncio.create_task(self._cleanup_loop())
-        ws_mode = bool(settings.p25_audio_ws_url)
-        ws_task = asyncio.create_task(self._ws_loop()) if ws_mode else None
-        if ws_mode:
-            logger.info("[p25_rec] recording from OP25 websocket %s", settings.p25_audio_ws_url)
+        # One websocket per OP25 receiver (comma-separated), in multi_rx channel
+        # order: with two receivers on one system, OP25 follows two calls at once.
+        ws_urls = [u.strip() for u in settings.p25_audio_ws_url.split(",") if u.strip()]
+        ws_mode = bool(ws_urls)
+        ws_tasks = [asyncio.create_task(self._ws_loop(url, ch)) for ch, url in enumerate(ws_urls)]
+        for ch, url in enumerate(ws_urls):
+            logger.info("[p25_rec] recording OP25 receiver %d from websocket %s", ch, url)
 
         try:
             async for message in pubsub.listen():
@@ -128,8 +131,8 @@ class P25AudioRecorder(BasePoller):
             pass
         finally:
             cleanup_task.cancel()
-            if ws_task:
-                ws_task.cancel()
+            for task in ws_tasks:
+                task.cancel()
             if self._recording_task and not self._recording_task.done():
                 self._stop_event.set()
                 try:
@@ -279,16 +282,16 @@ class P25AudioRecorder(BasePoller):
         self._used_call_ids.append(call_id)
         return call_id, int(best["tgid"] or 0), best["tag"]
 
-    async def _ws_loop(self) -> None:
-        """Keep a connection to OP25's audio websocket and record each call."""
+    async def _ws_loop(self, url: str, channel: int = 0) -> None:
+        """Keep a connection to one OP25 receiver's audio websocket and record each call."""
         backoff = 1.0
         while True:
             try:
-                async with websockets.connect(settings.p25_audio_ws_url, max_size=None,
+                async with websockets.connect(url, max_size=None,
                                               open_timeout=10, ping_interval=20) as ws:
-                    logger.info("[p25_rec] websocket connected")
+                    logger.info("[p25_rec] websocket connected (receiver %d)", channel)
                     backoff = 1.0
-                    await self._ws_session(ws)
+                    await self._ws_session(ws, channel)
             except asyncio.CancelledError:
                 raise
             except Exception as exc:
@@ -296,8 +299,8 @@ class P25AudioRecorder(BasePoller):
             await asyncio.sleep(backoff)
             backoff = min(backoff * 2, 60.0)
 
-    async def _op25_now(self) -> tuple[int, str] | None:
-        """(tgid, tag) OP25 is tuned to right now, from its :8080 status."""
+    async def _op25_now(self, channel: int = 0) -> tuple[int, str] | None:
+        """(tgid, tag) OP25 receiver `channel` is tuned to right now, from its :8080 status."""
         try:
             if self._op25_url is None:
                 row = await get_pool().fetchrow(
@@ -309,14 +312,14 @@ class P25AudioRecorder(BasePoller):
                 resp = await client.post(self._op25_url, json=[{"command": "update", "arg1": 0, "arg2": 0}])
             for msg in resp.json():
                 if msg.get("json_type") == "channel_update":
-                    ch = msg.get("0") or {}
+                    ch = msg.get(str(channel)) or {}
                     if ch.get("tgid"):
                         return int(ch["tgid"]), ch.get("tag") or ""
         except Exception as exc:
             logger.debug("[p25_rec] OP25 status query failed: %s", exc)
         return None
 
-    async def _ws_session(self, ws) -> None:
+    async def _ws_session(self, ws, channel: int = 0) -> None:
         pcm = bytearray()
         seg_start: float | None = None
         label: asyncio.Task | None = None
@@ -330,7 +333,7 @@ class P25AudioRecorder(BasePoller):
                     seg_start = time.time()
                     # OP25 is on the voice channel while audio flows: ask it
                     # which talkgroup (call-start events miss ~1 in 5 on WCN).
-                    label = asyncio.create_task(self._op25_now())
+                    label = asyncio.create_task(self._op25_now(channel))
                 pcm += msg
                 if len(pcm) >= _MAX_CALL_SECONDS * _WS_RATE * 2:
                     self._spawn_save(seg_start, bytes(pcm), label)
