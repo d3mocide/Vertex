@@ -226,3 +226,13 @@ def test_score_counts_residential_fire_as_structure_fire_in_bottom_line():
     text = "**BOTTOM LINE:** Posture NORMAL. One active residential fire remains.\n### Key Developments\n- x"
     facts = {"must_cover": [{"severity": 5, "location": None, "category": "structure_fire"}]}
     assert score_briefing(text, facts)["life_safety_in_bottom_line"] is True
+
+
+def test_previous_briefing_omits_its_recommended_actions():
+    from datetime import datetime, timezone
+    from pollers.summary_context import format_previous
+    prev = {"ts": "2026-09-27T01:00:00+00:00", "summary":
+            "**BOTTOM LINE:** x\n### Key Developments\n- fire\n### Recommended Actions\n- Contact dispatch\n### Data Gaps\n- none"}
+    out = format_previous(prev, datetime(2026, 9, 27, 2, tzinfo=timezone.utc))
+    assert "Key Developments" in out and "Data Gaps" in out
+    assert "Contact dispatch" not in out and "Recommended Actions" not in out

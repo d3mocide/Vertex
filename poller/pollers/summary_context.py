@@ -644,9 +644,13 @@ def format_entity_activity(rows) -> str | None:
 def format_previous(previous: dict | None, now: datetime) -> str | None:
     if not previous or not previous.get("summary"):
         return None
+    # Only the assessment is needed to judge what changed. Its Recommended
+    # Actions are left out: the model copied them forward verbatim, so old
+    # (and since-disallowed) advice outlived every prompt change.
+    text = re.sub(r"\n###\s*Recommended Actions.*?(?=\n###|\Z)", "", previous["summary"], flags=re.S | re.I)
     return (
         f"PREVIOUS BRIEFING (issued {fmt_ts(previous.get('ts'), now)}) — compare against it; do not copy it:\n"
-        + sanitise(previous["summary"], 3000)
+        + sanitise(text, 3000)
     )
 
 
