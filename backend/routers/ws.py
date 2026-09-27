@@ -1,8 +1,10 @@
 import asyncio
 import json
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
-from redis_bus import subscribe_updates, get_all_entities, get_aircraft_snapshot
+from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
+from config import settings
+from redis_bus import subscribe_updates, subscribe_p25_live, get_all_entities, get_aircraft_snapshot
 from metrics_collector import ws_client_connect, ws_client_disconnect
+from security import decode_token
 
 router = APIRouter(tags=["websocket"])
 
@@ -160,3 +162,41 @@ async def websocket_endpoint(ws: WebSocket):
             await pubsub.aclose()
     except (WebSocketDisconnect, asyncio.CancelledError):
         pass
+
+
+@router.websocket("/ws/radio")
+async def radio_live(ws: WebSocket):
+    """Live P25 audio from every OP25 receiver, relayed from the poller.
+
+    Binary frames, passed through unchanged (layout in p25_recorder.py):
+    b"A" + receiver + tgid + PCM, and b"J" + JSON label/end events. The
+    browser picks talkgroups and queues overlapping calls.
+    """
+    # The HTTP auth middleware doesn't see websocket requests: check here.
+    if settings.auth_enabled:
+        try:
+            decode_token(ws.query_params.get("token", ""))
+        except HTTPException:
+            await ws.close(code=4401)
+            return
+    await ws.accept()
+    pubsub = await subscribe_p25_live()
+
+    async def forward():
+        async for message in pubsub.listen():
+            if message["type"] == "message":
+                await ws.send_bytes(message["data"])
+
+    async def until_closed():
+        while (await ws.receive())["type"] != "websocket.disconnect":
+            pass
+
+    tasks = [asyncio.create_task(forward()), asyncio.create_task(until_closed())]
+    try:
+        await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+    finally:
+        for task in tasks:
+            task.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
+        await pubsub.unsubscribe()
+        await pubsub.aclose()

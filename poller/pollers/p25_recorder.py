@@ -10,6 +10,8 @@ Two sources:
   first word and are lossless WAV. The socket carries no talkgroup, so each
   segment is labelled with the nearest p25_call_start event from the P25
   poller (which reads OP25's :8080 status).
+  Every frame is also relayed live (tagged with receiver and talkgroup) on
+  Redis for the backend's /ws/radio listener.
 * Icecast radio stream (fallback when P25_AUDIO_WS_URL is empty): on
   p25_call_start, stream the first enabled RadioStream to an .mp3 until
   p25_call_end. The stream runs seconds behind the events, so call starts
@@ -21,6 +23,7 @@ Enable via P25_AUDIO_ENABLED=true in .env.
 import asyncio
 import json
 import logging
+import struct
 import time
 import uuid
 import wave
@@ -49,6 +52,12 @@ _WS_MIN_S = 0.5          # shorter segments are keying/noise, not speech
 # the poller reads OP25's status about once a second, so the event can lag.
 _WS_MATCH_BEFORE_S = 10.0
 _WS_MATCH_AFTER_S = 5.0
+
+# Live listening: the backend's /ws/radio relays these Redis messages to the
+# browser unchanged. Binary layout:
+#   b"A" | receiver u8 | tgid u32 LE | int16 PCM   audio (tgid 0 = not known yet)
+#   b"J" | UTF-8 JSON                              {"ev": "label"|"end", "ch": n, ...}
+LIVE_CHANNEL = "p25:live"
 
 
 class P25AudioRecorder(BasePoller):
@@ -263,13 +272,17 @@ class P25AudioRecorder(BasePoller):
             "tag": details.get("tag") or "", "ts": ts,
         })
 
-    def _label_for(self, seg_start: float) -> tuple[str, int, str]:
-        """(call_id, tgid, tag) from the call-start event nearest the segment start."""
+    def _nearest_call(self, seg_start: float) -> dict | None:
         best = None
         for c in self._recent_calls:
             dt = c["ts"] - seg_start
             if -_WS_MATCH_BEFORE_S <= dt <= _WS_MATCH_AFTER_S and (best is None or abs(dt) < abs(best["ts"] - seg_start)):
                 best = c
+        return best
+
+    def _label_for(self, seg_start: float) -> tuple[str, int, str]:
+        """(call_id, tgid, tag) from the call-start event nearest the segment start."""
+        best = self._nearest_call(seg_start)
         if best is None:
             return str(uuid.uuid4()), 0, ""
         call_id = best["id"] or str(uuid.uuid4())
@@ -323,6 +336,7 @@ class P25AudioRecorder(BasePoller):
         pcm = bytearray()
         seg_start: float | None = None
         label: asyncio.Task | None = None
+        live_tg = [0]                                        # talkgroup tagged on live frames
         while True:
             try:
                 msg = await (asyncio.wait_for(ws.recv(), _WS_GAP_S) if seg_start is not None else ws.recv())
@@ -334,7 +348,11 @@ class P25AudioRecorder(BasePoller):
                     # OP25 is on the voice channel while audio flows: ask it
                     # which talkgroup (call-start events miss ~1 in 5 on WCN).
                     label = asyncio.create_task(self._op25_now(channel))
+                    live_tg = [0]
+                    label.add_done_callback(
+                        lambda t, box=live_tg, s=seg_start: self._on_live_label(t, box, channel, s))
                 pcm += msg
+                await self._publish_live(b"A" + bytes([channel]) + struct.pack("<I", live_tg[0]) + bytes(msg))
                 if len(pcm) >= _MAX_CALL_SECONDS * _WS_RATE * 2:
                     self._spawn_save(seg_start, bytes(pcm), label)
                     pcm.clear(); seg_start = None; label = None
@@ -349,13 +367,42 @@ class P25AudioRecorder(BasePoller):
             # End of call: audio_drain / audio_drop / gap.
             if seg_start is not None:
                 self._spawn_save(seg_start, bytes(pcm), label)
+                await self._publish_live(b"J" + json.dumps({"ev": "end", "ch": channel}).encode())
             pcm.clear(); seg_start = None; label = None
+
+    def _spawn(self, coro) -> None:
+        task = asyncio.create_task(coro)
+        self._save_tasks.add(task)
+        task.add_done_callback(self._save_tasks.discard)
 
     def _spawn_save(self, seg_start: float, pcm: bytes, label: asyncio.Task | None = None) -> None:
         # Saving waits for a lagging call-start label; don't stall the receive loop.
-        task = asyncio.create_task(self._save_segment(seg_start, pcm, label))
-        self._save_tasks.add(task)
-        task.add_done_callback(self._save_tasks.discard)
+        self._spawn(self._save_segment(seg_start, pcm, label))
+
+    async def _publish_live(self, payload: bytes) -> None:
+        """Relay to live listeners. Best effort: never let it disturb recording."""
+        try:
+            await (await get_bus()).publish(LIVE_CHANNEL, payload)
+        except Exception as exc:
+            logger.debug("[p25_rec] live publish failed: %s", exc)
+
+    def _on_live_label(self, task: asyncio.Task, box: list[int], channel: int, seg_start: float) -> None:
+        """Tag the call's live frames once OP25 says which talkgroup it is."""
+        live = None if task.cancelled() or task.exception() else task.result()
+
+        async def _apply(tgid: int, tag: str) -> None:
+            box[0] = tgid
+            await self._publish_live(b"J" + json.dumps(
+                {"ev": "label", "ch": channel, "tgid": tgid, "tag": tag}).encode())
+
+        async def _from_event() -> None:
+            # OP25 didn't answer: use the call-start event once it has arrived.
+            await asyncio.sleep(1.0)
+            best = self._nearest_call(seg_start)
+            if best and best["tgid"] and not box[0]:
+                await _apply(int(best["tgid"]), best["tag"])
+
+        self._spawn(_apply(*live) if live else _from_event())
 
     async def _save_segment(self, seg_start: float, pcm: bytes, label: asyncio.Task | None = None) -> None:
         duration_s = round(len(pcm) / 2 / _WS_RATE, 1)

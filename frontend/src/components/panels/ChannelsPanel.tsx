@@ -2,7 +2,9 @@ import { useState, useEffect, useRef } from 'react'
 import { useCivicStore } from '../../store'
 import { API_BASE } from '../../config'
 import { authHeaders } from '../../auth'
-import { useRadioStreams } from '../../hooks/useRadioStreams'
+import type { RadioStream } from '../../hooks/useRadioStreams'
+import { Chip, ChipRow } from '../common/Page'
+import { type AudioSource, type ListenFilter, LISTEN_PRIORITY_CUTOFF } from '../../audio/listenFilter'
 
 type RadioCallEvent = {
   event_id: string
@@ -58,9 +60,22 @@ interface ChannelsPanelProps {
   managedTalkgroups: ManagedTalkgroup[]
   playing: boolean
   onReload: () => Promise<void>
+  streams: RadioStream[]
+  selectedStreamId: number | null
+  source: AudioSource
+  onSelectSource: (next: 'live' | number) => void
+  /** Live-listening talkgroup filter (this device only). */
+  listen: ListenFilter
+  onListenChange: (f: ListenFilter) => void
+  wants: (tgid: number) => boolean
+  /** Talkgroup the live player is playing right now. */
+  liveTgid: number | null
 }
 
-export function ChannelsPanel({ visibleTalkgroups, managedTalkgroups, playing, onReload }: ChannelsPanelProps) {
+export function ChannelsPanel({
+  visibleTalkgroups, managedTalkgroups, playing, onReload,
+  streams, selectedStreamId, source, onSelectSource, listen, onListenChange, wants, liveTgid,
+}: ChannelsPanelProps) {
   const [channelTab, setChannelTab] = useState<ChannelTab>('streams')
   const [editingTgid, setEditingTgid] = useState<number | null>(null)
   const [editName, setEditName] = useState('')
@@ -69,8 +84,18 @@ export function ChannelsPanel({ visibleTalkgroups, managedTalkgroups, playing, o
   const audioRef = useRef<HTMLAudioElement>(null)
   const objectUrlRef = useRef<string | null>(null)
 
-  const { streams, selectedId, setSelectedId } = useRadioStreams()
   const radio = useCivicStore((s) => s.radio)
+  const liveMode = source === 'live'
+  const isLiveTg = (tgid: number) => (liveMode ? liveTgid === tgid : radio?.tgid === tgid)
+
+  const listenedTgids = () => managedTalkgroups.filter((t) => wants(t.tgid)).map((t) => t.tgid)
+
+  const toggleListen = (tgid: number) => {
+    const set = new Set(listen.mode === 'custom' ? listen.custom : listenedTgids())
+    if (set.has(tgid)) set.delete(tgid)
+    else set.add(tgid)
+    onListenChange({ mode: 'custom', custom: [...set] })
+  }
 
   useEffect(() => {
     if (channelTab !== 'recordings') return
@@ -217,24 +242,38 @@ export function ChannelsPanel({ visibleTalkgroups, managedTalkgroups, playing, o
       {/* Streams tab */}
       {channelTab === 'streams' && (
         <nav className="max-h-64 overflow-y-auto">
+          <button
+            onClick={() => onSelectSource('live')}
+            className={`w-full px-4 py-2.5 flex items-center gap-3 text-left transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-amber-gold ${liveMode ? 'bg-amber-gold-muted/30 text-amber-gold border-l-2 border-amber-gold' : 'text-on-surface-variant hover:bg-surface-container border-l-2 border-transparent'}`}
+            aria-pressed={liveMode}
+          >
+            <span className="ms text-[18px] leading-none" aria-hidden="true">headphones</span>
+            <div className="flex-1 min-w-0">
+              <div className="text-[11px] font-bold tracking-widest uppercase truncate">P25 Live</div>
+              <div className="text-[11px] text-on-surface-variant/60 truncate">All receivers · your talkgroups · one call at a time</div>
+            </div>
+            {liveMode && playing && (
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-gold animate-pulse shrink-0" aria-hidden="true" />
+            )}
+          </button>
           {streams.filter((s) => s.enabled).length === 0 ? (
             <div className="px-4 py-3 text-[11px] tracking-wide text-on-surface-variant/80 uppercase">
               No streams configured
             </div>
           ) : (
             streams.filter((s) => s.enabled).map((stream) => {
-              const isSelected = selectedId === stream.id
+              const isSelected = !liveMode && selectedStreamId === stream.id
               return (
                 <button
                   key={stream.id}
-                  onClick={() => setSelectedId(stream.id)}
+                  onClick={() => onSelectSource(stream.id)}
                   className={`w-full px-4 py-2.5 flex items-center gap-3 text-left transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-amber-gold ${isSelected ? 'bg-amber-gold-muted/30 text-amber-gold border-l-2 border-amber-gold' : 'text-on-surface-variant hover:bg-surface-container border-l-2 border-transparent'}`}
                   aria-pressed={isSelected}
                 >
                   <span className="ms text-[18px] leading-none" aria-hidden="true">radio</span>
                   <div className="flex-1 min-w-0">
                     <div className="text-[11px] font-bold tracking-widest uppercase truncate">{stream.name}</div>
-                    <div className="text-[11px] text-on-surface-variant/60 truncate">{stream.format.toUpperCase()}</div>
+                    <div className="text-[11px] text-on-surface-variant/60 truncate">{stream.format.toUpperCase()} · keeps playing when locked</div>
                   </div>
                   {isSelected && playing && (
                     <span className="w-1.5 h-1.5 rounded-full bg-amber-gold animate-pulse shrink-0" aria-hidden="true" />
@@ -249,6 +288,23 @@ export function ChannelsPanel({ visibleTalkgroups, managedTalkgroups, playing, o
       {/* Talkgroups tab */}
       {channelTab === 'talkgroups' && (
         <div className="max-h-72 overflow-y-auto">
+          <div className="px-3 pt-2 pb-2 border-b border-white/5">
+            <div className="label-caps mb-1.5">Live listening · this device</div>
+            <ChipRow>
+              <Chip active={listen.mode === 'priority'} onClick={() => onListenChange({ ...listen, mode: 'priority' })}>
+                P1–{LISTEN_PRIORITY_CUTOFF}
+              </Chip>
+              <Chip active={listen.mode === 'all'} onClick={() => onListenChange({ ...listen, mode: 'all' })}>
+                All
+              </Chip>
+              <Chip
+                active={listen.mode === 'custom'}
+                onClick={() => onListenChange({ mode: 'custom', custom: listen.custom.length ? listen.custom : listenedTgids() })}
+              >
+                Custom{listen.mode === 'custom' ? ` (${listen.custom.length})` : ''}
+              </Chip>
+            </ChipRow>
+          </div>
           {/* Unregistered talkgroups from call log */}
           {visibleTalkgroups.filter((r) => !managedTalkgroups.find((t) => t.tgid === r.tgid)).length > 0 && (
             <div>
@@ -258,7 +314,7 @@ export function ChannelsPanel({ visibleTalkgroups, managedTalkgroups, playing, o
               {visibleTalkgroups
                 .filter((r) => !managedTalkgroups.find((t) => t.tgid === r.tgid))
                 .map((ch) => {
-                  const isLive = radio?.tgid === ch.tgid
+                  const isLive = isLiveTg(ch.tgid)
                   return (
                     <button
                       key={ch.tgid}
@@ -282,7 +338,8 @@ export function ChannelsPanel({ visibleTalkgroups, managedTalkgroups, playing, o
             <div>
               <div className="px-4 pt-2 pb-1 text-[11px] text-on-surface-variant/50 uppercase tracking-widest">Managed</div>
               {managedTalkgroups.map((tg) => {
-                const isLive = radio?.tgid === tg.tgid
+                const isLive = isLiveTg(tg.tgid)
+                const listening = wants(tg.tgid)
                 const isEditing = editingTgid === tg.tgid
                 const pColor = PRIORITY_COLORS[tg.priority] ?? PRIORITY_COLORS[3]
                 return (
@@ -334,10 +391,22 @@ export function ChannelsPanel({ visibleTalkgroups, managedTalkgroups, playing, o
                       <div className="font-mono text-[11px] text-on-surface-variant/50">{tg.tgid}</div>
                     </div>
 
+                    {/* Live-listen toggle (this device) */}
+                    <button
+                      onClick={() => toggleListen(tg.tgid)}
+                      title={listening ? 'Playing live on this device — click to mute' : 'Muted on this device — click to play live'}
+                      aria-pressed={listening}
+                      aria-label={`Listen to ${tg.name}`}
+                      className={`shrink-0 ms text-[16px] leading-none transition-colors focus:outline-none ${listening ? 'text-amber-gold' : 'text-on-surface-variant/30 hover:text-on-surface-variant'}`}
+                      style={listening ? { fontVariationSettings: "'FILL' 1" } : undefined}
+                    >
+                      {listening ? 'headphones' : 'headset_off'}
+                    </button>
+
                     {/* Scan toggle */}
                     <button
                       onClick={() => toggleScan(tg)}
-                      title={tg.scan_enabled ? 'Scan enabled — click to disable' : 'Scan disabled — click to enable'}
+                      title={tg.scan_enabled ? 'Scan enabled (shared, all users) — click to disable' : 'Scan disabled (shared, all users) — click to enable'}
                       className={`shrink-0 ms text-[16px] leading-none transition-colors focus:outline-none ${tg.scan_enabled ? 'text-green-ais' : 'text-on-surface-variant/30'}`}
                       style={{ fontVariationSettings: "'FILL' 1" }}
                     >
