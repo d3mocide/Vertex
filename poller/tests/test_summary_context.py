@@ -219,3 +219,10 @@ def test_score_briefing_measures_coverage_and_format(monkeypatch):
     bad = score_briefing("Everything is quiet.", facts)
     assert bad["must_cover_coverage"] == 0.0 and bad["format_ok"] is False
     assert bad["life_safety_in_bottom_line"] is False
+
+
+def test_score_counts_residential_fire_as_structure_fire_in_bottom_line():
+    from pollers.summary import score_briefing
+    text = "**BOTTOM LINE:** Posture NORMAL. One active residential fire remains.\n### Key Developments\n- x"
+    facts = {"must_cover": [{"severity": 5, "location": None, "category": "structure_fire"}]}
+    assert score_briefing(text, facts)["life_safety_in_bottom_line"] is True
