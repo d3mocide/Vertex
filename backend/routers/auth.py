@@ -257,6 +257,23 @@ async def generate_api_key(request: Request, db: AsyncSession = Depends(get_db))
     return ApiKeyResponse(api_key=raw_key)
 
 
+@router.post("/users/{user_id}/apikey", response_model=ApiKeyResponse)
+async def generate_user_api_key(user_id: int, request: Request, db: AsyncSession = Depends(get_db)):
+    """Admin-only: generate an API key for another account — for services
+    (e.g. a viewer-role integration) that should not hold admin rights just to
+    get a key. The raw key is returned once. Replaces any existing key."""
+    if not settings.auth_enabled:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    _decode_admin(request)
+    user = await db.scalar(select(User).where(User.id == user_id))
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    raw_key = secrets.token_hex(32)
+    user.api_key_hash = _hash_api_key(raw_key)
+    await db.commit()
+    return ApiKeyResponse(api_key=raw_key)
+
+
 @router.delete("/apikey", status_code=status.HTTP_204_NO_CONTENT)
 async def revoke_api_key(request: Request, db: AsyncSession = Depends(get_db)):
     """Admin-only: revoke the API key for the authenticated user."""
