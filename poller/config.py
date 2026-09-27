@@ -267,6 +267,10 @@ class Settings(BaseSettings):
     p25_audio_dir: str = "/data/audio"
     p25_audio_retention_days: int = 7
     p25_audio_delay_seconds: float = 0.0
+    # OP25's audio websocket (multi_rx "destination": ws://host:9000). When set,
+    # calls are recorded straight from OP25's decoded PCM — lossless and
+    # without the Icecast delay — instead of from the radio stream.
+    p25_audio_ws_url: str = ""
 
     # NWS text products (NWWS-style). The API files products under different
     # location ids: forecaster products (AFD, HWO, LSR) under the Weather

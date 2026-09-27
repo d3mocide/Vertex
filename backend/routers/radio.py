@@ -370,9 +370,11 @@ async def get_recording_file(
     except ValueError:
         raise HTTPException(403, "Access denied")
 
+    # Websocket recordings are WAV; Icecast recordings are MP3.
+    media_type = {".wav": "audio/wav", ".ogg": "audio/ogg"}.get(file_path.suffix.lower(), "audio/mpeg")
     return FileResponse(
         path=str(file_path),
-        media_type="audio/mpeg",
+        media_type=media_type,
         filename=file_path.name,
     )
 

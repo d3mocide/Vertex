@@ -1,21 +1,35 @@
 """
-P25 audio recorder — captures per-call audio segments from the Icecast stream.
+P25 audio recorder — captures per-call audio to /data/audio/{date}/{tgid}/.
 
-Subscribes to the civic:updates Redis channel for p25_call_start / p25_call_end
-events. On call-start, opens a streaming download of the first enabled RadioStream
-URL and writes chunks to /data/audio/{date}/{tgid}/{call_id}.mp3.
-On call-end (or timeout), closes the file and persists a DB record.
+Two sources:
 
-Enable via P25_AUDIO_ENABLED=true in .env. Requires a RadioStream to be configured.
+* OP25 audio websocket (P25_AUDIO_WS_URL, preferred). multi_rx streams the
+  decoded voice as raw int16 mono PCM at 8 kHz in binary frames while a call
+  is being decoded, and sends {"cmd": "audio_drain"} (or "audio_drop") when it
+  ends. The audio itself marks call boundaries, so recordings start on the
+  first word and are lossless WAV. The socket carries no talkgroup, so each
+  segment is labelled with the nearest p25_call_start event from the P25
+  poller (which reads OP25's :8080 status).
+* Icecast radio stream (fallback when P25_AUDIO_WS_URL is empty): on
+  p25_call_start, stream the first enabled RadioStream to an .mp3 until
+  p25_call_end. The stream runs seconds behind the events, so call starts
+  are often clipped.
+
+Enable via P25_AUDIO_ENABLED=true in .env.
 """
 
 import asyncio
+import json
 import logging
 import time
+import uuid
+import wave
+from collections import deque
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import httpx
+import websockets
 
 from bus import get_bus
 from config import settings
@@ -27,6 +41,15 @@ logger = logging.getLogger(__name__)
 _MAX_CALL_SECONDS = 300   # hard cap per recording (avoid runaway files)
 _CHUNK_SIZE = 8192
 
+# OP25 websocket audio: int16 mono PCM at the vocoder rate.
+_WS_RATE = 8000
+_WS_GAP_S = 2.0          # no frames for this long ends a call (backup to audio_drain)
+_WS_MIN_S = 0.5          # shorter segments are keying/noise, not speech
+# How far a p25_call_start may be from the first audio frame and still label it:
+# the poller reads OP25's status about once a second, so the event can lag.
+_WS_MATCH_BEFORE_S = 10.0
+_WS_MATCH_AFTER_S = 5.0
+
 
 class P25AudioRecorder(BasePoller):
     name = "p25_recorder"
@@ -36,6 +59,10 @@ class P25AudioRecorder(BasePoller):
         self._recording_task: asyncio.Task | None = None
         self._stop_event: asyncio.Event = asyncio.Event()
         self._stream_url: str | None = None
+        # Recent p25_call_start events (websocket mode labels segments from these).
+        self._recent_calls: deque[dict] = deque(maxlen=50)
+        self._used_call_ids: deque[str] = deque(maxlen=200)
+        self._save_tasks: set[asyncio.Task] = set()
 
     async def setup(self):
         if not settings.p25_audio_enabled:
@@ -69,13 +96,16 @@ class P25AudioRecorder(BasePoller):
 
         # Kick off daily retention cleanup
         cleanup_task = asyncio.create_task(self._cleanup_loop())
+        ws_mode = bool(settings.p25_audio_ws_url)
+        ws_task = asyncio.create_task(self._ws_loop()) if ws_mode else None
+        if ws_mode:
+            logger.info("[p25_rec] recording from OP25 websocket %s", settings.p25_audio_ws_url)
 
         try:
             async for message in pubsub.listen():
                 if message.get("type") != "message":
                     continue
                 try:
-                    import json
                     msg = json.loads(message["data"])
                 except Exception:
                     continue
@@ -85,7 +115,10 @@ class P25AudioRecorder(BasePoller):
                 event = msg.get("data") or {}
                 etype = event.get("event_type", "")
 
-                if etype == "p25_call_start":
+                if ws_mode:
+                    if etype == "p25_call_start":
+                        self._remember_call(event)
+                elif etype == "p25_call_start":
                     await self._on_call_start(event)
                 elif etype == "p25_call_end":
                     await self._on_call_end(event)
@@ -94,6 +127,8 @@ class P25AudioRecorder(BasePoller):
             pass
         finally:
             cleanup_task.cancel()
+            if ws_task:
+                ws_task.cancel()
             if self._recording_task and not self._recording_task.done():
                 self._stop_event.set()
                 try:
@@ -209,6 +244,124 @@ class P25AudioRecorder(BasePoller):
             )
         except Exception as exc:
             logger.warning("[p25_rec] DB persist failed call=%s: %s", call_id, exc)
+
+    # ── Websocket mode ────────────────────────────────────────────────────
+
+    def _remember_call(self, event: dict) -> None:
+        details = event.get("details") or {}
+        started = details.get("started_at") or event.get("ts")
+        try:
+            ts = datetime.fromisoformat(str(started).replace("Z", "+00:00")).timestamp()
+        except Exception:
+            ts = time.time()
+        self._recent_calls.append({
+            "id": event.get("event_id") or "", "tgid": details.get("tgid") or 0,
+            "tag": details.get("tag") or "", "ts": ts,
+        })
+
+    def _label_for(self, seg_start: float) -> tuple[str, int, str]:
+        """(call_id, tgid, tag) from the call-start event nearest the segment start."""
+        best = None
+        for c in self._recent_calls:
+            dt = c["ts"] - seg_start
+            if -_WS_MATCH_BEFORE_S <= dt <= _WS_MATCH_AFTER_S and (best is None or abs(dt) < abs(best["ts"] - seg_start)):
+                best = c
+        if best is None:
+            return str(uuid.uuid4()), 0, ""
+        call_id = best["id"] or str(uuid.uuid4())
+        # A call split by audio_drop / the length cap must not reuse the id.
+        n = 2
+        base = call_id
+        while call_id in self._used_call_ids:
+            call_id = f"{base}-{n}"
+            n += 1
+        self._used_call_ids.append(call_id)
+        return call_id, int(best["tgid"] or 0), best["tag"]
+
+    async def _ws_loop(self) -> None:
+        """Keep a connection to OP25's audio websocket and record each call."""
+        backoff = 1.0
+        while True:
+            try:
+                async with websockets.connect(settings.p25_audio_ws_url, max_size=None,
+                                              open_timeout=10, ping_interval=20) as ws:
+                    logger.info("[p25_rec] websocket connected")
+                    backoff = 1.0
+                    await self._ws_session(ws)
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:
+                logger.warning("[p25_rec] websocket error: %s — reconnecting in %.0fs", exc, backoff)
+            await asyncio.sleep(backoff)
+            backoff = min(backoff * 2, 60.0)
+
+    async def _ws_session(self, ws) -> None:
+        pcm = bytearray()
+        seg_start: float | None = None
+        while True:
+            try:
+                msg = await (asyncio.wait_for(ws.recv(), _WS_GAP_S) if seg_start is not None else ws.recv())
+            except asyncio.TimeoutError:
+                msg = None                                   # gap — the call is over
+            if isinstance(msg, (bytes, bytearray)):
+                if seg_start is None:
+                    seg_start = time.time()
+                pcm += msg
+                if len(pcm) >= _MAX_CALL_SECONDS * _WS_RATE * 2:
+                    self._spawn_save(seg_start, bytes(pcm))
+                    pcm.clear(); seg_start = None
+                continue
+            if isinstance(msg, str):
+                try:
+                    cmd = json.loads(msg).get("cmd")
+                except Exception:
+                    cmd = None
+                if cmd not in ("audio_drain", "audio_drop"):
+                    continue
+            # End of call: audio_drain / audio_drop / gap.
+            if seg_start is not None:
+                self._spawn_save(seg_start, bytes(pcm))
+            pcm.clear(); seg_start = None
+
+    def _spawn_save(self, seg_start: float, pcm: bytes) -> None:
+        # Saving waits for a lagging call-start label; don't stall the receive loop.
+        task = asyncio.create_task(self._save_segment(seg_start, pcm))
+        self._save_tasks.add(task)
+        task.add_done_callback(self._save_tasks.discard)
+
+    async def _save_segment(self, seg_start: float, pcm: bytes) -> None:
+        duration_s = round(len(pcm) / 2 / _WS_RATE, 1)
+        if duration_s < _WS_MIN_S:
+            return
+        # Give a lagging call-start event a moment to arrive before labelling.
+        await asyncio.sleep(1.0)
+        call_id, tgid, tag = self._label_for(seg_start)
+        started = datetime.fromtimestamp(seg_start, timezone.utc)
+        out_dir = Path(settings.p25_audio_dir) / started.strftime("%Y-%m-%d") / str(tgid)
+        file_path = out_dir / f"{call_id}.wav"
+
+        def _write() -> None:
+            out_dir.mkdir(parents=True, exist_ok=True)
+            with wave.open(str(file_path), "wb") as w:
+                w.setnchannels(1)
+                w.setsampwidth(2)
+                w.setframerate(_WS_RATE)
+                w.writeframes(pcm)
+        try:
+            await asyncio.to_thread(_write)
+            await get_pool().execute(
+                """
+                INSERT INTO p25_recordings
+                    (call_id, tgid, tag, file_path, started_at, ended_at, duration_s, file_size_bytes)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                ON CONFLICT DO NOTHING
+                """,
+                call_id, tgid, tag, str(file_path), started,
+                started + timedelta(seconds=duration_s), duration_s, file_path.stat().st_size,
+            )
+            logger.info("[p25_rec] saved call=%s tgid=%d dur=%.1fs (websocket)", call_id, tgid, duration_s)
+        except Exception as exc:
+            logger.warning("[p25_rec] save failed call=%s: %s", call_id, exc)
 
     async def _cleanup_loop(self) -> None:
         while True:
