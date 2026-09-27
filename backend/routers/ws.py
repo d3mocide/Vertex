@@ -1,12 +1,37 @@
 import asyncio
 import json
 from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
+from sqlalchemy import select
+from auth_middleware import _hash_api_key
 from config import settings
+from db.models import User
+from db.session import async_session_factory
 from redis_bus import subscribe_updates, subscribe_p25_live, get_all_entities, get_aircraft_snapshot
 from metrics_collector import ws_client_connect, ws_client_disconnect
 from security import decode_token
 
 router = APIRouter(tags=["websocket"])
+
+# Close code for a refused websocket (an HTTP 403 on the upgrade).
+_WS_UNAUTHORIZED = 4401
+
+
+async def _ws_authorized(ws: WebSocket) -> bool:
+    """The HTTP auth middleware never sees websocket requests, so every
+    websocket route checks here. Browsers pass their JWT as ?token=; other
+    clients may send X-API-Key."""
+    if not settings.auth_enabled:
+        return True
+    api_key = ws.headers.get("x-api-key", "")
+    if api_key:
+        async with async_session_factory() as db:
+            user_id = await db.scalar(select(User.id).where(User.api_key_hash == _hash_api_key(api_key)))
+        return user_id is not None
+    try:
+        decode_token(ws.query_params.get("token", ""))
+    except HTTPException:
+        return False
+    return True
 
 
 def _entity_passes_filter(
@@ -35,6 +60,9 @@ def _entity_passes_filter(
 
 @router.websocket("/ws")
 async def websocket_endpoint(ws: WebSocket):
+    if not await _ws_authorized(ws):
+        await ws.close(code=_WS_UNAUTHORIZED)
+        return
     try:
         await ws.accept()
         ws_client_connect()
@@ -172,13 +200,9 @@ async def radio_live(ws: WebSocket):
     b"A" + receiver + tgid + PCM, and b"J" + JSON label/end events. The
     browser picks talkgroups and queues overlapping calls.
     """
-    # The HTTP auth middleware doesn't see websocket requests: check here.
-    if settings.auth_enabled:
-        try:
-            decode_token(ws.query_params.get("token", ""))
-        except HTTPException:
-            await ws.close(code=4401)
-            return
+    if not await _ws_authorized(ws):
+        await ws.close(code=_WS_UNAUTHORIZED)
+        return
     await ws.accept()
     pubsub = await subscribe_p25_live()
 
