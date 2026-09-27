@@ -28,6 +28,12 @@ class Settings(BaseSettings):
     whisper_remote_model: str = ""
     whisper_remote_api_base: str = ""
     whisper_remote_api_key: str = ""
+    # Clean P25 audio before remote transcription: band-pass to the voice
+    # band (P25 carries ~300-3400 Hz), trim leading/trailing silence,
+    # loudness-normalise, 16 kHz mono WAV. On a 20-call dispatch sample with
+    # whisper-large-turbo this found more units and never invented one, and
+    # trimming silence cuts Whisper's "Thank you." on near-empty clips.
+    whisper_preprocess: bool = True
 
     p25_audio_dir: str = "/data/audio"
     # How often (seconds) to scan the audio directory for new files.

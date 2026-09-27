@@ -49,6 +49,35 @@ def _pg_url(url: str) -> str:
     return url.replace("postgresql+asyncpg://", "postgresql://")
 
 
+
+# Voice band-pass, silence trim at both ends, loudness normalisation.
+_CLEAN_FILTER = (
+    "highpass=f=250,lowpass=f=3600,"
+    "silenceremove=start_periods=1:start_threshold=-45dB:start_silence=0.2,areverse,"
+    "silenceremove=start_periods=1:start_threshold=-45dB:start_silence=0.3,areverse,"
+    "loudnorm=I=-18:TP=-2:LRA=11"
+)
+
+
+async def _preprocess(path: Path) -> bytes | None:
+    """Cleaned 16 kHz mono WAV of `path`, or None to fall back to the raw file."""
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            "ffmpeg", "-loglevel", "error", "-i", str(path), "-af", _CLEAN_FILTER,
+            "-ar", "16000", "-ac", "1", "-f", "wav", "pipe:1",
+            stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
+        )
+        out, err = await asyncio.wait_for(proc.communicate(), timeout=30)
+    except Exception as exc:
+        logger.warning("[transcription] preprocess failed for %s: %s", path.name, exc)
+        return None
+    # A WAV header alone (44 bytes) means everything was trimmed as silence.
+    if proc.returncode != 0 or len(out) <= 44:
+        if proc.returncode != 0:
+            logger.warning("[transcription] preprocess failed for %s: %s", path.name, err.decode(errors="replace")[:200])
+        return None
+    return out
+
 class TranscriptionService:
     def __init__(self) -> None:
         self._model: WhisperModel | None = None
@@ -210,10 +239,21 @@ class TranscriptionService:
         lang = settings.whisper_language if settings.whisper_language != "auto" else None
 
         if settings.whisper_remote_model:
-            audio_bytes = await asyncio.to_thread(path.read_bytes)
+            name, audio_bytes = path.name, None
+            if settings.whisper_preprocess:
+                audio_bytes = await _preprocess(path)
+                if audio_bytes is not None:
+                    # Under ~0.3 s left after trimming silence: no speech. Don't
+                    # send it — the shared Whisper server answered near-empty
+                    # audio with another client's transcript (a NOAA forecast).
+                    if len(audio_bytes) - 44 < 0.3 * 16000 * 2:
+                        return ""
+                    name = path.stem + ".wav"
+            if audio_bytes is None:
+                audio_bytes = await asyncio.to_thread(path.read_bytes)
             response = await litellm.atranscription(
                 model=settings.whisper_remote_model,
-                file=(path.name, audio_bytes),
+                file=(name, audio_bytes),
                 language=lang,
                 api_base=settings.whisper_remote_api_base or None,
                 api_key=settings.whisper_remote_api_key or None,
