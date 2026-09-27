@@ -37,6 +37,8 @@ logging.basicConfig(
 logger = logging.getLogger("transcription")
 
 AUDIO_EXTS = {".wav", ".mp3", ".ogg", ".m4a"}
+# Files transcribed per scan before rescanning for newer calls.
+_BATCH = 3
 
 # Cap retries so a file that can never transcribe (e.g. a squelch-noise-only
 # clip, or a remote STT node that consistently errors on it) doesn't get
@@ -144,21 +146,9 @@ class TranscriptionService:
             "[transcription] %d previously-transcribed files seeded", len(self._processed)
         )
 
-        await self._backfill()
+        # No blocking backfill: the watch loop finds untranscribed files itself,
+        # newest first, so a backlog never delays live calls.
         await self._watch_loop()
-
-    async def _backfill(self) -> None:
-        """Transcribe recordings that exist in DB but have no transcription."""
-        rows = await self._pool.fetch(
-            "SELECT file_path FROM p25_recordings WHERE transcription IS NULL"
-        )
-        if not rows:
-            return
-        logger.info("[transcription] backfilling %d unprocessed recordings", len(rows))
-        for row in rows:
-            path = Path(row["file_path"])
-            if path.is_file() and str(path) not in self._processed:
-                await self._process(path)
 
     async def _watch_loop(self) -> None:
         audio_path = Path(settings.p25_audio_dir)
@@ -179,9 +169,14 @@ class TranscriptionService:
                     and str(f) not in self._processed
                     and self._next_attempt.get(str(f), 0.0) <= now
                 ]
-                # Process oldest files first so the log stays chronological.
-                for f in sorted(candidates, key=lambda p: p.stat().st_mtime):
+                # Newest first, a few at a time, rescanning in between: a live
+                # call is transcribed within seconds even while a backlog (e.g.
+                # a re-transcription) is being worked through.
+                candidates.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+                for f in candidates[:_BATCH]:
                     await self._process(f)
+                if len(candidates) > _BATCH:
+                    continue                      # more waiting: rescan now, no sleep
             except Exception as exc:
                 logger.error("[transcription] watch error: %s", exc)
             await asyncio.sleep(settings.scan_interval)
