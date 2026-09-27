@@ -31,7 +31,7 @@ def _frame(n_samples=160):
 def _run_session(monkeypatch, messages):
     saved = []
     r = rec.P25AudioRecorder()
-    monkeypatch.setattr(r, "_spawn_save", lambda start, pcm: saved.append(len(pcm) / 2 / rec._WS_RATE))
+    monkeypatch.setattr(r, "_spawn_save", lambda start, pcm, label=None: saved.append(len(pcm) / 2 / rec._WS_RATE))
     with pytest.raises(ConnectionError):
         asyncio.run(r._ws_session(FakeWS(messages)))
     return saved

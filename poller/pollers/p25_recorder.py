@@ -63,6 +63,7 @@ class P25AudioRecorder(BasePoller):
         self._recent_calls: deque[dict] = deque(maxlen=50)
         self._used_call_ids: deque[str] = deque(maxlen=200)
         self._save_tasks: set[asyncio.Task] = set()
+        self._op25_url: str | None = None
 
     async def setup(self):
         if not settings.p25_audio_enabled:
@@ -295,9 +296,30 @@ class P25AudioRecorder(BasePoller):
             await asyncio.sleep(backoff)
             backoff = min(backoff * 2, 60.0)
 
+    async def _op25_now(self) -> tuple[int, str] | None:
+        """(tgid, tag) OP25 is tuned to right now, from its :8080 status."""
+        try:
+            if self._op25_url is None:
+                row = await get_pool().fetchrow(
+                    "SELECT url FROM poller_sources WHERE type = 'p25' AND enabled = TRUE LIMIT 1")
+                self._op25_url = row["url"] if row else ""
+            if not self._op25_url:
+                return None
+            async with httpx.AsyncClient(timeout=2) as client:
+                resp = await client.post(self._op25_url, json=[{"command": "update", "arg1": 0, "arg2": 0}])
+            for msg in resp.json():
+                if msg.get("json_type") == "channel_update":
+                    ch = msg.get("0") or {}
+                    if ch.get("tgid"):
+                        return int(ch["tgid"]), ch.get("tag") or ""
+        except Exception as exc:
+            logger.debug("[p25_rec] OP25 status query failed: %s", exc)
+        return None
+
     async def _ws_session(self, ws) -> None:
         pcm = bytearray()
         seg_start: float | None = None
+        label: asyncio.Task | None = None
         while True:
             try:
                 msg = await (asyncio.wait_for(ws.recv(), _WS_GAP_S) if seg_start is not None else ws.recv())
@@ -306,10 +328,13 @@ class P25AudioRecorder(BasePoller):
             if isinstance(msg, (bytes, bytearray)):
                 if seg_start is None:
                     seg_start = time.time()
+                    # OP25 is on the voice channel while audio flows: ask it
+                    # which talkgroup (call-start events miss ~1 in 5 on WCN).
+                    label = asyncio.create_task(self._op25_now())
                 pcm += msg
                 if len(pcm) >= _MAX_CALL_SECONDS * _WS_RATE * 2:
-                    self._spawn_save(seg_start, bytes(pcm))
-                    pcm.clear(); seg_start = None
+                    self._spawn_save(seg_start, bytes(pcm), label)
+                    pcm.clear(); seg_start = None; label = None
                 continue
             if isinstance(msg, str):
                 try:
@@ -320,22 +345,33 @@ class P25AudioRecorder(BasePoller):
                     continue
             # End of call: audio_drain / audio_drop / gap.
             if seg_start is not None:
-                self._spawn_save(seg_start, bytes(pcm))
-            pcm.clear(); seg_start = None
+                self._spawn_save(seg_start, bytes(pcm), label)
+            pcm.clear(); seg_start = None; label = None
 
-    def _spawn_save(self, seg_start: float, pcm: bytes) -> None:
+    def _spawn_save(self, seg_start: float, pcm: bytes, label: asyncio.Task | None = None) -> None:
         # Saving waits for a lagging call-start label; don't stall the receive loop.
-        task = asyncio.create_task(self._save_segment(seg_start, pcm))
+        task = asyncio.create_task(self._save_segment(seg_start, pcm, label))
         self._save_tasks.add(task)
         task.add_done_callback(self._save_tasks.discard)
 
-    async def _save_segment(self, seg_start: float, pcm: bytes) -> None:
+    async def _save_segment(self, seg_start: float, pcm: bytes, label: asyncio.Task | None = None) -> None:
         duration_s = round(len(pcm) / 2 / _WS_RATE, 1)
         if duration_s < _WS_MIN_S:
             return
         # Give a lagging call-start event a moment to arrive before labelling.
         await asyncio.sleep(1.0)
         call_id, tgid, tag = self._label_for(seg_start)
+        live = None
+        if label is not None:
+            try:
+                live = await label
+            except Exception:
+                live = None
+        if live and live[0] != tgid:
+            # OP25's own answer at audio start beats the nearest event.
+            tgid, tag = live
+            if call_id in self._used_call_ids:
+                call_id = str(uuid.uuid4())
         started = datetime.fromtimestamp(seg_start, timezone.utc)
         out_dir = Path(settings.p25_audio_dir) / started.strftime("%Y-%m-%d") / str(tgid)
         file_path = out_dir / f"{call_id}.wav"

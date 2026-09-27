@@ -10,10 +10,12 @@ transcription yet, so recordings accumlated while the service was offline
 are picked up automatically.
 """
 
+import array
 import asyncio
 import io
 import json
 import logging
+import math
 import re
 import time
 import uuid
@@ -52,6 +54,42 @@ def _pg_url(url: str) -> str:
     """Strip SQLAlchemy async driver prefix so asyncpg accepts the URL."""
     return url.replace("postgresql+asyncpg://", "postgresql://")
 
+
+
+# Whisper invents a stock phrase ("Thank you.") for radio key-ups and static:
+# 101 of ~2,200 WCN calls on 2026-09-27. Loudness alone can't separate those
+# clips from short real replies (any gate that caught them also dropped real
+# transcripts), so only these exact phrases are dropped, and only when the clip
+# has little sound (20 ms frames above ~-41 dBFS) — caught ~99 of the 101.
+_ACTIVE_RMS = 300
+_PHANTOM = {"thank you", "thank you thank you", "thank you thank you thank you", "thanks",
+            "bye", "you", "thank you for watching", "thanks for watching"}
+_PHANTOM_MAX_ACTIVE_S = 1.5
+
+
+def _active_seconds(path: Path) -> float | None:
+    """Seconds of sound in a PCM WAV (None when the file isn't a readable WAV)."""
+    if path.suffix.lower() != ".wav":
+        return None
+    try:
+        with wave.open(str(path), "rb") as w:
+            if w.getsampwidth() != 2 or w.getnchannels() != 1:
+                return None
+            rate = w.getframerate()
+            data = array.array("h", w.readframes(w.getnframes()))
+    except Exception:
+        return None
+    n = max(1, rate // 50)                        # 20 ms
+    active = 0
+    for i in range(0, len(data) - n + 1, n):
+        frame = data[i:i + n]
+        if math.sqrt(sum(x * x for x in frame) / n) >= _ACTIVE_RMS:
+            active += 1
+    return active * n / rate
+
+
+def _is_phantom(text: str) -> bool:
+    return re.sub(r"[^a-z ]", "", text.lower()).strip() in _PHANTOM
 
 
 # Voice band-pass, silence trim at both ends, loudness normalisation.
@@ -245,6 +283,8 @@ class TranscriptionService:
     async def _transcribe(self, path: Path) -> str:
         lang = settings.whisper_language if settings.whisper_language != "auto" else None
 
+        active = await asyncio.to_thread(_active_seconds, path)
+
         if settings.whisper_remote_model:
             name, audio_bytes = path.name, None
             if settings.whisper_preprocess:
@@ -273,6 +313,8 @@ class TranscriptionService:
                 logger.warning("[transcription] %s: repeat of the previous transcript — treating as no speech", path.name)
                 return ""
             self._last_remote_text = text
+            if active is not None and active < _PHANTOM_MAX_ACTIVE_S and _is_phantom(text):
+                return ""
             return text
 
         segments, _info = await asyncio.to_thread(
