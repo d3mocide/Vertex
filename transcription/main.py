@@ -11,11 +11,13 @@ are picked up automatically.
 """
 
 import asyncio
+import io
 import json
 import logging
 import re
 import time
 import uuid
+import wave
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -62,21 +64,29 @@ _CLEAN_FILTER = (
 async def _preprocess(path: Path) -> bytes | None:
     """Cleaned 16 kHz mono WAV of `path`, or None to fall back to the raw file."""
     try:
+        # Raw PCM out, WAV header written here: ffmpeg writing WAV to a pipe
+        # cannot seek back to fill in the sizes and leaves them 0xFFFFFFFF.
+        # The Whisper server can't decode that and answers with its previous
+        # transcript instead of an error — every call got the same text.
         proc = await asyncio.create_subprocess_exec(
             "ffmpeg", "-loglevel", "error", "-i", str(path), "-af", _CLEAN_FILTER,
-            "-ar", "16000", "-ac", "1", "-f", "wav", "pipe:1",
+            "-ar", "16000", "-ac", "1", "-f", "s16le", "pipe:1",
             stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
         )
-        out, err = await asyncio.wait_for(proc.communicate(), timeout=30)
+        pcm, err = await asyncio.wait_for(proc.communicate(), timeout=30)
     except Exception as exc:
         logger.warning("[transcription] preprocess failed for %s: %s", path.name, exc)
         return None
-    # A WAV header alone (44 bytes) means everything was trimmed as silence.
-    if proc.returncode != 0 or len(out) <= 44:
-        if proc.returncode != 0:
-            logger.warning("[transcription] preprocess failed for %s: %s", path.name, err.decode(errors="replace")[:200])
+    if proc.returncode != 0:
+        logger.warning("[transcription] preprocess failed for %s: %s", path.name, err.decode(errors="replace")[:200])
         return None
-    return out
+    buf = io.BytesIO()
+    with wave.open(buf, "wb") as w:
+        w.setnchannels(1)
+        w.setsampwidth(2)
+        w.setframerate(16000)
+        w.writeframes(pcm)
+    return buf.getvalue()
 
 class TranscriptionService:
     def __init__(self) -> None:
@@ -85,6 +95,8 @@ class TranscriptionService:
         self._redis: aioredis.Redis | None = None
         # Tracks files already processed (or in-progress) within this run.
         self._processed: set[str] = set()
+        # Last remote transcript, to catch the server repeating a stale result.
+        self._last_remote_text: str = ""
         # Failed-attempt bookkeeping so a permanently-failing file backs off
         # and is eventually given up on instead of retried every scan cycle.
         self._attempts: dict[str, int] = {}
@@ -258,7 +270,15 @@ class TranscriptionService:
                 api_base=settings.whisper_remote_api_base or None,
                 api_key=settings.whisper_remote_api_key or None,
             )
-            return (response.text or "").strip()
+            text = (response.text or "").strip()
+            # The server answers audio it can't decode with its previous
+            # transcript. The same non-trivial text for two different calls in
+            # a row is that failure, not speech — drop it rather than store it.
+            if len(text) > 15 and text == self._last_remote_text:
+                logger.warning("[transcription] %s: repeat of the previous transcript — treating as no speech", path.name)
+                return ""
+            self._last_remote_text = text
+            return text
 
         segments, _info = await asyncio.to_thread(
             self._model.transcribe,  # type: ignore[union-attr]
