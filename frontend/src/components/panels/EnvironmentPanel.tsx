@@ -118,6 +118,44 @@ export function EnvironmentPanel() {
   )
 
   // The NWS tile already says "0 · none for this region" when quiet.
+  // Desktop: the full hazard board (one row of six status tiles). Phones use
+  // the strip above — the board took a whole screen there.
+  const hazardBoard = (
+    <div className="hidden lg:grid grid-cols-6 gap-3" role="list" aria-label="Hazard status board">
+      {hazards.map((h) => {
+        const active = h.level !== 'none'
+        const warn = h.level === 'warning'
+        const tone = warn ? 'text-red-emergency' : 'text-amber-gold'
+        return (
+          <div
+            key={h.label}
+            role="listitem"
+            aria-label={`${h.label}: ${active ? h.level : 'no alerts'}`}
+            className={`relative p-4 border flex flex-col items-center gap-2 text-center transition-all duration-500 ${
+              warn ? 'border-red-emergency/30 bg-red-emergency/5 shadow-[0_0_15px_rgba(198,40,40,0.15)]'
+              : active ? 'border-amber-gold/30 bg-amber-gold/5 shadow-[0_0_15px_rgba(255,184,0,0.1)]'
+              : 'border-white/5 bg-white/[0.02] hover:bg-white/[0.04]'}`}
+          >
+            {active && (
+              <span className={`absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full animate-ping ${warn ? 'bg-red-emergency' : 'bg-amber-gold'}`} aria-hidden="true" />
+            )}
+            <span
+              className={`ms text-[24px] leading-none ${active ? tone : 'text-on-surface-variant opacity-40'}`}
+              aria-hidden="true"
+              style={{ fontVariationSettings: `'FILL' ${active ? 1 : 0}` }}
+            >
+              {h.icon}
+            </span>
+            <span className={`text-[11px] font-black uppercase tracking-tight ${active ? 'text-on-surface' : 'text-on-surface-variant/60'}`}>{h.label}</span>
+            <span className={`font-mono text-[11px] font-bold tracking-widest ${active ? tone : 'text-on-surface-variant/40'}`}>
+              {warn ? 'WARNING ACTIVE' : active ? 'WATCH ACTIVE' : 'SECURE'}
+            </span>
+          </div>
+        )
+      })}
+    </div>
+  )
+
   const alertsBlock = alertCount === 0 ? null : (
     <div className="space-y-3">
       {weather.alerts.map((alert, i) => <WeatherAlertCard key={i} alert={alert} />)}
@@ -141,7 +179,8 @@ export function EnvironmentPanel() {
           <StatTiles items={tiles} />
           <section aria-label="Weather advisories" className="space-y-3">
             {alertsBlock}
-            {hazardStrip}
+            <div className="lg:hidden">{hazardStrip}</div>
+            {hazardBoard}
           </section>
         </div>
 
