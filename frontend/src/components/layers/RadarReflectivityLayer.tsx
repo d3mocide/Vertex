@@ -5,7 +5,7 @@ import { API_BASE } from '../../config'
 
 interface Props {
   map: maplibregl.Map
-  visible?: boolean
+  visible: boolean
   opacity?: number
 }
 
@@ -15,10 +15,9 @@ const LYR_RADAR = 'noaa-radar-reflectivity-layer'
 const RADAR_WMS_PROXY = `${API_BASE}/weather/radar/wms`
 
 export function RadarReflectivityLayer({ map, visible, opacity }: Props) {
-  const storeVisible = useCivicStore((s) => s.radarReflectivityVisible)
   const storeOpacity = useCivicStore((s) => s.radarOpacity)
 
-  const isVisible = visible !== undefined ? visible : storeVisible
+  const isVisible = visible
   const currentOpacity = opacity !== undefined ? opacity : storeOpacity
 
   useEffect(() => {

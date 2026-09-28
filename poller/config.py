@@ -52,6 +52,12 @@ class Settings(BaseSettings):
     redis_url: str = "redis://localhost:6379"
     database_url: str = "postgresql+asyncpg://vertex:vertex@localhost:5432/vertex"
     log_level: str = "INFO"
+    # Optional integrations; enable when an ACARS decoder / MQTT broker source exists.
+    acars_enabled: bool = False
+    mqtt_enabled: bool = False
+    # Diagnostic: when > 0, trace allocations and log the top sites every N
+    # minutes. Adds memory/CPU overhead — leave at 0 in normal operation.
+    poller_memprofile_minutes: int = 0
 
     @property
     def regions(self) -> list[RegionConfig]:
@@ -61,6 +67,8 @@ class Settings(BaseSettings):
     region_lat: float = 45.3842
     region_lon: float = -122.7635
     region_name: str = "Tualatin Valley"
+    # IANA timezone used to render local times in the AI briefing.
+    region_timezone: str = "America/Los_Angeles"
 
     # Tualatin/Portland Metro bounding box
     bbox_min_lat: float = 44.8
@@ -71,10 +79,10 @@ class Settings(BaseSettings):
     # NWS
     nws_station_primary: str = "KHIO"
     nws_station_secondary: str = "KUAO"
-    nws_zone: str = "ORZ006"
+    nws_zone: str = "ORZ109"
     # Fallback alert zones used only if alert_zone_configs table is empty on startup.
     # Populated from sources.yml alert_zones section after first run.
-    nws_alert_zones: str = "ORZ006,ORZ005,ORZ007"
+    nws_alert_zones: str = "ORZ108,ORZ109,ORZ111,ORZ112,ORZ115,ORC067,ORC051,ORC005,ORZ684"
 
     # ODOT TripCheck Data API (free key from developer.odot.state.or.us)
     odot_incidents_url: str = ""  # deprecated RSS URL, kept for backward compat
@@ -95,13 +103,17 @@ class Settings(BaseSettings):
     fire_alert_radius_km: int = 150
     fire_alert_recent_hours: int = 720    # 30 days
     fire_regional_radius_km: int = 1200
-    fire_regional_recent_hours: int = 336  # 14 days
+    fire_regional_recent_hours: int = 72   # 3 days — only recently updated (active) fires
+    # NIFC perimeters older than this (by last update) are not fetched.
+    nifc_perimeter_max_age_days: int = 30
 
-    # AI situational summary — configure any LiteLLM-compatible model.
-    # Examples:
-    #   anthropic/claude-haiku-4-5-20251001  (requires SUMMARY_LLM_API_KEY)
-    #   ollama/llama3.2                       (requires SUMMARY_LLM_API_BASE=http://host:11434)
-    #   openai/gpt-4o-mini                    (requires SUMMARY_LLM_API_KEY)
+    # AI situational summary — any OpenAI-compatible /chat/completions endpoint
+    # (LocalAI, llama.cpp, vLLM, Ollama, LM Studio, OpenAI). SUMMARY_LLM_API_BASE
+    # is the server root or its /v1 URL; a leading "openai/" on the model name
+    # is accepted and stripped. Examples:
+    #   SUMMARY_LLM_MODEL=qwen3.5-9b-instruct   SUMMARY_LLM_API_BASE=http://ai-node:8080
+    #   SUMMARY_LLM_MODEL=llama3.2              SUMMARY_LLM_API_BASE=http://host:11434/v1
+    #   SUMMARY_LLM_MODEL=gpt-4o-mini           (OpenAI; requires SUMMARY_LLM_API_KEY)
     # Leave SUMMARY_LLM_MODEL blank to disable the summary poller entirely.
     summary_llm_model: str = ""
     summary_llm_api_key: str = ""
@@ -111,6 +123,37 @@ class Settings(BaseSettings):
     # emitting the final answer, so a small value can starve the answer
     # entirely — raise this if SUMMARY_LLM_MODEL is a reasoning model.
     summary_llm_max_tokens: int = 4096
+    # How often the briefing is regenerated, and how many hours of history it covers.
+    summary_interval_minutes: int = 60
+    summary_window_hours: int = 24
+    # Minimum seconds between generations (rate-limits on-demand refreshes
+    # from the UI and retries after a failed LLM call).
+    summary_min_regen_s: int = 600
+    # Request timeout — reasoning models on local hardware can take minutes.
+    summary_llm_timeout_s: int = 600
+    # Optional sampling / reasoning controls. Blank = provider default.
+    summary_llm_temperature: str = ""
+    summary_llm_reasoning_effort: str = ""   # low | medium | high
+    # Raw JSON merged into the request body, for server-specific knobs, e.g.
+    # {"chat_template_kwargs": {"enable_thinking": true}} on vLLM/llama.cpp.
+    summary_llm_extra_body: str = ""
+    # Past briefings kept in Redis (newest first) for trend comparison.
+    summary_history_len: int = 24
+    # Hours of P25 transcripts mined for structured radio incidents
+    # (feed:radio:incidents and the briefing's radio section).
+    radio_incidents_window_hours: int = 24
+    # Self-hosted Nominatim for locating radio incidents (see infra/nominatim/).
+    # Blank disables geocoding.
+    geocoder_url: str = ""
+    # State name passed to structured searches (must match the imported extract).
+    geocoder_state: str = "Oregon"
+    # Days of history used as the "normal" baseline for event and radio volume.
+    summary_baseline_days: int = 7
+    # Character budget for the data context (~4 chars per token). Lowest-priority
+    # sections (news, then transcripts) are trimmed first to fit. The model's
+    # context window must hold this + the system prompt (~1k tokens) + the
+    # whole reasoning trace + the answer — size it accordingly.
+    summary_context_max_chars: int = 24000
 
     # AISstream.io public cloud fallback (used when no local ais sources in DB)
     aisstream_api_key: str = ""
@@ -224,9 +267,17 @@ class Settings(BaseSettings):
     p25_audio_dir: str = "/data/audio"
     p25_audio_retention_days: int = 7
     p25_audio_delay_seconds: float = 0.0
+    # OP25's audio websocket (multi_rx "destination": ws://host:9000). When set,
+    # calls are recorded straight from OP25's decoded PCM — lossless and
+    # without the Icecast delay — instead of from the radio stream.
+    p25_audio_ws_url: str = ""
 
-    # NWS text products (NWWS-style). Office code for the local forecast office.
-    nws_office: str = "PDX"
+    # NWS text products (NWWS-style). The API files products under different
+    # location ids: forecaster products (AFD, HWO, LSR) under the Weather
+    # Forecast Office id (Portland = PQR), climate reports (CF6) under the
+    # climate station id (Portland = PDX).
+    nws_office: str = "PQR"
+    nws_climate_station: str = "PDX"
 
     # Weather Underground / Weather Company Personal Weather Station.
     # Obtain an API key at https://www.wunderground.com/member/api-keys

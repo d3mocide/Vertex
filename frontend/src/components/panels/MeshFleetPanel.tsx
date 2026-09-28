@@ -130,7 +130,7 @@ export function MeshFleetPanel({ entities }: { entities: Entity[] }) {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/10 pb-3 mb-1">
         {/* Left Side: Type Filters */}
         <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none py-0.5">
-          <span className="font-mono text-[10px] text-on-surface-variant uppercase tracking-widest mr-1 shrink-0">
+          <span className="font-mono text-[11px] text-on-surface-variant uppercase tracking-widest mr-1 shrink-0">
             Filter:
           </span>
           <div className="flex items-center gap-1 border border-white/10 bg-white/5 rounded-full p-0.5 shrink-0">
@@ -139,7 +139,7 @@ export function MeshFleetPanel({ entities }: { entities: Entity[] }) {
                 key={type}
                 type="button"
                 onClick={() => { setFilterType(type); setPage(1); }}
-                className={`font-mono text-[9px] uppercase tracking-wider px-2.5 py-0.5 rounded-full transition-colors ${
+                className={`font-mono text-[11px] uppercase tracking-wider px-2.5 py-0.5 rounded-full transition-colors ${
                   filterType === type
                     ? 'bg-amber-gold text-onyx-black font-bold'
                     : 'text-on-surface-variant hover:text-on-surface'
@@ -153,14 +153,14 @@ export function MeshFleetPanel({ entities }: { entities: Entity[] }) {
 
         {/* Right Side: Sort Controls */}
         <div className="flex items-center gap-1.5 shrink-0 sm:self-end">
-          <span className="font-mono text-[10px] text-on-surface-variant uppercase tracking-widest mr-1 shrink-0">
+          <span className="font-mono text-[11px] text-on-surface-variant uppercase tracking-widest mr-1 shrink-0">
             Sort:
           </span>
           <div className="flex items-center gap-1 border border-white/10 bg-white/5 rounded-full p-0.5 shrink-0">
             <button
               type="button"
               onClick={() => { setSortBy('recent'); setPage(1); }}
-              className={`font-mono text-[9px] uppercase tracking-wider px-2.5 py-0.5 rounded-full transition-colors ${
+              className={`font-mono text-[11px] uppercase tracking-wider px-2.5 py-0.5 rounded-full transition-colors ${
                 sortBy === 'recent'
                   ? 'bg-amber-gold text-onyx-black font-bold'
                   : 'text-on-surface-variant hover:text-on-surface'
@@ -171,7 +171,7 @@ export function MeshFleetPanel({ entities }: { entities: Entity[] }) {
             <button
               type="button"
               onClick={() => { setSortBy('distance'); setPage(1); }}
-              className={`font-mono text-[9px] uppercase tracking-wider px-2.5 py-0.5 rounded-full transition-colors ${
+              className={`font-mono text-[11px] uppercase tracking-wider px-2.5 py-0.5 rounded-full transition-colors ${
                 sortBy === 'distance'
                   ? 'bg-amber-gold text-onyx-black font-bold'
                   : 'text-on-surface-variant hover:text-on-surface'
@@ -187,7 +187,7 @@ export function MeshFleetPanel({ entities }: { entities: Entity[] }) {
       {rows.length === 0 && (
         <div className="py-12 border border-dashed border-white/10 rounded-sm flex flex-col items-center justify-center opacity-45 bg-onyx-deep/20 mt-2">
           <span className="ms text-2xl mb-2 text-amber-gold/60">filter_list_off</span>
-          <span className="text-[10px] uppercase font-mono tracking-[0.2em] text-on-surface-variant">
+          <span className="text-[11px] uppercase font-mono tracking-[0.2em] text-on-surface-variant">
             No {filterType}s detected matching filter
           </span>
         </div>
@@ -216,13 +216,13 @@ export function MeshFleetPanel({ entities }: { entities: Entity[] }) {
                     {row.name}
                   </span>
                 </div>
-                <span className="font-mono text-[9px] px-1.5 py-0.5 border border-white/10 bg-white/5 rounded-full text-on-surface-variant uppercase tracking-wider shrink-0">
+                <span className="font-mono text-[11px] px-1.5 py-0.5 border border-white/10 bg-white/5 rounded-full text-on-surface-variant uppercase tracking-wider shrink-0">
                   {row.contactType}
                 </span>
               </div>
 
               {/* Bottom Row: Battery, Distance, Last Seen */}
-              <div className="flex items-center justify-between gap-2 text-[10px] font-mono text-on-surface-variant pt-2 border-t border-white/5">
+              <div className="flex items-center justify-between gap-2 text-[11px] font-mono text-on-surface-variant pt-2 border-t border-white/5">
                 {/* Battery */}
                 <div className="flex items-center gap-1 shrink-0" title={row.voltage !== null ? `${row.voltage.toFixed(2)}V` : ''}>
                   {row.battery !== null ? (
@@ -266,7 +266,7 @@ export function MeshFleetPanel({ entities }: { entities: Entity[] }) {
       {/* Pagination Footer */}
       {rows.length > PAGE_SIZE && (
         <div className="px-3 py-2 border border-white/10 bg-white/5 flex items-center justify-between gap-2 rounded-sm mt-1">
-          <span className="font-mono text-[10px] text-on-surface-variant uppercase tracking-widest">
+          <span className="font-mono text-[11px] text-on-surface-variant uppercase tracking-widest">
             Showing {(page - 1) * PAGE_SIZE + 1}-{Math.min(page * PAGE_SIZE, rows.length)} of {rows.length}
           </span>
           <div className="flex items-center gap-1">
@@ -274,18 +274,18 @@ export function MeshFleetPanel({ entities }: { entities: Entity[] }) {
               type="button"
               onClick={() => setPage(p => Math.max(1, p - 1))}
               disabled={page === 1}
-              className="px-2.5 py-1 font-mono text-[10px] uppercase tracking-widest border border-white/15 text-on-surface disabled:opacity-30 disabled:cursor-not-allowed hover:border-amber-gold/70 transition-colors"
+              className="px-2.5 py-1 font-mono text-[11px] uppercase tracking-widest border border-white/15 text-on-surface disabled:opacity-30 disabled:cursor-not-allowed hover:border-amber-gold/70 transition-colors"
             >
               Prev
             </button>
-            <span className="font-mono text-[10px] text-on-surface-variant px-1.5">
+            <span className="font-mono text-[11px] text-on-surface-variant px-1.5">
               {page}/{totalPages}
             </span>
             <button
               type="button"
               onClick={() => setPage(p => Math.min(totalPages, p + 1))}
               disabled={page === totalPages}
-              className="px-2.5 py-1 font-mono text-[10px] uppercase tracking-widest border border-white/15 text-on-surface disabled:opacity-30 disabled:cursor-not-allowed hover:border-amber-gold/70 transition-colors"
+              className="px-2.5 py-1 font-mono text-[11px] uppercase tracking-widest border border-white/15 text-on-surface disabled:opacity-30 disabled:cursor-not-allowed hover:border-amber-gold/70 transition-colors"
             >
               Next
             </button>

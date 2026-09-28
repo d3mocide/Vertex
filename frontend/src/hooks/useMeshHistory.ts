@@ -14,7 +14,8 @@ export function useMeshHistory() {
       try {
         const [linksRes, msgsRes, statusRes] = await Promise.all([
           fetch(`${API_BASE}/mesh/links`, { headers: authHeaders() }),
-          fetch(`${API_BASE}/mesh/messages`, { headers: authHeaders() }),
+          // Per-conversation history so quiet channels aren't crowded out by Public.
+          fetch(`${API_BASE}/mesh/messages?per_conversation=100&limit=2000`, { headers: authHeaders() }),
           fetch(`${API_BASE}/mesh/status`, { headers: authHeaders() })
         ])
         

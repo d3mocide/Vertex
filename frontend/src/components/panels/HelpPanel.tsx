@@ -33,7 +33,7 @@ export function HelpPanel() {
       />
 
       {/* Panel Container */}
-      <div className="relative w-full h-full lg:max-w-6xl lg:h-[85vh] bg-onyx-deep border-0 lg:border border-white/10 shadow-[0_24px_80px_rgba(0,0,0,0.8)] flex flex-col lg:flex-row overflow-hidden">
+      <div className="relative w-full h-full pt-safe-chrome pb-safe lg:pt-0 lg:pb-0 lg:max-w-6xl lg:h-[85vh] bg-onyx-deep border-0 lg:border border-white/10 shadow-[0_24px_80px_rgba(0,0,0,0.8)] flex flex-col lg:flex-row overflow-hidden">
         
         {/* Mobile Header */}
         <div className="lg:hidden flex items-center justify-between px-4 py-3 border-b border-white/10 bg-onyx-black shrink-0">

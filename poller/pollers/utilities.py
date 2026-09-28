@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 import logging
 import httpx
 from security import validate_request_url
@@ -69,6 +70,7 @@ class UtilityPoller(BasePoller):
                 pge_data = utility_stats.get("PORTLAND GENERAL ELECTRIC CO", {"affected": 0})
                 pac_data = utility_stats.get("PACIFICORP", {"affected": 0})
 
+                synced_at = datetime.now(timezone.utc).isoformat()
                 await set_feed("utility:oregon", {
                     "provider": "Oregon ODIN",
                     "status": "Operational" if state_total_affected < 1000 else "Regional Outages",
@@ -77,7 +79,7 @@ class UtilityPoller(BasePoller):
                     "pge_affected": pge_data["affected"],
                     "pacificorp_affected": pac_data["affected"],
                     "utility_count": len(utility_stats),
-                    "last_updated": "Just now",
+                    "last_updated": synced_at,
                 })
 
                 # Maintain backward compatibility for the 'utility:pge' feed if frontend relies on it
@@ -87,7 +89,7 @@ class UtilityPoller(BasePoller):
                     "status": "Operational" if pge_data["affected"] < 100 else "Outages Detected",
                     "active_outages": "—",  # ODIN doesn't provide incident count easily in this layer
                     "customers_affected": pge_data["affected"],
-                    "last_updated": "Just now",
+                    "last_updated": synced_at,
                     "reliability": None,
                 })
 

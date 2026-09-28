@@ -3,6 +3,7 @@ import { useCivicPick } from '../../store'
 import { API_BASE } from '../../config'
 import { authHeaders } from '../../auth'
 import { CustomLayersTab } from './CustomLayersTab'
+import { BoundarySearch, type BoundaryCandidate } from './BoundarySearch'
 
 interface GeofenceRecord {
   id: number
@@ -18,18 +19,21 @@ interface GeofenceRecord {
   geojson_polygon: object
 }
 
-const ZONE_TYPES = ['alert', 'exclusion', 'info'] as const
+const ZONE_TYPES = ['alert', 'exclusion', 'info', 'area'] as const
 type ZoneType = typeof ZONE_TYPES[number]
 
 const ZONE_LABELS: Record<ZoneType, string> = {
   alert:     'Alert',
   exclusion: 'Exclusion',
   info:      'Info',
+  area:      'Area',
 }
 const ZONE_COLORS: Record<ZoneType, string> = {
   alert:     'text-amber-gold border-amber-gold/50',
   exclusion: 'text-red-emergency border-red-emergency/50',
   info:      'text-cyan-adsb border-cyan-adsb/50',
+  // Label-only zones (city limits, corridors): no entry/exit events, so neutral.
+  area:      'text-on-surface border-on-surface-variant',
 }
 
 type PanelTab = 'geofences' | 'layers'
@@ -57,6 +61,8 @@ export function GeofencePanel() {
   const [saveType, setSaveType]     = useState<ZoneType>('alert')
   const [saveDwellSeconds, setSaveDwellSeconds] = useState(0)
   const [showSaveForm, setShowSaveForm] = useState(false)
+  // Set when saving a looked-up city/county/ZIP boundary instead of drawn points.
+  const [importedBoundary, setImportedBoundary] = useState<BoundaryCandidate | null>(null)
 
   const pointsNeeded = geofenceDrawMode === 'circle' ? 2 : 3
 
@@ -91,6 +97,19 @@ export function GeofencePanel() {
     setGeofenceDrawing(false)
     clearGeofenceDrawPoints()
     setShowSaveForm(false)
+    setImportedBoundary(null)
+  }
+
+  const applyBoundary = (c: BoundaryCandidate) => {
+    setGeofenceDrawing(false)
+    clearGeofenceDrawPoints()
+    setImportedBoundary(c)
+    setSaveName(c.kind === 'zip' ? c.name : c.name.split(',')[0])
+    setSaveDesc(`${c.kind === 'zip' ? 'ZIP code area' : c.kind === 'county' ? 'County limits' : 'City limits'} — ${c.source}`)
+    // Boundaries are usually for labelling incidents, not entity entry/exit alerts.
+    setSaveType('area')
+    setSaveDwellSeconds(0)
+    setShowSaveForm(true)
   }
 
   const openSaveForm = () => {
@@ -111,7 +130,7 @@ export function GeofencePanel() {
 
   const saveGeofence = async () => {
     if (!saveName.trim()) { setError('Name required'); return }
-    if (geofenceDrawPoints.length < pointsNeeded) {
+    if (!importedBoundary && geofenceDrawPoints.length < pointsNeeded) {
       setError(`Need at least ${pointsNeeded} points`)
       return
     }
@@ -119,7 +138,7 @@ export function GeofencePanel() {
     setSaving(true)
     setError(null)
     try {
-      const isCircle = geofenceDrawMode === 'circle'
+      const isCircle = !importedBoundary && geofenceDrawMode === 'circle'
       const closed = [...geofenceDrawPoints, geofenceDrawPoints[0]]
       const center = geofenceDrawPoints[0]
       const edge = geofenceDrawPoints[1]
@@ -131,13 +150,15 @@ export function GeofencePanel() {
           name: saveName.trim(),
           description: saveDesc.trim() || null,
           zone_type: saveType,
-          geofence_shape: geofenceDrawMode,
+          geofence_shape: importedBoundary ? 'polygon' : geofenceDrawMode,
           dwell_seconds: Math.max(0, saveDwellSeconds),
           center_lat: isCircle && center ? center[1] : null,
           center_lon: isCircle && center ? center[0] : null,
           radius_m: isCircle ? radiusM : null,
           active: true,
-          geojson_polygon: isCircle ? null : { type: 'Polygon', coordinates: [closed] },
+          geojson_polygon: importedBoundary
+            ? importedBoundary.geojson
+            : isCircle ? null : { type: 'Polygon', coordinates: [closed] },
         }),
       })
       if (!res.ok) {
@@ -145,6 +166,7 @@ export function GeofencePanel() {
         throw new Error(body.detail ?? `HTTP ${res.status}`)
       }
       clearGeofenceDrawPoints()
+      setImportedBoundary(null)
       setShowSaveForm(false)
       setSaveName('')
       setSaveDesc('')
@@ -236,11 +258,16 @@ export function GeofencePanel() {
             )}
           </div>
 
+          {/* Boundary lookup (city / county / ZIP) */}
+          {!geofenceDrawing && !showSaveForm && <BoundarySearch onUse={applyBoundary} />}
+
           {/* Save form */}
           {showSaveForm && (
             <div className="border border-amber-gold/30 bg-amber-gold/5 p-4 space-y-3">
               <span className="label-caps text-[11px] text-amber-gold block">
-                Save Geofence ({geofenceDrawMode === 'circle' ? 'circle' : `${geofenceDrawPoints.length} vertices`})
+                Save Geofence ({importedBoundary
+                  ? `${importedBoundary.name} · ${importedBoundary.area_km2.toLocaleString()} km²`
+                  : geofenceDrawMode === 'circle' ? 'circle' : `${geofenceDrawPoints.length} vertices`})
               </span>
               <input
                 type="text"

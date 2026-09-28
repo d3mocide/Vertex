@@ -62,7 +62,7 @@ async def _insert_anomaly_event(pool, entity_type: str, description: str) -> Non
         await write_event(
             event_type="anomaly",
             entity_id=None,
-            severity="high",
+            severity="info",  # statistical count deviation, not a threat
             summary=description,
             details={"anomaly_type": entity_type},
         )
@@ -123,12 +123,12 @@ class AnomalyDetectionPoller(BasePoller):
                 f"{field} count {direction}: {current} vs baseline "
                 f"{mean:.1f}±{std:.1f} ({deviation / std:.1f}σ)"
             )
-            logger.warning("[anomaly] %s", description)
+            logger.info("[anomaly] %s", description)
 
             event = {
                 "event_type": "anomaly",
                 "entity_type": field,
-                "severity": "high",
+                "severity": "info",
                 "description": description,
                 "ts": datetime.now(timezone.utc).isoformat(),
             }

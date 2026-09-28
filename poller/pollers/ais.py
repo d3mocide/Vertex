@@ -51,13 +51,14 @@ class AisPoller(BasePoller):
         logger.info("[ais] connecting to local AIS-catcher at %s", url)
         while True:
             try:
-                async with websockets.connect(url) as ws:
+                async with websockets.connect(url) as ws, self.streaming():
                     async for raw in ws:
                         entity = normalize_ais_catcher(json.loads(raw))
                         if entity:
                             await publish_entity(entity)
             except Exception as exc:
                 logger.error("[ais] ais-catcher error (%s): %s — retrying in %ds", url, exc, _RETRY_DELAY)
+                await self._heartbeat("error", str(exc)[:256])
                 await asyncio.sleep(_RETRY_DELAY)
 
     async def _run_aisstream(self):
@@ -85,7 +86,7 @@ class AisPoller(BasePoller):
         logger.info("[ais] connecting to AISstream.io")
         while True:
             try:
-                async with websockets.connect("wss://stream.aisstream.io/v0/stream") as ws:
+                async with websockets.connect("wss://stream.aisstream.io/v0/stream") as ws, self.streaming():
                     await ws.send(sub)
                     async for raw in ws:
                         entity = normalize_aisstream(json.loads(raw))

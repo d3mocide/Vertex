@@ -19,27 +19,50 @@
   }
 
   /* Full-bleed app shell.
-     On an iOS standalone PWA the layout viewport is the *small* viewport: it
-     excludes the status-bar / Dynamic Island band. Measured on iOS 18.7 at
-     dpr 3, `screen` is 956px tall but `window.innerHeight` (and `100svh` /
-     `100dvh`) is 894px — the 62px difference is exactly the top safe-area
-     inset. The large-viewport units over-report: `100vh` and `100lvh` resolve
-     to the full 956px, so a `height: 100vh` shell renders 62px too tall and
-     shoves content down under the island.
-     Pinning #root with `position: fixed; inset: 0` anchors it to that 894px
-     layout viewport, so it fills the window edge-to-edge with no letterbox
-     gap (verified: html / body / #root all measure 894, GAP innerH−rootBot is
-     0). #root does *not* paint the 62px island band — that stays UA chrome,
-     and it reads as seamless only because the app is dark-only. `100dvh` is
-     the matching fallback for engines that don't honour the fixed-inset trick;
-     never substitute `100vh` here. Safe-area padding *inside* the shell
-     (pt-safe / pb-safe, applied per component) keeps chrome clear of the
-     unsafe zones. */
+     #root is pinned with `position: fixed; inset: 0` and sized to the
+     dynamic viewport — correct in browsers, where the toolbar can cover part
+     of the large viewport. */
   #root {
     position: fixed;
     inset: 0;
     height: 100%;
     height: 100dvh;
+  }
+
+  /* iOS standalone PWA (iOS 18.7, dpr 3, black-translucent + viewport-fit=
+     cover): the web view covers the whole 956px screen and paints from y=0,
+     but the layout viewport — innerHeight, 100%, 100dvh — is 894px, so the
+     shell stops 62px short and leaves an unpainted band at the *bottom* (not
+     under the island, as an earlier note assumed). Growing #root alone does
+     not help: html/body at 894px with overflow:hidden clip everything to the
+     viewport. A script in index.html measures screen.height − innerHeight
+     into --ios-bottom-shim and adds .ios-shim only when that gap exists, and
+     then:
+       - html is extended by the gap and stops clipping (the script pins
+         window scroll at 0);
+       - #root is positioned in the page (absolute) instead of against the
+         short viewport, sized to the full screen (100lvh);
+       - contain: layout makes #root the containing block for its
+         position:fixed children (nav, audio bar, map, modals) so they anchor
+         to the real screen edge. Not a transform: a screen-sized transformed
+         layer rasterised the header text blurry on iOS. */
+  html.ios-shim {
+    height: calc(100% + var(--ios-bottom-shim, 0px));
+    overflow: visible;
+  }
+  html.ios-shim body {
+    overflow: visible;
+  }
+  html.ios-shim #root {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: auto;
+    left: 0;
+    /* The full screen. Not 100dvh + shim: iOS may correct dvh to the full
+       height after launch, which double-counted the gap (#root 1018px). */
+    height: 100lvh;
+    contain: layout;
   }
 
   body {
@@ -89,6 +112,28 @@
   .maplibregl-map    { position: absolute; inset: 0; }
 }
 
+/* Where the app chrome starts below the top of the screen.
+   --safe-top is the status-bar inset, kept overridable so headless checks can
+   simulate an iPhone. Normally the chrome gets 8px of breathing room, only
+   where there is an inset (min(x, inset × 100) is 0 when the inset is 0).
+   Installed iPhone app (html.ios-pwa, set in index.html): iOS 26+ draws a
+   Liquid Glass blur over the top of the web view reaching ~35-40pt past the
+   status bar. It is system chrome — no CSS or meta tag turns it off — so the
+   chrome starts below it and the blur falls on the solid status band. */
+:root {
+  --safe-top: env(safe-area-inset-top, 0px);
+  --edge-clear: min(8px, calc(var(--safe-top) * 100));
+  --chrome-top: calc(var(--safe-top) + var(--edge-clear));
+}
+html.ios-pwa {
+  /* Next to no gap: the header row starts just under the status bar, like
+     native title bars. The iOS 27 blur fades out ~35pt below the 62pt status bar
+     (measured on the user's iPhone, 2026-09-27), so the top of the header
+     row sits in its faint tail — the user preferred that to 26-40px of
+     empty band. The row's own 48px height centres the logo below most of it. */
+  --edge-clear: 5px;   /* the user's pick: a small bump off the status bar */
+}
+
 /* MapLibre control override — must live outside @layer so it wins over
    un-layered MapLibre stylesheet rules (cascade layers spec: un-layered
    author styles beat layered styles of any kind). */
@@ -99,16 +144,22 @@
        status-bar safe area + advisory bar + header + env bar. Using the
        safe-area inset keeps the zoom-in button visible under the notch /
        Dynamic Island instead of hiding behind the env bar. */
-    top: calc(env(safe-area-inset-top, 0px) + 8rem) !important;
+    top: calc(var(--chrome-top) + 7.5rem) !important;
     right: calc(env(safe-area-inset-right, 0px) + 0.5rem) !important;
   }
 }
 
 
 @layer utilities {
+  /* Hide scrollbars on horizontally-scrolling chip rows (still swipeable). */
+  .no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
+  .no-scrollbar::-webkit-scrollbar { display: none; }
   /* iOS safe-area helpers — require viewport-fit=cover in index.html to resolve.
      On non-notched devices / desktop the env() values are 0, so these are no-ops. */
-  .pt-safe { padding-top: env(safe-area-inset-top, 0px); }
+  .pt-safe { padding-top: var(--safe-top); }
+  /* Where the app chrome starts (--chrome-top, defined on :root). */
+  .pt-safe-chrome { padding-top: var(--chrome-top); }
+  .h-safe-chrome { height: var(--chrome-top); }
   .pb-safe { padding-bottom: env(safe-area-inset-bottom, 0px); }
   .pl-safe { padding-left: env(safe-area-inset-left, 0px); }
   .pr-safe { padding-right: env(safe-area-inset-right, 0px); }
@@ -147,7 +198,7 @@
 
   /* Typography utilities */
   .label-caps {
-    @apply font-bold text-[10px] lg:text-[11px] tracking-widest uppercase text-on-surface-variant;
+    @apply font-bold text-[11px] tracking-widest uppercase text-on-surface-variant;
   }
 
   .data-value {
@@ -156,13 +207,13 @@
 
   /* Navigation links */
   .nav-link {
-    @apply tracking-widest uppercase text-[10px] lg:text-[11px] font-bold text-on-surface-variant
+    @apply tracking-widest uppercase text-[11px] font-bold text-on-surface-variant
            hover:text-amber-gold transition-colors h-full flex items-center cursor-pointer
            focus:outline-none focus-visible:ring-1 focus-visible:ring-amber-gold;
   }
 
   .nav-link-active {
-    @apply tracking-widest uppercase text-[10px] lg:text-[11px] font-bold text-amber-gold
+    @apply tracking-widest uppercase text-[11px] font-bold text-amber-gold
            border-b border-amber-gold h-full flex items-center cursor-pointer
            focus:outline-none focus-visible:ring-1 focus-visible:ring-amber-gold;
   }
@@ -176,7 +227,7 @@
 
   /* Section headings */
   .section-heading {
-    @apply font-bold text-[10px] lg:text-[11px] tracking-widest text-amber-gold uppercase
+    @apply font-bold text-[11px] tracking-widest text-amber-gold uppercase
            flex items-center gap-2 mb-3;
   }
 
@@ -189,7 +240,7 @@
 
   /* Ghost button */
   .btn-ghost {
-    @apply border border-amber-gold text-amber-gold font-bold text-[10px] lg:text-[11px]
+    @apply border border-amber-gold text-amber-gold font-bold text-[11px]
            uppercase tracking-widest px-3 py-1 hover:bg-amber-gold hover:text-onyx-black
            transition-all focus:outline-none focus-visible:ring-1 focus-visible:ring-amber-gold;
   }
@@ -271,9 +322,15 @@
   .tl-yellow { @apply bg-amber-gold text-onyx-black; }
   .tl-red    { @apply bg-red-emergency text-white; }
 
+  /* Tactical text field */
+  .tactical-input {
+    @apply w-full bg-black/60 border border-white/10 text-on-surface text-xs px-3 py-2
+           placeholder:text-on-surface-variant/50 focus:outline-none focus:border-amber-gold/60 transition-colors;
+  }
+
   /* Tactical dropdown style */
   .tactical-select {
-    @apply bg-black/60 border border-white/10 text-gray-200 text-xs px-2 py-1.5 
+    @apply bg-black/60 border border-white/10 text-on-surface text-xs px-2 py-1.5 
            focus:outline-none focus:border-amber-gold/60 appearance-none pr-8 transition-colors;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23FFB800' stroke-width='2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
     background-repeat: no-repeat;

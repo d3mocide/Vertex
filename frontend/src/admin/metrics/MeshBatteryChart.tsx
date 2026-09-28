@@ -17,21 +17,21 @@ export function MeshBatteryChart({ data }: { data: MeshBatteryData | null }) {
   if (!data || data.nodes.length === 0) {
     return (
       <section>
-        <h2 className="text-[11px] uppercase tracking-widest text-gray-500 mb-3">
+        <h2 className="text-[11px] uppercase tracking-widest text-on-surface-variant mb-3">
           Mesh Node Battery
         </h2>
-        <p className="text-xs text-gray-600">No mesh nodes with battery data.</p>
+        <p className="text-xs text-on-surface-variant/60">No mesh nodes with battery data.</p>
       </section>
     )
   }
 
   return (
     <section>
-      <h2 className="text-[11px] uppercase tracking-widest text-gray-500 mb-3">Mesh Node Battery</h2>
+      <h2 className="text-[11px] uppercase tracking-widest text-on-surface-variant mb-3">Mesh Node Battery</h2>
       <div className="space-y-1.5">
         {data.nodes.map((node) => (
           <div key={node.entity_id} className="flex items-center gap-2">
-            <span className="text-[11px] font-mono text-gray-400 w-24 shrink-0 truncate" title={node.label ?? node.entity_id}>
+            <span className="text-[11px] font-mono text-on-surface-variant w-24 shrink-0 truncate" title={node.label ?? node.entity_id}>
               {node.label ?? node.entity_id}
             </span>
             <div className="flex-1 h-4 bg-black/40 border border-white/5 relative overflow-hidden">

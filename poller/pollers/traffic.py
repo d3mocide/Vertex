@@ -1,5 +1,6 @@
 import ipaddress
 import logging
+import re
 import httpx
 from urllib.parse import urlparse
 from config import settings
@@ -149,8 +150,8 @@ def _parse_odot_incidents(data: dict) -> list[dict]:
             location = f"{route} - {location}"
 
         items.append({
-            "title":       title,
-            "description": description,
+            "title":       _clean(title),
+            "description": _clean(description),
             "location":    location,
             "link":        inc.get("info-url", ""),
             "pubDate":     inc.get("update-time", inc.get("create-time", inc.get("startTime", ""))),
@@ -163,6 +164,15 @@ def _parse_odot_incidents(data: dict) -> list[dict]:
     # Keep nearest incidents at the top, consistent with camera ordering.
     items.sort(key=lambda x: x.get("dist_km", float("inf")))
     return items
+
+
+def _clean(text) -> str:
+    """Strip ODOT's embedded markup: "<!--Links Start Here-->" comments, HTML
+    tags and markdown links ("[label](url)" -> "label"). The UI was showing it raw."""
+    text = re.sub(r"<!--.*?-->", " ", str(text or ""), flags=re.S)
+    text = re.sub(r"\[([^\]]*)\]\([^)]*\)", r"\1", text)
+    text = re.sub(r"<[^>]+>", " ", text)
+    return re.sub(r"\s+", " ", text).strip()
 
 
 def _first_number(*values):

@@ -27,6 +27,9 @@ from .base import BasePoller
 
 logger = logging.getLogger(__name__)
 
+# Longest wait between reconnect attempts to an unreachable TAK server.
+_MAX_BACKOFF_S = 900.0
+
 # Map Vertex entity_type → CoT type atom
 _COT_TYPES: dict[str, str] = {
     "aircraft":      "a-f-A",
@@ -285,15 +288,19 @@ class CotEmitter(BasePoller):
 
             except (ConnectionRefusedError, OSError) as exc:
                 failures += 1
-                logger.warning(
-                    "[cot] TCP connect failed (%d): %s — retry in %.0fs", failures, exc, delay
-                )
+                # First failure and every 10th only (was a WARNING every minute).
+                if failures == 1 or failures % 10 == 0:
+                    logger.warning(
+                        "[cot] TCP connect failed (%d consecutive): %s — retrying with backoff (now %.0fs)",
+                        failures, exc, delay,
+                    )
             except Exception:
                 failures += 1
-                logger.exception("[cot] Unexpected error (%d) — retry in %.0fs", failures, delay)
+                if failures == 1 or failures % 10 == 0:
+                    logger.exception("[cot] Unexpected error (%d consecutive)", failures)
 
             await asyncio.sleep(delay)
-            delay = min(delay * 2, 60.0)
+            delay = min(delay * 2, _MAX_BACKOFF_S)
 
     async def _run_udp(self, allowed: frozenset[str] | None) -> None:
         addr = (settings.cot_multicast_addr, settings.cot_multicast_port)

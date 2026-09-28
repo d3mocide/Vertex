@@ -63,6 +63,8 @@ class MeshCorePoller(BasePoller):
     interval = _POLL_INTERVAL
 
     def __init__(self):
+        # entity_id -> last-heard time already published (skip unchanged contacts)
+        self._last_heard: dict[str, str | None] = {}
         self._sources: list[dict] = []
 
     async def poll(self):
@@ -145,6 +147,13 @@ class MeshCorePoller(BasePoller):
                         if not _should_publish_node(entity):
                             skipped += 1
                             continue
+                        # Only republish when the repeater has heard the node
+                        # again; re-sending unchanged contacts every poll wrote
+                        # ~17k redundant observation rows a day.
+                        eid = entity["entity_id"]
+                        if self._last_heard.get(eid) == entity.get("last_seen"):
+                            continue
+                        self._last_heard[eid] = entity.get("last_seen")
                         await publish_entity(entity)
                         count += 1
                     logger.debug(
@@ -185,7 +194,7 @@ class MeshCorePoller(BasePoller):
         base_url = src["base_url"]
         headers = _api_headers(src.get("api_key"))
         sse_url = f"{base_url}/api/companion/events"
-        params = {"companion": companion_name}
+        params = companion_params(companion_name)
 
         while True:
             try:
@@ -379,6 +388,16 @@ def _extract_self_pubkey(stats: dict) -> str | None:
             if isinstance(v, str) and len(v) >= 8 and v != "0" * len(v):
                 return v
     return None
+
+
+def companion_params(companion_name: str) -> dict[str, str]:
+    """Query params selecting a companion on pyMC-Repeater's /api/companion/* routes.
+
+    The server reads `companion_name`; an unknown parameter (we used to send
+    `companion`) is silently ignored and the server falls back to its default
+    companion — another identity with different channels.
+    """
+    return {"companion_name": companion_name}
 
 
 def _api_headers(api_key: str | None) -> dict[str, str]:

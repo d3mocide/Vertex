@@ -10,12 +10,16 @@ transcription yet, so recordings accumlated while the service was offline
 are picked up automatically.
 """
 
+import array
 import asyncio
+import io
 import json
 import logging
+import math
 import re
 import time
 import uuid
+import wave
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -35,6 +39,8 @@ logging.basicConfig(
 logger = logging.getLogger("transcription")
 
 AUDIO_EXTS = {".wav", ".mp3", ".ogg", ".m4a"}
+# Files transcribed per scan before rescanning for newer calls.
+_BATCH = 3
 
 # Cap retries so a file that can never transcribe (e.g. a squelch-noise-only
 # clip, or a remote STT node that consistently errors on it) doesn't get
@@ -49,6 +55,79 @@ def _pg_url(url: str) -> str:
     return url.replace("postgresql+asyncpg://", "postgresql://")
 
 
+
+# Whisper invents a stock phrase ("Thank you.") for radio key-ups and static:
+# 101 of ~2,200 WCN calls on 2026-09-27. Loudness alone can't separate those
+# clips from short real replies (any gate that caught them also dropped real
+# transcripts), so only these exact phrases are dropped, and only when the clip
+# has little sound (20 ms frames above ~-41 dBFS) — caught ~99 of the 101.
+_ACTIVE_RMS = 300
+_PHANTOM = {"thank you", "thank you thank you", "thank you thank you thank you", "thanks",
+            "bye", "you", "thank you for watching", "thanks for watching"}
+_PHANTOM_MAX_ACTIVE_S = 1.5
+
+
+def _active_seconds(path: Path) -> float | None:
+    """Seconds of sound in a PCM WAV (None when the file isn't a readable WAV)."""
+    if path.suffix.lower() != ".wav":
+        return None
+    try:
+        with wave.open(str(path), "rb") as w:
+            if w.getsampwidth() != 2 or w.getnchannels() != 1:
+                return None
+            rate = w.getframerate()
+            data = array.array("h", w.readframes(w.getnframes()))
+    except Exception:
+        return None
+    n = max(1, rate // 50)                        # 20 ms
+    active = 0
+    for i in range(0, len(data) - n + 1, n):
+        frame = data[i:i + n]
+        if math.sqrt(sum(x * x for x in frame) / n) >= _ACTIVE_RMS:
+            active += 1
+    return active * n / rate
+
+
+def _is_phantom(text: str) -> bool:
+    return re.sub(r"[^a-z ]", "", text.lower()).strip() in _PHANTOM
+
+
+# Voice band-pass, silence trim at both ends, loudness normalisation.
+_CLEAN_FILTER = (
+    "highpass=f=250,lowpass=f=3600,"
+    "silenceremove=start_periods=1:start_threshold=-45dB:start_silence=0.2,areverse,"
+    "silenceremove=start_periods=1:start_threshold=-45dB:start_silence=0.3,areverse,"
+    "loudnorm=I=-18:TP=-2:LRA=11"
+)
+
+
+async def _preprocess(path: Path) -> bytes | None:
+    """Cleaned 16 kHz mono WAV of `path`, or None to fall back to the raw file."""
+    try:
+        # Raw PCM out, WAV header written here: ffmpeg writing WAV to a pipe
+        # cannot seek back to fill in the sizes and leaves them 0xFFFFFFFF.
+        # The Whisper server can't decode that and answers with its previous
+        # transcript instead of an error — every call got the same text.
+        proc = await asyncio.create_subprocess_exec(
+            "ffmpeg", "-loglevel", "error", "-i", str(path), "-af", _CLEAN_FILTER,
+            "-ar", "16000", "-ac", "1", "-f", "s16le", "pipe:1",
+            stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
+        )
+        pcm, err = await asyncio.wait_for(proc.communicate(), timeout=30)
+    except Exception as exc:
+        logger.warning("[transcription] preprocess failed for %s: %s", path.name, exc)
+        return None
+    if proc.returncode != 0:
+        logger.warning("[transcription] preprocess failed for %s: %s", path.name, err.decode(errors="replace")[:200])
+        return None
+    buf = io.BytesIO()
+    with wave.open(buf, "wb") as w:
+        w.setnchannels(1)
+        w.setsampwidth(2)
+        w.setframerate(16000)
+        w.writeframes(pcm)
+    return buf.getvalue()
+
 class TranscriptionService:
     def __init__(self) -> None:
         self._model: WhisperModel | None = None
@@ -56,6 +135,8 @@ class TranscriptionService:
         self._redis: aioredis.Redis | None = None
         # Tracks files already processed (or in-progress) within this run.
         self._processed: set[str] = set()
+        # Last remote transcript, to catch the server repeating a stale result.
+        self._last_remote_text: str = ""
         # Failed-attempt bookkeeping so a permanently-failing file backs off
         # and is eventually given up on instead of retried every scan cycle.
         self._attempts: dict[str, int] = {}
@@ -103,21 +184,9 @@ class TranscriptionService:
             "[transcription] %d previously-transcribed files seeded", len(self._processed)
         )
 
-        await self._backfill()
+        # No blocking backfill: the watch loop finds untranscribed files itself,
+        # newest first, so a backlog never delays live calls.
         await self._watch_loop()
-
-    async def _backfill(self) -> None:
-        """Transcribe recordings that exist in DB but have no transcription."""
-        rows = await self._pool.fetch(
-            "SELECT file_path FROM p25_recordings WHERE transcription IS NULL"
-        )
-        if not rows:
-            return
-        logger.info("[transcription] backfilling %d unprocessed recordings", len(rows))
-        for row in rows:
-            path = Path(row["file_path"])
-            if path.is_file() and str(path) not in self._processed:
-                await self._process(path)
 
     async def _watch_loop(self) -> None:
         audio_path = Path(settings.p25_audio_dir)
@@ -138,9 +207,14 @@ class TranscriptionService:
                     and str(f) not in self._processed
                     and self._next_attempt.get(str(f), 0.0) <= now
                 ]
-                # Process oldest files first so the log stays chronological.
-                for f in sorted(candidates, key=lambda p: p.stat().st_mtime):
+                # Newest first, a few at a time, rescanning in between: a live
+                # call is transcribed within seconds even while a backlog (e.g.
+                # a re-transcription) is being worked through.
+                candidates.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+                for f in candidates[:_BATCH]:
                     await self._process(f)
+                if len(candidates) > _BATCH:
+                    continue                      # more waiting: rescan now, no sleep
             except Exception as exc:
                 logger.error("[transcription] watch error: %s", exc)
             await asyncio.sleep(settings.scan_interval)
@@ -209,16 +283,39 @@ class TranscriptionService:
     async def _transcribe(self, path: Path) -> str:
         lang = settings.whisper_language if settings.whisper_language != "auto" else None
 
+        active = await asyncio.to_thread(_active_seconds, path)
+
         if settings.whisper_remote_model:
-            audio_bytes = await asyncio.to_thread(path.read_bytes)
+            name, audio_bytes = path.name, None
+            if settings.whisper_preprocess:
+                audio_bytes = await _preprocess(path)
+                if audio_bytes is not None:
+                    # Under ~0.3 s left after trimming silence: no speech. Don't
+                    # send it — the shared Whisper server answered near-empty
+                    # audio with another client's transcript (a NOAA forecast).
+                    if len(audio_bytes) - 44 < 0.3 * 16000 * 2:
+                        return ""
+                    name = path.stem + ".wav"
+            if audio_bytes is None:
+                audio_bytes = await asyncio.to_thread(path.read_bytes)
             response = await litellm.atranscription(
                 model=settings.whisper_remote_model,
-                file=(path.name, audio_bytes),
+                file=(name, audio_bytes),
                 language=lang,
                 api_base=settings.whisper_remote_api_base or None,
                 api_key=settings.whisper_remote_api_key or None,
             )
-            return (response.text or "").strip()
+            text = (response.text or "").strip()
+            # The server answers audio it can't decode with its previous
+            # transcript. The same non-trivial text for two different calls in
+            # a row is that failure, not speech — drop it rather than store it.
+            if len(text) > 15 and text == self._last_remote_text:
+                logger.warning("[transcription] %s: repeat of the previous transcript — treating as no speech", path.name)
+                return ""
+            self._last_remote_text = text
+            if active is not None and active < _PHANTOM_MAX_ACTIVE_S and _is_phantom(text):
+                return ""
+            return text
 
         segments, _info = await asyncio.to_thread(
             self._model.transcribe,  # type: ignore[union-attr]

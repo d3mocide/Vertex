@@ -13,6 +13,7 @@ const ZONE_COLORS: Record<string, [number, number, number]> = {
   alert: [255, 184, 0],      // amber-gold: #FFB800
   exclusion: [255, 59, 48],  // red-emergency: #FF3B30
   info: [79, 195, 247],      // cyan-adsb: #4FC3F7
+  area: [140, 140, 140],     // on-surface-variant: #8C8C8C — label-only zones
 }
 
 /**

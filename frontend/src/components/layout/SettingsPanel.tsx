@@ -1,10 +1,8 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState } from 'react'
 import { useCivicPick } from '../../store'
 import { notificationPermission, requestNotificationPermission } from '../../notifications'
-import { getUserRole, clearToken, authHeaders } from '../../auth'
-import { API_BASE } from '../../config'
-import { ToggleRow, MetricCard, Sparkline, type MetricsData } from './SettingsPrimitives'
-import { AlertRulesSection } from './AlertRulesSection'
+import { getUserRole, clearToken } from '../../auth'
+import { ToggleRow } from './SettingsPrimitives'
 
 export function SettingsPanel() {
   const {
@@ -28,8 +26,6 @@ export function SettingsPanel() {
     setTrailsVisible,
     lightningVisible,
     setLightningVisible,
-    radarReflectivityVisible,
-    setRadarReflectivityVisible,
     nwsAlertsVisible,
     setNwsAlertsVisible,
     lightningDensityVisible,
@@ -46,24 +42,10 @@ export function SettingsPanel() {
     setEntityFilter,
     debugInsets,
     setDebugInsets,
-  } = useCivicPick('settingsOpen', 'setSettingsOpen', 'radarVisible', 'setRadarVisible', 'radarOpacity', 'setRadarOpacity', 'smokeVisible', 'setSmokeVisible', 'goesVisible', 'setGoesVisible', 'firePerimetersVisible', 'setFirePerimetersVisible', 'camerasVisible', 'setCamerasVisible', 'geofencesVisible', 'setGeofencesVisible', 'trailsVisible', 'setTrailsVisible', 'lightningVisible', 'setLightningVisible', 'radarReflectivityVisible', 'setRadarReflectivityVisible', 'nwsAlertsVisible', 'setNwsAlertsVisible', 'lightningDensityVisible', 'setLightningDensityVisible', 'railTracksVisible', 'setRailTracksVisible', 'gaugesVisible', 'setGaugesVisible', 'terrainEnabled', 'setTerrainEnabled', 'terrainExaggeration', 'setTerrainExaggeration', 'entityFilter', 'setEntityFilter', 'debugInsets', 'setDebugInsets')
+  } = useCivicPick('settingsOpen', 'setSettingsOpen', 'radarVisible', 'setRadarVisible', 'radarOpacity', 'setRadarOpacity', 'smokeVisible', 'setSmokeVisible', 'goesVisible', 'setGoesVisible', 'firePerimetersVisible', 'setFirePerimetersVisible', 'camerasVisible', 'setCamerasVisible', 'geofencesVisible', 'setGeofencesVisible', 'trailsVisible', 'setTrailsVisible', 'lightningVisible', 'setLightningVisible', 'nwsAlertsVisible', 'setNwsAlertsVisible', 'lightningDensityVisible', 'setLightningDensityVisible', 'railTracksVisible', 'setRailTracksVisible', 'gaugesVisible', 'setGaugesVisible', 'terrainEnabled', 'setTerrainEnabled', 'terrainExaggeration', 'setTerrainExaggeration', 'entityFilter', 'setEntityFilter', 'debugInsets', 'setDebugInsets')
 
   const [notifPermission, setNotifPermission] = useState(() => notificationPermission())
   const userRole = getUserRole()
-
-  const [metricsData, setMetricsData] = useState<MetricsData | null>(null)
-
-  const loadMetrics = useCallback(async () => {
-    if (userRole !== 'admin') return
-    try {
-      const res = await fetch(`${API_BASE}/admin/metrics`, { headers: authHeaders() })
-      if (res.ok) setMetricsData(await res.json())
-    } catch { /* non-fatal */ }
-  }, [userRole])
-
-  useEffect(() => {
-    if (settingsOpen) loadMetrics()
-  }, [settingsOpen, loadMetrics])
 
   useEffect(() => {
     if (!settingsOpen) return
@@ -90,7 +72,7 @@ export function SettingsPanel() {
       />
 
       {/* Drawer */}
-      <div className="absolute right-0 top-0 bottom-0 w-72 bg-onyx-deep border-l border-white/10 flex flex-col shadow-[−8px_0_32px_rgba(0,0,0,0.6)]">
+      <div className="absolute right-0 top-0 bottom-0 w-72 pt-safe-chrome pb-safe bg-onyx-deep border-l border-white/10 flex flex-col shadow-[−8px_0_32px_rgba(0,0,0,0.6)]">
         {/* Header */}
         <div className="flex items-center justify-between px-5 h-14 border-b border-white/10 shrink-0">
           <div className="flex items-center gap-2">
@@ -126,15 +108,20 @@ export function SettingsPanel() {
             </div>
           </section>
 
-          {/* Admin Dashboard link — admin only */}
+          {/* Admin console link — admin only. Health, users, feeds and alert
+              rules all live there; this panel is for personal preferences. */}
           {userRole === 'admin' && (
             <section>
               <a
                 href="/admin"
-                className="flex items-center justify-between w-full py-2 px-3 border border-amber-gold/30 text-amber-gold/80 hover:bg-amber-gold/10 transition-colors text-[11px] uppercase tracking-widest"
+                className="flex items-center gap-3 w-full py-2.5 px-3 border border-amber-gold/30 text-amber-gold hover:bg-amber-gold/10 transition-colors"
               >
-                <span>Admin Dashboard</span>
-                <span className="ms text-[14px]">open_in_new</span>
+                <span className="ms text-[20px]" aria-hidden="true">admin_panel_settings</span>
+                <span className="flex-1 min-w-0">
+                  <span className="block text-[11px] font-bold uppercase tracking-widest">Admin console</span>
+                  <span className="block text-[11px] text-on-surface-variant normal-case tracking-normal">Health, users, feeds, alert rules</span>
+                </span>
+                <span className="ms text-[16px]" aria-hidden="true">chevron_right</span>
               </a>
             </section>
           )}
@@ -147,13 +134,12 @@ export function SettingsPanel() {
             <h2 className="label-caps mb-3">Map Layers</h2>
             <div className="space-y-3">
               {/* Weather & Atmospheric */}
-              <ToggleRow label="IEM Radar" icon="radar" checked={radarVisible} onChange={setRadarVisible} />
-              <ToggleRow label="NOAA Radar" icon="radar" checked={radarReflectivityVisible} onChange={setRadarReflectivityVisible} />
-              <ToggleRow label="GOES Satellite" icon="satellite_alt" checked={goesVisible} onChange={setGoesVisible} />
+              <ToggleRow label="Radar" icon="radar" checked={radarVisible} onChange={setRadarVisible} />
+              <ToggleRow label="Infrared Satellite" icon="satellite_alt" checked={goesVisible} onChange={setGoesVisible} />
               <ToggleRow label="NWS Alerts" icon="notification_important" checked={nwsAlertsVisible} onChange={setNwsAlertsVisible} />
               <ToggleRow label="Lightning" icon="bolt" checked={lightningVisible} onChange={setLightningVisible} />
               <ToggleRow label="Lightning Density" icon="electric_bolt" checked={lightningDensityVisible} onChange={setLightningDensityVisible} />
-              <ToggleRow label="Smoke Overlay" icon="air" checked={smokeVisible} onChange={setSmokeVisible} />
+              <ToggleRow label="Visible Satellite" icon="satellite_alt" checked={smokeVisible} onChange={setSmokeVisible} />
 
               {/* Hazards & Environmental */}
               <ToggleRow label="Fire Perimeters" icon="local_fire_department" checked={firePerimetersVisible} onChange={setFirePerimetersVisible} />
@@ -288,46 +274,6 @@ export function SettingsPanel() {
             </section>
           )}
 
-          {/* Alert Rules — admin only */}
-          {userRole === 'admin' && <AlertRulesSection open={settingsOpen} />}
-
-          {/* System Metrics — admin only, bottom */}
-          {userRole === 'admin' && (
-            <section className="border-t border-white/10 pt-4">
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="label-caps">System Metrics</h2>
-                <button
-                  onClick={loadMetrics}
-                  className="ms text-[14px] text-on-surface-variant hover:text-on-surface transition-colors leading-none focus:outline-none"
-                  title="Refresh"
-                >
-                  sync
-                </button>
-              </div>
-              {!metricsData ? (
-                <p className="text-[11px] text-on-surface-variant">Loading…</p>
-              ) : !metricsData.available ? (
-                <p className="text-[11px] text-on-surface-variant">
-                  No data yet — metrics collect every 10s after startup.
-                </p>
-              ) : (
-                <div className="space-y-3">
-                  <div className="grid grid-cols-2 gap-2">
-                    <MetricCard label="Req / s" value={metricsData.req_rate.toFixed(1)} unit="" icon="arrow_forward" />
-                    <MetricCard label="Error %" value={metricsData.error_pct.toFixed(1)} unit="%" icon="warning" warn={metricsData.error_pct > 2} />
-                    <MetricCard label="P95 Latency" value={metricsData.p95_ms.toFixed(0)} unit="ms" icon="timer" warn={metricsData.p95_ms > 500} />
-                    <MetricCard label="Memory" value={metricsData.memory_mb.toFixed(0)} unit="MB" icon="memory" warn={metricsData.memory_mb > 400} />
-                  </div>
-                  {metricsData.history.length >= 2 && (
-                    <div>
-                      <div className="text-[11px] text-on-surface-variant uppercase tracking-widest mb-1">Req/s — last 6 min</div>
-                      <Sparkline values={metricsData.history.map((h) => h.req_rate)} />
-                    </div>
-                  )}
-                </div>
-              )}
-            </section>
-          )}
         </div>
       </div>
     </div>

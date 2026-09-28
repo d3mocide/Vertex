@@ -40,6 +40,8 @@ def _hash_api_key(key: str) -> str:
 
 
 class AuthMiddleware(BaseHTTPMiddleware):
+    # BaseHTTPMiddleware only runs for HTTP requests: websocket routes do their
+    # own check (routers/ws.py _ws_authorized).
     async def dispatch(self, request: Request, call_next):
         if not settings.auth_enabled:
             return await call_next(request)

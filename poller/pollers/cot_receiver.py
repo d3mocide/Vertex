@@ -27,6 +27,9 @@ from .base import BasePoller
 
 logger = logging.getLogger(__name__)
 
+# Longest wait between reconnect attempts to an unreachable TAK server.
+_MAX_BACKOFF_S = 900.0
+
 # Delimiter — CoT over TCP streams raw XML; split on </event> boundaries.
 _EVENT_END = b"</event>"
 
@@ -242,25 +245,20 @@ class CotReceiver(BasePoller):
 
             except (ConnectionRefusedError, OSError) as exc:
                 _consecutive_failures += 1
-                if _consecutive_failures >= 5:
-                    logger.error(
-                        "[cot_rx] Connection failed (%d consecutive): %s — retry in %.0fs",
+                # Log the first failure and then every 10th: an unreachable TAK
+                # server used to log an ERROR every minute indefinitely.
+                if _consecutive_failures == 1 or _consecutive_failures % 10 == 0:
+                    logger.warning(
+                        "[cot_rx] Connection failed (%d consecutive): %s — retrying with backoff (now %.0fs)",
                         _consecutive_failures, exc, delay,
                     )
-                else:
-                    logger.warning("[cot_rx] Connection failed: %s — retry in %.0fs", exc, delay)
             except Exception as exc:
                 _consecutive_failures += 1
-                if _consecutive_failures >= 5:
-                    logger.error(
-                        "[cot_rx] Unexpected error (%d consecutive): %s — retry in %.0fs",
-                        _consecutive_failures, exc, delay,
-                    )
-                else:
-                    logger.exception("[cot_rx] Unexpected error: %s", exc)
+                if _consecutive_failures == 1 or _consecutive_failures % 10 == 0:
+                    logger.exception("[cot_rx] Unexpected error (%d consecutive): %s", _consecutive_failures, exc)
 
             await asyncio.sleep(delay)
-            delay = min(delay * 2, 60.0)
+            delay = min(delay * 2, _MAX_BACKOFF_S)
 
     async def poll(self) -> None:
         pass

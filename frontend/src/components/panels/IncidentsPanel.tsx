@@ -1,9 +1,11 @@
-import { useEffect } from 'react'
-import { WeatherAlert, SystemEvent, useCivicPick } from '../../store'
+import { useEffect, useState } from 'react'
+import { WeatherAlert, SystemEvent, SummaryPosture, useCivicPick } from '../../store'
 import { isMajorTrafficIncident, isIncidentInRadius } from '../../incidentUtils'
-import ReactMarkdown from 'react-markdown'
+import ReactMarkdown, { type Components } from 'react-markdown'
 import { API_BASE } from '../../config'
 import { authHeaders } from '../../auth'
+import { RadioIncidents, isActive } from './RadioIncidents'
+import { PageHeader, StatTiles, type Stat } from '../common/Page'
 
 function formatIncidentLocation(incident: { location?: string; lat?: number; lon?: number }): string | undefined {
   const location = incident.location?.trim()
@@ -36,52 +38,101 @@ function deriveIncidentTitle(incident: {
   return 'Traffic incident'
 }
 
-function AiTrafficSummary() {
+function postureClass(posture: SummaryPosture): string {
+  if (posture === 'HIGH') return 'border-red-emergency bg-red-emergency/10 text-red-emergency'
+  if (posture === 'ELEVATED') return 'border-amber-gold bg-amber-gold/10 text-amber-gold'
+  return 'border-green-ais bg-green-ais/10 text-green-ais'
+}
+
+/** Split the briefing markdown into its intro (bottom line) and `##` sections. */
+function splitBriefing(md: string): { intro: string; sections: { title: string; body: string }[] } {
+  const parts = md.split(/^#{2,3}\s+/m)
+  const intro = parts[0].trim()
+  const sections = parts.slice(1).map((chunk) => {
+    const nl = chunk.indexOf('\n')
+    return nl < 0
+      ? { title: chunk.trim(), body: '' }
+      : { title: chunk.slice(0, nl).trim(), body: chunk.slice(nl + 1).trim() }
+  })
+  return { intro, sections }
+}
+
+const BRIEFING_MD = {
+  strong: ({ ...props }) => <strong className="text-amber-gold font-bold" {...props} />,
+  ul: ({ ...props }) => <ul className="list-disc list-outside ml-4 my-1.5 space-y-1.5" {...props} />,
+  li: ({ ...props }) => <li className="pl-1" {...props} />,
+  p: ({ ...props }) => <p className="mb-2 last:mb-0" {...props} />,
+} satisfies Components
+
+/**
+ * AI briefing, compact by default: posture, the bottom line and what changed
+ * since the last briefing. The remaining sections open on demand, so the
+ * incident list isn't pushed several screens down.
+ */
+function BriefingCard() {
   const { summary } = useCivicPick('summary')
+  const [expanded, setExpanded] = useState(false)
   if (!summary.summary) return null
 
+  const { intro, sections } = splitBriefing(summary.summary)
+  const changesIdx = sections.findIndex((sec) => /change/i.test(sec.title))
+  const lead = changesIdx >= 0 ? [sections[changesIdx]] : []
+  const rest = sections.filter((_, i) => i !== changesIdx)
+
+  const renderSection = (sec: { title: string; body: string }) => (
+    <div key={sec.title} className="mt-4">
+      <h4 className="section-heading mb-1.5">{sec.title}</h4>
+      <ReactMarkdown components={BRIEFING_MD}>{sec.body}</ReactMarkdown>
+    </div>
+  )
+
   return (
-    <div className="border border-amber-gold/40 bg-amber-gold/10 p-4 mb-8 relative overflow-hidden group">
-      {/* Decorative scanner line */}
-      <div className="absolute top-0 left-0 w-full h-[1px] bg-amber-gold/30 animate-scan z-0" />
-      
-      <div className="flex items-center justify-between mb-3 relative z-10">
-        <div className="flex items-center gap-2">
-          <span className="ms text-[18px] text-amber-gold animate-pulse" aria-hidden="true">
-            psychology
+    <section className="border border-amber-gold/40 bg-amber-gold/[0.06] p-4" aria-labelledby="briefing-heading">
+      <div className="flex items-center gap-2 flex-wrap">
+        <span className="ms text-[18px] text-amber-gold" aria-hidden="true">psychology</span>
+        <h3 id="briefing-heading" className="section-heading !mb-0">AI Briefing</h3>
+        {summary.posture && (
+          <span className={`border px-2 py-0.5 text-[11px] font-bold uppercase tracking-widest ${postureClass(summary.posture)}`}>
+            {summary.posture}
           </span>
-          <h3 className="text-[11px] font-bold uppercase tracking-[0.2em] text-amber-gold">
-            AI Situational Briefing
-          </h3>
-        </div>
-        <span className="text-[11px] font-mono text-on-surface-variant uppercase tracking-widest">
-          {summary.ts
-            ? new Date(summary.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-            : 'No timestamp'}
+        )}
+        <span className="ml-auto font-mono text-[11px] text-on-surface-variant">
+          {summary.windowHours ? `last ${summary.windowHours}h · ` : ''}
+          {summary.ts ? new Date(summary.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}
         </span>
       </div>
 
-      <div className="text-[12px] text-on-surface leading-relaxed relative z-10 font-sans">
-        <ReactMarkdown
-          components={{
-            strong: ({ ...props }) => <strong className="text-amber-gold font-bold" {...props} />,
-            ul: ({ ...props }) => <ul className="list-disc list-outside ml-4 my-2 space-y-1" {...props} />,
-            li: ({ ...props }) => <li className="pl-1" {...props} />,
-            p: ({ ...props }) => <p className="mb-3 last:mb-0" {...props} />,
-          }}
-        >
-          {summary.summary}
-        </ReactMarkdown>
+      <div className="text-[14px] lg:text-[13px] text-on-surface leading-relaxed mt-3">
+        {intro && <ReactMarkdown components={BRIEFING_MD}>{intro}</ReactMarkdown>}
+        {lead.map(renderSection)}
+        {expanded && rest.map(renderSection)}
+        {expanded && summary.dataGaps.length > 0 && (
+          <div className="mt-4">
+            <h4 className="section-heading mb-1.5">Data gaps</h4>
+            <ul className="list-disc list-outside ml-4 space-y-1 text-on-surface-variant">
+              {summary.dataGaps.map((gap) => <li key={gap} className="pl-1">{gap}</li>)}
+            </ul>
+          </div>
+        )}
       </div>
 
-      {summary.model && (
-        <div className="mt-3 pt-2 border-t border-amber-gold/10 flex justify-end relative z-10">
-          <span className="text-[11px] font-mono text-amber-gold/40 uppercase">
-            Analytic Engine: {summary.model}
-          </span>
+      {(rest.length > 0 || summary.dataGaps.length > 0) && (
+        <div className="mt-3 pt-3 border-t border-amber-gold/15 flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => setExpanded((v) => !v)}
+            aria-expanded={expanded}
+            className="flex items-center gap-1 h-8 whitespace-nowrap font-bold text-[11px] uppercase tracking-widest text-amber-gold hover:text-white focus:outline-none focus-visible:ring-1 focus-visible:ring-amber-gold"
+          >
+            <span className="ms text-[18px] leading-none" aria-hidden="true">{expanded ? 'expand_less' : 'expand_more'}</span>
+            {expanded ? 'Show less' : `Full briefing · ${rest.length + (summary.dataGaps.length ? 1 : 0)} more sections`}
+          </button>
+          {expanded && summary.model && (
+            <span className="hidden lg:inline ml-auto font-mono text-[11px] text-amber-gold/40 truncate">{summary.model}</span>
+          )}
         </div>
       )}
-    </div>
+    </section>
   )
 }
 
@@ -100,7 +151,8 @@ function sysSeverityColorClass(severity: string) {
 }
 
 export function IncidentsPanel() {
-  const { weather, trafficIncidents, systemEvents } = useCivicPick('weather', 'trafficIncidents', 'systemEvents')
+  const { weather, trafficIncidents, systemEvents, radioIncidents } = useCivicPick('weather', 'trafficIncidents', 'systemEvents', 'radioIncidents')
+  const [showMinor, setShowMinor] = useState(false)
 
   // Request an on-demand AI summary refresh whenever this panel is opened.
   // The updated result arrives via the existing WebSocket → store flow.
@@ -123,28 +175,37 @@ export function IncidentsPanel() {
     ev.severity?.toLowerCase() === 'high' || ev.severity?.toLowerCase() === 'critical'
   )
 
-  const totalAlerts = weatherAlerts.length + significantTraffic.length + prioritySystemEvents.length
+  const now = Date.now()
+  const dispatch = (radioIncidents?.incidents ?? []).filter((i) => i.severity >= 3)
+  const dispatchActive = dispatch.filter((i) => isActive(i, now)).length
+  const jump = (id: string) => () => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  const tiles: Stat[] = [
+    { label: 'Dispatch active', value: dispatchActive, tone: dispatchActive ? 'warn' : 'muted',
+      hint: `${dispatch.length} significant · 24h`, onClick: jump('sec-dispatch') },
+    { label: 'NWS alerts', value: weatherAlerts.length, tone: weatherAlerts.length ? 'alert' : 'muted',
+      hint: weatherAlerts[0]?.event ?? 'None active', onClick: weatherAlerts.length ? jump('sec-weather') : undefined },
+    { label: 'Major traffic', value: significantTraffic.length, tone: significantTraffic.length ? 'warn' : 'muted',
+      hint: `${lowImpactTraffic.length} minor nearby`, onClick: significantTraffic.length ? jump('sec-traffic') : undefined },
+    { label: 'Priority events', value: prioritySystemEvents.length, tone: prioritySystemEvents.length ? 'alert' : 'muted',
+      hint: 'High / critical system', onClick: prioritySystemEvents.length ? jump('sec-events') : undefined },
+  ]
 
   return (
-    <div className="p-4 md:p-6 pb-24 md:pb-24 space-y-8">
-      
-      {/* AI SUMMARY AT TOP */}
-      <AiTrafficSummary />
+    <div>
+      <PageHeader
+        icon="report"
+        title="Incidents"
+        subtitle="Dispatch, weather, traffic and system alerts"
+      />
+      <div className="p-4 lg:p-6 space-y-6">
 
-      <header className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-white/10 pb-6">
-        <div>
-          <h2 className="text-2xl font-black uppercase tracking-tighter text-on-surface">
-            Operational Threats
-          </h2>
-          <p className="text-xs text-on-surface-variant font-mono uppercase tracking-widest mt-1">
-            {totalAlerts} critical / high-value alert{totalAlerts !== 1 ? 's' : ''} active across all domains
-          </p>
-        </div>
-      </header>
+      <StatTiles items={tiles} />
+
+      <BriefingCard />
 
       {/* 1. WEATHER ADVISORIES */}
       {weatherAlerts.length > 0 && (
-        <div className="space-y-4">
+        <div id="sec-weather" className="space-y-4 scroll-mt-4">
           <div className="flex items-center gap-2 mb-2">
             <span className="ms text-[18px] text-amber-gold" aria-hidden="true">cloud_alert</span>
             <h3 className="section-heading !mb-0">Weather Advisories</h3>
@@ -170,9 +231,12 @@ export function IncidentsPanel() {
         </div>
       )}
 
-      {/* 2. PRIORITY SYSTEM EVENTS */}
+      {/* 2. DISPATCH INCIDENTS — clustered from P25 radio (list + map) */}
+      <div id="sec-dispatch" className="scroll-mt-4"><RadioIncidents /></div>
+
+      {/* 3. PRIORITY SYSTEM EVENTS */}
       {prioritySystemEvents.length > 0 && (
-        <div className="space-y-4">
+        <div id="sec-events" className="space-y-4 scroll-mt-4">
           <div className="flex items-center gap-2 mb-2">
             <span className="ms text-[18px] text-red-emergency" aria-hidden="true">emergency_home</span>
             <h3 className="section-heading !mb-0">Priority System Events</h3>
@@ -198,9 +262,9 @@ export function IncidentsPanel() {
         </div>
       )}
 
-      {/* 3. SIGNIFICANT TRAFFIC INCIDENTS */}
+      {/* 4. SIGNIFICANT TRAFFIC INCIDENTS */}
       {significantTraffic.length > 0 && (
-        <div className="space-y-4">
+        <div id="sec-traffic" className="space-y-4 scroll-mt-4">
           <div className="flex items-center gap-2 mb-2">
             <span className="ms text-[18px] text-amber-gold" aria-hidden="true">traffic</span>
             <h3 className="section-heading !mb-0">Significant Traffic Incidents</h3>
@@ -253,14 +317,19 @@ export function IncidentsPanel() {
         </div>
       )}
 
-      {/* 4. MUTED / LOW IMPACT INCIDENTS */}
+      {/* 5. MINOR NEARBY TRAFFIC — collapsed by default */}
       {lowImpactTraffic.length > 0 && (
-        <div className="pt-8 border-t border-white/5">
-          <div className="flex items-center gap-2 mb-4 opacity-40">
-            <span className="ms text-[16px] text-on-surface-variant" aria-hidden="true">minor_crash</span>
-            <h3 className="text-xs font-bold uppercase tracking-[0.2em] text-on-surface-variant">Filtered Minor Incidents</h3>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
+        <div className="pt-4 border-t border-white/5">
+          <button
+            type="button"
+            onClick={() => setShowMinor((v) => !v)}
+            aria-expanded={showMinor}
+            className="flex items-center gap-2 h-9 text-on-surface-variant hover:text-on-surface focus:outline-none focus-visible:ring-1 focus-visible:ring-amber-gold"
+          >
+            <span className="ms text-[18px]" aria-hidden="true">{showMinor ? 'expand_less' : 'expand_more'}</span>
+            <span className="label-caps !text-current">Minor traffic within 8 km · {lowImpactTraffic.length}</span>
+          </button>
+          {showMinor && <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 mt-3">
             {lowImpactTraffic.map((incident, idx) => (
               <article key={`low-${idx}`} className="border border-white/5 bg-onyx-deep/50 p-3 flex flex-col gap-1.5 opacity-60 hover:opacity-100 transition-opacity">
                 <div className="flex justify-between items-start gap-2">
@@ -279,10 +348,11 @@ export function IncidentsPanel() {
                 )}
               </article>
             ))}
-          </div>
+          </div>}
         </div>
       )}
 
+      </div>
     </div>
   )
 }

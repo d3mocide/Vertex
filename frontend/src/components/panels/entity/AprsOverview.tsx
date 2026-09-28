@@ -62,7 +62,7 @@ export function AprsOverview({ entity, getIdentity }: OverviewProps) {
               <div>
                 <div className="flex items-center gap-1 text-on-surface-variant mb-0.5">
                   <span className="ms text-[12px]">thermometer</span>
-                  <span className="label-caps text-[10px]">Temp</span>
+                  <span className="label-caps text-[11px]">Temp</span>
                 </div>
                 <span className="font-mono text-[14px] text-sky-300">
                   {wx.temp_f}°F
@@ -73,7 +73,7 @@ export function AprsOverview({ entity, getIdentity }: OverviewProps) {
               <div>
                 <div className="flex items-center gap-1 text-on-surface-variant mb-0.5">
                   <span className="ms text-[12px]">water_drop</span>
-                  <span className="label-caps text-[10px]">Humidity</span>
+                  <span className="label-caps text-[11px]">Humidity</span>
                 </div>
                 <span className="font-mono text-[14px] text-sky-300">
                   {wx.humidity}%
@@ -84,7 +84,7 @@ export function AprsOverview({ entity, getIdentity }: OverviewProps) {
               <div>
                 <div className="flex items-center gap-1 text-on-surface-variant mb-0.5">
                   <span className="ms text-[12px]">air</span>
-                  <span className="label-caps text-[10px]">Wind</span>
+                  <span className="label-caps text-[11px]">Wind</span>
                 </div>
                 <span className="font-mono text-[14px] text-sky-300 flex items-center gap-1">
                   {typeof wx.wind_dir_deg === 'number' && <WindArrow deg={wx.wind_dir_deg as number} />}
@@ -99,7 +99,7 @@ export function AprsOverview({ entity, getIdentity }: OverviewProps) {
               <div>
                 <div className="flex items-center gap-1 text-on-surface-variant mb-0.5">
                   <span className="ms text-[12px]">compress</span>
-                  <span className="label-caps text-[10px]">Pressure</span>
+                  <span className="label-caps text-[11px]">Pressure</span>
                 </div>
                 <span className="font-mono text-[14px] text-sky-300">
                   {(wx.pressure_mb as number).toFixed(1)} mb
@@ -111,7 +111,7 @@ export function AprsOverview({ entity, getIdentity }: OverviewProps) {
             <div className="flex items-center justify-between pt-1 border-t border-white/10">
               <div className="flex items-center gap-1 text-on-surface-variant">
                 <span className="ms text-[12px]">rainy</span>
-                <span className="label-caps text-[10px]">Rain (1h)</span>
+                <span className="label-caps text-[11px]">Rain (1h)</span>
               </div>
               <span className="font-mono text-[11px] text-sky-300">{(wx.rain_in as number).toFixed(2)}"</span>
             </div>

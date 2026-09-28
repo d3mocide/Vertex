@@ -1,6 +1,6 @@
 import json
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import httpx
 
@@ -19,6 +19,10 @@ _HEADERS = {"User-Agent": "Vertex/1.0 (Situational Awareness Dashboard)"}
 
 # Fields to request from ArcGIS REST API
 _FIELDS = "poly_IncidentName,poly_GISAcres,poly_DateCurrent,attr_PercentContained,attr_POOState,attr_POOProtectingAgency"
+
+# Server-side geometry reduction: ~1 m coordinate precision and ~50 m
+# vertex simplification — invisible at regional zoom, ~10x smaller payload.
+_SIMPLIFY = {"geometryPrecision": 5, "maxAllowableOffset": 0.0005}
 
 # Expand search area significantly for perimeters
 _BBOX_EXPAND_DEG = 10.0
@@ -68,15 +72,18 @@ class NifcPoller(BasePoller):
     async def poll(self):
         # 1. Fetch perimeters within the expanded bbox (primary spatial sync)
         bbox = _build_bbox()
+        since = datetime.now(timezone.utc) - timedelta(days=settings.nifc_perimeter_max_age_days)
         spatial_params = {
-            "where": "1=1",
+            # Year-to-date holds thousands of long-out perimeters; keep recent ones.
+            "where": f"poly_DateCurrent >= TIMESTAMP '{since:%Y-%m-%d %H:%M:%S}'",
             "geometry": bbox,
             "geometryType": "esriGeometryEnvelope",
             "spatialRel": "esriSpatialRelIntersects",
             "outFields": _FIELDS,
             "f": "geojson",
             "outSR": "4326",
-            "resultRecordCount": 500,
+            "resultRecordCount": 2000,
+            **_SIMPLIFY,
         }
 
         # 2. Determine which specific distant fires to fetch (targeted sync)
@@ -121,6 +128,7 @@ class NifcPoller(BasePoller):
                         "outFields": _FIELDS,
                         "f": "geojson",
                         "outSR": "4326",
+                        **_SIMPLIFY,
                     }
                     r2 = await client.get(_NIFC_BASE, params=name_params)
                     if r2.status_code == 200:
@@ -137,7 +145,7 @@ class NifcPoller(BasePoller):
             # empty collection so consumers (AI summary) can distinguish "no
             # perimeters" from "feed never synced".
             logger.info("[nifc] zero perimeters returned from ArcGIS (spatial bbox: %s)", bbox)
-            await set_feed("fire:perimeters", {"type": "FeatureCollection", "features": []})
+            await set_feed("fire:perimeters", {"type": "FeatureCollection", "features": []}, broadcast=False)
             return
 
         # De-duplicate by a hash of geometry or incident ID if possible, 
@@ -182,5 +190,6 @@ class NifcPoller(BasePoller):
             })
 
         payload = {"type": "FeatureCollection", "features": enriched}
-        await set_feed("fire:perimeters", payload)
+        # Not broadcast: the map fetches perimeters over REST when the layer is on.
+        await set_feed("fire:perimeters", payload, broadcast=False)
         logger.info("[nifc] synced %d perimeter(s) (spatial + %d named fires)", len(enriched), len(fire_names))

@@ -74,10 +74,9 @@ class LightningPoller(BasePoller):
         logger.info("[lightning] connecting to %s", server)
         async with websockets.connect(
             server, ping_interval=30, ping_timeout=15, open_timeout=15
-        ) as ws:
+        ) as ws, self.streaming():
             await ws.send(sub)
             logger.info("[lightning] subscribed to Blitzortung feed")
-            await self._heartbeat("ok")
 
             buffer: list[dict] = []
             last_flush = time.monotonic()
@@ -99,7 +98,6 @@ class LightningPoller(BasePoller):
                     await set_feed("lightning:strikes", buffer[-_MAX_BUFFER:])
                     buffer = []
                     last_flush = now
-                    await self._heartbeat("ok")
 
     def _parse_message(self, data: dict) -> list[dict]:
         # API returns either a single strike dict or {"strikes": [...]}

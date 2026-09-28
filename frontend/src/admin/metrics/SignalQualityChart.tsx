@@ -17,13 +17,13 @@ export function SignalQualityChart({ data }: { data: SignalQualityData | null })
   if (!data || data.types.length === 0) {
     return (
       <section>
-        <h2 className="text-[11px] uppercase tracking-widest text-gray-500 mb-3">Signal Quality</h2>
+        <h2 className="text-[11px] uppercase tracking-widest text-on-surface-variant mb-3">Signal Quality</h2>
         <div className="border border-white/10 bg-black/30 p-4">
           <div className="text-center space-y-2">
             <div className="text-[11px] text-on-surface-variant">
               No signal quality data in the last {data?.window_minutes ?? 60} min
             </div>
-            <div className="text-[11px] text-gray-600">
+            <div className="text-[11px] text-on-surface-variant/60">
               Not all sources report signal quality (RSSI, SNR, heading accuracy). 
               <br />Currently available for: ADS-B, AIS, P25.
             </div>
@@ -37,7 +37,7 @@ export function SignalQualityChart({ data }: { data: SignalQualityData | null })
 
   return (
     <section>
-      <h2 className="text-[11px] uppercase tracking-widest text-gray-500 mb-3">
+      <h2 className="text-[11px] uppercase tracking-widest text-on-surface-variant mb-3">
         Signal Quality
         <span className="ml-2 text-on-surface-variant normal-case tracking-normal font-normal">
           (last {data.window_minutes} min · avg / range per type)
@@ -66,7 +66,7 @@ export function SignalQualityChart({ data }: { data: SignalQualityData | null })
                   </span>
                 </div>
               </div>
-              <div className="h-1.5 bg-gray-800 overflow-hidden">
+              <div className="h-1.5 bg-surface-container-highest overflow-hidden">
                 <div
                   className="h-full transition-all duration-500"
                   style={{ width: `${barPct}%`, backgroundColor: color, opacity: 0.8 }}

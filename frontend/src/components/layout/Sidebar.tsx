@@ -366,15 +366,20 @@ export function Sidebar() {
               <span>{meshNodes}</span>
             </button>
 
-            <button
-              type="button"
-              onClick={() => toggleEntityType('rf_sensor')}
-              className={`text-lime-rf hover:text-white transition-all flex items-center gap-1 focus:outline-none ${entityFilter.rf_sensor ? 'opacity-100' : 'opacity-40'}`}
-              title="Toggle RF sensors layer"
-            >
-              <span className="ms text-[12px]" aria-hidden="true">sensors</span>
-              <span>{rfSensors}</span>
-            </button>
+            {/* Only shown when a source produces this entity type. */}
+
+            {rfSensors > 0 && (
+              <button
+                type="button"
+                onClick={() => toggleEntityType('rf_sensor')}
+                className={`text-lime-rf hover:text-white transition-all flex items-center gap-1 focus:outline-none ${entityFilter.rf_sensor ? 'opacity-100' : 'opacity-40'}`}
+                title="Toggle RF sensors layer"
+              >
+                <span className="ms text-[12px]" aria-hidden="true">sensors</span>
+                <span>{rfSensors}</span>
+              </button>
+
+            )}
 
             <button
               type="button"
@@ -396,15 +401,20 @@ export function Sidebar() {
               <span>{lightningCount}</span>
             </button>
 
-            <button
-              type="button"
-              onClick={() => toggleEntityType('satellite')}
-              className={`text-violet-space hover:text-white transition-all flex items-center gap-1 focus:outline-none ${entityFilter.satellite ? 'opacity-100' : 'opacity-40'}`}
-              title="Toggle satellites layer"
-            >
-              <span className="ms text-[12px]" aria-hidden="true">satellite_alt</span>
-              <span>{satellites}</span>
-            </button>
+            {/* Only shown when a source produces this entity type. */}
+
+            {satellites > 0 && (
+              <button
+                type="button"
+                onClick={() => toggleEntityType('satellite')}
+                className={`text-violet-space hover:text-white transition-all flex items-center gap-1 focus:outline-none ${entityFilter.satellite ? 'opacity-100' : 'opacity-40'}`}
+                title="Toggle satellites layer"
+              >
+                <span className="ms text-[12px]" aria-hidden="true">satellite_alt</span>
+                <span>{satellites}</span>
+              </button>
+
+            )}
 
             <button
               type="button"
@@ -528,15 +538,18 @@ export function Sidebar() {
             <span className="ms text-[14px] mr-1.5 shrink-0" aria-hidden="true">hub</span>
             Mesh Nodes: {meshNodes}
           </button>
-          <button
-            type="button"
-            onClick={() => toggleEntityType('rf_sensor')}
-            className={`text-lime-rf hover:text-white transition-all flex items-center text-left focus:outline-none ${entityFilter.rf_sensor ? 'opacity-100' : 'opacity-40'}`}
-            title="Toggle RF sensors layer"
-          >
-            <span className="ms text-[14px] mr-1.5 shrink-0" aria-hidden="true">sensors</span>
-            RF Sensors: {rfSensors}
-          </button>
+          {/* Only shown when a source produces this entity type. */}
+          {rfSensors > 0 && (
+            <button
+              type="button"
+              onClick={() => toggleEntityType('rf_sensor')}
+              className={`text-lime-rf hover:text-white transition-all flex items-center text-left focus:outline-none ${entityFilter.rf_sensor ? 'opacity-100' : 'opacity-40'}`}
+              title="Toggle RF sensors layer"
+            >
+              <span className="ms text-[14px] mr-1.5 shrink-0" aria-hidden="true">sensors</span>
+              RF Sensors: {rfSensors}
+            </button>
+          )}
           <button
             type="button"
             onClick={() => { focusSafetyMap(); setGaugesVisible(!gaugesVisible) }}
@@ -555,15 +568,18 @@ export function Sidebar() {
             <span className="ms text-[14px] mr-1.5 shrink-0" aria-hidden="true">electric_bolt</span>
             Lightning: {lightningCount}
           </button>
-          <button
-            type="button"
-            onClick={() => toggleEntityType('satellite')}
-            className={`text-violet-space hover:text-white transition-all flex items-center text-left focus:outline-none ${entityFilter.satellite ? 'opacity-100' : 'opacity-40'}`}
-            title="Toggle satellites layer"
-          >
-            <span className="ms text-[14px] mr-1.5 shrink-0" aria-hidden="true">satellite_alt</span>
-            Satellites: {satellites}
-          </button>
+          {/* Only shown when a source produces this entity type. */}
+          {satellites > 0 && (
+            <button
+              type="button"
+              onClick={() => toggleEntityType('satellite')}
+              className={`text-violet-space hover:text-white transition-all flex items-center text-left focus:outline-none ${entityFilter.satellite ? 'opacity-100' : 'opacity-40'}`}
+              title="Toggle satellites layer"
+            >
+              <span className="ms text-[14px] mr-1.5 shrink-0" aria-hidden="true">satellite_alt</span>
+              Satellites: {satellites}
+            </button>
+          )}
           <button
             type="button"
             onClick={() => { focusSafetyMap(); setCamerasVisible(!camerasVisible) }}

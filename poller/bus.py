@@ -1,4 +1,5 @@
 import json
+from datetime import datetime, timezone
 import logging
 import time
 from redis.asyncio import Redis
@@ -101,16 +102,36 @@ async def publish_entity(
         logger.warning("DB write failed for %s: %s\n%s", entity.get("entity_id"), exc, traceback.format_exc())
 
 
-async def set_feed(key: str, data):
+# Redis hash: feed key -> ISO time of its last successful update.
+FEED_META_KEY = "feed:meta"
+
+
+async def set_feed(key: str, data, broadcast: bool = True):
+    """Store a feed snapshot in Redis and, unless broadcast=False, push it to
+    WebSocket clients. Large feeds the UI fetches on demand over REST should
+    not be broadcast."""
     r = await get_bus()
     key = sanitize_payload(key)
     data = sanitize_payload(data)
     payload = json.dumps(data)
+    ts = datetime.now(timezone.utc).isoformat()
     await r.set(f"feed:{key}", payload)
+    # When each feed last produced data — lets the UI show real ages and flag
+    # stale sources instead of hard-coded "Just now" / "Data live" labels.
+    await r.hset(FEED_META_KEY, key, ts)
+    if not broadcast:
+        return
     # Radio active state gets its own typed message so the frontend can react immediately
     # ⚡ Bolt Optimization: String concatenation bypasses a second json.dumps() for the wrapper
     msg_type = "radio_update" if key == "radio:active" else "feed_update"
-    await r.publish("civic:updates", f'{{"type":"{msg_type}","key":{json.dumps(key)},"data":{payload}}}')
+    await r.publish("civic:updates", f'{{"type":"{msg_type}","key":{json.dumps(key)},"ts":"{ts}","data":{payload}}}')
+
+
+async def touch_feed(key: str) -> None:
+    """Mark a feed as freshly confirmed without republishing it (poll succeeded,
+    data unchanged) so change-only feeds don't look stale in the UI."""
+    r = await get_bus()
+    await r.hset(FEED_META_KEY, key, datetime.now(timezone.utc).isoformat())
 
 
 async def set_aircraft_snapshot(snapshot: dict):

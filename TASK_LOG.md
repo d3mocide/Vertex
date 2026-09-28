@@ -5,6 +5,24 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 
 ---
 
+## 2026-09-26 — UI/UX overhaul: shared page shell, mobile chrome, page-by-page restructure
+
+- **Method**: Playwright crawl of every page at 390px and 1440px measuring text under 11px, sub-32px tap targets, horizontal overflow and scroll depth, plus screenshots; re-run after each phase.
+- **Phase 1 — shell** (`5b80389`): mobile header and env strip merged into one 48px bar with a tappable conditions chip; audio console docked above the mobile nav with its height reserved by the page scroller (`#page-scroll`), so it never covers content; per-page padding workarounds removed. New shared primitives in [Page.tsx](frontend/src/components/common/Page.tsx): `PageHeader` (controls become a swipeable row on phones), `StatusDot`, `StatTiles`, `EmptyState`, `ChipRow`/`Chip`, `SectionTitle`. 7–10px text in pages raised to 11px; `label-caps`/`section-heading` are 11px at all sizes (deliberate deviation from the 10px spec, for legibility).
+- **Phase 2 — Incidents/Environment** (`9a178ac`): summary tiles that jump to their sections; compact AI briefing (posture, bottom line, changes) with the rest on demand; dispatch List/Map switch on phones; Environment tiles + single hazard strip replace the "Systems nominal" hero, the six hazard tiles and `WeatherCard` (deleted).
+- **Phase 3 — Comms/Flight Log/Event Log** (`7ac4ecd`): Event Log newest-first (was reversed), hour-grouped, P25 start/end merged into one call row with duration, category chips (every event is severity `info`, so the severity filter did nothing); Comms opens on chat with RF as its own phone tab; Flight Log opens on summary + list.
+- **Phase 4 — Intel/Infrastructure/Map** (`c01e21a`): whole-card links and headline-first news; swipeable camera strip on phones with legible captions; map tools behind one Tools button on phones.
+- **Result**: text under 11px 0 on every page (Environment was 148/220), horizontal overflow 0, mobile chrome ~18% of the screen (was ~40%).
+- **Open**: Event Log is dominated by MAX trains entering/exiting the "Willamette River — Portland" geofence on every bridge crossing (44 of 74 events) — a zone-configuration question, not a UI one.
+
+## 2026-09-26 — ADS-B icons rubber-banding on local (Beast) traffic
+
+- **Decoder**: TC 19 velocity frames were fed to CPR decoding and stored as even/odd position frames; occasional garbage decodes passed the 10 km plausibility budget and were published as real fixes. Now only TC 9–18/20–22 decode as positions, and the jump budget is bound by the known ground speed ([beast_decoder.py](poller/normalizers/beast_decoder.py)).
+- **Seeding**: OpenSky/ultrafeeder seeds overwrote the displayed position and fix time, publishing an old position as a fresh local fix. Seeds are now a separate CPR reference (`ref_lat/ref_lon/ref_ts`).
+- **Fix age**: every source sends `position_ts`; the snapshot refreshes `position_age_s` from it; hydration restores it.
+- **Frontend**: PVB anchors a report at its fix time (arrival − fix age) rather than its arrival time, on the wall clock; stale fixes hold instead of pulling back; source switches blend. BEAST trails extend incrementally instead of rebuilding from DB history + the 150-point ring (which drew chords across turns).
+- **Verification**: replaying captured WebSocket traffic at 30 fps, backward icon motion went from 88 frames/385 m and 66 frames/8.1 km to zero; decoder tests 68/68.
+
 ## 2026-09-19 — Fixed MeshCore chat not updating: bad sender clocks and unparseable live timestamps
 
 - **Bug**: Companion messages appeared on the pyMC server but not in Vertex's Mesh Chat. Two causes in [meshcore.py](poller/pollers/meshcore.py): (1) the sender's device timestamp was stored as the message time, and nodes with wrong clocks produced rows dated 2050/2096/2103 that sorted above every real message in both `ORDER BY ts DESC` and the frontend sort; (2) the live `mesh_message` WebSocket event carried the raw numeric timestamp string, which the frontend's `Date.parse` turns into `NaN` (time 0), so live messages sorted to the oldest position and were trimmed by the 300-message cap.
@@ -2006,3 +2024,18 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 ### I1 — TLS / HTTPS Termination
 - **`frontend/nginx-tls.conf`**: New Nginx config with HTTP→HTTPS redirect (port 80 → 301) and HTTPS (port 443) with TLSv1.2/1.3, HSTS, and all security headers. Mirrors `nginx.conf` proxy rules.
 - **`docker-compose.tls.yml`**: Compose override that adds port 443, mounts `nginx-tls.conf` over default, and mounts cert files from `TLS_CERT_PATH` / `TLS_KEY_PATH`. Usage: `docker compose -f docker-compose.yml -f docker-compose.tls.yml up -d`.
+
+## 2026-09-26 — Situational-awareness overhaul (branch feat/sitrep-harness)
+
+### AI briefing harness
+- **`poller/pollers/summary_context.py`** (new): 24h context builder — region/time grounding, distance bands, NWS forecaster products, event counts vs prior window and a robust 7-day median baseline, radio-derived incidents, geofence tags, river status, dated news, previous briefing, must-cover checklist, priority-based character budget.
+- **`poller/pollers/summary.py`**: analytic system prompt with fixed output format; reasoning capture; history (`/summary/history`), exact-prompt debug (`/summary/debug`) and per-briefing quality metrics (`/summary/metrics`); direct OpenAI-compatible calls (LiteLLM removed from the poller). Production model: `qwen3.5-9b-defiant-fable-mtp` (benchmarked vs 5 installed models).
+
+### Radio, geocoding, geofences
+- **`poller/radio_incidents.py`** + **`RadioIncidentPoller`**: deterministic incident extraction from P25 dispatch transcripts (type, severity, MPDS, address/intersection, units, status), clustered per address; `feed:radio:incidents`.
+- **`poller/geocoder.py`**, **`poller/street_names.py`**, **`infra/nominatim/`**: self-hosted Nominatim geocoding with fuzzy street-name correction (OSM gazetteer, pg_trgm + Double Metaphone, validated by exact house number).
+- **Geofences**: `area` zone type (label-only), boundary lookup (`/geofences/boundaries`, city/county via Nominatim, ZIP via Census), MultiPolygon support; engine eviction bug fixed (entries are now emitted).
+- **Incidents page**: Dispatch Incidents list + embedded map with filters.
+
+### Data-source audit fixes
+- Real feed timestamps (`feed:meta`, `/health/feeds`, `FeedAge`); mesh-node last-heard from the repeater; NOAA NWPS river gauges (official flood categories) replace USGS legacy thresholds; honest severities for anomalies/distant quakes/GDACS with persistent dedupe; region-filtered SIGMETs; ODOT markup/significance; NWS zones updated for the 2026-04-16 Oregon renumbering plus county/fire zones; MeshCore `companion_name` fix and per-channel history; poller backoff for dead sources; memory (compact aircraft DB, NIFC scoping, heap trim).

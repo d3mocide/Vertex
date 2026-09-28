@@ -1,4 +1,3 @@
-import asyncio
 import json
 import logging
 
@@ -35,7 +34,7 @@ def _to_geojson(elements: list[dict]) -> dict:
         geom = el.get("geometry") or []
         if len(geom) < 2:
             continue
-        coords = [[pt["lon"], pt["lat"]] for pt in geom]
+        coords = [[round(pt["lon"], 5), round(pt["lat"], 5)] for pt in geom]  # ~1 m
         tags = el.get("tags") or {}
         features.append({
             "type": "Feature",
@@ -56,10 +55,6 @@ class RailInfrastructurePoller(BasePoller):
 
     name = "rail_infrastructure"
     interval = 43200  # Poll every 12 hours (infrastructure changes very rarely)
-
-    async def setup(self):
-        # Trigger an immediate poll on startup if the cache is cold
-        asyncio.create_task(self.poll())
 
     async def poll(self):
         logger.info("[rail_infra] starting OSM rail tracks refresh")
@@ -96,7 +91,7 @@ class RailInfrastructurePoller(BasePoller):
             count = len(geojson["features"])
             
             r = await get_bus()
-            await r.set(_REDIS_KEY, json.dumps(geojson), ex=_CACHE_TTL_S + 3600)
+            await r.set(_REDIS_KEY, json.dumps(geojson, separators=(',', ':')), ex=_CACHE_TTL_S + 3600)
             logger.info("[rail_infra] cached %d rail track segments (bbox: %s)", count, bbox_str)
             
         except Exception as exc:

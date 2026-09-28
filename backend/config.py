@@ -14,6 +14,14 @@ class Settings(BaseSettings):
     bbox_min_lon: float = -123.5
     bbox_max_lon: float = -121.8
 
+    # Self-hosted Nominatim used for city/county boundary lookup in the
+    # geofence UI (same variables as the poller). Blank disables city lookup.
+    geocoder_url: str = ""
+    geocoder_state: str = "Oregon"
+    # ZIP-code boundaries come from the US Census TIGERweb service (sends the
+    # searched ZIP to census.gov). Set false to keep lookups fully local.
+    boundary_zip_lookup_enabled: bool = True
+
     # Authentication (disabled by default — set AUTH_ENABLED=true to activate)
     auth_enabled: bool = False
     auth_secret_key: str = ""       # generate: openssl rand -hex 32

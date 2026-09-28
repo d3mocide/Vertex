@@ -33,8 +33,30 @@ function formatIso(ts: string | null | undefined): string {
   }
 }
 
-function truncate(text: string, maxLines = 4): string {
-  return text.split('\n').slice(0, maxLines).join('\n').trim()
+/**
+ * NWS products arrive as raw teletype text: a WMO header ("000",
+ * "FXUS66 KPQR 260502", "AFDPQR") and "&&" / "$$" separators. Strip those so
+ * the card shows the forecaster's words, not transmission framing.
+ */
+function readable(text: string): string {
+  return text
+    .split('\n')
+    .filter((l) => {
+      const t = l.trim()
+      return !(/^\d{3}$/.test(t) || /^[A-Z]{4}\d{2} [A-Z]{4} \d{6}/.test(t) || /^[A-Z]{6}$/.test(t)
+        || t === '&&' || t === '$$')
+    })
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+}
+
+/** Short plain-language preview: the AFD synopsis when present, else the opening lines. */
+function preview(p: NwwsProduct): string {
+  const clean = readable(p.text)
+  const synopsis = clean.match(/\.SYNOPSIS\.{3}([\s\S]*?)(?:\n\s*\n|\n\.[A-Z])/)
+  const body = synopsis ? synopsis[1] : clean.split('\n').slice(0, 4).join(' ')
+  return body.replace(/\s+/g, ' ').trim()
 }
 
 export function NwwsCard() {
@@ -53,18 +75,20 @@ export function NwwsCard() {
     return () => clearInterval(t)
   }, [])
 
-  if (products.length === 0) return null
+  // CF6 is a monthly climate table — reference data, not situational awareness.
+  const shown = products.filter((p) => p.code !== 'CF6')
+  if (shown.length === 0) return null
 
   return (
     <div className="hud-panel p-4 bg-onyx-deep/40">
       <div className="label-caps mb-3 flex items-center gap-2">
         <span className="ms text-[14px] leading-none text-sky-400" aria-hidden="true">feed</span>
         NWS TEXT PRODUCTS
-        <span className="ml-auto font-mono text-[9px] lg:text-[11px] text-on-surface-variant">{products[0]?.office}</span>
+        <span className="ml-auto font-mono text-[11px] text-on-surface-variant">{shown[0]?.office}</span>
       </div>
 
       <div className="space-y-2">
-        {products.map((p) => {
+        {shown.map((p) => {
           const isOpen = expanded === p.code
           const color = CODE_COLORS[p.code] ?? 'text-gray-400'
           const icon = CODE_ICONS[p.code] ?? 'article'
@@ -76,8 +100,8 @@ export function NwwsCard() {
                 aria-expanded={isOpen}
               >
                 <span className={`ms text-[12px] leading-none ${color}`} aria-hidden="true">{icon}</span>
-                <span className={`text-[10px] lg:text-[12px] font-bold ${color} uppercase tracking-wide flex-1`}>{p.name}</span>
-                <span className="font-mono text-[8px] lg:text-[11px] text-on-surface-variant shrink-0">
+                <span className={`text-[11px] lg:text-[12px] font-bold ${color} uppercase tracking-wide flex-1`}>{p.name}</span>
+                <span className="font-mono text-[11px] text-on-surface-variant shrink-0">
                   {formatIso(p.issuance_time)}
                 </span>
                 <span className="ms text-[12px] leading-none text-on-surface-variant ml-1" aria-hidden="true">
@@ -87,17 +111,17 @@ export function NwwsCard() {
 
               {isOpen && p.text && (
                 <div className="border-t border-white/5 px-3 py-2">
-                  <pre className="font-mono text-[8px] lg:text-[11px] text-on-surface-variant whitespace-pre-wrap break-words leading-relaxed max-h-48 overflow-y-auto">
-                    {p.text}
+                  <pre className="font-mono text-[11px] text-on-surface-variant whitespace-pre-wrap break-words leading-relaxed max-h-72 overflow-y-auto">
+                    {readable(p.text)}
                   </pre>
                 </div>
               )}
 
               {!isOpen && p.text && (
                 <div className="border-t border-white/5 px-3 pb-2 pt-1">
-                  <pre className="font-mono text-[8px] lg:text-[11px] text-on-surface-variant/60 whitespace-pre-wrap break-words leading-relaxed line-clamp-3">
-                    {truncate(p.text, 3)}
-                  </pre>
+                  <p className="text-[11px] lg:text-[12px] text-on-surface-variant leading-relaxed line-clamp-3">
+                    {preview(p)}
+                  </p>
                 </div>
               )}
             </div>

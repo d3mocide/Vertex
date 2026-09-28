@@ -15,7 +15,7 @@ function sevColor(s: string) {
 function sevPill(s: string) {
   if (s === 'critical' || s === 'emergency') return 'text-red-400 border-red-500/40 bg-red-500/10'
   if (s === 'warning') return 'text-amber-400 border-amber-500/40 bg-amber-500/10'
-  return 'text-gray-500 border-white/10 bg-white/5'
+  return 'text-on-surface-variant border-white/10 bg-white/5'
 }
 
 export function EventActivity({ storage }: { storage: StorageData | null }) {
@@ -25,13 +25,13 @@ export function EventActivity({ storage }: { storage: StorageData | null }) {
 
   return (
     <section>
-      <h2 className="text-[11px] uppercase tracking-widest text-gray-500 mb-3">
+      <h2 className="text-[11px] uppercase tracking-widest text-on-surface-variant mb-3">
         Event Activity
         <span className="ml-2 font-mono text-amber-400">{storage.event_count.toLocaleString()} total</span>
       </h2>
       <div className="border border-white/10 bg-black/30 p-3">
         {types.length === 0 ? (
-          <p className="text-xs text-gray-500">No events recorded yet.</p>
+          <p className="text-xs text-on-surface-variant">No events recorded yet.</p>
         ) : (
           <div className="flex flex-wrap gap-2">
             {types.map(([type, count]) => (
@@ -40,7 +40,7 @@ export function EventActivity({ storage }: { storage: StorageData | null }) {
                   className="w-2 h-2 rounded-full"
                   style={{ background: sevColor(type.includes('emergency') || type.includes('critical') ? 'critical' : type.includes('warn') ? 'warning' : 'info') }}
                 />
-                <span className="text-[11px] font-mono text-gray-300">{type}</span>
+                <span className="text-[11px] font-mono text-on-surface">{type}</span>
                 <span className="text-[11px] font-mono text-amber-400 font-bold">{count.toLocaleString()}</span>
               </div>
             ))}

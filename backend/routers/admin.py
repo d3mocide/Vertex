@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from db.models import Entity, Observation, Event
 from deps import get_db, get_redis_client
-from metrics_collector import p95_from_buckets
+from metrics_collector import HISTORY_KEY_PREFIX, p95_from_buckets
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -33,8 +33,26 @@ class StorageStats(BaseModel):
     event_type_counts: dict[str, int]
 
 
+_STORAGE_CACHE_KEY = "cache:admin_storage"
+_STORAGE_CACHE_S = 300
+
+
 @router.get("/storage", response_model=StorageStats)
 async def get_storage(db: AsyncSession = Depends(get_db)):
+    # Full-table counts over millions of observations take seconds: cache them.
+    r = get_redis_client()
+    cached = await r.get(_STORAGE_CACHE_KEY)
+    if cached:
+        stats = StorageStats.model_validate_json(cached)
+        raw = await r.get(_RETENTION_KEY)   # may have just been changed
+        stats.retention_days = int(raw) if raw else _DEFAULT_RETENTION_DAYS
+        return stats
+    stats = await _compute_storage(db)
+    await r.set(_STORAGE_CACHE_KEY, stats.model_dump_json(), ex=_STORAGE_CACHE_S)
+    return stats
+
+
+async def _compute_storage(db: AsyncSession) -> StorageStats:
     obs_count = await db.scalar(select(func.count(Observation.id))) or 0
     entity_count = await db.scalar(select(func.count(Entity.entity_id))) or 0
     type_rows = await db.execute(
@@ -88,39 +106,59 @@ async def set_retention(body: RetentionConfig):
     return body
 
 
-_METRICS_HISTORY_KEY = "metrics:history"
+def _worker_steps(snaps: list[dict]) -> list[dict]:
+    """Per-interval rates from one worker's snapshots (its counters only
+    ever grow, so a negative step is a restart and is skipped)."""
+    steps = []
+    for prev, curr in zip(snaps, snaps[1:]):
+        dt = curr["ts"] - prev["ts"]
+        d_req = curr.get("req_total", 0.0) - prev.get("req_total", 0.0)
+        d_5xx = curr.get("req_5xx", 0.0) - prev.get("req_5xx", 0.0)
+        d_cpu = curr.get("cpu_seconds", 0.0) - prev.get("cpu_seconds", 0.0)
+        if dt <= 0 or d_req < 0 or d_cpu < 0:
+            continue
+        steps.append({
+            "ts": curr["ts"], "dt": dt, "d_req": d_req, "d_5xx": max(d_5xx, 0.0), "d_cpu": d_cpu,
+            "memory_bytes": curr.get("memory_bytes", 0.0),
+            "p95_ms": p95_from_buckets(curr.get("latency_buckets", [])),
+            "ws_clients": curr.get("ws_clients", 0),
+        })
+    return steps
 
 
 @router.get("/metrics")
 async def get_metrics(db: AsyncSession = Depends(get_db)):
-    """Operational metrics with 60-minute sparkline history."""
+    """Operational metrics with 60-minute sparkline history, summed over the
+    backend's worker processes."""
     r = get_redis_client()
-    raw_list = await r.lrange(_METRICS_HISTORY_KEY, 0, -1)
+    workers: list[list[dict]] = []
+    async for key in r.scan_iter(match=f"{HISTORY_KEY_PREFIX}*", count=100):
+        raw_list = await r.lrange(key, 0, -1)
+        if raw_list:
+            workers.append([json.loads(x) for x in raw_list])
 
-    if not raw_list:
+    if not workers:
         return {"available": False}
 
-    snaps = [json.loads(s) for s in raw_list]
-    latest = snaps[-1]
-    oldest = snaps[0]
+    now = time.time()
+    live = [w for w in workers if now - w[-1]["ts"] < 30]   # still reporting
+    steps = [_worker_steps(w) for w in workers]
 
-    interval = latest["ts"] - oldest["ts"] if len(snaps) > 1 else 10.0
-
-    def delta(key: str) -> float:
-        return latest.get(key, 0.0) - oldest.get(key, 0.0)
-
-    total_reqs = delta("req_total")
-    req_rate = total_reqs / interval if interval > 0 else 0.0
-    total_5xx = delta("req_5xx")
+    # Headline numbers: totals over each worker's whole window.
+    total_reqs = sum(st["d_req"] for ws in steps for st in ws)
+    total_5xx = sum(st["d_5xx"] for ws in steps for st in ws)
+    interval = max((w[-1]["ts"] - w[0]["ts"] for w in workers), default=0.0) or 10.0
+    req_rate = total_reqs / interval
     error_pct = (total_5xx / total_reqs * 100) if total_reqs > 0 else 0.0
-
-    cpu_delta = delta("cpu_seconds")
-    cpu_pct = (cpu_delta / interval * 100) if interval > 0 else 0.0
-
-    memory_mb = latest.get("memory_bytes", 0.0) / 1_048_576
-    p95_ms = p95_from_buckets(latest.get("latency_buckets", []))
-    ws_clients = latest.get("ws_clients", 0)
-    uptime_seconds = latest.get("uptime_seconds")
+    # CPU: each worker's busy share over its own window, added up.
+    cpu_pct = sum(
+        sum(st["d_cpu"] for st in ws) / sum(st["dt"] for st in ws) * 100
+        for ws in steps if ws
+    )
+    memory_mb = sum(w[-1].get("memory_bytes", 0.0) for w in live) / 1_048_576
+    p95_ms = max((p95_from_buckets(w[-1].get("latency_buckets", [])) for w in live), default=0.0)
+    ws_clients = sum(w[-1].get("ws_clients", 0) for w in live)
+    uptime_seconds = max((w[-1].get("uptime_seconds") or 0 for w in live), default=None)
 
     # DB ping
     db_ping_ms: float = 0.0
@@ -140,25 +178,30 @@ async def get_metrics(db: AsyncSession = Depends(get_db)):
     except Exception:
         redis_ping_ms = -1.0
 
-    history = []
-    for i in range(1, len(snaps)):
-        prev = snaps[i - 1]
-        curr = snaps[i]
-        dt = curr["ts"] - prev["ts"]
-        if dt <= 0:
-            continue
-        d_req = curr.get("req_total", 0.0) - prev.get("req_total", 0.0)
-        d_5xx = curr.get("req_5xx", 0.0) - prev.get("req_5xx", 0.0)
-        d_cpu = curr.get("cpu_seconds", 0.0) - prev.get("cpu_seconds", 0.0)
-        history.append({
-            "ts": curr["ts"],
-            "req_rate": round(d_req / dt, 3),
-            "error_pct": round((d_5xx / d_req * 100) if d_req > 0 else 0.0, 1),
-            "memory_mb": round(curr.get("memory_bytes", 0.0) / 1_048_576, 1),
-            "p95_ms": round(p95_from_buckets(curr.get("latency_buckets", [])), 1),
-            "cpu_pct": round((d_cpu / dt * 100) if dt > 0 else 0.0, 1),
-            "ws_clients": curr.get("ws_clients", 0),
-        })
+    # Sparklines: line each worker's steps up on the 10 s collection tick.
+    buckets: dict[int, dict] = {}
+    for ws in steps:
+        for st in ws:
+            b = buckets.setdefault(int(st["ts"] // 10), {
+                "ts": st["ts"], "req_rate": 0.0, "d_req": 0.0, "d_5xx": 0.0,
+                "memory_bytes": 0.0, "p95_ms": 0.0, "cpu_pct": 0.0, "ws_clients": 0,
+            })
+            b["req_rate"] += st["d_req"] / st["dt"]
+            b["d_req"] += st["d_req"]
+            b["d_5xx"] += st["d_5xx"]
+            b["memory_bytes"] += st["memory_bytes"]
+            b["p95_ms"] = max(b["p95_ms"], st["p95_ms"])
+            b["cpu_pct"] += st["d_cpu"] / st["dt"] * 100
+            b["ws_clients"] += st["ws_clients"]
+    history = [{
+        "ts": b["ts"],
+        "req_rate": round(b["req_rate"], 3),
+        "error_pct": round((b["d_5xx"] / b["d_req"] * 100) if b["d_req"] > 0 else 0.0, 1),
+        "memory_mb": round(b["memory_bytes"] / 1_048_576, 1),
+        "p95_ms": round(b["p95_ms"], 1),
+        "cpu_pct": round(b["cpu_pct"], 1),
+        "ws_clients": b["ws_clients"],
+    } for _, b in sorted(buckets.items())]
 
     return {
         "available": True,
@@ -419,7 +462,9 @@ async def get_mesh_battery(db: AsyncSession = Depends(get_db)):
 
 @router.get("/data-quality")
 async def get_data_quality(db: AsyncSession = Depends(get_db)):
-    """Data completeness: % of entities with key fields populated."""
+    """Data completeness over the last 24 h: % of entities seen (or
+    observations made) in that window with key fields populated. All-time
+    counts were dominated by long-gone aircraft and took seconds to compute."""
     rows = await db.execute(
         text("""
             SELECT
@@ -428,13 +473,13 @@ async def get_data_quality(db: AsyncSession = Depends(get_db)):
                 'speed'             AS field,
                 COUNT(DISTINCT e.entity_id) FILTER (
                     WHERE EXISTS (
-                        SELECT 1 FROM observations o 
-                        WHERE o.entity_id = e.entity_id AND o.speed IS NOT NULL
+                        SELECT 1 FROM observations o
+                        WHERE o.entity_id = e.entity_id AND o.ts > now() - interval '24 hours' AND o.speed IS NOT NULL
                     )
                 ) AS present,
                 COUNT(DISTINCT e.entity_id) AS total
             FROM entities e
-            WHERE e.entity_type = 'aircraft'
+            WHERE e.last_seen > now() - interval '24 hours' AND e.entity_type = 'aircraft'
             UNION ALL
             SELECT
                 'Aircraft heading'  AS label,
@@ -442,13 +487,13 @@ async def get_data_quality(db: AsyncSession = Depends(get_db)):
                 'heading'           AS field,
                 COUNT(DISTINCT e.entity_id) FILTER (
                     WHERE EXISTS (
-                        SELECT 1 FROM observations o 
-                        WHERE o.entity_id = e.entity_id AND o.heading IS NOT NULL
+                        SELECT 1 FROM observations o
+                        WHERE o.entity_id = e.entity_id AND o.ts > now() - interval '24 hours' AND o.heading IS NOT NULL
                     )
                 ) AS present,
                 COUNT(DISTINCT e.entity_id) AS total
             FROM entities e
-            WHERE e.entity_type = 'aircraft'
+            WHERE e.last_seen > now() - interval '24 hours' AND e.entity_type = 'aircraft'
             UNION ALL
             SELECT
                 'Vessel name'       AS label,
@@ -460,7 +505,7 @@ async def get_data_quality(db: AsyncSession = Depends(get_db)):
                 ) AS present,
                 COUNT(DISTINCT e.entity_id) AS total
             FROM entities e
-            WHERE e.entity_type = 'vessel'
+            WHERE e.last_seen > now() - interval '24 hours' AND e.entity_type = 'vessel'
             UNION ALL
             SELECT
                 'Vessel MMSI'       AS label,
@@ -471,7 +516,7 @@ async def get_data_quality(db: AsyncSession = Depends(get_db)):
                 ) AS present,
                 COUNT(DISTINCT e.entity_id) AS total
             FROM entities e
-            WHERE e.entity_type = 'vessel'
+            WHERE e.last_seen > now() - interval '24 hours' AND e.entity_type = 'vessel'
             UNION ALL
             SELECT
                 'Mesh battery'      AS label,
@@ -482,7 +527,7 @@ async def get_data_quality(db: AsyncSession = Depends(get_db)):
                 ) AS present,
                 COUNT(DISTINCT e.entity_id) AS total
             FROM entities e
-            WHERE e.entity_type = 'mesh_node'
+            WHERE e.last_seen > now() - interval '24 hours' AND e.entity_type = 'mesh_node'
             UNION ALL
             SELECT
                 'Aircraft signal quality' AS label,
@@ -491,7 +536,7 @@ async def get_data_quality(db: AsyncSession = Depends(get_db)):
                 COUNT(*) FILTER (WHERE signal_quality IS NOT NULL) AS present,
                 COUNT(*)            AS total
             FROM observations
-            WHERE entity_id IN (SELECT entity_id FROM entities WHERE entity_type = 'aircraft')
+            WHERE ts > now() - interval '24 hours' AND entity_id IN (SELECT entity_id FROM entities WHERE entity_type = 'aircraft')
             UNION ALL
             SELECT
                 'Vessel signal quality' AS label,
@@ -500,7 +545,7 @@ async def get_data_quality(db: AsyncSession = Depends(get_db)):
                 COUNT(*) FILTER (WHERE signal_quality IS NOT NULL) AS present,
                 COUNT(*)            AS total
             FROM observations
-            WHERE entity_id IN (SELECT entity_id FROM entities WHERE entity_type = 'vessel')
+            WHERE ts > now() - interval '24 hours' AND entity_id IN (SELECT entity_id FROM entities WHERE entity_type = 'vessel')
         """)
     )
     result = []

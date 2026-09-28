@@ -178,6 +178,10 @@ class AprsPoller(BasePoller):
                     except asyncio.TimeoutError:
                         logger.warning("[aprs] read timeout, reconnecting")
                         break
+                    if raw:
+                        # APRS-IS sends a keepalive comment every ~20 s, so
+                        # lines keep coming even when no station is heard.
+                        await self._alive()
                     if not raw:
                         logger.warning(
                             "[aprs] %s:%d closed the connection after %.1fs%s",
@@ -266,5 +270,6 @@ class AprsPoller(BasePoller):
                 await writer.wait_closed()
             except Exception as exc:
                 logger.warning("[aprs] source error (%s:%d): %s", host, port, exc)
+                await self._heartbeat("error", str(exc)[:256])
 
             await asyncio.sleep(_RETRY_DELAY)

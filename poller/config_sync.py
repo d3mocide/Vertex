@@ -40,7 +40,7 @@ async def _sync_radio_streams(
     db_config_urls = {row["url"] for row in existing if row["source"] == "config"}
 
     yaml_config_urls = {e.url for e in entries if e.source == "config"}
-    added = removed = 0
+    added = removed = updated = 0
 
     for entry in entries:
         if entry.url not in db_all_urls:
@@ -52,6 +52,19 @@ async def _sync_radio_streams(
                 entry.name, entry.url, entry.format, entry.enabled, entry.source,
             )
             added += 1
+        elif entry.url in db_config_urls:
+            # Rows are matched by URL; carry edits to the rest of the entry
+            # (a renamed stream kept its old name before).
+            status = await conn.execute(
+                """
+                UPDATE radio_streams SET name = $2, format = $3, enabled = $4, updated_at = NOW()
+                WHERE source = 'config' AND url = $1
+                  AND (name, format, enabled) IS DISTINCT FROM ($2, $3, $4)
+                """,
+                entry.url, entry.name, entry.format, entry.enabled,
+            )
+            if status.endswith(" 1"):
+                updated += 1
 
     to_remove = db_config_urls - yaml_config_urls
     if to_remove:
@@ -61,7 +74,9 @@ async def _sync_radio_streams(
         )
         removed += len(to_remove)
 
-    return f"+{added} -{removed}" if (added or removed) else ""
+    if not (added or removed or updated):
+        return ""
+    return f"+{added} -{removed}" + (f" ~{updated}" if updated else "")
 
 
 async def _sync_news_feeds(

@@ -30,7 +30,7 @@ function PollerCell({ p }: { p: PollerEntry }) {
   return (
     <div className={`border ${border} bg-black/30 p-2.5 flex flex-col gap-1.5`}>
       <div className="flex items-center justify-between gap-1">
-        <span className="text-[11px] font-mono text-gray-300 truncate">{p.name}</span>
+        <span className="text-[11px] font-mono text-on-surface truncate">{p.name}</span>
         <span className={`flex items-center gap-1 text-[11px] uppercase tracking-wider font-bold ${pill}`}>
           <span className={`w-1.5 h-1.5 rounded-full ${dot}`} />
           {isOk ? 'LIVE' : isStale ? 'STALE' : 'ERR'}
@@ -38,7 +38,7 @@ function PollerCell({ p }: { p: PollerEntry }) {
       </div>
 
       <div className="flex items-center justify-between gap-1">
-        <span className="text-[11px] text-gray-600 font-mono">
+        <span className="text-[11px] text-on-surface-variant/60 font-mono">
           {p.ts ? relativeTime(p.staleness_s) : 'no data'}
         </span>
         <div className="flex items-center gap-1.5">
@@ -65,9 +65,9 @@ function PollerCell({ p }: { p: PollerEntry }) {
 export function PollerGrid({ pollers }: { pollers: PollerEntry[] }) {
   return (
     <section>
-      <h2 className="text-[11px] uppercase tracking-widest text-gray-500 mb-3">Poller Health</h2>
+      <h2 className="text-[11px] uppercase tracking-widest text-on-surface-variant mb-3">Poller Health</h2>
       {pollers.length === 0 ? (
-        <p className="text-xs text-gray-500">No heartbeats yet — pollers start within 60s.</p>
+        <p className="text-xs text-on-surface-variant">No heartbeats yet — pollers start within 60s.</p>
       ) : (
         <div className="grid grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-2">
           {pollers.map((p) => <PollerCell key={p.name} p={p} />)}

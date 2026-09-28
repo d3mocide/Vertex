@@ -1,13 +1,14 @@
 from typing import Literal, Optional
 import math
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from geoalchemy2.shape import from_shape, to_shape
 from pydantic import BaseModel
-from shapely.geometry import Polygon, mapping, shape
+from shapely.geometry import MultiPolygon, Polygon, mapping, shape
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from boundaries import BoundaryLookupError, search_boundaries
 from deps import get_db
 from db.models import Geofence
 
@@ -57,10 +58,11 @@ def _to_response(fence: Geofence) -> GeofenceResponse:
     )
 
 
-def _parse_polygon(geojson: dict) -> Polygon:
+def _parse_polygon(geojson: dict) -> Polygon | MultiPolygon:
     poly = shape(geojson)
-    if not isinstance(poly, Polygon):
-        raise HTTPException(400, "Geometry must be a Polygon")
+    # MultiPolygon: city limits with detached parcels (e.g. Portland, Lake Oswego).
+    if not isinstance(poly, (Polygon, MultiPolygon)):
+        raise HTTPException(400, "Geometry must be a Polygon or MultiPolygon")
     if not poly.is_valid:
         poly = poly.buffer(0)  # attempt repair
     if not poly.is_valid:
@@ -84,7 +86,7 @@ def _circle_to_polygon(center_lat: float, center_lon: float, radius_m: float, st
     return Polygon(points)
 
 
-def _payload_to_polygon(body: GeofencePayload) -> Polygon:
+def _payload_to_polygon(body: GeofencePayload) -> Polygon | MultiPolygon:
     if body.dwell_seconds < 0:
         raise HTTPException(400, "dwell_seconds must be >= 0")
     if body.geofence_shape == "circle":
@@ -106,6 +108,15 @@ async def list_geofences(
         q = q.where(Geofence.active == True)  # noqa: E712
     result = await db.execute(q.order_by(Geofence.id))
     return [_to_response(f) for f in result.scalars().all()]
+
+
+@router.get("/boundaries")
+async def search_boundary(q: str = Query(..., min_length=2, max_length=80)):
+    """City/county limits (local Nominatim) or a 5-digit ZIP area (Census) for creating a geofence."""
+    try:
+        return await search_boundaries(q)
+    except BoundaryLookupError as exc:
+        raise HTTPException(503, str(exc))
 
 
 @router.post("", response_model=GeofenceResponse, status_code=201)

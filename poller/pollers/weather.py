@@ -18,6 +18,23 @@ _AVIATION_INTERVAL = 900
 _aviation_tick = 0
 
 
+# Margin (degrees, ~200 km) around the operating box for aviation hazards.
+_AVIATION_MARGIN_DEG = 2.0
+
+
+def _near_region(coords) -> bool:
+    """True if a SIGMET/AIRMET polygon's extent overlaps the padded operating box.
+    Hazards without coordinates are kept (can't be placed, so don't hide them)."""
+    pts = [c for c in (coords or []) if isinstance(c, dict) and c.get("lat") is not None and c.get("lon") is not None]
+    if not pts:
+        return True
+    lats = [float(c["lat"]) for c in pts]
+    lons = [float(c["lon"]) for c in pts]
+    m = _AVIATION_MARGIN_DEG
+    return not (max(lats) < settings.bbox_min_lat - m or min(lats) > settings.bbox_max_lat + m
+                or max(lons) < settings.bbox_min_lon - m or min(lons) > settings.bbox_max_lon + m)
+
+
 class WeatherPoller(BasePoller):
     name = "weather"
     interval = 300  # 5 minutes
@@ -213,6 +230,10 @@ class WeatherPoller(BasePoller):
                         for s in data:
                             raw = s.get("rawAirSigmet")
                             if not raw: continue
+                            # The feed is CONUS-wide; keep only hazards over or near
+                            # the region (the UI was listing Kansas convective SIGMETs).
+                            if not _near_region(s.get("coords")):
+                                continue
                             entry = {
                                 "type": s.get("airSigmetType"),
                                 "hazard": s.get("hazard"),
@@ -318,17 +339,18 @@ class WeatherPoller(BasePoller):
 
     async def _fetch_nwws_products(self) -> list[dict]:
         """Fetch recent NWS text products (AFD, HWO, LSR) for the local forecast office."""
-        office = settings.nws_office or "PDX"
+        office = settings.nws_office or "PQR"
+        climate = settings.nws_climate_station or "PDX"
         product_types = [
-            ("AFD", "Area Forecast Discussion"),
-            ("HWO", "Hazardous Weather Outlook"),
-            ("LSR", "Local Storm Report"),
-            ("CF6", "F6 Climate Data"),
+            ("AFD", "Area Forecast Discussion", office),
+            ("HWO", "Hazardous Weather Outlook", office),
+            ("LSR", "Local Storm Report", office),
+            ("CF6", "F6 Climate Data", climate),
         ]
         results: list[dict] = []
         async with httpx.AsyncClient(timeout=15, headers=_HEADERS) as client:
-            for code, name in product_types:
-                url = f"{NWS_BASE}/products/types/{code}/locations/{office}"
+            for code, name, location in product_types:
+                url = f"{NWS_BASE}/products/types/{code}/locations/{location}"
                 try:
                     resp = await client.get(url)
                     if resp.status_code != 200:
@@ -350,7 +372,7 @@ class WeatherPoller(BasePoller):
                         results.append({
                             "code": code,
                             "name": name,
-                            "office": office,
+                            "office": location,
                             "issuance_time": item.get("issuanceTime"),
                             "text": (text or "").strip(),
                         })

@@ -8,7 +8,7 @@ export * from './storeTypes'
 import type {
   Entity, Track, AlertItem, NewsItem, WeatherState, RadioState,
   TrafficCamera, SystemEvent, CustomLayerItem, SystemHealth, TrafficIncident,
-  SummaryState, TrailPoint, AirportSnapshot, AppMode, NavTab, EntityTypeFilter,
+  SummaryState, RadioIncidentFeed, FeedMetaEntry, TrailPoint, AirportSnapshot, AppMode, NavTab, EntityTypeFilter,
   RangeFilter, ReplayData, EntityMissionTag, AnnotationItem,
   TrafficFlowSensor, UtilityStatus, OregonStatus, MeshMessage, MeshLink,
   AcarsMessage,
@@ -19,6 +19,9 @@ import { ALT_RANGE_DEFAULT, SPD_RANGE_DEFAULT } from './storeTypes'
 export interface CivicStore {
   // Live data
   entities:         Record<string, Entity>
+  // Per-entity-type change counters: layers keyed on a type's version rebuild
+  // only when that type changes, not on every aircraft update.
+  entityTypeVersion: Record<string, number>
   tracks:           Record<string, Track>
   alerts:           AlertItem[]
   news:             NewsItem[]
@@ -27,6 +30,8 @@ export interface CivicStore {
   cameras:          TrafficCamera[]
   trafficFlow:      TrafficFlowSensor[]
   trafficIncidents: TrafficIncident[]
+  radioIncidents:   RadioIncidentFeed | null
+  feedMeta:         Record<string, FeedMetaEntry>
   utilityStatus:    UtilityStatus | null
   oregonStatus:     OregonStatus | null
   trail:            TrailPoint[]
@@ -54,7 +59,6 @@ export interface CivicStore {
   camerasVisible:   boolean
   geofencesVisible: boolean
   trailsVisible:    boolean
-  radarReflectivityVisible: boolean
   nwsAlertsVisible:         boolean
   lightningDensityVisible:  boolean
   railTracksVisible:        boolean
@@ -74,6 +78,8 @@ export interface CivicStore {
   setCameras:       (cameras: TrafficCamera[]) => void
   setTrafficFlow:   (flow: TrafficFlowSensor[]) => void
   setTrafficIncidents: (incidents: TrafficIncident[]) => void
+  setRadioIncidents:   (feed: RadioIncidentFeed) => void
+  setFeedMeta:         (patch: Record<string, Partial<FeedMetaEntry> & { ts: string }>) => void
   setUtilityStatus: (status: UtilityStatus) => void
   setOregonStatus:  (status: OregonStatus) => void
   setTrail:         (trail: TrailPoint[]) => void
@@ -106,7 +112,6 @@ export interface CivicStore {
   setCamerasVisible:   (v: boolean) => void
   setGeofencesVisible: (v: boolean) => void
   setTrailsVisible:    (v: boolean) => void
-  setRadarReflectivityVisible: (v: boolean) => void
   setNwsAlertsVisible:         (v: boolean) => void
   setLightningDensityVisible:  (v: boolean) => void
   setRailTracksVisible:        (v: boolean) => void
@@ -275,7 +280,17 @@ function normalizeIncomingLightning(
   return out
 }
 
-const MESH_MESSAGES_MAX = 300
+// Cap per conversation, not overall: a busy channel (Public) must not push
+// every other channel's history out of memory.
+const MESH_MESSAGES_PER_CONVERSATION = 200
+
+/** Increment the version of each entity type present in `types`. */
+function bumpTypes(prev: Record<string, number>, types: string[]): Record<string, number> {
+  if (types.length === 0) return prev
+  const next = { ...prev }
+  for (const t of new Set(types)) next[t] = (next[t] ?? 0) + 1
+  return next
+}
 
 function meshMsgTime(msg: MeshMessage): number {
   if (!msg?.timestamp) return 0
@@ -302,9 +317,19 @@ function mergeMeshMessages(existing: MeshMessage[], incoming: MeshMessage[]): Me
     byKey.set(meshMsgFingerprint(msg), msg)
   }
 
-  return Array.from(byKey.values())
-    .sort((a, b) => meshMsgTime(a) - meshMsgTime(b))
-    .slice(-MESH_MESSAGES_MAX)
+  const byConversation = new Map<string, MeshMessage[]>()
+  for (const msg of byKey.values()) {
+    const conv = msg.conversation_key || 'general'
+    const list = byConversation.get(conv)
+    if (list) list.push(msg)
+    else byConversation.set(conv, [msg])
+  }
+  const kept: MeshMessage[] = []
+  for (const list of byConversation.values()) {
+    list.sort((a, b) => meshMsgTime(a) - meshMsgTime(b))
+    kept.push(...list.slice(-MESH_MESSAGES_PER_CONVERSATION))
+  }
+  return kept.sort((a, b) => meshMsgTime(a) - meshMsgTime(b))
 }
 
 const emptyRadio: RadioState = {
@@ -326,6 +351,9 @@ const defaultSummary: SummaryState = {
   summary: '',
   ts: null,
   model: null,
+  posture: null,
+  windowHours: null,
+  dataGaps: [],
 }
 
 export const useCivicStore = create<CivicStore>()(
@@ -333,6 +361,7 @@ export const useCivicStore = create<CivicStore>()(
     (set) => ({
   // Data
   entities:         {},
+  entityTypeVersion: {},
   tracks:           {},
   alerts:           [],
   news:             [],
@@ -342,6 +371,8 @@ export const useCivicStore = create<CivicStore>()(
   cameras:          [],
   trafficFlow:      [],
   trafficIncidents: [],
+  radioIncidents:   null,
+  feedMeta:         {},
   utilityStatus:    null,
   oregonStatus:     null,
   trail:            [],
@@ -370,7 +401,6 @@ export const useCivicStore = create<CivicStore>()(
   camerasVisible:         false,
   geofencesVisible:    true,
   trailsVisible:       true,
-  radarReflectivityVisible: false,
   nwsAlertsVisible:         false,
   lightningDensityVisible:  false,
   railTracksVisible:        true,
@@ -418,7 +448,7 @@ export const useCivicStore = create<CivicStore>()(
       const t = entityToTrack(e)
       if (t) tracks[t.uid] = t
     }
-    set({ entities, tracks })
+    set((s) => ({ entities, tracks, entityTypeVersion: bumpTypes(s.entityTypeVersion, list.map((e) => e.entity_type)) }))
   },
   setAircraftSnapshot: (list) =>
     set((s) => {
@@ -461,7 +491,7 @@ export const useCivicStore = create<CivicStore>()(
         if (track) nextTracks[entity.entity_id] = track
       }
 
-      return { entities: nextEntities, tracks: nextTracks }
+      return { entities: nextEntities, tracks: nextTracks, entityTypeVersion: bumpTypes(s.entityTypeVersion, ['aircraft']) }
     }),
   upsertEntity: (entity) =>
     set((s) => {
@@ -470,6 +500,7 @@ export const useCivicStore = create<CivicStore>()(
       return {
         entities: { ...s.entities, [entity.entity_id]: merged },
         tracks: track ? { ...s.tracks, [entity.entity_id]: track } : s.tracks,
+        entityTypeVersion: bumpTypes(s.entityTypeVersion, [merged.entity_type]),
       }
     }),
   // Batch variant — one store notification for a whole buffer of WS updates
@@ -485,20 +516,22 @@ export const useCivicStore = create<CivicStore>()(
         const track = entityToTrack(merged, tracks[entity.entity_id])
         if (track) tracks[entity.entity_id] = track
       }
-      return { entities, tracks }
+      return { entities, tracks, entityTypeVersion: bumpTypes(s.entityTypeVersion, list.map((e) => e.entity_type)) }
     }),
   purgeStaleEntities: () =>
     set((s) => {
       const now = Date.now()
       const next = { ...s.entities }
       let changed = false
+      const removedTypes: string[] = []
       const STALE_MS: Record<string, number> = {
         aircraft:       120_000,   // 2 min  — Matches backend stale cutoff
         vessel:         600_000,   // 10 min — AIS updates are infrequent
         mesh_node:    604_800_000, // 7 days — mesh nodes are semi-permanent infrastructure
         satellite:    1_800_000,   // 30 min — matches poller TTL
         rf_sensor:        900_000,   // 15 min — matches poller TTL, sensors broadcast every few min
-        stream_gauge:     600_000,   // 10 min — gauges are polled every 5 min
+        // last_seen is NOAA's observation time; many gauges report hourly or less.
+        stream_gauge:  21_600_000,   // 6 h
         tak_client:     300_000,   // 5 min  — TAK SA ping is every 30 s–2 min
         train:          600_000,   // 10 min — Amtrak polls every 60 s
       }
@@ -512,6 +545,7 @@ export const useCivicStore = create<CivicStore>()(
           if (age > limit) {
             delete next[id]
             changed = true
+            removedTypes.push(e.entity_type)
           }
         }
       }
@@ -520,7 +554,7 @@ export const useCivicStore = create<CivicStore>()(
       for (const id of Object.keys(s.tracks)) {
         if (!(id in next)) delete nextTracks[id]
       }
-      return { entities: next, tracks: nextTracks }
+      return { entities: next, tracks: nextTracks, entityTypeVersion: bumpTypes(s.entityTypeVersion, removedTypes) }
     }),
   appendSystemEvent: (event) =>
     set((s) => {
@@ -544,6 +578,12 @@ export const useCivicStore = create<CivicStore>()(
   setCameras:   (cameras) => set({ cameras }),
   setTrafficFlow: (trafficFlow) => set({ trafficFlow }),
   setTrafficIncidents: (trafficIncidents) => set({ trafficIncidents }),
+  setRadioIncidents:   (radioIncidents) => set({ radioIncidents }),
+  setFeedMeta:         (patch) => set((s) => {
+    const next = { ...s.feedMeta }
+    for (const [key, entry] of Object.entries(patch)) next[key] = { ...next[key], ...entry }
+    return { feedMeta: next }
+  }),
   setUtilityStatus: (utilityStatus) => set({ utilityStatus }),
   setOregonStatus: (oregonStatus) => set({ oregonStatus }),
   setTrail:     (trail)   => set({ trail }),
@@ -599,7 +639,6 @@ export const useCivicStore = create<CivicStore>()(
   setCamerasVisible:        (camerasVisible)        => set({ camerasVisible }),
   setGeofencesVisible: (geofencesVisible) => set({ geofencesVisible }),
   setTrailsVisible:    (trailsVisible)    => set({ trailsVisible }),
-  setRadarReflectivityVisible: (radarReflectivityVisible) => set({ radarReflectivityVisible }),
   setNwsAlertsVisible:         (nwsAlertsVisible)         => set({ nwsAlertsVisible }),
   setLightningDensityVisible:  (lightningDensityVisible)  => set({ lightningDensityVisible }),
   setRailTracksVisible:        (railTracksVisible)        => set({ railTracksVisible }),
@@ -715,7 +754,6 @@ export const useCivicStore = create<CivicStore>()(
       geofencesVisible:   state.geofencesVisible,
       annotationsVisible: state.annotationsVisible,
       lightningVisible:   state.lightningVisible,
-      radarReflectivityVisible: state.radarReflectivityVisible,
       nwsAlertsVisible:         state.nwsAlertsVisible,
       lightningDensityVisible:  state.lightningDensityVisible,
       railTracksVisible:        state.railTracksVisible,

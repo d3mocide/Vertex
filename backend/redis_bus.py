@@ -3,16 +3,24 @@ from redis.asyncio import Redis
 from config import settings
 
 _redis: Redis | None = None
+# Binary-safe client for the live P25 audio relay (decode_responses would
+# choke on PCM).
+_redis_raw: Redis | None = None
+
+P25_LIVE_CHANNEL = "p25:live"   # published by poller/pollers/p25_recorder.py
 
 
 async def init_redis():
-    global _redis
+    global _redis, _redis_raw
     _redis = Redis.from_url(settings.redis_url, decode_responses=True)
+    _redis_raw = Redis.from_url(settings.redis_url, decode_responses=False)
 
 
 async def close_redis():
     if _redis:
         await _redis.aclose()
+    if _redis_raw:
+        await _redis_raw.aclose()
 
 
 def get_redis() -> Redis:
@@ -84,6 +92,14 @@ async def subscribe_updates():
     r = get_redis()
     pubsub = r.pubsub()
     await pubsub.subscribe("civic:updates")
+    return pubsub
+
+
+async def subscribe_p25_live():
+    if _redis_raw is None:
+        raise RuntimeError("Redis not initialized")
+    pubsub = _redis_raw.pubsub()
+    await pubsub.subscribe(P25_LIVE_CHANNEL)
     return pubsub
 
 

@@ -536,8 +536,9 @@ class TestSeedReference(unittest.TestCase):
         self.assertTrue(decoder.seed_reference("ABC123", 45.5, -122.3))
         ac = decoder._aircraft.get("abc123")
         self.assertIsNotNone(ac)
-        self.assertEqual(ac.lat, 45.5)
-        self.assertEqual(ac.lon, -122.3)
+        self.assertEqual((ac.ref_lat, ac.ref_lon), (45.5, -122.3))
+        # A seed is only a decode reference, never a displayed position.
+        self.assertIsNone(ac.lat)
         # Seeded-only aircraft never appear in snapshots (no real frames yet).
         self.assertEqual(decoder.snapshot_entities(), [])
 
@@ -550,6 +551,7 @@ class TestSeedReference(unittest.TestCase):
         decoder._aircraft["abc123"] = ac
         self.assertFalse(decoder.seed_reference("abc123", 46.0, -121.0))
         self.assertEqual(ac.lat, 45.0)
+        self.assertIsNone(ac.ref_lat)
 
     def test_overrides_stale_local_fix_with_newer_reference(self):
         import time
@@ -558,9 +560,12 @@ class TestSeedReference(unittest.TestCase):
         ac.lat, ac.lon = 45.0, -122.0
         ac.last_position_ts = time.time() - 60.0  # stale
         decoder._aircraft["abc123"] = ac
+        stale_ts = ac.last_position_ts
         self.assertTrue(decoder.seed_reference("abc123", 46.0, -121.0))
-        self.assertEqual(ac.lat, 46.0)
-        self.assertEqual(ac.lon, -121.0)
+        self.assertEqual((ac.ref_lat, ac.ref_lon), (46.0, -121.0))
+        # The displayed fix and its time are untouched — publishing the seed
+        # as a fresh local fix made icons jump and then snap back.
+        self.assertEqual((ac.lat, ac.lon, ac.last_position_ts), (45.0, -122.0, stale_ts))
 
     def test_rejects_reference_older_than_local_fix(self):
         import time
@@ -572,7 +577,7 @@ class TestSeedReference(unittest.TestCase):
         self.assertFalse(
             decoder.seed_reference("abc123", 46.0, -121.0, ts=time.time() - 300.0)
         )
-        self.assertEqual(ac.lat, 45.0)
+        self.assertIsNone(ac.ref_lat)
 
 
 # ============================================================================
@@ -638,6 +643,17 @@ class TestDecoderIngestV2(unittest.TestCase):
         self.assertGreater(len(entity["trail_pts"]), 0)
 
     # --- Velocity -----------------------------------------------------------
+
+    def test_velocity_frame_is_not_used_as_cpr_position(self):
+        # TC 19 has no CPR position; it must never fill the even/odd pair.
+        import pyModeS as pms
+        msg = bytes.fromhex(self.VELOCITY_MSG)
+        self.decoder.ingest(msg)
+        icao = pms.icao(self.VELOCITY_MSG).lower()
+        ac = self.decoder._aircraft[icao]
+        self.assertIsNone(ac.even_msg)
+        self.assertIsNone(ac.odd_msg)
+        self.assertIsNone(ac.lat)
 
     def test_velocity_decoded(self):
         import pyModeS as pms

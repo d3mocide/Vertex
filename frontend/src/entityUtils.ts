@@ -31,6 +31,19 @@ export function entityToTrack(entity: Entity, existing?: Track): Track | null {
   const positionStale = Boolean(entity.position_stale)
   const positionDr = Boolean(entity.position_dr)
 
+  // When the position was measured, on the local clock. Derived from the fix
+  // age rather than the server's absolute timestamp so client/server clock skew
+  // doesn't matter. A re-sent fix keeps its original time; a dead-reckoned
+  // position is projected to the moment it was sent, so its age is ~0.
+  let fixTimeMs: number | undefined
+  if (existing?.fixTimeMs != null && existing.lat === entity.lat && existing.lon === entity.lon) {
+    fixTimeMs = existing.fixTimeMs
+  } else if (positionDr) {
+    fixTimeMs = Date.now()
+  } else if (typeof entity.position_age_s === 'number') {
+    fixTimeMs = Date.now() - entity.position_age_s * 1000
+  }
+
   // ── Build raw trail ──────────────────────────────────────────────────────
   // Trail sources (merged in order, oldest → newest):
   //   1. DB historical trail (historicalTrailCache) — fetched once on first
@@ -40,44 +53,41 @@ export function entityToTrack(entity: Entity, existing?: Track): Track | null {
   let trail: TrailPt[]
 
   if (isAir && entity.trail_pts && entity.trail_pts.length >= 1) {
-    // Convert WS ring buffer: [lat, lon, alt_ft, unix_ts] → TrailPt
-    const wsTrail: TrailPt[] = entity.trail_pts.map(p => [
-      p[1],                         // lon
-      p[0],                         // lat
-      p[2] * ALT_FT_TO_M,           // alt_ft → metres
-      speedMs,                      // speed not stored per-point; use current
-      new Date(p[3] * 1000).toISOString(),
-    ])
+    // Extend the trail already rendered with only the ring-buffer fixes newer
+    // than its last point. Rebuilding from "DB history + ring buffer" each
+    // time dropped every fix that had scrolled out of the ~150-point ring
+    // since hydration, so the path cut a straight chord across that gap.
+    const tsMs = (p: TrailPt) => (p[4] ? Date.parse(p[4]) : 0)
+    const base = existing?.trail ?? []
+    const baseLastMs = base.length ? tsMs(base[base.length - 1]) : -Infinity
+    // WS ring buffer: [lat, lon, alt_ft, unix_ts] → TrailPt, new fixes only
+    const fresh: TrailPt[] = entity.trail_pts
+      .filter(p => p[3] * 1000 > baseLastMs)
+      .map(p => [
+        p[1],                         // lon
+        p[0],                         // lat
+        p[2] * ALT_FT_TO_M,           // alt_ft → metres
+        speedMs,                      // speed not stored per-point; use current
+        new Date(p[3] * 1000).toISOString(),
+      ])
+    const live = fresh.length ? [...base, ...fresh] : base
 
-    // Prepend DB historical trail.  Only include cached points that are older
-    // than the start of the WS ring buffer to avoid duplicates.
-    const wsTsFirstMs = entity.trail_pts[0][3] * 1000 // unix ms
+    // Prepend DB history (useTrailHydration) older than anything live, with a
+    // 5-second overlap buffer to avoid duplicates.
+    const liveFirstMs = live.length ? tsMs(live[0]) : Infinity
     const cached = historicalTrailCache.get(entity.entity_id) ?? []
-    const olderCached = cached.filter(p => {
-      const ts = p[4] ? new Date(p[4]).getTime() : 0
-      return ts < wsTsFirstMs - 5_000  // 5-second overlap buffer
-    })
+    const olderCached = cached.filter(p => tsMs(p) < liveFirstMs - 5_000)
+    const merged = olderCached.length ? [...olderCached, ...live] : live
 
-    const merged = [...olderCached, ...wsTrail]
-
-    // Trim to the most recent continuous flight segment.
-    // Use 5-minute gap threshold so brief reception holes don't break history.
+    // Trim to the most recent continuous flight segment: a 10-minute gap
+    // means a separate flight or a long reception hole.
     const MAX_TRAIL_GAP_MS = 10 * 60 * 1000
     let segmentStart = 0
     for (let i = 1; i < merged.length; i++) {
-      const tA = merged[i - 1][4] ? new Date(merged[i - 1][4]!).getTime() : 0
-      const tB = merged[i][4] ? new Date(merged[i][4]!).getTime() : 0
-      if (tB - tA > MAX_TRAIL_GAP_MS) segmentStart = i
+      if (tsMs(merged[i]) - tsMs(merged[i - 1]) > MAX_TRAIL_GAP_MS) segmentStart = i
     }
 
-    const continuousTrail = merged.slice(segmentStart)
-
-    // Prefer merged trail when it's richer than what we already have rendered.
-    if (!existing?.trail || continuousTrail.length >= existing.trail.length) {
-      trail = continuousTrail.slice(-DB_TRAIL_CAP)
-    } else {
-      trail = existing.trail
-    }
+    trail = merged.slice(segmentStart).slice(-DB_TRAIL_CAP)
   } else if (isAir && entity.trail_pts && entity.trail_pts.length === 0) {
     // BEAST connected but no position fixes yet — keep existing trail if any.
     trail = existing?.trail ?? []
@@ -104,6 +114,7 @@ export function entityToTrack(entity: Entity, existing?: Track): Track | null {
     lastSeen:     entity.last_seen,
     positionStale,
     positionDr,
+    fixTimeMs,
     lat:          entity.lat,
     lon:          entity.lon,
     altMeters,

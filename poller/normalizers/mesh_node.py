@@ -40,11 +40,7 @@ def normalize_pymc_repeater_advert(data: dict, source_url: str) -> Optional[dict
     if lat == 0.0 and lon == 0.0:
         lat = lon = None
 
-    last_advert = data.get("last_advert_timestamp") or data.get("lastmod")
-    if isinstance(last_advert, (int, float)):
-        last_seen = datetime.fromtimestamp(last_advert, tz=timezone.utc).isoformat()
-    else:
-        last_seen = _now()
+    last_seen = _heard_at(data)
 
     out_path_len = data.get("out_path_len")
     status = f"hops:{out_path_len}" if out_path_len is not None else ""
@@ -70,6 +66,21 @@ def normalize_pymc_repeater_advert(data: dict, source_url: str) -> Optional[dict
         "last_seen": last_seen,
         "tags":     ["mesh_node", contact_type],
     }
+
+
+def _heard_at(data: dict) -> str:
+    """When the repeater last heard this node, by the receiver's clock.
+
+    `last_seen` (contact list) and `lastmod` (live advert) are stamped by the
+    repeater. `last_advert_timestamp` is the *sender's* RTC — often years off —
+    so it is never used. Falling back to "now" for every contact made all
+    ~1.3k known nodes look live, while only a few dozen had been heard recently.
+    """
+    for key in ("last_seen", "lastmod"):
+        val = data.get(key)
+        if isinstance(val, (int, float)) and val > 1e9:
+            return datetime.fromtimestamp(val / 1000 if val > 1e11 else val, tz=timezone.utc).isoformat()
+    return _now()
 
 
 def _now() -> str:

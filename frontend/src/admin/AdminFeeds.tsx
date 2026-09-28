@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react'
 import { API_BASE } from '../config'
 import { authHeaders } from '../auth'
 import { useRegions } from '../hooks/useRegions'
+import { maskUrl } from './ui'
 
 type Tab = 'radio' | 'news' | 'pollers' | 'zones' | 'regions'
 
@@ -16,7 +17,7 @@ type AlertZone   = { id: number; zone_code: string; enabled: boolean; source: st
 
 function ToggleDot({ enabled }: { enabled: boolean }) {
   return (
-    <span className={`inline-block w-1.5 h-1.5 rounded-full mr-2 ${enabled ? 'bg-green-400' : 'bg-gray-600'}`} />
+    <span className={`inline-block w-1.5 h-1.5 rounded-full mr-2 ${enabled ? 'bg-green-400' : 'bg-outline-variant'}`} />
   )
 }
 
@@ -33,7 +34,7 @@ function ToggleBtn({ enabled, onClick }: { enabled: boolean; onClick: () => void
     <button
       onClick={onClick}
       className={`text-[11px] uppercase tracking-wider transition-colors ${
-        enabled ? 'text-green-400/70 hover:text-red-400' : 'text-gray-600 hover:text-green-400'
+        enabled ? 'text-green-400/70 hover:text-red-400' : 'text-on-surface-variant/60 hover:text-green-400'
       }`}
     >
       {enabled ? 'On' : 'Off'}
@@ -89,19 +90,19 @@ function RadioTab() {
           <div key={s.id} className="flex items-center gap-3 px-3 py-2 border-b border-white/5 last:border-0 hover:bg-white/5">
             <ToggleDot enabled={s.enabled} />
             <div className="flex-1 min-w-0">
-              <div className="text-xs text-gray-200 truncate">{s.name}</div>
-              <div className="text-[11px] text-gray-500 truncate">{s.url}</div>
+              <div className="text-xs text-on-surface truncate">{s.name}</div>
+              <div className="font-mono text-[11px] text-on-surface-variant truncate">{maskUrl(s.url)}</div>
             </div>
-            <span className="text-[11px] text-gray-600 uppercase">{s.format}</span>
+            <span className="text-[11px] text-on-surface-variant/60 uppercase">{s.format}</span>
             <ToggleBtn enabled={s.enabled} onClick={() => toggle(s.id)} />
             {s.source === 'user' && <DeleteBtn onClick={() => del(s.id)} />}
           </div>
         ))}
-        {items.length === 0 && <p className="px-3 py-4 text-xs text-gray-600">No streams configured.</p>}
+        {items.length === 0 && <p className="px-3 py-4 text-xs text-on-surface-variant/60">No streams configured.</p>}
       </div>
       <form onSubmit={create} className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-        <input value={name} onChange={(e) => setName(e.target.value)} required placeholder="Name" className="bg-black/60 border border-white/10 text-gray-200 text-xs px-2 py-1.5 focus:outline-none focus:border-amber-gold/60" />
-        <input value={url} onChange={(e) => setUrl(e.target.value)} required placeholder="Stream URL" className="bg-black/60 border border-white/10 text-gray-200 text-xs px-2 py-1.5 focus:outline-none focus:border-amber-gold/60" />
+        <input value={name} onChange={(e) => setName(e.target.value)} required placeholder="Name" className="bg-black/60 border border-white/10 text-on-surface text-xs px-2 py-1.5 focus:outline-none focus:border-amber-gold/60" />
+        <input value={url} onChange={(e) => setUrl(e.target.value)} required placeholder="Stream URL" className="bg-black/60 border border-white/10 text-on-surface text-xs px-2 py-1.5 focus:outline-none focus:border-amber-gold/60" />
         <select value={format} onChange={(e) => setFormat(e.target.value)} className="tactical-select">
           <option value="mp3">mp3</option>
           <option value="aac">aac</option>
@@ -162,18 +163,18 @@ function NewsTab() {
           <div key={f.id} className="flex items-center gap-3 px-3 py-2 border-b border-white/5 last:border-0 hover:bg-white/5">
             <ToggleDot enabled={f.enabled} />
             <div className="flex-1 min-w-0">
-              <div className="text-xs text-gray-200 truncate">{f.name}</div>
-              {f.url && <div className="text-[11px] text-gray-500 truncate">{f.url}</div>}
+              <div className="text-xs text-on-surface truncate">{f.name}</div>
+              {f.url && <div className="font-mono text-[11px] text-on-surface-variant truncate">{maskUrl(f.url)}</div>}
             </div>
             <ToggleBtn enabled={f.enabled} onClick={() => toggle(f.id)} />
             {f.source === 'user' && <DeleteBtn onClick={() => del(f.id)} />}
           </div>
         ))}
-        {items.length === 0 && <p className="px-3 py-4 text-xs text-gray-600">No feeds configured.</p>}
+        {items.length === 0 && <p className="px-3 py-4 text-xs text-on-surface-variant/60">No feeds configured.</p>}
       </div>
       <form onSubmit={create} className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-        <input value={name} onChange={(e) => setName(e.target.value)} required placeholder="Feed name" className="bg-black/60 border border-white/10 text-gray-200 text-xs px-2 py-1.5 focus:outline-none focus:border-amber-gold/60" />
-        <input value={url} onChange={(e) => setUrl(e.target.value)} required placeholder="RSS URL" className="bg-black/60 border border-white/10 text-gray-200 text-xs px-2 py-1.5 focus:outline-none focus:border-amber-gold/60" />
+        <input value={name} onChange={(e) => setName(e.target.value)} required placeholder="Feed name" className="bg-black/60 border border-white/10 text-on-surface text-xs px-2 py-1.5 focus:outline-none focus:border-amber-gold/60" />
+        <input value={url} onChange={(e) => setUrl(e.target.value)} required placeholder="RSS URL" className="bg-black/60 border border-white/10 text-on-surface text-xs px-2 py-1.5 focus:outline-none focus:border-amber-gold/60" />
         <button type="submit" disabled={saving} className="sm:col-span-2 py-1.5 text-[11px] font-bold uppercase tracking-widest border border-amber-gold/40 text-amber-gold hover:bg-amber-gold/10 transition-colors disabled:opacity-50">
           {saving ? 'Adding…' : 'Add Feed'}
         </button>
@@ -234,21 +235,21 @@ function PollersTab() {
             <ToggleDot enabled={p.enabled} />
             <span className="text-[11px] text-amber-400/70 uppercase w-12 shrink-0">{p.type}</span>
             <div className="flex-1 min-w-0">
-              <div className="text-xs text-gray-200 truncate">{p.name}</div>
-              <div className="text-[11px] text-gray-500 truncate">{p.url}</div>
+              <div className="text-xs text-on-surface truncate">{p.name}</div>
+              <div className="font-mono text-[11px] text-on-surface-variant truncate">{maskUrl(p.url)}</div>
             </div>
             <ToggleBtn enabled={p.enabled} onClick={() => toggle(p.id)} />
             {p.source === 'user' && <DeleteBtn onClick={() => del(p.id)} />}
           </div>
         ))}
-        {items.length === 0 && <p className="px-3 py-4 text-xs text-gray-600">No poller sources configured.</p>}
+        {items.length === 0 && <p className="px-3 py-4 text-xs text-on-surface-variant/60">No poller sources configured.</p>}
       </div>
       <form onSubmit={create} className="grid grid-cols-1 sm:grid-cols-3 gap-2">
         <select value={type} onChange={(e) => setType(e.target.value as PollerType)} className="tactical-select">
           {POLLER_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
         </select>
-        <input value={name} onChange={(e) => setName(e.target.value)} required placeholder="Name" className="bg-black/60 border border-white/10 text-gray-200 text-xs px-2 py-1.5 focus:outline-none focus:border-amber-gold/60" />
-        <input value={url} onChange={(e) => setUrl(e.target.value)} required placeholder="URL / host" className="bg-black/60 border border-white/10 text-gray-200 text-xs px-2 py-1.5 focus:outline-none focus:border-amber-gold/60" />
+        <input value={name} onChange={(e) => setName(e.target.value)} required placeholder="Name" className="bg-black/60 border border-white/10 text-on-surface text-xs px-2 py-1.5 focus:outline-none focus:border-amber-gold/60" />
+        <input value={url} onChange={(e) => setUrl(e.target.value)} required placeholder="URL / host" className="bg-black/60 border border-white/10 text-on-surface text-xs px-2 py-1.5 focus:outline-none focus:border-amber-gold/60" />
         <button type="submit" disabled={saving} className="sm:col-span-3 py-1.5 text-[11px] font-bold uppercase tracking-widest border border-amber-gold/40 text-amber-gold hover:bg-amber-gold/10 transition-colors disabled:opacity-50">
           {saving ? 'Adding…' : 'Add Source'}
         </button>
@@ -305,12 +306,12 @@ function ZonesTab() {
         {items.map((z) => (
           <div key={z.id} className="flex items-center gap-3 px-3 py-2 border-b border-white/5 last:border-0 hover:bg-white/5">
             <ToggleDot enabled={z.enabled} />
-            <span className="flex-1 font-mono text-xs text-gray-200">{z.zone_code}</span>
-            <span className="text-[11px] text-gray-600">{z.source}</span>
+            <span className="flex-1 font-mono text-xs text-on-surface">{z.zone_code}</span>
+            <span className="text-[11px] text-on-surface-variant/60">{z.source}</span>
             {z.source === 'user' && <DeleteBtn onClick={() => del(z.id)} />}
           </div>
         ))}
-        {items.length === 0 && <p className="px-3 py-4 text-xs text-gray-600">No alert zones configured.</p>}
+        {items.length === 0 && <p className="px-3 py-4 text-xs text-on-surface-variant/60">No alert zones configured.</p>}
       </div>
       <form onSubmit={create} className="flex gap-2">
         <input
@@ -318,7 +319,7 @@ function ZonesTab() {
           onChange={(e) => setCode(e.target.value)}
           required
           placeholder="NWS zone code, e.g. ORZ006"
-          className="flex-1 bg-black/60 border border-white/10 text-gray-200 text-xs px-2 py-1.5 focus:outline-none focus:border-amber-gold/60 font-mono uppercase"
+          className="flex-1 bg-black/60 border border-white/10 text-on-surface text-xs px-2 py-1.5 focus:outline-none focus:border-amber-gold/60 font-mono uppercase"
         />
         <button type="submit" disabled={saving} className="px-4 py-1.5 text-[11px] font-bold uppercase tracking-widest border border-amber-gold/40 text-amber-gold hover:bg-amber-gold/10 transition-colors disabled:opacity-50">
           {saving ? '…' : 'Add'}
@@ -336,21 +337,21 @@ function RegionsTab() {
 
   return (
     <div className="space-y-3">
-      <p className="text-[11px] text-gray-500 uppercase tracking-widest">
-        Regions are defined in <span className="text-gray-400 font-mono">sources.yml</span>. Edit that file to add or modify regions.
+      <p className="text-[11px] text-on-surface-variant uppercase tracking-widest">
+        Regions are defined in <span className="text-on-surface-variant font-mono">sources.yml</span>. Edit that file to add or modify regions.
       </p>
       <div className="border border-white/10">
         {regions.map((r) => (
           <div key={r.id} className="px-3 py-3 border-b border-white/5 last:border-0 hover:bg-white/5">
             <div className="flex items-center gap-3 mb-1">
-              <span className={`inline-block w-1.5 h-1.5 rounded-full ${r.enabled ? 'bg-green-400' : 'bg-gray-600'}`} />
-              <span className="text-xs font-semibold text-gray-200">{r.name}</span>
-              <span className="font-mono text-[11px] text-gray-500">{r.id}</span>
+              <span className={`inline-block w-1.5 h-1.5 rounded-full ${r.enabled ? 'bg-green-400' : 'bg-outline-variant'}`} />
+              <span className="text-xs font-semibold text-on-surface">{r.name}</span>
+              <span className="font-mono text-[11px] text-on-surface-variant">{r.id}</span>
               {!r.enabled && (
-                <span className="text-[11px] uppercase tracking-wider text-gray-600">disabled</span>
+                <span className="text-[11px] uppercase tracking-wider text-on-surface-variant/60">disabled</span>
               )}
             </div>
-            <div className="ml-4 font-mono text-[11px] text-gray-500 space-y-0.5">
+            <div className="ml-4 font-mono text-[11px] text-on-surface-variant space-y-0.5">
               <div>
                 Lat {r.bbox.min_lat} → {r.bbox.max_lat} &nbsp;|&nbsp; Lon {r.bbox.min_lon} → {r.bbox.max_lon}
               </div>
@@ -358,7 +359,7 @@ function RegionsTab() {
           </div>
         ))}
         {regions.length === 0 && (
-          <p className="px-3 py-4 text-xs text-gray-600">No regions configured.</p>
+          <p className="px-3 py-4 text-xs text-on-surface-variant/60">No regions configured.</p>
         )}
       </div>
     </div>
@@ -368,10 +369,10 @@ function RegionsTab() {
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 const TABS: { id: Tab; label: string; icon: string }[] = [
-  { id: 'radio', label: 'Radio Streams', icon: 'radio' },
-  { id: 'news', label: 'News Feeds', icon: 'rss_feed' },
+  { id: 'radio', label: 'Radio', icon: 'radio' },
+  { id: 'news', label: 'News', icon: 'rss_feed' },
   { id: 'pollers', label: 'Pollers', icon: 'settings_input_component' },
-  { id: 'zones', label: 'Alert Zones', icon: 'notification_important' },
+  { id: 'zones', label: 'Zones', icon: 'notification_important' },
   { id: 'regions', label: 'Regions', icon: 'map' },
 ]
 
@@ -381,23 +382,24 @@ export default function AdminFeeds() {
   return (
     <div className="space-y-6">
       {/* Tab Navigation */}
-      <div className="border-b border-white/10 -mx-6 px-6">
-        <div className="flex gap-1 overflow-x-auto">
-          {TABS.map(({ id, label, icon }) => (
-            <button
-              key={id}
-              onClick={() => setTab(id)}
-              className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-colors text-[11px] font-bold uppercase tracking-widest whitespace-nowrap ${
-                tab === id
-                  ? 'border-amber-gold text-amber-gold'
-                  : 'border-transparent text-on-surface-variant hover:text-on-surface'
-              }`}
-            >
-              <span className="ms text-[16px]">{icon}</span>
-              {label}
-            </button>
-          ))}
-        </div>
+      <div className="grid grid-cols-5 md:flex md:gap-1 border border-white/10 md:border-0 md:border-b bg-surface-container-low md:bg-transparent" role="tablist">
+        {TABS.map(({ id, label, icon }) => (
+          <button
+            key={id}
+            type="button"
+            role="tab"
+            aria-selected={tab === id}
+            onClick={() => setTab(id)}
+            className={`flex flex-col md:flex-row items-center justify-center gap-1 md:gap-2 px-1 md:px-4 py-2 md:py-3 border-b-2 transition-colors text-[10px] md:text-[11px] font-bold uppercase tracking-wider md:tracking-widest whitespace-nowrap ${
+              tab === id
+                ? 'border-amber-gold text-amber-gold bg-amber-gold/5 md:bg-transparent'
+                : 'border-transparent text-on-surface-variant hover:text-on-surface'
+            }`}
+          >
+            <span className="ms text-[18px] md:text-[16px]" aria-hidden="true">{icon}</span>
+            {label}
+          </button>
+        ))}
       </div>
 
       {/* Tab Content */}
