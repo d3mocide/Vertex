@@ -85,9 +85,13 @@ class Geocoder:
     async def _get(self, params: dict) -> list:
         client = self._client or httpx.AsyncClient(timeout=_TIMEOUT)
         try:
+            # No "state": the bounded viewbox already confines results to the
+            # region, and after a data refresh (2026-09-27) the self-hosted
+            # Nominatim returned nothing for any structured query carrying
+            # state=Oregon — 90% of dispatch addresses went unlocated.
             resp = await client.get(f"{self.base}/search", params={
                 "format": "jsonv2", "countrycodes": "us", "viewbox": _viewbox(), "bounded": 1,
-                "state": settings.geocoder_state, **params,
+                **params,
             })
             resp.raise_for_status()
             return resp.json()
