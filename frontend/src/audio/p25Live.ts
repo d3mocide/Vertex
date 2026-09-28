@@ -13,6 +13,7 @@
  */
 import { WS_URL } from '../config'
 import { wsTokenParam } from '../auth'
+import { Upsampler } from './upsample'
 
 const RATE = 8000
 const GAP_MS = 2500          // no frames this long ends a call (backup to "end")
@@ -64,7 +65,11 @@ export class P25LivePlayer {
   private queue: Call[] = []               // kept calls waiting their turn
   private current: Call | null = null
   private currentDelayed = false
-  private nextTime = 0
+  // The playing call's audio, upsampled to the context rate (see upsample.ts)
+  // and scheduled back to back in whole context sample frames.
+  private up: Upsampler | null = null
+  private flushed = false
+  private nextFrame = 0
   private sources = new Set<AudioBufferSourceNode>()
   private connected = false
 
@@ -238,7 +243,7 @@ export class P25LivePlayer {
     const ctx = this.ctx
     if (!ctx || !this.running) return
     const cur = this.current
-    if (cur && cur.ended && cur.chunks.length === 0 && ctx.currentTime >= this.nextTime) {
+    if (cur && cur.ended && cur.chunks.length === 0 && this.flushed && ctx.currentTime * ctx.sampleRate >= this.nextFrame) {
       this.current = null
       this.emit()
     }
@@ -249,23 +254,32 @@ export class P25LivePlayer {
       const next = this.queue.shift()!
       this.current = next
       this.currentDelayed = Date.now() - next.startedAt > 1500
-      this.nextTime = ctx.currentTime + LEAD_S
+      this.up = new Upsampler(RATE, ctx.sampleRate)
+      this.flushed = false
+      this.nextFrame = Math.ceil((ctx.currentTime + LEAD_S) * ctx.sampleRate)
       this.emit()
     }
     const c = this.current!
-    while (c.chunks.length) {
-      const f = c.chunks.shift()!
-      const buf = ctx.createBuffer(1, f.length, RATE)
-      buf.copyToChannel(f, 0)
-      const src = ctx.createBufferSource()
-      src.buffer = buf
-      src.connect(this.gain!)
-      if (this.nextTime < ctx.currentTime) this.nextTime = ctx.currentTime + 0.05   // underrun
-      src.start(this.nextTime)
-      this.nextTime += buf.duration
-      this.sources.add(src)
-      src.onended = () => this.sources.delete(src)
+    while (c.chunks.length) this.schedule(ctx, this.up!.push(c.chunks.shift()!))
+    if (c.ended && !this.flushed) {
+      this.flushed = true
+      this.schedule(ctx, this.up!.flush())
     }
+  }
+
+  private schedule(ctx: AudioContext, samples: Float32Array<ArrayBuffer>) {
+    if (samples.length === 0) return
+    const buf = ctx.createBuffer(1, samples.length, ctx.sampleRate)
+    buf.copyToChannel(samples, 0)
+    const src = ctx.createBufferSource()
+    src.buffer = buf
+    src.connect(this.gain!)
+    const now = Math.ceil(ctx.currentTime * ctx.sampleRate)
+    if (this.nextFrame < now) this.nextFrame = now + Math.round(0.05 * ctx.sampleRate)   // underrun
+    src.start(this.nextFrame / ctx.sampleRate)
+    this.nextFrame += samples.length
+    this.sources.add(src)
+    src.onended = () => this.sources.delete(src)
   }
 
   private silence() {
@@ -273,7 +287,7 @@ export class P25LivePlayer {
       try { s.stop() } catch { /* already stopped */ }
     }
     this.sources.clear()
-    this.nextTime = 0
+    this.nextFrame = 0
   }
 
   private emit() {
