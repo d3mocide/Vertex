@@ -54,3 +54,14 @@ def test_datelines_and_obituaries_do_not_make_stories_local():
     obit = _c("David Rood", "May 10, 1931 to September 9, 2026 \u2013 David Rood of West Linn passed away.", "portland_tribune")
     assert obit == {"topic": "Obituaries", "local": 1, "emergency": False}
     assert _c("How the Portland Fire charmed Oregonians in their first season")["topic"] == "Sports"
+
+
+def test_routine_city_notices_rank_below_local_news():
+    items = [{"title": "Fall Registration at the Juanita Pohl Center", "source": "City of Tualatin", "link": "a",
+              "published": "Sun, 28 Sep 2026 11:00:00 GMT"},
+             {"title": "Crash closes Highway 99W in Tigard", "source": "KOIN 6", "link": "b",
+              "published": "Sun, 28 Sep 2026 10:00:00 GMT"},
+             {"title": "Phishing scam targeting Tigard permit customers", "source": "City of Tigard", "link": "c",
+              "published": "Sun, 28 Sep 2026 09:00:00 GMT"}]
+    order = [s["link"] for s in nr.stories(items, NOW)]
+    assert order.index("a") == 2 and nr.classify(items[2])["topic"] == "Safety"

@@ -32,7 +32,7 @@ _TOPICS: list[tuple[str, re.Pattern]] = [
                           r"routs?|wins|victory|defeats?|\d{1,3}-\d{1,3})\b", re.I)),
     ("Safety", re.compile(r"\b(fire|fires|wildfire|blaze|shooting|shot|stabb\w*|homicide|murder|crash|collision|police|"
                           r"sheriff|arrest\w*|evacuat\w*|hazmat|rescue\w*|missing|explosion|killed|dead|death|injur\w*|"
-                          r"earthquake|quake|tsunami|emergency|lockdown|amber alert)\b", re.I)),
+                          r"earthquake|quake|tsunami|emergency|lockdown|amber alert|scams?|fraud|phishing)\b", re.I)),
     ("Weather", re.compile(r"\b(storm|rain|snow|ice|wind|windstorm|heat|heat wave|weather|atmospheric river|flood(?:s|ing|ed|waters?)?|"
                            r"hurricane|tornado|smoke|air quality|freeze|forecast)\b", re.I)),
     ("Transportation", re.compile(r"\b(odot|traffic|road|roads|highway|freeway|i-5|i-205|i-84|i-405|hwy|trimet|max line|"
@@ -53,7 +53,7 @@ METRO_PLACES = ["Portland", "Beaverton", "Hillsboro", "Aloha", "Gresham", "Milwa
                 "TriMet", "PDX"]
 _OREGON = re.compile(r"\b(oregon|ore\.|odot|salem|eugene|bend|medford|willamette|columbia river|mt\.? hood|coast)\b", re.I)
 # Outlets that only publish about the home area.
-HOME_SOURCES = {"city_of_tualatin", "city of tualatin"}
+HOME_SOURCES = {"city_of_tualatin", "city of tualatin", "city of tigard", "tvf&r"}
 
 
 # Newswire datelines ("PORTLAND, Ore. (KOIN) — ...") say where the outlet is,
@@ -157,7 +157,11 @@ def stories(items: list[dict], now: datetime, similarity: float = 0.6) -> list[d
         del s["_words"]
         age_h = ((now - ts).total_seconds() / 3600) if (ts := parse_published(s["published"])) else 48
         # Local first; within a level, safety beats sports, fresh beats stale.
+        # City press releases are local but mostly routine (surveys, class
+        # registration): below real news unless about safety, weather or roads.
+        routine = (s["source"].lower() in HOME_SOURCES
+                   and s["topic"] not in ("Safety", "Weather", "Transportation"))
         s["score"] = round(s["local"] * 10 + (6 if s["emergency"] else 0)
                            + {"Safety": 3, "Weather": 3, "Transportation": 2, "Government": 2}.get(s["topic"], 0)
-                           + (len(s["sources"]) - 1) * 2 - min(age_h, 48) / 6, 2)
+                           + (len(s["sources"]) - 1) * 2 - min(age_h, 48) / 6 - (12 if routine else 0), 2)
     return sorted(out, key=lambda s: s["score"], reverse=True)
