@@ -18,6 +18,9 @@ const LOCAL_LABELS: Record<number, string> = { 3: 'Home area', 2: 'Metro', 1: 'O
 // Not "local news" however close: they rank under Oregon & beyond.
 const SIDELINED = new Set(['Sports', 'Obituaries'])
 const READ_KEY = 'vertex.intel.read'
+// City feeds keep weeks-old posts: "Local now" is the last week.
+const LOCAL_NOW_MS = 7 * 24 * 60 * 60 * 1000
+const isCurrent = (s: NewsItem) => !(Date.now() - Date.parse(s.published) > LOCAL_NOW_MS)
 
 function formatAge(iso: string): string {
   const ts = Date.parse(iso)
@@ -108,9 +111,9 @@ export function IntelPanel() {
     (topic === 'all' || (s.topic ?? 'Other') === topic)
     && (!q || `${s.title} ${s.summary ?? ''} ${s.source}`.toLowerCase().includes(q)))
   // Already ranked by the server (local relevance, safety, freshness).
-  const local = shown.filter((s) => (s.local ?? 0) >= 2 && !SIDELINED.has(s.topic ?? ''))
+  const local = shown.filter((s) => (s.local ?? 0) >= 2 && !SIDELINED.has(s.topic ?? '') && isCurrent(s))
   const beyond = shown.filter((s) => !local.includes(s))
-  const unread = stories.filter((s) => (s.local ?? 0) >= 2 && !SIDELINED.has(s.topic ?? '') && !read.has(s.id ?? '')).length
+  const unread = stories.filter((s) => (s.local ?? 0) >= 2 && !SIDELINED.has(s.topic ?? '') && isCurrent(s) && !read.has(s.id ?? '')).length
 
   return (
     <div className="relative w-full h-full z-10 flex flex-col overflow-hidden" role="region" aria-label="Intel">
@@ -170,7 +173,7 @@ export function IntelPanel() {
 
         {beyond.length > 0 && (
           <section>
-            <SectionTitle>Oregon &amp; beyond</SectionTitle>
+            <SectionTitle>Oregon, beyond &amp; older</SectionTitle>
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-2">
               {beyond.map((s) => <StoryCard key={s.id ?? s.link} story={s} compact read={read.has(s.id ?? '')} onOpen={() => markRead(s.id)} />)}
             </div>

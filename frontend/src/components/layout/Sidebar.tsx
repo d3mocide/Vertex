@@ -37,7 +37,10 @@ export function Sidebar() {
     setGaugesVisible,
     lightningVisible,
     setLightningVisible,
-  } = useCivicPick('alerts', 'advisories', 'health', 'entities', 'connected', 'cameras', 'weather', 'lightningStrikes', 'setActiveTab', 'entityFilter', 'setEntityFilter', 'setEntitySearchQuery', 'setEntityAltRange', 'setEntitySpeedRange', 'camerasVisible', 'setCamerasVisible', 'gaugesVisible', 'setGaugesVisible', 'lightningVisible', 'setLightningVisible')
+    dispatchVisible,
+    setDispatchVisible,
+    radioIncidents,
+  } = useCivicPick('alerts', 'advisories', 'health', 'entities', 'connected', 'cameras', 'weather', 'lightningStrikes', 'setActiveTab', 'entityFilter', 'setEntityFilter', 'setEntitySearchQuery', 'setEntityAltRange', 'setEntitySpeedRange', 'camerasVisible', 'setCamerasVisible', 'gaugesVisible', 'setGaugesVisible', 'lightningVisible', 'setLightningVisible', 'dispatchVisible', 'setDispatchVisible', 'radioIncidents')
 
   const entityList = Object.values(entities)
   const aircraft     = entityList.filter((e) => e.entity_type === 'aircraft').length
@@ -50,6 +53,9 @@ export function Sidebar() {
   const streamGauges = entityList.filter((e) => e.entity_type === 'stream_gauge').length
   const satellites   = entityList.filter((e) => e.entity_type === 'satellite').length
   const lightningCount = lightningStrikes.length
+  // Same set the map layer draws (buildDispatchLayer): significant, located, last 6 h.
+  const dispatchCount = (radioIncidents?.incidents ?? []).filter((i) => i.lat != null && i.severity >= 3
+    && i.status !== 'cleared' && Date.now() - Date.parse(i.last_seen) < 6 * 3600_000).length
   const cams          = cameras.length
   const wAlerts       = weather.alerts.length
   // The advisory feed (ranked, all sources) drives the incident indicators.
@@ -470,6 +476,15 @@ export function Sidebar() {
           >
             <span className="ms text-[14px] mr-1.5 shrink-0" aria-hidden="true">electric_bolt</span>
             Lightning: {lightningCount}
+          </button>
+          <button
+            type="button"
+            onClick={() => { focusSafetyMap(); setDispatchVisible(!dispatchVisible) }}
+            className={`text-amber-p25 hover:text-white transition-all flex items-center text-left focus:outline-none ${dispatchVisible ? 'opacity-100' : 'opacity-40'}`}
+            title="Toggle dispatch incidents layer"
+          >
+            <span className="ms text-[14px] mr-1.5 shrink-0" aria-hidden="true">cell_tower</span>
+            Dispatch: {dispatchCount}
           </button>
           {/* Only shown when a source produces this entity type. */}
           {satellites > 0 && (

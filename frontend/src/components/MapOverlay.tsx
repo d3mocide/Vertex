@@ -14,6 +14,8 @@ import { buildCustomLayers } from '../layers/buildCustomLayers'
 import { buildLightningLayer } from '../layers/buildLightningLayer'
 import { buildStreamGaugeLayers, type StreamGaugePoint } from '../layers/buildStreamGaugeLayer'
 import { buildMeshNodeLayers, type MeshNodePoint } from '../layers/buildMeshNodeLayer'
+import { buildDispatchLayers } from '../layers/buildDispatchLayer'
+import type { RadioIncident } from '../storeTypes'
 
 import { extractRailSegments, snapPointToRail, type RailSegment } from '../layers/railSnap'
 import { fetchRailGeoJSON } from '../layers/railData'
@@ -134,6 +136,9 @@ export function MapOverlay({ map }: Props) {
   const gaugesVisible      = useCivicStore((s) => s.gaugesVisible)
   const selectEntity      = useCivicStore((s) => s.selectEntity)
   const setSelectedCamId  = useCivicStore((s) => s.setSelectedCamId)
+  const radioIncidents     = useCivicStore((s) => s.radioIncidents)
+  const dispatchVisible    = useCivicStore((s) => s.dispatchVisible)
+  const setFocusIncidentId = useCivicStore((s) => s.setFocusIncidentId)
   const setActiveTab      = useCivicStore((s) => s.setActiveTab)
   const geofencesVisible  = useCivicStore((s) => s.geofencesVisible)
   const trailsVisible     = useCivicStore((s) => s.trailsVisible)
@@ -170,6 +175,10 @@ export function MapOverlay({ map }: Props) {
   const lightningRef = useRef<LightningStrike[]>([])
   const lightningVisibleRef = useRef(true)
   const gaugesVisibleRef = useRef(true)
+  const dispatchRef = useRef<RadioIncident[]>([])
+  const dispatchVisibleRef = useRef(true)
+  useEffect(() => { dispatchRef.current = radioIncidents?.incidents ?? [] }, [radioIncidents])
+  useEffect(() => { dispatchVisibleRef.current = dispatchVisible }, [dispatchVisible])
   useEffect(() => { entitiesRef.current = entities }, [entities])
   useEffect(() => { typeVersionRef.current = entityTypeVersion }, [entityTypeVersion])
   useEffect(() => { gaugesVisibleRef.current = gaugesVisible }, [gaugesVisible])
@@ -429,6 +438,25 @@ export function MapOverlay({ map }: Props) {
               </div>
             </div>
           `
+        } else if (layer.id === 'dispatch-incidents') {
+          const inc = object as RadioIncident
+          const mins = Math.max(0, Math.round((Date.now() - Date.parse(inc.last_seen)) / 60_000))
+          const ago = mins < 60 ? `${mins}m ago` : `${Math.floor(mins / 60)}h ago`
+          const label = inc.nature ?? inc.category.replace(/_/g, ' ')
+          const tone = inc.severity >= 5 ? 'text-red-400' : 'text-amber-400'
+          html = `
+            <div class="p-2 min-w-[220px] max-w-[280px] bg-slate-900/95 border border-slate-700 shadow-2xl backdrop-blur-md">
+              <div class="flex items-center gap-2 text-[11px] font-bold text-white mb-1 uppercase">
+                <span class="ms text-[16px] ${tone}">cell_tower</span>
+                <span class="truncate">${escHtml(label)}</span>
+              </div>
+              <div class="text-[12px] text-white">${escHtml(inc.location ?? 'Location not stated')}${inc.city ? `<span class="text-slate-400"> · ${escHtml(inc.city)}</span>` : ''}</div>
+              ${inc.unit_summary ? `<div class="text-[11px] text-amber-300 mt-0.5">${escHtml(inc.unit_summary)}</div>` : ''}
+              ${inc.markers?.length ? `<div class="text-[11px] text-red-300 mt-0.5">${escHtml(inc.markers.join(' · '))}</div>` : ''}
+              <div class="text-[11px] text-slate-400 mt-1 flex justify-between"><span>${inc.call_count} call${inc.call_count === 1 ? '' : 's'}</span><span>${ago}</span></div>
+              <div class="text-[10px] text-slate-500 mt-1">Click to open on the Incidents page</div>
+            </div>
+          `
         } else if (layer.id === 'stream-gauge-dots') {
           const gauge = object as StreamGaugePoint
           html = `
@@ -508,6 +536,9 @@ export function MapOverlay({ map }: Props) {
       if (picked.layer?.id === 'camera-points') {
         const cam = picked.object as TrafficCamera
         setSelectedCamId(cam.id)
+      } else if (picked.layer?.id === 'dispatch-incidents') {
+        const inc = picked.object as RadioIncident | undefined
+        if (inc) { setFocusIncidentId(inc.id); setActiveTab('incidents') }
       } else if (picked.layer?.id === 'stream-gauge-dots') {
         const gauge = picked.object as StreamGaugePoint | undefined
         if (gauge?.entity_id) selectEntity(gauge.entity_id)
@@ -754,6 +785,8 @@ export function MapOverlay({ map }: Props) {
           ...memoGroup('trailSelected', [
             tracksRef.current, sel, trailsVisibleRef.current, replayModeRef.current ? replayTsRef.current : 0,
           ], () => buildTrailLayers(rawTracks, sel, trailsVisibleRef.current, 'selected')),
+          ...memoGroup('dispatch', [dispatchRef.current, dispatchVisibleRef.current, minuteBucket],
+            () => buildDispatchLayers(dispatchRef.current, dispatchVisibleRef.current, nowMs)),
           ...timed('entities', () => buildEntityLayers(pvbTracks, sel, cycleRef.current, zoom, missionTagsRef.current)),
           ...timed('events', () => buildEventLayers(systemEventsRef.current, nowMs)),
           ...(lightningVisibleRef.current

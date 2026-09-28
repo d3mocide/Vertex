@@ -65,3 +65,11 @@ def test_routine_city_notices_rank_below_local_news():
               "published": "Sun, 28 Sep 2026 09:00:00 GMT"}]
     order = [s["link"] for s in nr.stories(items, NOW)]
     assert order.index("a") == 2 and nr.classify(items[2])["topic"] == "Safety"
+
+
+def test_week_old_local_posts_rank_below_current_news():
+    items = [{"title": "Phishing scam targeting Tigard permit customers", "source": "City of Tigard", "link": "old",
+              "published": "Mon, 15 Sep 2026 09:00:00 GMT"},
+             {"title": "Bike protest in Portland over stadium deal", "source": "KOIN 6", "link": "new",
+              "published": "Sun, 28 Sep 2026 10:00:00 GMT"}]
+    assert [s["link"] for s in nr.stories(items, NOW)] == ["new", "old"]

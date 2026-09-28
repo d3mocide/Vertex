@@ -33,6 +33,8 @@ export function SettingsPanel() {
     railTracksVisible,
     setRailTracksVisible,
     gaugesVisible,
+    dispatchVisible,
+    setDispatchVisible,
     setGaugesVisible,
     terrainEnabled,
     setTerrainEnabled,
@@ -42,7 +44,7 @@ export function SettingsPanel() {
     setEntityFilter,
     debugInsets,
     setDebugInsets,
-  } = useCivicPick('settingsOpen', 'setSettingsOpen', 'radarVisible', 'setRadarVisible', 'radarOpacity', 'setRadarOpacity', 'smokeVisible', 'setSmokeVisible', 'goesVisible', 'setGoesVisible', 'firePerimetersVisible', 'setFirePerimetersVisible', 'camerasVisible', 'setCamerasVisible', 'geofencesVisible', 'setGeofencesVisible', 'trailsVisible', 'setTrailsVisible', 'lightningVisible', 'setLightningVisible', 'nwsAlertsVisible', 'setNwsAlertsVisible', 'lightningDensityVisible', 'setLightningDensityVisible', 'railTracksVisible', 'setRailTracksVisible', 'gaugesVisible', 'setGaugesVisible', 'terrainEnabled', 'setTerrainEnabled', 'terrainExaggeration', 'setTerrainExaggeration', 'entityFilter', 'setEntityFilter', 'debugInsets', 'setDebugInsets')
+  } = useCivicPick('settingsOpen', 'setSettingsOpen', 'radarVisible', 'setRadarVisible', 'radarOpacity', 'setRadarOpacity', 'smokeVisible', 'setSmokeVisible', 'goesVisible', 'setGoesVisible', 'firePerimetersVisible', 'setFirePerimetersVisible', 'camerasVisible', 'setCamerasVisible', 'geofencesVisible', 'setGeofencesVisible', 'trailsVisible', 'setTrailsVisible', 'lightningVisible', 'setLightningVisible', 'nwsAlertsVisible', 'setNwsAlertsVisible', 'lightningDensityVisible', 'setLightningDensityVisible', 'railTracksVisible', 'setRailTracksVisible', 'gaugesVisible', 'setGaugesVisible', 'dispatchVisible', 'setDispatchVisible', 'terrainEnabled', 'setTerrainEnabled', 'terrainExaggeration', 'setTerrainExaggeration', 'entityFilter', 'setEntityFilter', 'debugInsets', 'setDebugInsets')
 
   const [notifPermission, setNotifPermission] = useState(() => notificationPermission())
   const userRole = getUserRole()
@@ -137,6 +139,7 @@ export function SettingsPanel() {
               <ToggleRow label="Radar" icon="radar" checked={radarVisible} onChange={setRadarVisible} />
               <ToggleRow label="Infrared Satellite" icon="satellite_alt" checked={goesVisible} onChange={setGoesVisible} />
               <ToggleRow label="NWS Alerts" icon="notification_important" checked={nwsAlertsVisible} onChange={setNwsAlertsVisible} />
+              <ToggleRow label="Dispatch Incidents" icon="cell_tower" checked={dispatchVisible} onChange={setDispatchVisible} />
               <ToggleRow label="Lightning" icon="bolt" checked={lightningVisible} onChange={setLightningVisible} />
               <ToggleRow label="Lightning Density" icon="electric_bolt" checked={lightningDensityVisible} onChange={setLightningDensityVisible} />
               <ToggleRow label="Visible Satellite" icon="satellite_alt" checked={smokeVisible} onChange={setSmokeVisible} />

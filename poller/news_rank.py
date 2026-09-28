@@ -163,5 +163,7 @@ def stories(items: list[dict], now: datetime, similarity: float = 0.6) -> list[d
                    and s["topic"] not in ("Safety", "Weather", "Transportation"))
         s["score"] = round(s["local"] * 10 + (6 if s["emergency"] else 0)
                            + {"Safety": 3, "Weather": 3, "Transportation": 2, "Government": 2}.get(s["topic"], 0)
-                           + (len(s["sources"]) - 1) * 2 - min(age_h, 48) / 6 - (12 if routine else 0), 2)
+                           + (len(s["sources"]) - 1) * 2 - min(age_h, 48) / 6 - (12 if routine else 0)
+                           # City feeds keep weeks-old posts: past a week, below current news.
+                           - (40 if age_h > 7 * 24 else 0), 2)
     return sorted(out, key=lambda s: s["score"], reverse=True)

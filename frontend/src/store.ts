@@ -207,7 +207,10 @@ export interface CivicStore {
 
   // Stream gauges visibility
   gaugesVisible:       boolean
+  /** Dispatch incidents (radio) layer on the main map. */
+  dispatchVisible:     boolean
   setGaugesVisible:    (v: boolean) => void
+  setDispatchVisible:  (v: boolean) => void
 
   // 3-D terrain
   terrainEnabled:         boolean
@@ -414,6 +417,7 @@ export const useCivicStore = create<CivicStore>()(
   lightningStrikes:    [],
   lightningVisible:    true,
   gaugesVisible:       true,
+  dispatchVisible:     true,
   terrainEnabled:      false,
   terrainExaggeration: 1.5,
   selectedCamId:    null,
@@ -668,6 +672,7 @@ export const useCivicStore = create<CivicStore>()(
     }),
   setLightningVisible:    (lightningVisible)    => set({ lightningVisible }),
   setGaugesVisible:       (gaugesVisible)       => set({ gaugesVisible }),
+  setDispatchVisible:     (dispatchVisible)     => set({ dispatchVisible }),
   setTerrainEnabled:      (terrainEnabled)      => set({ terrainEnabled }),
   setTerrainExaggeration: (terrainExaggeration) => set({ terrainExaggeration }),
   setMobileNavOpen:  (mobileNavOpen)  => set({ mobileNavOpen }),
@@ -767,6 +772,7 @@ export const useCivicStore = create<CivicStore>()(
       lightningDensityVisible:  state.lightningDensityVisible,
       railTracksVisible:        state.railTracksVisible,
       gaugesVisible:      state.gaugesVisible,
+      dispatchVisible:    state.dispatchVisible,
       terrainEnabled:     state.terrainEnabled,
       terrainExaggeration: state.terrainExaggeration,
       ldiMode:            state.ldiMode,

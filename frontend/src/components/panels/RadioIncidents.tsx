@@ -41,6 +41,19 @@ const FILTERS: { id: Group | 'all'; label: string }[] = [
 // Radio incidents with no traffic for this long are shown as likely resolved
 // (dispatch rarely broadcasts an explicit clear) — matches the AI briefing.
 const STALE_MS = 3 * 60 * 60 * 1000
+const PAGE_SIZE = 10
+
+type SortKey = 'priority' | 'newest' | 'nearest' | 'units'
+const SORTS: Record<SortKey, { label: string; compare: (now: number) => (a: RadioIncident, b: RadioIncident) => number }> = {
+  priority: { label: 'Priority', compare: (now) => (a, b) =>
+    Number(isActive(b, now)) - Number(isActive(a, now)) || b.severity - a.severity
+    || Date.parse(b.last_seen) - Date.parse(a.last_seen) },
+  newest:   { label: 'Newest', compare: () => (a, b) => Date.parse(b.last_seen) - Date.parse(a.last_seen) },
+  nearest:  { label: 'Nearest', compare: () => (a, b) =>
+    (a.dist_km ?? Infinity) - (b.dist_km ?? Infinity) || Date.parse(b.last_seen) - Date.parse(a.last_seen) },
+  units:    { label: 'Most units', compare: () => (a, b) =>
+    b.units.length - a.units.length || b.severity - a.severity },
+}
 
 // Map pin colours — severity signal (red = life safety, amber = serious).
 const PIN = { critical: '#C62828', serious: '#FFB800', routine: '#8C8C8C' }
@@ -179,7 +192,7 @@ function IncidentMap({ incidents, selectedId, onSelect }: {
   }, [ready, selectedId, located])
 
   return (
-    <div className="relative border border-white/10 bg-onyx-deep h-[320px] lg:h-[560px]">
+    <div className="relative border border-white/10 bg-onyx-deep h-[260px] lg:h-[560px]">
       <div ref={containerRef} className="absolute inset-0" aria-label="Incident map" role="region" />
       <div className="absolute top-2 left-2 bg-onyx-black/80 border border-white/10 px-2 py-1 flex gap-3 text-[11px] uppercase tracking-widest text-on-surface-variant pointer-events-none">
         <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-emergency" />Life safety</span>
@@ -292,9 +305,8 @@ export function RadioIncidents() {
   const [showRoutine, setShowRoutine] = useState(false)
   const [zone, setZone] = useState('')
   const [selectedId, setSelectedId] = useState<string | null>(null)
-  // Phones show the list or the map, not both stacked (the map pushed the
-  // list a full screen down).
-  const [mobileView, setMobileView] = useState<'list' | 'map'>('list')
+  const [sort, setSort] = useState<SortKey>('priority')
+  const [page, setPage] = useState(0)
   const [now, setNow] = useState(() => Date.now())
   const sectionRef = useRef<HTMLElement>(null)
 
@@ -306,7 +318,6 @@ export function RadioIncidents() {
     setZone('')
     setShowRoutine(true)
     setSelectedId(focusIncidentId)
-    setMobileView('map')
     setFocusIncidentId(null)
     // The section sits below the briefing: bring it into view once rendered.
     requestAnimationFrame(() => sectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
@@ -341,11 +352,21 @@ export function RadioIncidents() {
 
   const shown = useMemo(() => base
     .filter((i) => filter === 'all' || (CATEGORY[i.category] ?? CATEGORY.other).group === filter)
-    .sort((a, b) =>
-      Number(isActive(b, now)) - Number(isActive(a, now))
-      || b.severity - a.severity
-      || Date.parse(b.last_seen) - Date.parse(a.last_seen)),
-  [base, filter, now])
+    .sort(SORTS[sort].compare(now)),
+  [base, filter, sort, now])
+
+  // Paged list; the map shows every match. Filters/sort start from page 1,
+  // and selecting a pin (or opening an incident from the advisory bar)
+  // turns to the page that holds it.
+  const pages = Math.max(1, Math.ceil(shown.length / PAGE_SIZE))
+  useEffect(() => { setPage(0) }, [filter, sort, activeOnly, showRoutine, zone])
+  useEffect(() => {
+    if (!selectedId) return
+    const idx = shown.findIndex((i) => i.id === selectedId)
+    if (idx >= 0) setPage(Math.floor(idx / PAGE_SIZE))
+  }, [selectedId, shown])
+  const current = Math.min(page, pages - 1)
+  const pageItems = shown.slice(current * PAGE_SIZE, (current + 1) * PAGE_SIZE)
 
   return (
     <section ref={sectionRef} className="space-y-3 scroll-mt-4" aria-labelledby="radio-incidents-heading">
@@ -360,20 +381,14 @@ export function RadioIncidents() {
             {radioIncidents?.ts && <> · updated <span className="font-mono">{hhmm(radioIncidents.ts)}</span></>}
           </p>
         </div>
-        <div className="lg:hidden flex shrink-0 border border-white/10" role="group" aria-label="View">
-          {(['list', 'map'] as const).map((v) => (
-            <button
-              key={v}
-              type="button"
-              onClick={() => setMobileView(v)}
-              aria-pressed={mobileView === v}
-              className={`h-8 px-3 flex items-center gap-1 font-mono text-[11px] uppercase tracking-widest ${mobileView === v ? 'bg-amber-gold text-onyx-black font-bold' : 'text-on-surface-variant'}`}
-            >
-              <span className="ms text-[16px] leading-none" aria-hidden="true">{v === 'list' ? 'list' : 'map'}</span>
-              {v}
-            </button>
-          ))}
-        </div>
+        <label className="shrink-0 flex items-center gap-1.5">
+          <span className="sr-only">Sort incidents</span>
+          <span className="ms text-[16px] text-on-surface-variant" aria-hidden="true">sort</span>
+          <select value={sort} onChange={(e) => setSort(e.target.value as SortKey)}
+                  className="tactical-select h-8 font-mono uppercase tracking-widest text-[11px]">
+            {(Object.keys(SORTS) as SortKey[]).map((k) => <option key={k} value={k}>{SORTS[k].label}</option>)}
+          </select>
+        </label>
       </div>
 
       <ChipRow>
@@ -406,27 +421,45 @@ export function RadioIncidents() {
       </ChipRow>
 
       <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] gap-4 items-start">
-        <div className={mobileView === 'list' ? '' : 'hidden lg:block'}>
+        {/* Phones: map first, list below. Desktop: list left, sticky map right. */}
+        <div className="lg:order-2 lg:sticky lg:top-4">
+          <IncidentMap incidents={shown} selectedId={selectedId} onSelect={setSelectedId} />
+        </div>
+        <div className="lg:order-1 min-w-0">
           {radioIncidents == null ? (
             <EmptyState icon="hourglass_empty">Waiting for dispatch data…</EmptyState>
           ) : shown.length === 0 ? (
             <EmptyState icon="filter_alt_off">No incidents match these filters.</EmptyState>
           ) : (
-            <ul className="space-y-2 lg:max-h-[560px] lg:overflow-y-auto lg:pr-1">
-              {shown.map((i) => (
-                <IncidentCard
-                  key={i.id}
-                  incident={i}
-                  now={now}
-                  selected={i.id === selectedId}
-                  onSelect={() => setSelectedId(i.id === selectedId ? null : i.id)}
-                />
-              ))}
-            </ul>
+            <>
+              <ul className="space-y-2">
+                {pageItems.map((i) => (
+                  <IncidentCard
+                    key={i.id}
+                    incident={i}
+                    now={now}
+                    selected={i.id === selectedId}
+                    onSelect={() => setSelectedId(i.id === selectedId ? null : i.id)}
+                  />
+                ))}
+              </ul>
+              {pages > 1 && (
+                <nav className="flex items-center justify-between gap-2 mt-3" aria-label="Incident pages">
+                  <button type="button" onClick={() => setPage(current - 1)} disabled={current === 0}
+                          className="h-9 px-3 border border-white/10 font-mono text-[11px] uppercase tracking-widest text-on-surface-variant hover:text-amber-gold hover:border-amber-gold/50 disabled:opacity-30 disabled:hover:text-on-surface-variant disabled:hover:border-white/10">
+                    ‹ Prev
+                  </button>
+                  <span className="font-mono text-[11px] text-on-surface-variant">
+                    {current * PAGE_SIZE + 1}–{Math.min(shown.length, (current + 1) * PAGE_SIZE)} of {shown.length}
+                  </span>
+                  <button type="button" onClick={() => setPage(current + 1)} disabled={current >= pages - 1}
+                          className="h-9 px-3 border border-white/10 font-mono text-[11px] uppercase tracking-widest text-on-surface-variant hover:text-amber-gold hover:border-amber-gold/50 disabled:opacity-30 disabled:hover:text-on-surface-variant disabled:hover:border-white/10">
+                    Next ›
+                  </button>
+                </nav>
+              )}
+            </>
           )}
-        </div>
-        <div className={`lg:sticky lg:top-4 ${mobileView === 'map' ? '' : 'hidden lg:block'}`}>
-          <IncidentMap incidents={shown} selectedId={selectedId} onSelect={setSelectedId} />
         </div>
       </div>
     </section>

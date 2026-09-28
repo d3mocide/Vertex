@@ -13,6 +13,8 @@ import { isMajorTrafficIncident } from '../../incidentUtils'
 
 const NEARBY_WINDOW_MS = 60 * 60 * 1000
 const SIDELINED = new Set(['Sports', 'Obituaries'])
+// City feeds keep weeks-old posts; the rail is for what's current.
+const HEADLINE_MAX_AGE_MS = 72 * 60 * 60 * 1000
 
 function ago(iso: string | null | undefined, now: number): string {
   const ts = Date.parse(iso ?? '')
@@ -73,7 +75,8 @@ export function SituationRail({ parts = ['now', 'nearby', 'headlines'] }: { part
 
   // Top local headlines
   const headlines = news
-    .filter((n) => (n.local ?? 0) >= 2 && !SIDELINED.has(n.topic ?? '') && n.category !== 'Tactical Resources')
+    .filter((n) => (n.local ?? 0) >= 2 && !SIDELINED.has(n.topic ?? '') && n.category !== 'Tactical Resources'
+      && now - Date.parse(n.published) < HEADLINE_MAX_AGE_MS)
     .slice(0, 3)
 
   return (
