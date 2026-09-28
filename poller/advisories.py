@@ -184,6 +184,34 @@ def from_flashalert(items: list[dict], places: list[str]) -> list[dict]:
     return out
 
 
+_BOTTOM_LINE = re.compile(r"\*{0,2}bottom line:?\*{0,2}:?\s*(.+?)(?:\n\s*\n|\n#|$)", re.I | re.S)
+
+
+def from_briefing(briefing: dict | None, now: datetime, max_age: timedelta = timedelta(hours=2)) -> list[dict]:
+    """The AI briefing's bottom line, when its posture is ELEVATED or HIGH.
+
+    A model's judgement can colour the bar amber but never red: red stays
+    reserved for official warnings and confirmed nearby incidents.
+    """
+    if not briefing or briefing.get("posture") not in ("ELEVATED", "HIGH"):
+        return []
+    ts = _parse_ts(briefing.get("ts"))
+    if ts is None or now - ts > max_age:
+        return []
+    m = _BOTTOM_LINE.search(briefing.get("summary") or "")
+    line = re.sub(r"\s+", " ", m.group(1)).strip() if m else ""
+    line = re.sub(r"^Posture (ELEVATED|HIGH)\.\s*", "", line)
+    posture = briefing["posture"]
+    return [{
+        "id": _id("briefing", briefing.get("ts")),
+        "source": "briefing", "level": "amber", "score": 45 if posture == "HIGH" else 25,
+        "title": f"Briefing: posture {posture.lower()}",
+        "detail": line[:220],
+        "ts": ts.isoformat(), "why": f"AI briefing posture {posture}",
+        "target": {"tab": "incidents"},
+    }]
+
+
 def rank(candidates: list[dict], limit: int = 10) -> dict:
     """Best first: level, then score, then most recent."""
     items = sorted(candidates, key=lambda c: (LEVEL_RANK[c["level"]], c["score"], c.get("ts") or ""), reverse=True)

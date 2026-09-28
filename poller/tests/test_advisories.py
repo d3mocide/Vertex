@@ -75,6 +75,15 @@ def test_flashalert_only_for_local_places():
     assert [a["title"] for a in out] == ["Tigard-Tualatin School District: Schools"]
 
 
+def test_briefing_item_only_when_elevated_recent_and_never_red():
+    text = "**BOTTOM LINE:** Posture ELEVATED. A structure fire at 1909 Main St persists.\n\n### Changes"
+    [b] = adv.from_briefing({"posture": "ELEVATED", "ts": NOW.isoformat(), "summary": text}, NOW)
+    assert b["level"] == "amber" and b["detail"] == "A structure fire at 1909 Main St persists."
+    assert adv.from_briefing({"posture": "HIGH", "ts": NOW.isoformat(), "summary": text}, NOW)[0]["level"] == "amber"
+    assert adv.from_briefing({"posture": "NORMAL", "ts": NOW.isoformat(), "summary": text}, NOW) == []
+    assert adv.from_briefing({"posture": "ELEVATED", "ts": (NOW - timedelta(hours=3)).isoformat(), "summary": text}, NOW) == []
+
+
 def test_rank_orders_by_level_then_score_and_sets_bar_level():
     ranked = adv.rank(_radio([_inc(4, cat="gas_leak", iid="a"), _inc(5, iid="b")])
                       + adv.from_flashalert([{"source": "flashalert", "title": "Tigard: x"}], ["Tigard"]))
