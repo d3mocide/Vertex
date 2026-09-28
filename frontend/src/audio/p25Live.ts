@@ -20,6 +20,10 @@ const GAP_MS = 2500          // no frames this long ends a call (backup to "end"
 const LABEL_WAIT_MS = 1500   // still no talkgroup: decide as unknown
 const MAX_HOLD_MS = 90_000   // a call held longer than this is stale: drop it
 const LEAD_S = 0.15          // jitter buffer at the start of each call
+// Upsample and schedule only this far ahead of playback. A held call can
+// carry a minute of backlog; converting it in one go blocked the page for a
+// second or more on a phone and clipped the start of the call.
+const AHEAD_S = 1.0
 const TICK_MS = 100
 
 export type LiveCall = {
@@ -260,8 +264,9 @@ export class P25LivePlayer {
       this.emit()
     }
     const c = this.current!
-    while (c.chunks.length) this.schedule(ctx, this.up!.push(c.chunks.shift()!))
-    if (c.ended && !this.flushed) {
+    const horizon = (ctx.currentTime + AHEAD_S) * ctx.sampleRate
+    while (c.chunks.length && this.nextFrame < horizon) this.schedule(ctx, this.up!.push(c.chunks.shift()!))
+    if (c.ended && c.chunks.length === 0 && !this.flushed) {
       this.flushed = true
       this.schedule(ctx, this.up!.flush())
     }
