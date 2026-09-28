@@ -15,6 +15,7 @@ import { buildLightningLayer } from '../layers/buildLightningLayer'
 import { buildStreamGaugeLayers, type StreamGaugePoint } from '../layers/buildStreamGaugeLayer'
 import { buildMeshNodeLayers, type MeshNodePoint } from '../layers/buildMeshNodeLayer'
 import { buildDispatchLayers } from '../layers/buildDispatchLayer'
+import { buildReplayTracks } from '../layers/replayTracks'
 import type { RadioIncident } from '../storeTypes'
 
 import { extractRailSegments, snapPointToRail, type RailSegment } from '../layers/railSnap'
@@ -46,47 +47,6 @@ function escHtml(s: unknown): string {
   const span = document.createElement('span')
   span.textContent = String(s ?? '')
   return span.innerHTML
-}
-
-function buildReplayTracks(data: ReplayData, atMs: number): Record<string, Track> {
-  const result: Record<string, Track> = {}
-  for (const [uid, entity] of Object.entries(data.entities)) {
-    const pts = entity.points
-    if (pts.length === 0) continue
-
-    // Find the two surrounding points for interpolation
-    let lo = 0, hi = pts.length - 1
-    for (let i = 0; i < pts.length; i++) {
-      if (Date.parse(pts[i].ts) <= atMs) lo = i
-    }
-    hi = Math.min(lo + 1, pts.length - 1)
-
-    const a = pts[lo], b = pts[hi]
-    const aMs = Date.parse(a.ts), bMs = Date.parse(b.ts)
-    const t = aMs === bMs ? 0 : Math.max(0, Math.min(1, (atMs - aMs) / (bMs - aMs)))
-
-    const lat = lerp(a.lat, b.lat, t)
-    const lon = lerp(a.lon, b.lon, t)
-    const altMeters = lerp(a.altitude ?? 0, b.altitude ?? 0, t) * ALT_FT_TO_M
-    const speedMs   = lerp(a.speed ?? 0, b.speed ?? 0, t) * SPD_KT_TO_MS
-    const courseTrue = b.heading ?? a.heading ?? 0
-
-    const isAir = entity.entity_type === 'aircraft'
-    result[uid] = {
-      uid,
-      source: 'replay',
-      lat, lon, altMeters, speedMs, courseTrue,
-      type:     isAir ? 'air' : 'sea',
-      callsign: entity.display_name ?? uid,
-      category: undefined,
-      trail:         pts.filter((p) => Date.parse(p.ts) <= atMs).map(
-        (p) => [p.lon, p.lat, (p.altitude ?? 0) * ALT_FT_TO_M, (p.speed ?? 0) * SPD_KT_TO_MS, p.ts] as [number, number, number, number, string]
-      ).slice(-150),
-      smoothedTrail: [],
-      predictedPath: [],
-    }
-  }
-  return result
 }
 
 export function MapOverlay({ map }: Props) {
@@ -623,12 +583,13 @@ export function MapOverlay({ map }: Props) {
 
       let rawTracks: Record<string, Track>
 
-      if (replayModeRef.current && replayDataRef.current) {
-        // Replay mode: build synthetic tracks from historical observations
-        rawTracks = buildReplayTracks(replayDataRef.current, replayTsRef.current)
-      } else {
-        // Live mode: apply entity type filter, text search, and range filters.
-        const allTracks = tracksRef.current
+      {
+        // Live tracks, or in replay the tracks present at the replay time
+        // (layers/replayTracks.ts); both go through the same entity type,
+        // text search and range filters.
+        const allTracks = replayModeRef.current && replayDataRef.current
+          ? buildReplayTracks(replayDataRef.current, replayTsRef.current)
+          : tracksRef.current
         const ef  = entityFilterRef.current
         const q   = searchQueryRef.current.toLowerCase()
         const [minAlt, maxAlt] = altRangeRef.current

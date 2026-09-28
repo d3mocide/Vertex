@@ -399,6 +399,8 @@ export interface ReplayEntityData {
 export interface ReplayData {
   start:    string
   end:      string
+  bucket_s?:  number    // server thinned points to one per bucket per entity
+  truncated?: boolean   // hit the server's point cap
   entities: Record<string, ReplayEntityData>
   events?:  ReplayEvent[]
 }
