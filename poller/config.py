@@ -142,6 +142,15 @@ class Settings(BaseSettings):
     # Hours of P25 transcripts mined for structured radio incidents
     # (feed:radio:incidents and the briefing's radio section).
     radio_incidents_window_hours: int = 24
+
+    # Advisory bar (advisories.py): what counts as "near" and "recent".
+    advisory_radius_km: float = 8.0                 # ~5 mi from REGION_LAT/LON
+    advisory_radio_max_age_minutes: int = 60
+    advisory_traffic_max_age_hours: int = 24
+    # FlashAlert notices only surface when they name one of these places.
+    advisory_places: str = ("Tualatin,Tigard,Sherwood,Beaverton,Lake Oswego,West Linn,Wilsonville,"
+                            "King City,Durham,Aloha,Hillsboro,Washington County,Clackamas County,TVF&R,"
+                            "Tualatin Valley Fire")
     # Self-hosted Nominatim for locating radio incidents (see infra/nominatim/).
     # Blank disables geocoding.
     geocoder_url: str = ""

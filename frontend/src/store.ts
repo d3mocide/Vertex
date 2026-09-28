@@ -8,7 +8,7 @@ export * from './storeTypes'
 import type {
   Entity, Track, AlertItem, NewsItem, WeatherState, RadioState,
   TrafficCamera, SystemEvent, CustomLayerItem, SystemHealth, TrafficIncident,
-  SummaryState, RadioIncidentFeed, FeedMetaEntry, TrailPoint, AirportSnapshot, AppMode, NavTab, EntityTypeFilter,
+  SummaryState, RadioIncidentFeed, AdvisoryFeed, FeedMetaEntry, TrailPoint, AirportSnapshot, AppMode, NavTab, EntityTypeFilter,
   RangeFilter, ReplayData, EntityMissionTag, AnnotationItem,
   TrafficFlowSensor, UtilityStatus, OregonStatus, MeshMessage, MeshLink,
   AcarsMessage,
@@ -31,6 +31,9 @@ export interface CivicStore {
   trafficFlow:      TrafficFlowSensor[]
   trafficIncidents: TrafficIncident[]
   radioIncidents:   RadioIncidentFeed | null
+  advisories:       AdvisoryFeed | null
+  /** Radio incident to open on the Incidents page (set by the advisory bar). */
+  focusIncidentId:  string | null
   feedMeta:         Record<string, FeedMetaEntry>
   utilityStatus:    UtilityStatus | null
   oregonStatus:     OregonStatus | null
@@ -79,6 +82,8 @@ export interface CivicStore {
   setTrafficFlow:   (flow: TrafficFlowSensor[]) => void
   setTrafficIncidents: (incidents: TrafficIncident[]) => void
   setRadioIncidents:   (feed: RadioIncidentFeed) => void
+  setAdvisories:       (feed: AdvisoryFeed) => void
+  setFocusIncidentId:  (id: string | null) => void
   setFeedMeta:         (patch: Record<string, Partial<FeedMetaEntry> & { ts: string }>) => void
   setUtilityStatus: (status: UtilityStatus) => void
   setOregonStatus:  (status: OregonStatus) => void
@@ -372,6 +377,8 @@ export const useCivicStore = create<CivicStore>()(
   trafficFlow:      [],
   trafficIncidents: [],
   radioIncidents:   null,
+  advisories:       null,
+  focusIncidentId:  null,
   feedMeta:         {},
   utilityStatus:    null,
   oregonStatus:     null,
@@ -579,6 +586,8 @@ export const useCivicStore = create<CivicStore>()(
   setTrafficFlow: (trafficFlow) => set({ trafficFlow }),
   setTrafficIncidents: (trafficIncidents) => set({ trafficIncidents }),
   setRadioIncidents:   (radioIncidents) => set({ radioIncidents }),
+  setAdvisories:       (advisories) => set({ advisories }),
+  setFocusIncidentId:  (focusIncidentId) => set({ focusIncidentId }),
   setFeedMeta:         (patch) => set((s) => {
     const next = { ...s.feedMeta }
     for (const [key, entry] of Object.entries(patch)) next[key] = { ...next[key], ...entry }

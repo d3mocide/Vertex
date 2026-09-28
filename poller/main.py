@@ -23,6 +23,7 @@ from pollers.acars import AcarsPoller
 from pollers.cot_emitter import CotEmitter
 from pollers.cot_receiver import CotReceiver
 from pollers.p25_recorder import P25AudioRecorder
+from pollers.advisory import AdvisoryPoller
 from pollers.anomaly import AnomalyDetectionPoller
 from pollers.mqtt_subscriber import MqttSubscriberPoller
 from pollers.lightning import LightningPoller
@@ -150,6 +151,7 @@ async def main():
         CotEmitter(),
         CotReceiver(),
         P25AudioRecorder(),
+        AdvisoryPoller(),
         AnomalyDetectionPoller(),
         LightningPoller(),
         StreamGaugePoller(),

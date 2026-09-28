@@ -23,7 +23,8 @@ from .base import BasePoller
 
 logger = logging.getLogger(__name__)
 
-# Most significant incidents published; the rest are only counted.
+# Most significant incidents published, plus every located one (the map's
+# pins: capping by severity alone hid ~85% of them); the rest are only counted.
 _MAX_PUBLISHED = 150
 # New (uncached) addresses geocoded per minute — keeps the geocoder load
 # gentle; the first backlog fills in over a few cycles.
@@ -88,7 +89,7 @@ class RadioIncidentPoller(BasePoller):
             logger.debug("[radio_incidents] transcript query failed: %s", exc)
             return
 
-        published = [i.to_dict() for i in incidents[:_MAX_PUBLISHED]]
+        published = [i.to_dict() for n, i in enumerate(incidents) if n < _MAX_PUBLISHED or i.lat is not None]
         body = {
             "window_hours": window,
             "transcribed_calls": n_calls,

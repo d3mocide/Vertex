@@ -80,6 +80,28 @@ export interface RadioIncidentFeed {
   incidents: RadioIncident[]
 }
 
+/** One ranked item for the advisory bar (poller/advisories.py). */
+export interface Advisory {
+  id: string
+  source: 'nws' | 'radio' | 'traffic' | 'flashalert' | 'briefing'
+  level: 'red' | 'amber'
+  score: number
+  title: string
+  detail: string
+  ts: string | null
+  why: string
+  lat?: number | null
+  lon?: number | null
+  target: { tab: string; incident?: string }
+}
+
+export interface AdvisoryFeed {
+  ts: string | null
+  level: 'green' | 'amber' | 'red'
+  count: number
+  items: Advisory[]
+}
+
 export type SummaryPosture = 'NORMAL' | 'ELEVATED' | 'HIGH'
 
 export interface SummaryState {

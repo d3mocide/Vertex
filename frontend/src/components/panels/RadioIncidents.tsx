@@ -269,7 +269,7 @@ function IncidentCard({ incident: i, now, selected, onSelect }: {
 // ─── Section ─────────────────────────────────────────────────────────────────
 
 export function RadioIncidents() {
-  const { radioIncidents } = useCivicPick('radioIncidents')
+  const { radioIncidents, focusIncidentId, setFocusIncidentId } = useCivicPick('radioIncidents', 'focusIncidentId', 'setFocusIncidentId')
   const [filter, setFilter] = useState<Group | 'all'>('all')
   const [activeOnly, setActiveOnly] = useState(false)
   const [showRoutine, setShowRoutine] = useState(false)
@@ -279,6 +279,21 @@ export function RadioIncidents() {
   // list a full screen down).
   const [mobileView, setMobileView] = useState<'list' | 'map'>('list')
   const [now, setNow] = useState(() => Date.now())
+  const sectionRef = useRef<HTMLElement>(null)
+
+  // Opened from the advisory bar: show that incident, whatever the filters.
+  useEffect(() => {
+    if (!focusIncidentId) return
+    setFilter('all')
+    setActiveOnly(false)
+    setZone('')
+    setShowRoutine(true)
+    setSelectedId(focusIncidentId)
+    setMobileView('map')
+    setFocusIncidentId(null)
+    // The section sits below the briefing: bring it into view once rendered.
+    requestAnimationFrame(() => sectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
+  }, [focusIncidentId, setFocusIncidentId])
 
   // Re-evaluate "active"/"no update" labels every minute.
   useEffect(() => {
@@ -316,7 +331,7 @@ export function RadioIncidents() {
   [base, filter, now])
 
   return (
-    <section className="space-y-3" aria-labelledby="radio-incidents-heading">
+    <section ref={sectionRef} className="space-y-3 scroll-mt-4" aria-labelledby="radio-incidents-heading">
       <div className="flex items-end justify-between gap-3">
         <div className="min-w-0">
           <h3 id="radio-incidents-heading" className="section-heading !mb-1 flex items-center gap-2">

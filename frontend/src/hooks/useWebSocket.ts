@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { WS_URL, API_BASE } from '../config'
 import { useCivicStore, useCivicPick } from '../store'
-import type { Entity, EntityTypeFilter, RadioIncidentFeed } from '../storeTypes'
+import type { Entity, EntityTypeFilter, RadioIncidentFeed, AdvisoryFeed } from '../storeTypes'
 import { wsTokenParam, authHeaders } from '../auth'
 import { initNotifications, maybeNotify, notifyMeshMessage } from '../notifications'
 import { parseSummary } from '../summaryUtils'
@@ -104,13 +104,14 @@ export function useWebSocket() {
     setTrafficIncidents,
     setSummary,
     setRadioIncidents,
+    setAdvisories,
     setFeedMeta,
     appendLightningStrikes,
     appendMeshMessage,
     updateLinkHistory,
     setMeshStatus,
     appendAcarsMessage,
-  } = useCivicPick('setEntities', 'setAircraftSnapshot', 'upsertEntities', 'purgeStaleEntities', 'setConnected', 'setRadio', 'appendSystemEvent', 'setUtilityStatus', 'setOregonStatus', 'setAirports', 'setWeather', 'setAlerts', 'setNews', 'setCameras', 'setTrafficFlow', 'setTrafficIncidents', 'setRadioIncidents', 'setFeedMeta', 'setSummary', 'appendLightningStrikes', 'appendMeshMessage', 'updateLinkHistory', 'setMeshStatus', 'appendAcarsMessage')
+  } = useCivicPick('setEntities', 'setAircraftSnapshot', 'upsertEntities', 'purgeStaleEntities', 'setConnected', 'setRadio', 'appendSystemEvent', 'setUtilityStatus', 'setOregonStatus', 'setAirports', 'setWeather', 'setAlerts', 'setNews', 'setCameras', 'setTrafficFlow', 'setTrafficIncidents', 'setRadioIncidents', 'setAdvisories', 'setFeedMeta', 'setSummary', 'appendLightningStrikes', 'appendMeshMessage', 'updateLinkHistory', 'setMeshStatus', 'appendAcarsMessage')
 
   useEffect(() => {
     let cancelled = false
@@ -295,6 +296,8 @@ export function useWebSocket() {
               appendLightningStrikes(msg.data as Parameters<typeof appendLightningStrikes>[0])
             } else if (msg.key === 'radio:incidents' && msgData && Array.isArray(msgData.incidents)) {
               setRadioIncidents(msgData as unknown as RadioIncidentFeed)
+            } else if (msg.key === 'advisories' && msgData && Array.isArray(msgData.items)) {
+              setAdvisories(msgData as unknown as AdvisoryFeed)
             } else if (msg.key === 'summary:latest' && msgData) {
               setSummary(parseSummary(msgData))
             }

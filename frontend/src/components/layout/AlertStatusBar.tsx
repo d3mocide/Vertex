@@ -1,5 +1,6 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useCivicPick } from '../../store'
+import type { Advisory, NavTab } from '../../storeTypes'
 
 type Level = 'green' | 'yellow' | 'red'
 
@@ -17,12 +18,6 @@ function stripMarkup(input: string): string {
     text = ta.value
   }
   return text.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
-}
-
-function resolveLevel(alertCount: number, hasEmergency: boolean): Level {
-  if (hasEmergency || alertCount >= 3) return 'red'
-  if (alertCount >= 1) return 'yellow'
-  return 'green'
 }
 
 const LEVEL_STYLES: Record<Level, string> = {
@@ -43,32 +38,52 @@ const LEVEL_ICONS: Record<Level, string> = {
   red:    'emergency_home',
 }
 
+const SOURCE_LABELS: Record<Advisory['source'], string> = {
+  radio:      'Dispatch',
+  nws:        'NWS',
+  traffic:    'ODOT',
+  flashalert: 'FlashAlert',
+  briefing:   'Briefing',
+}
+
+const text = (a: Advisory) => stripMarkup(a.detail ? `${a.title} — ${a.detail}` : a.title)
+
+/**
+ * The advisory bar: the top item of the ranked advisory feed (poller
+ * advisories.py — NWS warnings, nearby dispatch incidents, road closures,
+ * local agency notices), coloured by the worst item. Tapping opens the
+ * item; "+N" lists the rest.
+ */
 export function AlertStatusBar() {
-  const { mode, alerts, weather, setActiveTab } = useCivicPick('mode', 'alerts', 'weather', 'setActiveTab')
+  const { mode, advisories, setActiveTab, setFocusIncidentId } = useCivicPick('mode', 'advisories', 'setActiveTab', 'setFocusIncidentId')
+  const [open, setOpen] = useState(false)
+  const rootRef = useRef<HTMLDivElement>(null)
 
-  const hasEmergency = weather.alerts.some(
-    (a) => a.severity === 'Extreme' || a.severity === 'Severe'
-  )
-  const level = resolveLevel(alerts.length, hasEmergency)
+  const items = advisories?.items ?? []
+  const count = advisories?.count ?? 0
+  const level: Level = advisories?.level === 'red' ? 'red' : advisories?.level === 'amber' ? 'yellow' : 'green'
+  const top = items[0]
+  const message = useMemo(() => (top ? text(top) : 'No active advisories'), [top])
 
-  const alertItem   = alerts[0]
-  const weatherAlert = weather.alerts[0]
-  const advisoryTitle = alertItem?.title?.trim() ?? ''
-  const advisorySummary = alertItem?.summary?.trim() ?? ''
-  const weatherHeadline = weatherAlert?.headline?.trim() ?? ''
-  const rawMessage = alertItem
-    ? (advisorySummary ? `${advisoryTitle} - ${advisorySummary}` : advisoryTitle)
-    : (weatherHeadline || 'No active alerts')
-  const message = useMemo(() => stripMarkup(rawMessage), [rawMessage])
-
-  const openDetails = () => {
-    if (alertItem) {
-      setActiveTab('intel')
-      return
+  useEffect(() => {
+    if (!open) return
+    const close = (e: Event) => {
+      if (e instanceof KeyboardEvent ? e.key === 'Escape' : !rootRef.current?.contains(e.target as Node)) setOpen(false)
     }
-    if (weatherAlert) {
-      setActiveTab('incidents')
+    document.addEventListener('mousedown', close)
+    document.addEventListener('keydown', close)
+    return () => {
+      document.removeEventListener('mousedown', close)
+      document.removeEventListener('keydown', close)
     }
+  }, [open])
+
+  useEffect(() => { if (count <= 1) setOpen(false) }, [count])
+
+  const go = (a: Advisory) => {
+    setOpen(false)
+    if (a.target.incident) setFocusIncidentId(a.target.incident)
+    setActiveTab(a.target.tab as NavTab)
   }
 
   // Adjust animation duration dynamically to keep a readable, constant scrolling speed
@@ -82,44 +97,78 @@ export function AlertStatusBar() {
   if (mode === 'calm' && level === 'green') return null
 
   return (
-    <button
-      type="button"
-      onClick={openDetails}
-      role="alert"
-      aria-live="assertive"
-      aria-label="Open advisory details"
-      className={`
-        w-full flex items-center gap-3 px-4 shrink-0 transition-all duration-300 text-left relative z-20
-        ${LEVEL_STYLES[level]}
-        ${mode === 'critical' ? 'h-8 text-[11px]' : 'h-6 text-[11px]'}
-      `}
-    >
-      <span
-        className="ms text-[14px] leading-none"
-        aria-hidden="true"
-        style={{ fontVariationSettings: "'FILL' 1" }}
+    <div ref={rootRef} className="relative shrink-0 z-20">
+      <div
+        className={`
+          w-full flex items-center transition-all duration-300
+          ${LEVEL_STYLES[level]}
+          ${mode === 'critical' ? 'h-8 text-[11px]' : 'h-6 text-[11px]'}
+        `}
       >
-        {LEVEL_ICONS[level]}
-      </span>
-      <span className="font-bold tracking-widest uppercase mr-2">
-        {LEVEL_LABELS[level]}
-      </span>
-      <div className="flex-1 min-w-0 overflow-hidden">
-        <span 
-          className="alert-marquee-track font-mono opacity-80"
-          style={{ animationDuration }}
+        <button
+          type="button"
+          onClick={() => top && go(top)}
+          role="alert"
+          aria-live="assertive"
+          aria-label={top ? `Open advisory: ${message}` : 'No active advisories'}
+          className="flex-1 min-w-0 h-full flex items-center gap-3 pl-4 pr-2 text-left"
         >
-          <span className="alert-marquee-item">{message}</span>
-          <span className="alert-marquee-item" aria-hidden="true">{message}</span>
-        </span>
+          <span
+            className="ms text-[14px] leading-none"
+            aria-hidden="true"
+            style={{ fontVariationSettings: "'FILL' 1" }}
+          >
+            {LEVEL_ICONS[level]}
+          </span>
+          <span className="font-bold tracking-widest uppercase shrink-0">
+            {LEVEL_LABELS[level]}
+          </span>
+          <div className="flex-1 min-w-0 overflow-hidden">
+            <span
+              className="alert-marquee-track font-mono opacity-80"
+              style={{ animationDuration }}
+            >
+              <span className="alert-marquee-item">{message}</span>
+              <span className="alert-marquee-item" aria-hidden="true">{message}</span>
+            </span>
+          </div>
+        </button>
+
+        {count > 1 && (
+          <button
+            type="button"
+            onClick={() => setOpen((o) => !o)}
+            aria-expanded={open}
+            aria-label={`${count - 1} more advisories`}
+            className="shrink-0 h-full flex items-center gap-0.5 px-3 font-mono font-bold border-l border-black/15 hover:bg-black/10"
+          >
+            +{count - 1}
+            <span className="ms text-[16px] leading-none" aria-hidden="true">{open ? 'expand_less' : 'expand_more'}</span>
+          </button>
+        )}
       </div>
 
-      {/* Scrolling ticker in critical mode */}
-      {mode === 'critical' && alerts.length > 1 && (
-        <span className="ml-auto font-mono text-[11px] opacity-70 shrink-0">
-          +{alerts.length - 1} MORE
-        </span>
+      {open && (
+        <ul className="absolute left-0 right-0 lg:left-auto lg:w-[28rem] top-full z-50 max-h-[60vh] overflow-y-auto bg-onyx-deep border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.6)] divide-y divide-white/5">
+          {items.map((a) => (
+            <li key={a.id}>
+              <button type="button" onClick={() => go(a)} className="w-full flex items-start gap-3 px-4 py-2.5 text-left hover:bg-white/5">
+                <span className={`mt-1.5 w-2 h-2 rounded-full shrink-0 ${a.level === 'red' ? 'bg-red-emergency' : 'bg-amber-gold'}`} aria-hidden="true" />
+                <span className="flex-1 min-w-0">
+                  <span className="block text-[12px] font-bold text-on-surface truncate">{stripMarkup(a.title)}</span>
+                  {a.detail && <span className="block text-[11px] text-on-surface-variant line-clamp-2">{stripMarkup(a.detail)}</span>}
+                </span>
+                <span className="shrink-0 font-mono text-[10px] uppercase tracking-widest text-on-surface-variant border border-white/10 px-1">
+                  {SOURCE_LABELS[a.source] ?? a.source}
+                </span>
+              </button>
+            </li>
+          ))}
+          {count > items.length && (
+            <li className="px-4 py-2 text-[11px] text-on-surface-variant">+{count - items.length} lower-ranked not shown</li>
+          )}
+        </ul>
       )}
-    </button>
+    </div>
   )
 }
