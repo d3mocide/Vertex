@@ -99,7 +99,9 @@ def from_radio(incidents: list[dict], now: datetime, home: tuple[float, float],
         if inc.get("lat") is None or inc.get("lon") is None:
             continue   # a pin you can open, or it stays on the incidents list
         dist = distance_km(home[0], home[1], inc["lat"], inc["lon"])
-        zones = inc.get("geofences") or []
+        # Zones extend "near" to neighbouring cities, but some are huge
+        # (Portland, the rivers, airports): only count them within 2x radius.
+        zones = (inc.get("geofences") or []) if dist <= 2 * radius_km else []
         if dist > radius_km and not zones:
             continue
         sev = int(inc.get("severity") or 0)

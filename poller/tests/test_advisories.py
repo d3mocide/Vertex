@@ -35,8 +35,9 @@ def test_radio_needs_near_recent_located_and_significant():
     assert _radio([_inc(1, cat="medical", units=5, calls=9)]) == []
 
 
-def test_far_incident_inside_a_zone_still_counts():
-    assert len(_radio([_inc(5, where=FAR, zones=["Tualatin River"])])) == 1
+def test_zone_extends_near_but_not_indefinitely():
+    assert len(_radio([_inc(5, where=(45.45, -122.70), zones=["West Linn (area)"])])) == 1   # ~8.2 km
+    assert _radio([_inc(5, where=(45.53, -122.54), zones=["Portland (area)"])]) == []         # ~23 km
 
 
 def test_close_or_zoned_notable_incidents_are_amber():

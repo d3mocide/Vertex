@@ -10,7 +10,7 @@ import { ChipRow, Chip, EmptyState } from '../common/Page'
 
 type Group = 'life' | 'fire' | 'hazard' | 'traffic' | 'medical' | 'other'
 
-const CATEGORY: Record<RadioIncidentCategory, { label: string; icon: string; group: Group }> = {
+export const CATEGORY: Record<RadioIncidentCategory, { label: string; icon: string; group: Group }> = {
   water_rescue:        { label: 'Water / bridge rescue', icon: 'pool',                  group: 'life' },
   rescue:              { label: 'Rescue',                icon: 'support',               group: 'life' },
   violence:            { label: 'Shooting / stabbing',   icon: 'gpp_bad',               group: 'life' },

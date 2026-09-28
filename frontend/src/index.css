@@ -388,9 +388,13 @@ html.ios-pwa {
   }
 }
 
+/* Two copies of the message back to back at their natural width, moved by
+   one copy (-50%): a seamless loop. Only used when the message overflows the
+   bar (AlertStatusBar measures it); a forced 200% width left a bar-wide gap
+   of empty space after short messages. */
 .alert-marquee-track {
   display: inline-flex;
-  min-width: 200%;
+  width: max-content;
   white-space: nowrap;
   will-change: transform;
   animation: alert-marquee 45s linear infinite;

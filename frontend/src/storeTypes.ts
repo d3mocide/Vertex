@@ -68,11 +68,14 @@ export interface RadioIncident {
   lat: number | null
   lon: number | null
   geofences: string[]          // "<name> (<zone_type>)"
+  dist_km?: number | null      // from home (REGION_LAT/LON)
 }
 
 export interface RadioIncidentFeed {
   ts: string | null
   window_hours: number | null
+  /** Radius the advisory bar and sidebar treat as "nearby". */
+  nearby_km?: number
   incident_count: number
   located_count: number
   transcribed_calls: number
@@ -172,6 +175,15 @@ export interface NewsItem {
   link:      string
   published: string
   category?:  string
+  // Ranked stories (poller news_rank.py); absent on reference links.
+  id?:        string
+  topic?:     string
+  /** 3 home area · 2 metro · 1 Oregon · 0 elsewhere */
+  local?:     number
+  emergency?: boolean
+  score?:     number
+  /** Every outlet that ran the story (duplicates are merged). */
+  sources?:   { source: string; link: string }[]
 }
 
 // ─── Weather ──────────────────────────────────────────────────────────────────

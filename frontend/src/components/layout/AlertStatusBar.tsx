@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useCivicPick } from '../../store'
 import type { Advisory, NavTab } from '../../storeTypes'
 
@@ -58,6 +58,10 @@ export function AlertStatusBar() {
   const { mode, advisories, setActiveTab, setFocusIncidentId } = useCivicPick('mode', 'advisories', 'setActiveTab', 'setFocusIncidentId')
   const [open, setOpen] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)
+  const boxRef = useRef<HTMLDivElement>(null)
+  const measureRef = useRef<HTMLSpanElement>(null)
+  // Scroll only when the message doesn't fit the bar.
+  const [overflows, setOverflows] = useState(false)
 
   const items = advisories?.items ?? []
   const count = advisories?.count ?? 0
@@ -80,18 +84,25 @@ export function AlertStatusBar() {
 
   useEffect(() => { if (count <= 1) setOpen(false) }, [count])
 
+  useLayoutEffect(() => {
+    const box = boxRef.current
+    const text = measureRef.current
+    if (!box || !text) return
+    const check = () => setOverflows(text.offsetWidth > box.clientWidth)
+    check()
+    const ro = new ResizeObserver(check)
+    ro.observe(box)
+    return () => ro.disconnect()
+  }, [message])
+
   const go = (a: Advisory) => {
     setOpen(false)
     if (a.target.incident) setFocusIncidentId(a.target.incident)
     setActiveTab(a.target.tab as NavTab)
   }
 
-  // Adjust animation duration dynamically to keep a readable, constant scrolling speed
-  const animationDuration = useMemo(() => {
-    const charsPerSecond = 8
-    const duration = message.length / charsPerSecond
-    return `${Math.max(30, Math.round(duration))}s`
-  }, [message])
+  // One loop moves the text by one copy: ~6 characters a second reads comfortably.
+  const animationDuration = useMemo(() => `${Math.max(12, Math.round(message.length / 6))}s`, [message])
 
   // In calm mode show a slim indicator; in critical mode show the full bar
   if (mode === 'calm' && level === 'green') return null
@@ -123,14 +134,20 @@ export function AlertStatusBar() {
           <span className="font-bold tracking-widest uppercase shrink-0">
             {LEVEL_LABELS[level]}
           </span>
-          <div className="flex-1 min-w-0 overflow-hidden">
-            <span
-              className="alert-marquee-track font-mono opacity-80"
-              style={{ animationDuration }}
-            >
-              <span className="alert-marquee-item">{message}</span>
-              <span className="alert-marquee-item" aria-hidden="true">{message}</span>
-            </span>
+          <div ref={boxRef} className="relative flex-1 min-w-0 overflow-hidden">
+            {/* Off-screen copy used to measure the message's natural width. */}
+            <span ref={measureRef} className="absolute invisible whitespace-nowrap font-mono" aria-hidden="true">{message}</span>
+            {overflows ? (
+              <span
+                className="alert-marquee-track font-mono opacity-80"
+                style={{ animationDuration }}
+              >
+                <span className="alert-marquee-item">{message}</span>
+                <span className="alert-marquee-item" aria-hidden="true">{message}</span>
+              </span>
+            ) : (
+              <span className="block truncate font-mono opacity-80">{message}</span>
+            )}
           </div>
         </button>
 

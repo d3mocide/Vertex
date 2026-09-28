@@ -18,6 +18,7 @@ from config import settings
 from db import get_pool
 from geocoder import Geocoder
 from geo_tags import geofences_for_points
+from advisories import distance_km
 from radio_incidents import extract
 from .base import BasePoller
 
@@ -90,8 +91,13 @@ class RadioIncidentPoller(BasePoller):
             return
 
         published = [i.to_dict() for n, i in enumerate(incidents) if n < _MAX_PUBLISHED or i.lat is not None]
+        # Distance from home, so every view shares one notion of "nearby".
+        for d in published:
+            d["dist_km"] = (round(distance_km(settings.region_lat, settings.region_lon, d["lat"], d["lon"]), 1)
+                            if d["lat"] is not None else None)
         body = {
             "window_hours": window,
+            "nearby_km": settings.advisory_radius_km,
             "transcribed_calls": n_calls,
             "incident_count": len(incidents),
             "located_count": sum(1 for i in incidents if i.lat is not None),

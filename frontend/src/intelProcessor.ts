@@ -1,35 +1,24 @@
 import { NewsItem, SystemEvent } from './storeTypes'
 
-export const CRITICAL_KEYWORDS = [
-  'earthquake', 'quake', 'tsunami', 'wildfire', 'shooting', 
-  'active shooter', 'evacuation', 'hazmat', 'flood', 'tornado',
-  'casualty', 'explosion', 'blackout', 'derailment', 'outage'
-]
-
 /**
- * Scans a news item for critical tactical keywords.
- * Returns a SystemEvent if a match is found, otherwise null.
+ * A news story the server flagged as an active local emergency
+ * (poller news_rank.py: Safety/Weather topic, local, critical whole word)
+ * becomes a priority system event. Keyword substring matching used to do
+ * this here and turned "Earthquakes beat Timbers" into an intel alert.
  */
 export function elevateNewsToEvent(item: NewsItem): SystemEvent | null {
-  const text = `${item.title} ${item.summary || ''}`.toLowerCase()
-  const match = CRITICAL_KEYWORDS.find(k => text.includes(k))
-
-  if (!match) return null
-
-  // Use a predictable ID based on the link or title to prevent duplicates
-  const event_id = `intel-elevated-${btoa(item.link || item.title).slice(0, 16)}`
-
+  if (!item.emergency) return null
   return {
-    event_id,
+    event_id: `intel-elevated-${item.id ?? btoa(item.link || item.title).slice(0, 16)}`,
     event_type: 'intel_alert',
     ts: item.published || new Date().toISOString(),
     severity: 'high',
     summary: `INTEL ALERT: ${item.title}`,
     details: {
       source: item.source,
-      keyword: match,
+      topic: item.topic,
       link: item.link,
-      original_summary: item.summary
-    }
+      original_summary: item.summary,
+    },
   }
 }

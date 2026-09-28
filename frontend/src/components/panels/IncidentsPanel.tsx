@@ -6,6 +6,7 @@ import { API_BASE } from '../../config'
 import { authHeaders } from '../../auth'
 import { RadioIncidents, isActive } from './RadioIncidents'
 import { PageHeader, StatTiles, type Stat } from '../common/Page'
+import { SituationRail } from '../layout/SituationRail'
 
 function formatIncidentLocation(incident: { location?: string; lat?: number; lon?: number }): string | undefined {
   const location = incident.location?.trim()
@@ -198,6 +199,11 @@ export function IncidentsPanel() {
         subtitle="Dispatch, weather, traffic and system alerts"
       />
       <div className="p-4 lg:p-6 space-y-6">
+
+      {/* Phones have no sidebar: its "Now" and "Nearby" blocks lead here. */}
+      <div className="lg:hidden border border-white/10 bg-surface-container/40 p-3">
+        <SituationRail parts={['now', 'nearby']} />
+      </div>
 
       <StatTiles items={tiles} />
 

@@ -6,6 +6,9 @@ import feedparser
 import httpx
 
 from security import validate_request_url
+from datetime import datetime, timezone
+
+import news_rank
 from bus import set_feed
 from .base import BasePoller
 
@@ -88,7 +91,7 @@ class NewsPoller(BasePoller):
                     resp = await client.get(src["url"])
                     resp.raise_for_status()
                 feed = feedparser.parse(resp.text)
-                for entry in feed.entries[:10]:
+                for entry in feed.entries[:20]:
                     title = _clean_text(entry.get("title", ""))
                     summary = _clean_text(
                         entry.get("summary", "") or entry.get("description", "")
@@ -113,32 +116,10 @@ class NewsPoller(BasePoller):
             except Exception as exc:
                 logger.warning("[news] %s failed: %s", src["name"], exc)
 
-        # Intelligence Elevation Logic
-        CRITICAL_KEYWORDS = [
-            "earthquake",
-            "quake",
-            "tsunami",
-            "wildfire",
-            "shooting",
-            "active shooter",
-            "evacuation",
-            "hazmat",
-            "flood",
-            "tornado",
-            "casualty",
-            "explosion",
-            "blackout",
-            "derailment",
-            "outage",
-        ]
-        intel_alerts = []
-        for item in items:
-            text = f"{item['title']} {item['summary']}".lower()
-            # ⚡ Bolt Optimization: Unrolled any(generator) for ~50% speedup in this hot loop
-            for k in CRITICAL_KEYWORDS:
-                if k in text:
-                    intel_alerts.append(item)
-                    break
-
-        await set_feed("news:local", items)
-        await set_feed("intel:alerts", intel_alerts)
+        # Rank: merge duplicate headlines, classify topic / local relevance,
+        # flag local emergencies (news_rank.py). Reference links pass through.
+        static = [i for i in items if i.get("category") == "Tactical Resources"]
+        ranked = news_rank.stories([i for i in items if i.get("category") != "Tactical Resources"],
+                                   datetime.now(timezone.utc))
+        await set_feed("news:local", ranked + static)
+        await set_feed("intel:alerts", [s for s in ranked if s["emergency"]])

@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { ALT_RANGE_DEFAULT, SPD_RANGE_DEFAULT, type EntityTypeFilter, useCivicPick } from '../../store'
-import { isMajorTrafficIncident } from '../../incidentUtils'
+import { SituationRail } from './SituationRail'
 
-const INCIDENTS_COLLAPSE_KEY = 'vertex.sidebar.incidentsCollapsed'
+const LAYERS_OPEN_KEY = 'vertex.sidebar.layersOpen'
 const SIDEBAR_COLLAPSE_KEY = 'vertex.sidebar.collapsed'
 
 function GridStatusDots({ ok }: { ok: boolean }) {
@@ -15,100 +15,15 @@ function GridStatusDots({ ok }: { ok: boolean }) {
   )
 }
 
-function IncidentCard({
-  id,
-  time,
-  title,
-  location,
-  summary,
-  link,
-  severity,
-}: {
-  id: string
-  time: string
-  title: string
-  location?: string
-  summary?: string
-  link?: string
-  severity: 'high' | 'low'
-}) {
-  const [expanded, setExpanded] = useState(false)
-  const isHigh = severity === 'high'
-  return (
-    <div
-      className="incident-card cursor-pointer"
-      role="listitem"
-      tabIndex={0}
-      aria-label={`Incident ${id}: ${title}`}
-      onClick={() => setExpanded((v) => !v)}
-    >
-      <div className="flex justify-between items-start mb-2">
-        <div className="flex items-center gap-2">
-          <span
-            className="ms text-[14px] leading-none"
-            aria-hidden="true"
-            style={{ fontVariationSettings: "'FILL' 0" }}
-          >
-            {isHigh ? 'warning' : 'info'}
-          </span>
-          <span className={`font-mono text-[11px] ${isHigh ? 'text-amber-gold' : 'text-on-surface-variant'}`}>
-            {id}
-          </span>
-        </div>
-        <span className="font-mono text-[11px] text-on-surface-variant">{time}</span>
-      </div>
-      <p className="text-[12px] text-on-surface leading-tight">{title}</p>
-      {location && (
-        <p className="text-[11px] text-on-surface-variant mt-1 leading-tight">{location}</p>
-      )}
-
-      {expanded && summary && (
-        <p className="text-[11px] text-on-surface-variant leading-relaxed mt-2 whitespace-pre-wrap break-words">
-          {summary}
-        </p>
-      )}
-
-      {expanded && link && (
-        <a
-          href={link}
-          target="_blank"
-          rel="noreferrer noopener"
-          className="inline-flex mt-2 font-mono text-[11px] uppercase tracking-widest text-amber-gold hover:text-white"
-          onClick={(e) => e.stopPropagation()}
-        >
-          Open Incident Source
-        </a>
-      )}
-    </div>
-  )
-}
-
-function NewsRow({ source, age, title }: { source: string; age: string; title: string }) {
-  return (
-    <div className="flex gap-3">
-      <div className="w-0.5 bg-amber-gold shrink-0" aria-hidden="true" />
-      <div>
-        <span className="font-mono text-[11px] text-on-surface-variant block mb-1 uppercase tracking-tighter">
-          {source} • {age}
-        </span>
-        <p className="text-[11px] text-on-surface hover:text-amber-gold cursor-pointer transition-colors leading-relaxed">
-          {title}
-        </p>
-      </div>
-    </div>
-  )
-}
-
 export function Sidebar() {
   const {
     alerts,
-    news,
     health,
     entities,
     connected,
     cameras,
     weather,
-    trafficIncidents,
+    advisories,
     lightningStrikes,
     setActiveTab,
     entityFilter,
@@ -122,7 +37,7 @@ export function Sidebar() {
     setGaugesVisible,
     lightningVisible,
     setLightningVisible,
-  } = useCivicPick('alerts', 'news', 'health', 'entities', 'connected', 'cameras', 'weather', 'trafficIncidents', 'lightningStrikes', 'setActiveTab', 'entityFilter', 'setEntityFilter', 'setEntitySearchQuery', 'setEntityAltRange', 'setEntitySpeedRange', 'camerasVisible', 'setCamerasVisible', 'gaugesVisible', 'setGaugesVisible', 'lightningVisible', 'setLightningVisible')
+  } = useCivicPick('alerts', 'advisories', 'health', 'entities', 'connected', 'cameras', 'weather', 'lightningStrikes', 'setActiveTab', 'entityFilter', 'setEntityFilter', 'setEntitySearchQuery', 'setEntityAltRange', 'setEntitySpeedRange', 'camerasVisible', 'setCamerasVisible', 'gaugesVisible', 'setGaugesVisible', 'lightningVisible', 'setLightningVisible')
 
   const entityList = Object.values(entities)
   const aircraft     = entityList.filter((e) => e.entity_type === 'aircraft').length
@@ -137,25 +52,17 @@ export function Sidebar() {
   const lightningCount = lightningStrikes.length
   const cams          = cameras.length
   const wAlerts       = weather.alerts.length
-  // Filter for major/local traffic incidents only
-  const significantIncidents = trafficIncidents.filter(isMajorTrafficIncident)
+  // The advisory feed (ranked, all sources) drives the incident indicators.
+  const activeInc = advisories?.count ?? 0
+  const advisoryLevel = advisories?.level ?? 'green'
+  const incColor = advisoryLevel === 'red' ? 'text-red-emergency' : advisoryLevel === 'amber' ? 'text-amber-gold' : 'text-on-surface-variant'
 
-  // Use dedicated traffic incidents feed.
-  // Expanded mode shows all significant incidents; compact mode shows top 3.
-  const incidents = significantIncidents
-  const compactIncidents = significantIncidents.slice(0, 3)
-  const activeInc = significantIncidents.length
-
-  const [incidentsCollapsedPref, setIncidentsCollapsedPref] = useState<boolean | null>(() => {
-    if (typeof window === 'undefined') return null
-    const stored = window.localStorage.getItem(INCIDENTS_COLLAPSE_KEY)
-    if (stored === '1') return true
-    if (stored === '0') return false
-    return null
+  const [layersOpen, setLayersOpen] = useState<boolean>(() => {
+    try { return localStorage.getItem(LAYERS_OPEN_KEY) !== '0' } catch { return true }
   })
-
-  const incidentsCollapsed = incidentsCollapsedPref ?? activeInc >= 3
-  const [compactExpandedIndex, setCompactExpandedIndex] = useState<number | null>(null)
+  useEffect(() => {
+    try { localStorage.setItem(LAYERS_OPEN_KEY, layersOpen ? '1' : '0') } catch { /* storage unavailable */ }
+  }, [layersOpen])
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => {
     if (typeof window === 'undefined') return true
     const stored = window.localStorage.getItem(SIDEBAR_COLLAPSE_KEY)
@@ -164,24 +71,9 @@ export function Sidebar() {
   })
 
   useEffect(() => {
-    if (incidentsCollapsedPref === null || typeof window === 'undefined') return
-    window.localStorage.setItem(INCIDENTS_COLLAPSE_KEY, incidentsCollapsedPref ? '1' : '0')
-  }, [incidentsCollapsedPref])
-
-  useEffect(() => {
     if (typeof window === 'undefined') return
     window.localStorage.setItem(SIDEBAR_COLLAPSE_KEY, sidebarCollapsed ? '1' : '0')
   }, [sidebarCollapsed])
-
-  // News items from store, fallback to empty
-  // News items filtered for Regional News only
-  const newsItems = news
-    .filter(item => item.category === 'Regional News')
-    .sort((a, b) => {
-      const bTs = Date.parse(b.published || '') || 0
-      const aTs = Date.parse(a.published || '') || 0
-      return bTs - aTs
-    })
 
   const focusSafetyMap = () => {
     setActiveTab('safety')
@@ -260,9 +152,9 @@ export function Sidebar() {
           <button
             type="button"
             onClick={() => setActiveTab('incidents')}
-            className={`${activeInc > 0 ? 'text-red-emergency' : 'text-on-surface-variant'} hover:text-amber-gold transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-amber-gold`}
-            aria-label={`Incidents ${activeInc}`}
-            title={`Incidents: ${activeInc}`}
+            className={`${incColor} hover:text-amber-gold transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-amber-gold`}
+            aria-label={`Advisories ${activeInc}`}
+            title={`Advisories: ${activeInc}`}
           >
             <span className="ms text-[20px]" aria-hidden="true">warning</span>
           </button>
@@ -471,9 +363,9 @@ export function Sidebar() {
           </div>
 
           <div className="flex items-center gap-3">
-             <span className={`flex items-center text-[11px] font-mono ${activeInc > 0 ? 'text-red-emergency animate-pulse' : 'text-on-surface-variant opacity-20'}`} title="Active Incidents">
+             <span className={`flex items-center text-[11px] font-mono ${activeInc > 0 ? `${incColor} ${advisoryLevel === 'red' ? 'animate-pulse' : ''}` : 'text-on-surface-variant opacity-20'}`} title="Advisories">
                <span className="ms text-[14px] mr-1" aria-hidden="true">warning</span>
-               INC {activeInc}
+               ADV {activeInc}
              </span>
              <span className={`flex items-center text-[11px] font-mono ${wAlerts > 0 ? 'text-amber-gold' : 'text-on-surface-variant opacity-20'}`} title="Weather Alerts">
                <span className="ms text-[14px] mr-1" aria-hidden="true">cloud_alert</span>
@@ -482,8 +374,19 @@ export function Sidebar() {
           </div>
         </div>
 
-        {/* Entity count strip */}
-        <div className="grid grid-cols-2 gap-x-4 gap-y-2.5 text-[11px] font-mono border-t border-white/5 pt-3">
+        {/* Map layers: entity counts that toggle their layer (collapsible) */}
+        <button
+          type="button"
+          onClick={() => setLayersOpen((o) => !o)}
+          aria-expanded={layersOpen}
+          aria-controls="sidebar-layers"
+          className="w-full flex items-center justify-between border-t border-white/5 pt-3 label-caps hover:text-on-surface"
+        >
+          Map layers
+          <span className="ms text-[16px] leading-none" aria-hidden="true">{layersOpen ? 'expand_less' : 'expand_more'}</span>
+        </button>
+        {layersOpen && (
+        <div id="sidebar-layers" className="grid grid-cols-2 gap-x-4 gap-y-2.5 text-[11px] font-mono pt-3">
           <button
             type="button"
             onClick={() => toggleEntityType('aircraft_group')}
@@ -590,203 +493,16 @@ export function Sidebar() {
             Traffic Cameras: {cams}
           </button>
         </div>
+        )}
       </div>
 
 
-      {/* Scrollable content */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-6">
-
-        {/* Active incidents */}
-        <section aria-labelledby="incidents-heading">
-          <div className="mb-3 flex items-center gap-2">
-            <button
-              id="incidents-heading"
-              className="section-heading !mb-0 flex-1 cursor-pointer hover:text-amber-gold"
-              aria-expanded={!incidentsCollapsed}
-              aria-controls="sidebar-incidents-list"
-              onClick={() => {
-                setIncidentsCollapsedPref((v) => {
-                  const current = v ?? activeInc >= 3
-                  return !current
-                })
-              }}
-              title={incidentsCollapsed ? 'Expand incidents' : 'Collapse incidents'}
-            >
-              <span className="w-1 h-1 bg-amber-gold shrink-0" aria-hidden="true" />
-              Active Incidents
-              <span className="ms text-[14px] ml-auto text-on-surface-variant" aria-hidden="true">
-                {incidentsCollapsed ? 'expand_more' : 'expand_less'}
-              </span>
-            </button>
-
-            {incidents.length > 0 && (
-              <span className="font-mono text-[11px] bg-amber-gold text-onyx-black px-1.5 py-0.5 font-bold">
-                {incidents.length}
-              </span>
-            )}
-          </div>
-
-          {activeInc > (incidentsCollapsed ? compactIncidents.length : incidents.length) && (
-            <div className="mb-3 flex items-center justify-between">
-              <span className="text-[11px] text-on-surface-variant">
-                Showing {incidentsCollapsed ? compactIncidents.length : incidents.length} of {activeInc} incidents
-              </span>
-              <button
-                onClick={() => setActiveTab('incidents')}
-                className="font-mono text-[11px] uppercase tracking-widest text-amber-gold hover:text-white"
-              >
-                View All
-              </button>
-            </div>
-          )}
-
-          {incidents.length === 0 ? (
-            <p className="text-[11px] text-on-surface-variant/60 italic text-center py-2">No active incidents</p>
-          ) : incidentsCollapsed ? (
-            <div id="sidebar-incidents-list" className="space-y-2" role="list">
-              {compactIncidents.map((incident, i) => (
-                <div className="incident-card" role="listitem" key={`compact-${i}`}>
-                  <button
-                    type="button"
-                    className="w-full text-left"
-                    aria-expanded={compactExpandedIndex === i}
-                    onClick={() => setCompactExpandedIndex((prev) => (prev === i ? null : i))}
-                  >
-                    <div className="flex justify-between items-start gap-2">
-                      <p className="text-[12px] text-on-surface leading-tight line-clamp-1">
-                        {deriveIncidentTitle(incident)}
-                      </p>
-                      <div className="flex items-center gap-1 shrink-0">
-                        <span className="font-mono text-[11px] text-on-surface-variant">
-                          {formatIncidentTime(incident.pubDate ?? '')}
-                        </span>
-                        <span className="ms text-[13px] text-on-surface-variant" aria-hidden="true">
-                          {compactExpandedIndex === i ? 'expand_less' : 'expand_more'}
-                        </span>
-                      </div>
-                    </div>
-                  </button>
-                  {formatIncidentLocation(incident) && (
-                    <p className="text-[11px] text-on-surface-variant mt-1 leading-tight line-clamp-1">
-                      {formatIncidentLocation(incident)}
-                    </p>
-                  )}
-                  {compactExpandedIndex === i && incident.description && (
-                    <p className="text-[11px] text-on-surface-variant leading-relaxed mt-2 whitespace-pre-wrap break-words">
-                      {incident.description}
-                    </p>
-                  )}
-                  {compactExpandedIndex === i && incident.link && /^https?:\/\//i.test(incident.link) && (
-                    <a
-                      href={incident.link}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex mt-2 font-mono text-[11px] uppercase tracking-widest text-amber-gold hover:text-white"
-                    >
-                      Open Incident Source
-                    </a>
-                  )}
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div id="sidebar-incidents-list" className="space-y-3" role="list">
-              {incidents.map((incident, i) => (
-                <IncidentCard
-                  key={i}
-                  id={`INC-${String(i + 1).padStart(4, '0')}`}
-                  time={formatIncidentTime(incident.pubDate ?? '')}
-                  title={deriveIncidentTitle(incident)}
-                  location={formatIncidentLocation(incident)}
-                  summary={incident.description}
-                  link={incident.link}
-                  severity={/high|major|severe|critical|closure|crash/i.test(incident.severity ?? '') ? 'high' : 'low'}
-                />
-              ))}
-            </div>
-          )}
-        </section>
-
-        {/* News feed */}
-        <section className="pt-4 border-t border-amber-gold-muted/30" aria-labelledby="news-heading">
-          <h3 id="news-heading" className="section-heading">
-            <span className="w-1 h-1 bg-on-surface-variant shrink-0" aria-hidden="true" />
-            News Feed
-          </h3>
-
-          {newsItems.length === 0 ? (
-            <p className="text-[11px] text-on-surface-variant/60 italic text-center py-2">No feed data yet</p>
-          ) : (
-            <div className="space-y-4">
-              {newsItems.map((item, i) => (
-                <NewsRow
-                  key={i}
-                  source={item.source.toUpperCase()}
-                  age={formatAge(item.published)}
-                  title={item.title}
-                />
-              ))}
-            </div>
-          )}
-        </section>
+      {/* Scrollable content: what matters now */}
+      <div className="flex-1 overflow-y-auto p-4">
+        <SituationRail />
       </div>
       </>
       )}
     </aside>
   )
-}
-
-function formatAge(iso: string): string {
-  const ts = Date.parse(iso)
-  if (Number.isNaN(ts)) return '—'
-  const diff = Date.now() - ts
-  const mins = Math.floor(diff / 60_000)
-  if (mins < 1)   return 'Just now'
-  if (mins < 60)  return `${mins}m ago`
-  const hrs = Math.floor(mins / 60)
-  if (hrs < 24)   return `${hrs}hr ago`
-  return `${Math.floor(hrs / 24)}d ago`
-}
-
-function formatIncidentTime(iso: string): string {
-  const ts = Date.parse(iso)
-  if (Number.isNaN(ts)) return '—'
-  return new Date(ts).toLocaleTimeString('en-US', {
-    hour: '2-digit', minute: '2-digit', timeZoneName: 'short',
-  })
-}
-
-function formatIncidentLocation(incident: {
-  location?: string
-  lat?: number
-  lon?: number
-}): string | undefined {
-  const location = incident.location?.trim()
-  if (location) return location
-
-  if (typeof incident.lat === 'number' && typeof incident.lon === 'number') {
-    return `${incident.lat.toFixed(4)}, ${incident.lon.toFixed(4)}`
-  }
-
-  return undefined
-}
-
-function deriveIncidentTitle(incident: {
-  title?: string
-  description?: string
-  location?: string
-  lat?: number
-  lon?: number
-}): string {
-  const title = (incident.title ?? '').trim()
-  const generic = /^traffic\s+incident$/i.test(title)
-  if (title && !generic) return title
-
-  const location = formatIncidentLocation(incident)
-  if (location) return `Incident near ${location}`
-
-  const description = (incident.description ?? '').trim()
-  if (description) return description
-
-  return 'Traffic incident'
 }
