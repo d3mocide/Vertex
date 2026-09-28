@@ -204,6 +204,11 @@ class MeshCorePoller(BasePoller):
                             logger.warning(
                                 "[meshcore] SSE %s returned %d", sse_url, resp.status_code
                             )
+                            if resp.status_code in (401, 403) and await _reload_api_key(src):
+                                # The key was changed in sources.yml: use it now
+                                # instead of 401-ing until the poller restarts.
+                                headers = _api_headers(src.get("api_key"))
+                                logger.info("[meshcore] picked up a new API key for %s", base_url)
                         else:
                             logger.info("[meshcore] SSE connected: %s", sse_url)
                             status_payload = {
@@ -398,6 +403,22 @@ def companion_params(companion_name: str) -> dict[str, str]:
     companion — another identity with different channels.
     """
     return {"companion_name": companion_name}
+
+
+async def _reload_api_key(src: dict) -> bool:
+    """Re-read this source's API key from poller_sources; True if it changed."""
+    try:
+        from db import get_pool
+        rows = await get_pool().fetch(
+            "SELECT url FROM poller_sources WHERE type = 'meshcore' AND enabled = TRUE")
+    except Exception:
+        return False
+    for row in rows:
+        fresh = _parse_source(row["url"])
+        if fresh["base_url"] == src["base_url"] and fresh["api_key"] != src.get("api_key"):
+            src["api_key"] = fresh["api_key"]
+            return True
+    return False
 
 
 def _api_headers(api_key: str | None) -> dict[str, str]:
