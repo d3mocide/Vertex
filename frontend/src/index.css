@@ -126,12 +126,12 @@
   --chrome-top: calc(var(--safe-top) + var(--edge-clear));
 }
 html.ios-pwa {
-  /* No gap: the header row starts right under the status bar, like native
-     title bars. The iOS 27 blur fades out ~35pt below the 62pt status bar
+  /* Next to no gap: the header row starts just under the status bar, like
+     native title bars. The iOS 27 blur fades out ~35pt below the 62pt status bar
      (measured on the user's iPhone, 2026-09-27), so the top of the header
      row sits in its faint tail — the user preferred that to 26-40px of
      empty band. The row's own 48px height centres the logo below most of it. */
-  --edge-clear: 0px;
+  --edge-clear: 5px;   /* the user's pick: a small bump off the status bar */
 }
 
 /* MapLibre control override — must live outside @layer so it wins over
