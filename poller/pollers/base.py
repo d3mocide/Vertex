@@ -1,4 +1,5 @@
 import asyncio
+import contextlib
 import json
 import logging
 import time
@@ -8,6 +9,9 @@ from sanitize import sanitize_payload
 logger = logging.getLogger(__name__)
 
 _HEARTBEAT_KEY = "metrics:poller_heartbeats"
+# Streaming pollers report in this often while connected (the admin page
+# calls a poller stale after max(120 s, interval + 60 s) of silence).
+_STREAM_HEARTBEAT_S = 30
 # Longest delay between polls of a source that keeps failing.
 _MAX_BACKOFF_S = 900
 
@@ -39,6 +43,28 @@ class BasePoller(ABC):
             await r.hset(_HEARTBEAT_KEY, self.name, payload)
         except Exception:
             pass  # heartbeat is best-effort; never block the poll loop
+
+    @contextlib.asynccontextmanager
+    async def streaming(self):
+        """For pollers that hold a connection open instead of polling on a
+        timer: report "ok" while connected, even when the source is quiet
+        (no lightning, no radio calls), so health reflects the connection."""
+        async def beat():
+            while True:
+                await self._heartbeat("ok")
+                await asyncio.sleep(_STREAM_HEARTBEAT_S)
+        task = asyncio.create_task(beat())
+        try:
+            yield
+        finally:
+            task.cancel()
+
+    async def _alive(self) -> None:
+        """Throttled "ok" heartbeat for streams that deliver data steadily."""
+        now = time.monotonic()
+        if now - getattr(self, "_last_alive", 0.0) >= _STREAM_HEARTBEAT_S:
+            self._last_alive = now
+            await self._heartbeat("ok")
 
     async def run(self):
         logger.info("[%s] started (interval=%ds)", self.name, self.interval)

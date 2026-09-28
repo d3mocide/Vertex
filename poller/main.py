@@ -123,6 +123,12 @@ async def main():
         logger.warning("[memprofile] tracemalloc enabled — diagnostic mode, expect extra memory/CPU")
     await init_db()
 
+    # Heartbeats left by an earlier run: a poller that no longer runs (its
+    # source was disabled) would otherwise sit on the admin page as stale forever.
+    from bus import get_bus
+    from pollers.base import _HEARTBEAT_KEY
+    await (await get_bus()).delete(_HEARTBEAT_KEY)
+
     config = load_sources_config()
     await sync_sources_to_db(config, get_pool())
 

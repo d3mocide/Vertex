@@ -1,16 +1,23 @@
 """
 Background task that snapshots Prometheus metrics every 10 seconds and
 stores them in Redis as a rolling 60-minute history for the admin panel.
+
+Every uvicorn worker runs its own collector over its own process counters,
+so each keeps a separate history (metrics:history:<pid>); the admin endpoint
+turns each into rates before adding the workers together.
 """
 import asyncio
 import json
 import logging
+import os
 import time
 
 logger = logging.getLogger(__name__)
 
-_HISTORY_KEY = "metrics:history"
+HISTORY_KEY_PREFIX = "metrics:history:"
 _HISTORY_LEN = 360  # 360 × 10 s = 60 minutes
+# A worker that stops (restart) stops refreshing its key; drop it after this.
+_HISTORY_TTL_S = 3900
 
 # WebSocket client counter — mutated by routers/ws.py
 _ws_client_count: int = 0
@@ -97,11 +104,14 @@ def p95_from_buckets(buckets: list) -> float:
 async def run_metrics_collector() -> None:
     from redis_bus import get_redis
     redis = get_redis()
+    await redis.delete("metrics:history")   # the old shared list, mixed across workers
     while True:
         try:
             snap = collect_snapshot()
-            await redis.rpush(_HISTORY_KEY, json.dumps(snap))
-            await redis.ltrim(_HISTORY_KEY, -_HISTORY_LEN, -1)
+            key = f"{HISTORY_KEY_PREFIX}{os.getpid()}"
+            await redis.rpush(key, json.dumps(snap))
+            await redis.ltrim(key, -_HISTORY_LEN, -1)
+            await redis.expire(key, _HISTORY_TTL_S)
         except Exception as exc:
             logger.warning("[metrics] collection error: %s", exc)
         await asyncio.sleep(10)

@@ -301,7 +301,7 @@ class P25AudioRecorder(BasePoller):
         while True:
             try:
                 async with websockets.connect(url, max_size=None,
-                                              open_timeout=10, ping_interval=20) as ws:
+                                              open_timeout=10, ping_interval=20) as ws, self.streaming():
                     logger.info("[p25_rec] websocket connected (receiver %d)", channel)
                     backoff = 1.0
                     await self._ws_session(ws, channel)
@@ -309,6 +309,7 @@ class P25AudioRecorder(BasePoller):
                 raise
             except Exception as exc:
                 logger.warning("[p25_rec] websocket error: %s — reconnecting in %.0fs", exc, backoff)
+                await self._heartbeat("error", str(exc)[:256])
             await asyncio.sleep(backoff)
             backoff = min(backoff * 2, 60.0)
 
