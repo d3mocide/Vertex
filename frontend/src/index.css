@@ -117,7 +117,7 @@
    simulate an iPhone. Normally the chrome gets 8px of breathing room, only
    where there is an inset (min(x, inset × 100) is 0 when the inset is 0).
    Installed iPhone app (html.ios-pwa, set in index.html): iOS 26+ draws a
-   Liquid Glass blur over the top of the web view reaching ~40pt past the
+   Liquid Glass blur over the top of the web view reaching ~35-40pt past the
    status bar. It is system chrome — no CSS or meta tag turns it off — so the
    chrome starts below it and the blur falls on the solid status band. */
 :root {
@@ -126,7 +126,9 @@
   --chrome-top: calc(var(--safe-top) + var(--edge-clear));
 }
 html.ios-pwa {
-  --edge-clear: min(2.5rem, calc(var(--safe-top) * 100));
+  /* 36px: on the user's iOS 27 iPhone the blur fades out ~35pt below the
+     62pt status bar (measured from a device screenshot, 2026-09-27). */
+  --edge-clear: min(2.25rem, calc(var(--safe-top) * 100));
 }
 
 /* MapLibre control override — must live outside @layer so it wins over
