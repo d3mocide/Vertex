@@ -89,3 +89,15 @@ def test_rank_orders_by_level_then_score_and_sets_bar_level():
                       + adv.from_flashalert([{"source": "flashalert", "title": "Tigard: x"}], ["Tigard"]))
     assert ranked["level"] == "red" and ranked["items"][0]["id"] == "radio:b" and ranked["count"] == 3
     assert adv.rank([]) == {"level": "green", "count": 0, "items": []}
+
+
+def test_enriched_incident_reads_naturally_and_markers_escalate():
+    inc = {**_inc(5), "nature": "Commercial fire", "city": "Oregon City",
+           "unit_summary": "2 engines, a heavy rescue", "markers": ["Fire marshal"]}
+    [a] = _radio([inc])
+    assert a["title"] == "Commercial fire · 5450 SW Erickson Ave, Oregon City"
+    assert a["detail"].startswith("Fire marshal · 2 engines, a heavy rescue")
+    trapped = {**_inc(3, cat="crash", where=(45.43, -122.70)), "markers": ["Entrapment"]}   # ~7 km, routine otherwise
+    assert _radio([trapped])[0]["level"] == "red"
+    evac = {**_inc(3, cat="fire", where=(45.43, -122.70), units=1, calls=1), "markers": ["Evacuation"]}
+    assert _radio([evac])[0]["level"] == "amber"

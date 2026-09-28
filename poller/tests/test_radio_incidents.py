@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import os
 import sys
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 _POLLER_ROOT = os.path.join(os.path.dirname(__file__), "..")
 if _POLLER_ROOT not in sys.path:
@@ -128,3 +128,37 @@ def test_to_dict_is_json_friendly():
     assert d["call_count"] == 1
     assert d["first_seen"] == T0.isoformat()
     assert d["lat"] is None and d["geofences"] == []
+
+
+# ── Deterministic enrichment (real CCOM dispatch, 2026-09-28) ────────────────
+
+_MAIN_ST = ("322, Engine 309, Engine 317, Heavy Rescue 305, Rescue 301, and FD1 Rehab Group. Respond to "
+            "commercial fire at 1909 Main Street. Cross streets are on 205 FWY McLaughlin Boulevard ramp "
+            "southbound and Agnes Avenue. Working Channel Ops 26.")
+
+
+def test_units_are_named_and_summarised_by_type():
+    from radio_incidents import normalise, units_in, unit_summary
+    units = units_in(normalise(_MAIN_ST))
+    assert units == ["Engine 309", "Engine 317", "Heavy Rescue 305", "Rescue 301"]
+    assert unit_summary(units) == "2 engines, a heavy rescue, a rescue"
+    assert unit_summary(["AMR 123", "Medic 61", "Battalion 2"]) == "2 ambulances, a chief officer"
+
+
+def test_cross_streets_nature_and_markers():
+    from radio_incidents import normalise, cross_streets_in, markers_in, parse_call
+    t = normalise("Engine 51 respond to a residential fire, cross streets are southwest bruce drive and "
+                  "southwest princess avenue, occupants trapped, additional resources requested")
+    assert cross_streets_in(t) == "SW Bruce Dr & SW Princess Ave"
+    assert markers_in(t) == ["Entrapment", "More resources requested"]
+    call = parse_call(datetime(2026, 9, 28, tzinfo=timezone.utc), 3250, "CCOM FD Disp", _MAIN_ST)
+    assert call.nature == "Commercial fire" and call.category == "structure_fire"
+
+
+def test_incident_dict_carries_the_enrichment():
+    from radio_incidents import extract
+    ts = datetime(2026, 9, 28, 2, 16, tzinfo=timezone.utc)
+    [inc] = [i for i in extract([(ts, 3250, "CCOM FD Disp", _MAIN_ST)]) if i.location == "1909 Main St"]
+    d = inc.to_dict()
+    assert d["nature"] == "Commercial fire" and d["unit_summary"] == "2 engines, a heavy rescue, a rescue"
+    assert "city" in d and "markers" in d and "cross_streets" in d

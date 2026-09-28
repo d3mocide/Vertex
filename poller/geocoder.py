@@ -121,10 +121,12 @@ class Geocoder:
         return (entry["lat"], entry["lon"]) if entry else None
 
     async def lookup(self, location: str | None, cache_only: bool = False) -> dict | None:
-        """Resolve a location to {"lat", "lon", "how", "corrected"}, or None.
+        """Resolve a location to {"lat", "lon", "how", "corrected", "city"}, or None.
 
         `corrected` is set when the street name heard on the radio was
         replaced by a real street (see street_names.py) to get the match.
+        `city` comes from a reverse lookup of the point: dispatch audio names
+        the street but rarely the city ("1909 Main St" is Oregon City).
         """
         if not self.enabled or not is_geocodable(location):
             return None
@@ -143,7 +145,29 @@ class Geocoder:
                 self.lookups = _EXHAUSTED
                 return None
             entry = await self._store(key, *(point or (None, None)), how if point else "miss", corrected)
+        if entry.get("lat") is not None and "city" not in entry and not cache_only and self.lookups < _EXHAUSTED:
+            # Hits cached before cities were recorded are backfilled here too.
+            self.lookups += 1
+            try:
+                entry["city"] = await self._reverse_city(entry["lat"], entry["lon"])
+                await self.redis.hset(_CACHE_KEY, key, json.dumps(entry))
+            except Exception as exc:
+                logger.debug("[geocoder] reverse lookup failed for %r: %s", location, exc)
         return entry if entry.get("lat") is not None else None
+
+    async def _reverse_city(self, lat: float, lon: float) -> str | None:
+        """City (or town / unincorporated place) containing a point."""
+        client = self._client or httpx.AsyncClient(timeout=_TIMEOUT)
+        try:
+            resp = await client.get(f"{self.base}/reverse", params={
+                "format": "jsonv2", "lat": lat, "lon": lon, "zoom": 14, "addressdetails": 1,
+            })
+            resp.raise_for_status()
+            addr = resp.json().get("address") or {}
+        finally:
+            if self._client is None:
+                await client.aclose()
+        return addr.get("city") or addr.get("town") or addr.get("village") or addr.get("hamlet") or None
 
     async def _resolve(self, location: str) -> tuple[tuple[float, float] | None, str, str | None]:
         """Exact lookup first; on a miss, retry with fuzzy street-name corrections."""

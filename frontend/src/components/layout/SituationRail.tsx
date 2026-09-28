@@ -139,7 +139,9 @@ export function SituationRail({ parts = ['now', 'nearby', 'headlines'] }: { part
                     <span className={`ms text-[15px] shrink-0 ${i.severity >= 5 ? 'text-red-emergency' : i.severity >= 3 ? 'text-amber-gold' : 'text-on-surface-variant'}`} aria-hidden="true">
                       {CATEGORY[i.category]?.icon ?? 'radio'}
                     </span>
-                    <span className="flex-1 min-w-0 text-[12px] text-on-surface truncate">{i.location ?? CATEGORY[i.category]?.label}</span>
+                    <span className="flex-1 min-w-0 text-[12px] text-on-surface truncate">
+                      {i.nature ?? CATEGORY[i.category]?.label}{i.location ? ` · ${i.location}` : ''}{i.city ? `, ${i.city}` : ''}
+                    </span>
                     <span className="font-mono text-[11px] text-on-surface-variant shrink-0">{ago(i.last_seen, now)}</span>
                   </button>
                 </li>

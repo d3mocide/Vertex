@@ -69,6 +69,12 @@ export interface RadioIncident {
   lon: number | null
   geofences: string[]          // "<name> (<zone_type>)"
   dist_km?: number | null      // from home (REGION_LAT/LON)
+  // Deterministic enrichment (poller radio_incidents.py / geocoder)
+  city?: string | null         // from the map: dispatch names the street, not the city
+  cross_streets?: string | null
+  nature?: string | null       // "Commercial fire" when dispatch says so
+  unit_summary?: string | null // "2 engines, a heavy rescue, an ambulance"
+  markers?: string[]           // "Entrapment", "Evacuation", "More resources requested", …
 }
 
 export interface RadioIncidentFeed {

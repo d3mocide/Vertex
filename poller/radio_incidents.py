@@ -239,7 +239,45 @@ def locate(t: str) -> tuple[str | None, str | None, int | None]:
 
 # ── Units / status ───────────────────────────────────────────────────────────
 
-_UNIT_RE = re.compile(r"\b(engine|truck|medic|squad|rescue|fireboat|brush(?: unit)?|battalion|tender|ladder|quint)\s+(\d{1,4})\b")
+# Longer names first ("heavy rescue" before "rescue"). AMR is the private
+# ambulance contractor; in the transcripts its units outnumber medics 4:1.
+_UNIT_RE = re.compile(r"\b(heavy rescue|water tender|duty officer|battalion chief|engine|truck|medic|amr|squad|rescue|"
+                      r"fireboat|brush(?: unit)?|battalion|tender|ladder|quint|tower|chief|command)\s+(\d{1,4})\b")
+# What each unit is, for "3 engines, a truck, 2 ambulances" (most significant first).
+_UNIT_TYPES: list[tuple[str, tuple[str, ...], str]] = [
+    ("engine", ("engine",), "engines"),
+    ("truck", ("truck", "ladder", "quint", "tower"), "trucks"),
+    ("heavy rescue", ("heavy rescue",), "heavy rescues"),
+    ("rescue", ("rescue",), "rescues"),
+    ("squad", ("squad",), "squads"),
+    ("tender", ("tender", "water tender"), "tenders"),
+    ("brush unit", ("brush", "brush unit"), "brush units"),
+    ("fireboat", ("fireboat",), "fireboats"),
+    ("ambulance", ("medic", "amr"), "ambulances"),
+    ("chief officer", ("battalion", "battalion chief", "chief", "command", "duty officer"), "chief officers"),
+]
+_KIND_TYPE = {k: (single, plural) for single, kinds, plural in _UNIT_TYPES for k in kinds}
+_UNIT_ORDER = [t[0] for t in _UNIT_TYPES]
+
+# "cross streets are southwest bruce drive and southwest princess avenue"
+_CROSS_RE = re.compile(r"\bcross streets? (?:are|is) " + _street_re(1) + r"\s+(?:and|&)\s+" + _street_re(2))
+# "respond to commercial fire" — the kind of structure, when stated.
+_NATURE_ADJ = re.compile(r"\b(commercial|residential|apartment|house|garage|shed|barn|mobile home|chimney|kitchen|attic|basement) fire\b")
+# What dispatch says that escalates (or settles) a call. Mined from a day of
+# WCN/CCOM dispatch audio: alarm levels and "knocked down" are fireground
+# talk and never reach the dispatch channels we record.
+_MARKERS: list[tuple[str, re.Pattern]] = [
+    ("Entrapment", re.compile(r"\bentrap\w*|\b(people|persons?|occupants?|patients?) (are )?trapped\b")),
+    ("CPR in progress", re.compile(r"\bcpr\b")),
+    ("Multiple patients", re.compile(r"\b([2-9]|\d{2}) patients\b|\bmultiple patients\b")),
+    ("Evacuation", re.compile(r"\bevacuat\w*")),
+    ("Exposures threatened", re.compile(r"\bexposures?\b")),
+    ("Power lines down", re.compile(r"\b(power ?lines?|wires?) down\b")),
+    ("Task force", re.compile(r"\btask force\b")),
+    ("More resources requested", re.compile(r"\b(additional|more) (resources|units|engines?|trucks?|companies)\b")),
+    ("Fire marshal", re.compile(r"\bfire marshal\b")),
+    ("Nothing showing", re.compile(r"\bnothing showing\b")),
+]
 _STATUS = [
     ("cleared", re.compile(r"\b(recall(ing|ed)?|clear(ing|ed)? (the )?(scene|off)|cancel(led)?|return(ing)? (to )?(quarters|service))\b")),
     ("contained", re.compile(r"\b(fire is out|knock ?down|extinguished|under control|contained)\b")),
@@ -247,13 +285,48 @@ _STATUS = [
 ]
 
 
+def _unit_name(kind: str) -> str:
+    kind = re.sub(r"\s+unit$", "", kind)
+    return "AMR" if kind == "amr" else kind.title()
+
+
 def units_in(t: str) -> list[str]:
     seen: list[str] = []
     for kind, num in _UNIT_RE.findall(t):
-        u = f"{kind.split()[0].capitalize()} {num}"
+        u = f"{_unit_name(kind)} {num}"
         if u not in seen:
             seen.append(u)
     return seen
+
+
+def unit_summary(units: list[str]) -> str | None:
+    """["Engine 309", "Engine 317", "Heavy Rescue 305", "AMR 12"] -> "2 engines, a heavy rescue, an ambulance"."""
+    counts: dict[str, int] = {}
+    for u in units:
+        kind = u.rsplit(" ", 1)[0].lower()
+        single = _KIND_TYPE.get(kind, (kind, kind + "s"))[0]
+        counts[single] = counts.get(single, 0) + 1
+    if not counts:
+        return None
+    parts = []
+    for single in sorted(counts, key=lambda k: _UNIT_ORDER.index(k) if k in _UNIT_ORDER else 99):
+        n = counts[single]
+        plural = next((p for s_, _, p in _UNIT_TYPES if s_ == single), single + "s")
+        parts.append(f"{n} {plural}" if n > 1 else f"{'an' if single[0] in 'aeiou' else 'a'} {single}")
+    return ", ".join(parts)
+
+
+def cross_streets_in(t: str) -> str | None:
+    m = _CROSS_RE.search(t)
+    if not m:
+        return None
+    a = _street(m.group("d1"), m.group("n1"), m.group("s1"))
+    b = _street(m.group("d2"), m.group("n2"), m.group("s2"))
+    return f"{a} & {b}" if a and b and a != b else None
+
+
+def markers_in(t: str) -> list[str]:
+    return [label for label, pat in _MARKERS if pat.search(t)]
 
 
 def status_of(t: str) -> str | None:
@@ -279,6 +352,9 @@ class Call:
     status: str | None
     acuity: str | None
     priority: int | None
+    cross_streets: str | None = None
+    nature: str | None = None
+    markers: list[str] = field(default_factory=list)
 
 
 def parse_call(ts: datetime, tgid, tag: str, text: str) -> Call:
@@ -291,8 +367,11 @@ def parse_call(ts: datetime, tgid, tag: str, text: str) -> Call:
     # High-acuity medical calls (Delta/Echo) are more than routine EMS.
     if cat == "medical" and acuity in ("delta", "echo"):
         sev = 2
+    na = _NATURE_ADJ.search(t) if cat in ("structure_fire", "fire") else None
     return Call(ts=ts, tgid=tgid, tag=tag or "", text=text, category=cat, severity=sev, location=loc, key=key,
-                units=units_in(t), status=status_of(t), acuity=acuity, priority=int(pr.group(1)) if pr else None)
+                units=units_in(t), status=status_of(t), acuity=acuity, priority=int(pr.group(1)) if pr else None,
+                cross_streets=cross_streets_in(t), nature=f"{na.group(1).capitalize()} fire" if na else None,
+                markers=markers_in(t))
 
 
 @dataclass
@@ -311,6 +390,10 @@ class Incident:
     lat: float | None = None
     lon: float | None = None
     geofences: list[str] = field(default_factory=list)
+    city: str | None = None
+    cross_streets: str | None = None
+    nature: str | None = None
+    markers: list[str] = field(default_factory=list)
     # Real street name when the one heard on the radio was ASR-garbled.
     location_corrected: str | None = None
 
@@ -339,6 +422,11 @@ class Incident:
             "lat": self.lat,
             "lon": self.lon,
             "geofences": self.geofences,
+            "city": self.city,
+            "cross_streets": self.cross_streets,
+            "nature": self.nature,
+            "unit_summary": unit_summary(self.units),
+            "markers": self.markers,
         }
 
 
@@ -381,6 +469,11 @@ def cluster(calls: list[Call], gap: timedelta = timedelta(minutes=90)) -> list[I
                 inc.units.append(u)
         if c.tag and c.tag not in inc.talkgroups:
             inc.talkgroups.append(c.tag)
+        inc.cross_streets = inc.cross_streets or c.cross_streets
+        inc.nature = inc.nature or c.nature
+        for m in c.markers:
+            if m not in inc.markers:
+                inc.markers.append(m)
         if c.status and _STATUS_RANK[c.status] > _STATUS_RANK[inc.status]:
             inc.status = c.status
     return incidents

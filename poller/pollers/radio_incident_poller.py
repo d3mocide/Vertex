@@ -52,6 +52,7 @@ async def load_incidents(pool, since: datetime, geocoder=None, live_lookups: int
             if entry:
                 inc.lat, inc.lon = entry["lat"], entry["lon"]
                 inc.location_corrected = entry.get("corrected")
+                inc.city = entry.get("city")
     tags = await geofences_for_points(pool, [(i.lat, i.lon) for i in incidents])
     for inc, names in zip(incidents, tags):
         inc.geofences = names

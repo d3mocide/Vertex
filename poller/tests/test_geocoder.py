@@ -44,6 +44,8 @@ def make(handler, pool=None):
     calls = []
 
     def wrapped(request):
+        if request.url.path.endswith("/reverse"):   # city lookup for a hit (not a search)
+            return httpx.Response(200, json={"address": {"city": "Testville"}})
         calls.append(dict(request.url.params))
         return handler(request)
 
@@ -61,6 +63,12 @@ def test_only_addresses_and_intersections_are_geocodable():
     assert not geo.is_geocodable("bridge (landmark)")
     assert not geo.is_geocodable("I-5")
     assert not geo.is_geocodable(None)
+
+
+def test_hits_record_the_city_from_a_reverse_lookup():
+    g, _ = make(lambda r: httpx.Response(200, json=[
+        {"lat": "45.5613", "lon": "-122.6668", "address": {"house_number": "1221"}}]))
+    assert run(g.lookup("1221 SW 4th Ave"))["city"] == "Testville"
 
 
 def test_address_lookup_is_structured_bounded_and_cached():

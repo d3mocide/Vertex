@@ -218,7 +218,7 @@ function IncidentCard({ incident: i, now, selected, onSelect }: {
               <span className={`ms text-[18px] shrink-0 ${i.severity >= 5 ? 'text-red-emergency' : i.severity >= 4 ? 'text-amber-gold' : 'text-on-surface-variant'}`} aria-hidden="true">
                 {meta.icon}
               </span>
-              <span className="label-caps !text-on-surface truncate">{meta.label}</span>
+              <span className="label-caps !text-on-surface truncate">{i.nature ?? meta.label}</span>
             </div>
             <span className="font-mono text-[11px] text-on-surface-variant shrink-0">
               {hhmm(i.first_seen)}{i.last_seen !== i.first_seen && hhmm(i.last_seen) !== hhmm(i.first_seen) ? `–${hhmm(i.last_seen)}` : ''}
@@ -226,11 +226,25 @@ function IncidentCard({ incident: i, now, selected, onSelect }: {
           </div>
           <div className="mt-1 text-[13px] font-bold text-on-surface truncate">
             {displayLocation(i.location) ?? <span className="italic font-normal text-on-surface-variant">Location not stated</span>}
+            {i.city && <span className="font-normal text-on-surface-variant"> · {i.city}</span>}
           </div>
+          {i.cross_streets && (
+            <div className="text-[11px] text-on-surface-variant truncate">Cross streets {i.cross_streets}</div>
+          )}
           {i.location_heard && (
             <div className="text-[11px] text-on-surface-variant italic truncate">heard as “{i.location_heard}”</div>
           )}
         </button>
+
+        {(i.markers?.length ?? 0) > 0 && (
+          <div className="flex flex-wrap gap-1.5">
+            {i.markers!.map((m) => (
+              <span key={m} className={`text-[11px] font-bold uppercase tracking-wider border px-1.5 py-0.5 ${
+                m === 'Entrapment' || m === 'CPR in progress' ? 'border-red-emergency/60 text-red-emergency bg-red-emergency/10'
+                  : m === 'Nothing showing' ? 'border-green-ais/50 text-green-ais' : 'border-amber-gold/50 text-amber-gold'}`}>{m}</span>
+            ))}
+          </div>
+        )}
 
         <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
           <span className={`border px-1.5 py-0.5 uppercase tracking-widest ${active ? 'border-amber-gold/50 text-amber-gold' : 'border-white/10 text-on-surface-variant'}`}>
@@ -239,10 +253,13 @@ function IncidentCard({ incident: i, now, selected, onSelect }: {
           </span>
           <span className="font-mono text-on-surface-variant">{i.call_count} call{i.call_count === 1 ? '' : 's'}</span>
           {i.acuity && <span className="font-mono uppercase text-on-surface-variant">· {i.acuity}</span>}
-          {i.units.slice(0, 5).map((u) => (
-            <span key={u} className="font-mono border border-amber-p25/40 text-amber-p25 px-1 py-0.5">{u}</span>
-          ))}
-          {i.units.length > 5 && <span className="font-mono text-on-surface-variant">+{i.units.length - 5}</span>}
+          {i.unit_summary ? (
+            <span className="text-amber-p25" title={i.units.join(', ')}>· {i.unit_summary}</span>
+          ) : (
+            i.units.slice(0, 5).map((u) => (
+              <span key={u} className="font-mono border border-amber-p25/40 text-amber-p25 px-1 py-0.5">{u}</span>
+            ))
+          )}
           {i.geofences.map((g) => (
             <span key={g} className="border border-outline-variant text-on-surface-variant px-1 py-0.5">{zoneName(g)}</span>
           ))}

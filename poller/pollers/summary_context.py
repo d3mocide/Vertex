@@ -602,6 +602,10 @@ def format_radio_activity(talkgroups, call_volume: int | None, baseline_volume: 
             bits = [f"{len(i.calls)} call{'s' if len(i.calls) != 1 else ''}", incident_status(i, now)]
             if i.units:
                 bits.append("units " + ", ".join(i.units[:6]))
+            if i.markers:
+                bits.append("dispatch notes: " + ", ".join(i.markers))
+            if i.cross_streets:
+                bits.append("cross streets " + sanitise(i.cross_streets, 60))
             if i.acuity:
                 bits.append(f"MPDS {i.acuity}")
             if i.lat is not None:
@@ -609,9 +613,13 @@ def format_radio_activity(talkgroups, call_volume: int | None, baseline_volume: 
             if i.geofences:
                 bits.append("in " + ", ".join(i.geofences))
             where = sanitise(i.location_corrected or i.location, 80) or "location not stated"
+            if i.city:
+                # The dispatch names the street, not the city — this is from the map.
+                where += f", {sanitise(i.city, 40)}"
             if i.location_corrected:
                 where += f" (heard as '{sanitise(i.location, 60)}')"
-            lines.append(f"- {span} {_CATEGORY_LABEL.get(i.category, i.category.upper())} — "
+            label = (i.nature or "").upper() or _CATEGORY_LABEL.get(i.category, i.category.upper())
+            lines.append(f"- {span} {label} — "
                          f"{where} ({'; '.join(bits)})\n"
                          f"  radio: \"{sanitise(i.summary_quote, 150)}\"")
         routine: dict[str, int] = {}

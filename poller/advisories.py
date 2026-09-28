@@ -39,6 +39,10 @@ CATEGORY_LABELS = {
     "medical": "Medical",
 }
 _KM_PER_MI = 1.609344
+# Dispatch markers (radio_incidents.py) that make an incident more urgent.
+_LIFE_MARKERS = {"Entrapment"}
+_ESCALATION_MARKERS = {"Evacuation", "Exposures threatened", "Multiple patients", "Task force",
+                       "More resources requested", "CPR in progress"}
 
 
 def _id(prefix: str, *parts) -> str:
@@ -106,12 +110,13 @@ def from_radio(incidents: list[dict], now: datetime, home: tuple[float, float],
             continue
         sev = int(inc.get("severity") or 0)
         units, calls = len(inc.get("units") or []), int(inc.get("call_count") or 0)
-        if sev >= 5:
+        markers = inc.get("markers") or []
+        if sev >= 5 or (_LIFE_MARKERS & set(markers) and sev >= 3):
             level, why = "red", "life-safety incident nearby"
         elif sev >= 4:
             level, why = "amber", "hazard nearby"
-        elif sev >= 3 and (units >= 3 or calls >= 4):
-            level, why = "amber", "multi-unit response nearby"
+        elif sev >= 3 and (units >= 3 or calls >= 4 or _ESCALATION_MARKERS & set(markers)):
+            level, why = "amber", "escalating response nearby" if markers else "multi-unit response nearby"
         elif sev >= 3 and (zones or dist <= radius_km / 2):
             level, why = "amber", "incident close to home" if not zones else "incident in a watched zone"
         else:
@@ -119,10 +124,16 @@ def from_radio(incidents: list[dict], now: datetime, home: tuple[float, float],
         if inc.get("status") == "contained" and level == "red":
             level = "amber"
         minutes = (now - last).total_seconds() / 60
-        score = (sev * 20 + min(units, 6) * 3 + min(calls, 6) * 2
+        score = (sev * 20 + min(units, 6) * 3 + min(calls, 6) * 2 + 5 * len(markers)
                  + (10 if zones else 0) + max(0, 10 - int(minutes / 6)))
-        label = CATEGORY_LABELS.get(inc.get("category") or "", (inc.get("category") or "Incident").replace("_", " ").capitalize())
-        bits = [f"{units} unit{'s' if units != 1 else ''}" if units else None,
+        label = inc.get("nature") or CATEGORY_LABELS.get(
+            inc.get("category") or "", (inc.get("category") or "Incident").replace("_", " ").capitalize())
+        where = inc.get("location") or "location not stated"
+        if inc.get("city") and inc["city"].lower() not in where.lower():
+            where = f"{where}, {inc['city']}"
+        units_text = inc.get("unit_summary") or (f"{units} unit{'s' if units != 1 else ''}" if units else None)
+        bits = [" · ".join(markers[:2]) if markers else None,
+                units_text,
                 f"{calls} calls" if calls > 1 else None,
                 f"{dist / _KM_PER_MI:.1f} mi away",
                 ", ".join(zones[:2]) if zones else None,
@@ -130,7 +141,7 @@ def from_radio(incidents: list[dict], now: datetime, home: tuple[float, float],
         out.append({
             "id": f"radio:{inc.get('id')}",
             "source": "radio", "level": level, "score": score,
-            "title": f"{label} · {inc.get('location') or 'location not stated'}",
+            "title": f"{label} · {where}",
             "detail": " · ".join(b for b in bits if b),
             "ts": last.isoformat(), "why": why,
             "lat": inc["lat"], "lon": inc["lon"],
