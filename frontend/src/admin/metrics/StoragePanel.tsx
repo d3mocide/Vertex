@@ -17,12 +17,12 @@ export function StoragePanel({ storage, retentionDays, setRetentionDays, onSave,
 
   return (
     <section className="p-4 border border-white/10 bg-black/30 space-y-4">
-      <h3 className="text-[11px] uppercase tracking-widest text-gray-500">Data Retention Policy</h3>
+      <h3 className="text-[11px] uppercase tracking-widest text-on-surface-variant">Data Retention Policy</h3>
 
         {/* Retention slider */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <span className="text-xs text-gray-400">Keep observations for</span>
+          <span className="text-xs text-on-surface-variant">Keep observations for</span>
           <span className="font-mono text-amber-gold font-bold text-sm">{retentionDays}d</span>
         </div>
 
@@ -34,7 +34,7 @@ export function StoragePanel({ storage, retentionDays, setRetentionDays, onSave,
             className="w-full accent-amber-gold"
             aria-label="Retention days"
           />
-          <div className="flex justify-between text-[11px] text-gray-600">
+          <div className="flex justify-between text-[11px] text-on-surface-variant/60">
             <span>1 day</span>
             <span>365 days</span>
           </div>
@@ -42,7 +42,7 @@ export function StoragePanel({ storage, retentionDays, setRetentionDays, onSave,
 
         {daysUntilRetention !== null && (
           <div className="flex items-center justify-between border-t border-white/10 pt-3">
-            <span className="text-[11px] text-gray-500 uppercase tracking-widest">At current ingestion rate</span>
+            <span className="text-[11px] text-on-surface-variant uppercase tracking-widest">At current ingestion rate</span>
             <span className={`font-mono text-sm font-bold ${daysUntilRetention < 3 ? 'text-red-emergency' : daysUntilRetention < 7 ? 'text-amber-gold' : 'text-emerald-300'}`}>
               {daysUntilRetention}d until purge
             </span>

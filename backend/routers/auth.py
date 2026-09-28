@@ -66,6 +66,10 @@ class ApiKeyResponse(BaseModel):
     api_key: str
 
 
+class ResetPasswordRequest(BaseModel):
+    password: str = Field(min_length=12, max_length=128)
+
+
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 def _make_token(username: str, role: str) -> str:
@@ -284,6 +288,34 @@ async def revoke_api_key(request: Request, db: AsyncSession = Depends(get_db)):
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     user.api_key_hash = None
+    await db.commit()
+
+
+@router.delete("/users/{user_id}/apikey", status_code=status.HTTP_204_NO_CONTENT)
+async def revoke_user_api_key(user_id: int, request: Request, db: AsyncSession = Depends(get_db)):
+    """Admin-only: revoke another account's API key (e.g. a retired integration)."""
+    if not settings.auth_enabled:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    _decode_admin(request)
+    user = await db.scalar(select(User).where(User.id == user_id))
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    user.api_key_hash = None
+    await db.commit()
+
+
+@router.post("/users/{user_id}/password", status_code=status.HTTP_204_NO_CONTENT)
+async def reset_user_password(user_id: int, body: ResetPasswordRequest, request: Request,
+                              db: AsyncSession = Depends(get_db)):
+    """Admin-only: set a new password for an account. Tokens already issued
+    stay valid until they expire."""
+    if not settings.auth_enabled:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    _decode_admin(request)
+    user = await db.scalar(select(User).where(User.id == user_id))
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    user.password_hash = _pwd.hash(body.password)
     await db.commit()
 
 

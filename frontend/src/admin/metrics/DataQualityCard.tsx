@@ -21,15 +21,15 @@ export function DataQualityCard({ data }: { data: DataQualityData | null }) {
   if (!data || data.rows.length === 0) {
     return (
       <section>
-        <h2 className="text-[11px] uppercase tracking-widest text-gray-500 mb-3">Data Completeness</h2>
-        <p className="text-xs text-gray-600">No data.</p>
+        <h2 className="text-[11px] uppercase tracking-widest text-on-surface-variant mb-3">Data Completeness</h2>
+        <p className="text-xs text-on-surface-variant/60">No data.</p>
       </section>
     )
   }
 
   return (
     <section>
-      <h2 className="text-[11px] uppercase tracking-widest text-gray-500 mb-4">Data Completeness</h2>
+      <h2 className="text-[11px] uppercase tracking-widest text-on-surface-variant mb-4">Data Completeness</h2>
       <div className="border border-white/10 bg-black/30 p-4">
         <div className="space-y-3">
           {data.rows.map((row) => (
@@ -47,12 +47,12 @@ export function DataQualityCard({ data }: { data: DataQualityData | null }) {
                   <span className={`text-[12px] font-mono font-bold ${pctText(row.pct)}`}>
                     {row.pct}%
                   </span>
-                  <span className="text-[11px] text-gray-500 font-mono">
+                  <span className="text-[11px] text-on-surface-variant font-mono">
                     ({row.present}/{row.total})
                   </span>
                 </div>
               </div>
-              <div className="h-1.5 bg-gray-800">
+              <div className="h-1.5 bg-surface-container-highest">
                 <div
                   className={`h-full transition-all duration-500 ${pctColor(row.pct)}`}
                   style={{ width: `${row.pct}%` }}

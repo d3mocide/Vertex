@@ -125,7 +125,7 @@ export function AlertRulesSection({ open }: AlertRulesSectionProps) {
             <select
               value={newRuleTrigger}
               onChange={(e) => setNewRuleTrigger(e.target.value as AlertRule['trigger_type'])}
-              className="bg-onyx-deep border border-white/10 text-on-surface text-[11px] px-2 py-1.5 focus:outline-none"
+              className="tactical-select w-full"
             >
               <option value="severity_threshold">Severity</option>
               <option value="geofence_entry">Geofence Entry</option>
@@ -135,7 +135,7 @@ export function AlertRulesSection({ open }: AlertRulesSectionProps) {
           <select
             value={newRuleAction}
             onChange={(e) => setNewRuleAction(e.target.value as AlertRule['action_type'])}
-            className={`bg-onyx-deep border border-white/10 text-on-surface text-[11px] px-2 py-1.5 focus:outline-none ${newRuleAction === 'sitrep_delivery' ? 'col-span-2' : ''}`}
+            className={`tactical-select w-full ${newRuleAction === 'sitrep_delivery' ? 'col-span-2' : ''}`}
           >
             <option value="webhook_post">Webhook</option>
             <option value="log">Log Only</option>

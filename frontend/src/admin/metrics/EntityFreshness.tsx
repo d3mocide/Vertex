@@ -11,7 +11,7 @@ export function EntityFreshness({ data }: { data: EntityFreshnessData | null }) 
   if (!data || data.types.length === 0) {
     return (
       <section>
-        <h2 className="text-[11px] uppercase tracking-widest text-gray-500 mb-3">Entity Freshness</h2>
+        <h2 className="text-[11px] uppercase tracking-widest text-on-surface-variant mb-3">Entity Freshness</h2>
         <div className="border border-white/10 bg-black/30 p-4 text-center text-[11px] text-on-surface-variant">No entities tracked.</div>
       </section>
     )
@@ -19,7 +19,7 @@ export function EntityFreshness({ data }: { data: EntityFreshnessData | null }) 
 
   return (
     <section>
-      <h2 className="text-[11px] uppercase tracking-widest text-gray-500 mb-3">
+      <h2 className="text-[11px] uppercase tracking-widest text-on-surface-variant mb-3">
         Entity Freshness
         <span className="ml-2 text-on-surface-variant normal-case tracking-normal font-normal">
           (time since last observation)
@@ -30,7 +30,7 @@ export function EntityFreshness({ data }: { data: EntityFreshnessData | null }) 
         <div className="flex items-center gap-4 flex-wrap">
           {BUCKETS.map(b => (
             <div key={b.key} className="flex items-center gap-1.5">
-              <div className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: b.color }} />
+              <div className="w-2.5 h-2.5" style={{ backgroundColor: b.color }} />
               <span className="text-[11px] text-on-surface-variant">{b.label}</span>
             </div>
           ))}
@@ -54,7 +54,7 @@ export function EntityFreshness({ data }: { data: EntityFreshnessData | null }) 
                   </div>
                 </div>
                 {/* Stacked bar */}
-                <div className="flex h-1.5 bg-gray-800 overflow-hidden">
+                <div className="flex h-1.5 bg-surface-container-highest overflow-hidden">
                   {BUCKETS.map(b => {
                     const count = entry[b.key]
                     const pct = (count / total) * 100

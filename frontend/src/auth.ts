@@ -28,15 +28,24 @@ export function isLoggedIn(): boolean {
 }
 
 /** Decode the JWT payload and return the user's role. Returns 'viewer' when no token or on any error. */
-export function getUserRole(): 'admin' | 'viewer' {
+function tokenPayload(): Record<string, unknown> | null {
   const token = getToken()
-  if (!token) return 'viewer'
+  if (!token) return null
   try {
     const parts = token.split('.')
-    if (parts.length !== 3) return 'viewer'
-    const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')))
-    return payload.role === 'admin' ? 'admin' : 'viewer'
+    if (parts.length !== 3) return null
+    return JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')))
   } catch {
-    return 'viewer'
+    return null
   }
+}
+
+export function getUserRole(): 'admin' | 'viewer' {
+  return tokenPayload()?.role === 'admin' ? 'admin' : 'viewer'
+}
+
+/** Username of the signed-in account (from the token), or '' when signed out. */
+export function getUsername(): string {
+  const sub = tokenPayload()?.sub
+  return typeof sub === 'string' ? sub : ''
 }

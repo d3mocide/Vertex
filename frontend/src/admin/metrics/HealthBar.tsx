@@ -29,21 +29,21 @@ export function HealthBar({ metrics, dbPingMs, redisPingMs, pollerOkCount, polle
   const pollersDegraded = pollerOkCount > 0 && pollerOkCount < pollerTotal
 
   const pollerColor = pollerTotal === 0
-    ? 'bg-gray-500/20 text-gray-400 border-gray-500/40'
+    ? 'bg-white/5 text-on-surface-variant border-outline-variant'
     : pollersOk
     ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40'
     : pollersDegraded
     ? 'bg-amber-500/20 text-amber-400 border-amber-500/40'
     : 'bg-red-500/20 text-red-400 border-red-500/40'
 
-  const pollerDot = pollerTotal === 0 ? 'bg-gray-400'
+  const pollerDot = pollerTotal === 0 ? 'bg-on-surface-variant'
     : pollersOk ? 'bg-emerald-400'
     : pollersDegraded ? 'bg-amber-400'
     : 'bg-red-400'
 
   return (
     <div className="flex items-center gap-2 flex-wrap">
-      <span className="text-[11px] uppercase tracking-widest text-gray-600 mr-1">System</span>
+      <span className="text-[11px] uppercase tracking-widest text-on-surface-variant/60 mr-1">System</span>
       <Pill label="PostgreSQL" ms={dbPingMs} ok={dbOk} />
       <Pill label="Redis" ms={redisPingMs} ok={redisOk} />
       <div className={`flex items-center gap-1.5 px-2 py-1 border text-[11px] font-mono uppercase tracking-wider ${pollerColor}`}>
@@ -51,8 +51,8 @@ export function HealthBar({ metrics, dbPingMs, redisPingMs, pollerOkCount, polle
         Pollers {pollerOkCount}/{pollerTotal}
       </div>
       {metrics && (
-        <div className="flex items-center gap-1.5 px-2 py-1 border border-white/10 text-[11px] font-mono uppercase tracking-wider text-gray-400">
-          <span className="material-symbols-outlined text-[12px]">wifi</span>
+        <div className="flex items-center gap-1.5 px-2 py-1 border border-white/10 text-[11px] font-mono uppercase tracking-wider text-on-surface-variant">
+          <span className="ms text-[12px]">wifi</span>
           {metrics.ws_clients} WS
         </div>
       )}

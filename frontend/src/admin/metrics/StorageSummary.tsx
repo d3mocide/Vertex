@@ -10,8 +10,8 @@ export function StorageSummary({ storage, retentionDays }: Props) {
   if (!storage) {
     return (
       <div className="border border-white/10 bg-black/30 p-4 space-y-3">
-        <h3 className="text-[11px] uppercase tracking-widest text-gray-500">Storage Health</h3>
-        <div className="text-gray-500 text-xs">Loading…</div>
+        <h3 className="text-[11px] uppercase tracking-widest text-on-surface-variant">Storage Health</h3>
+        <div className="text-on-surface-variant text-xs">Loading…</div>
       </div>
     )
   }
@@ -41,7 +41,7 @@ export function StorageSummary({ storage, retentionDays }: Props) {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {/* Overall Status */}
         <div>
-          <div className="text-[11px] uppercase tracking-widest text-gray-500 mb-2">Storage Health</div>
+          <div className="text-[11px] uppercase tracking-widest text-on-surface-variant mb-2">Storage Health</div>
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 rounded-full" style={{ backgroundColor: statusColor }} />
             <span className="font-mono text-[11px] font-bold" style={{ color: statusColor }}>
@@ -52,7 +52,7 @@ export function StorageSummary({ storage, retentionDays }: Props) {
 
         {/* Days Until Purge */}
         <div>
-          <div className="text-[11px] uppercase tracking-widest text-gray-500 mb-2">Days Until Purge</div>
+          <div className="text-[11px] uppercase tracking-widest text-on-surface-variant mb-2">Days Until Purge</div>
           <div className="font-mono text-[14px] font-bold" style={{ color: isPoor ? '#FF5252' : isDegraded ? '#FCD34D' : '#4ADE80' }}>
             {daysUntilPurge}d
           </div>
@@ -63,7 +63,7 @@ export function StorageSummary({ storage, retentionDays }: Props) {
 
         {/* Observations */}
         <div>
-          <div className="text-[11px] uppercase tracking-widest text-gray-500 mb-2">Observations</div>
+          <div className="text-[11px] uppercase tracking-widest text-on-surface-variant mb-2">Observations</div>
           <div className="font-mono text-[14px] font-bold text-on-surface">
             {storage.observation_count.toLocaleString()}
           </div>
@@ -74,7 +74,7 @@ export function StorageSummary({ storage, retentionDays }: Props) {
 
         {/* Ingestion Rate */}
         <div>
-          <div className="text-[11px] uppercase tracking-widest text-gray-500 mb-2">Obs / Day</div>
+          <div className="text-[11px] uppercase tracking-widest text-on-surface-variant mb-2">Obs / Day</div>
           <div className="font-mono text-[14px] font-bold text-on-surface">
             {Math.round(storage.obs_per_day_7d).toLocaleString()}
           </div>
@@ -87,14 +87,14 @@ export function StorageSummary({ storage, retentionDays }: Props) {
       {/* Status warnings */}
       {isDegraded && (
         <div className="flex gap-2 p-2 bg-amber-gold/10 border border-amber-gold/40 text-xs text-amber-gold">
-          <span className="material-symbols text-sm shrink-0">info</span>
+          <span className="ms text-[16px] shrink-0" aria-hidden="true">info</span>
           <span>Approaching retention limit. Consider increasing retention or reducing ingestion.</span>
         </div>
       )}
 
       {isPoor && (
         <div className="flex gap-2 p-2 bg-red-emergency/10 border border-red-emergency/40 text-xs text-red-emergency">
-          <span className="material-symbols text-sm shrink-0">error</span>
+          <span className="ms text-[16px] shrink-0" aria-hidden="true">error</span>
           <span>Critical: Data will purge in &lt;3 days. Increase retention immediately.</span>
         </div>
       )}

@@ -8,9 +8,9 @@ export function LivePerformance({ metrics }: { metrics: MetricsData | null }) {
 
   return (
     <section>
-      <h2 className="text-[11px] uppercase tracking-widest text-gray-500 mb-3">Live Performance</h2>
+      <h2 className="text-[11px] uppercase tracking-widest text-on-surface-variant mb-3">Live Performance</h2>
       {metrics && !metrics.available && (
-        <p className="text-xs text-gray-500 mb-3">Collecting baseline — check back in ~60s.</p>
+        <p className="text-xs text-on-surface-variant mb-3">Collecting baseline — check back in ~60s.</p>
       )}
       <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
         <MetricCard

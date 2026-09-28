@@ -58,7 +58,7 @@ export function MetricCard({
       <div className={`text-xl font-mono font-bold ${warn ? 'text-red-400' : 'text-amber-400'}`}>
         {value !== null ? `${value}${unit}` : '—'}
       </div>
-      <div className="text-[11px] text-gray-500 uppercase tracking-wider">{label}</div>
+      <div className="text-[11px] text-on-surface-variant uppercase tracking-wider">{label}</div>
       <AreaSparkline values={values} warn={warn} color={color} />
     </div>
   )

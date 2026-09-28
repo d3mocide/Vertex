@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { API_BASE } from '../config'
 import { authHeaders } from '../auth'
+import { maskUrl } from './ui'
 
 const SUPPORTED_TYPES = ['adsb', 'ais', 'p25', 'meshcore', 'fire', 'aprs'] as const
 type SupportedType = (typeof SUPPORTED_TYPES)[number]
@@ -51,7 +52,7 @@ type ProbeResult = {
 function StatusPill({ ok }: { ok: boolean }) {
   return (
     <span
-      className={`inline-flex items-center px-2 py-0.5 text-[11px] uppercase tracking-wider rounded border ${
+      className={`inline-flex items-center px-2 py-0.5 text-[11px] uppercase tracking-wider border ${
         ok
           ? 'border-emerald-500/40 text-emerald-300 bg-emerald-500/10'
           : 'border-red-500/40 text-red-300 bg-red-500/10'
@@ -65,12 +66,12 @@ function StatusPill({ ok }: { ok: boolean }) {
 function CheckRow({ check }: { check: CheckResult }) {
   return (
     <div className="flex items-center gap-3 px-3 py-2 border-b border-white/5 last:border-0">
-      <div className="w-24 shrink-0 text-[11px] text-gray-300 uppercase tracking-wider">{check.name}</div>
-      <div className="w-16 shrink-0 text-[11px] text-gray-500 uppercase tracking-wider">{check.protocol}</div>
+      <div className="w-24 shrink-0 text-[11px] text-on-surface uppercase tracking-wider">{check.name}</div>
+      <div className="w-16 shrink-0 text-[11px] text-on-surface-variant uppercase tracking-wider">{check.protocol}</div>
       <StatusPill ok={check.ok} />
-      <span className="text-[11px] text-gray-400">{check.status_code ?? '—'}</span>
-      <span className="text-[11px] text-gray-500">{check.latency_ms.toFixed(1)} ms</span>
-      <span className="text-[11px] text-gray-400 truncate">{check.summary || check.error || ''}</span>
+      <span className="text-[11px] text-on-surface-variant">{check.status_code ?? '—'}</span>
+      <span className="text-[11px] text-on-surface-variant">{check.latency_ms.toFixed(1)} ms</span>
+      <span className="text-[11px] text-on-surface-variant truncate">{check.summary || check.error || ''}</span>
     </div>
   )
 }
@@ -105,18 +106,18 @@ function SourceStatusBoard({
   return (
     <div className="border border-white/10 bg-black/30 overflow-x-auto">
       <div className="flex items-center justify-between px-3 py-2 border-b border-white/10">
-        <span className="text-[11px] uppercase tracking-widest text-gray-400">Source Status Board</span>
-        <span className="text-[11px] text-gray-600 uppercase tracking-widest font-mono">{sources.length} source{sources.length !== 1 ? 's' : ''}</span>
+        <span className="text-[11px] uppercase tracking-widest text-on-surface-variant">Source Status Board</span>
+        <span className="text-[11px] text-on-surface-variant/60 uppercase tracking-widest font-mono">{sources.length} source{sources.length !== 1 ? 's' : ''}</span>
       </div>
       <table className="w-full text-xs">
         <thead>
           <tr className="border-b border-white/5">
-            <th className="text-left px-3 py-1.5 text-[11px] uppercase tracking-widest text-gray-500 font-normal w-20">Type</th>
-            <th className="text-left px-3 py-1.5 text-[11px] uppercase tracking-widest text-gray-500 font-normal">Name</th>
-            <th className="text-left px-3 py-1.5 text-[11px] uppercase tracking-widest text-gray-500 font-normal w-20">Status</th>
-            <th className="text-left px-3 py-1.5 text-[11px] uppercase tracking-widest text-gray-500 font-normal w-24">Last Run</th>
-            <th className="text-left px-3 py-1.5 text-[11px] uppercase tracking-widest text-gray-500 font-normal w-24">Next Run</th>
-            <th className="text-left px-3 py-1.5 text-[11px] uppercase tracking-widest text-gray-500 font-normal w-16">Polling</th>
+            <th className="text-left px-3 py-1.5 text-[11px] uppercase tracking-widest text-on-surface-variant font-normal w-20">Type</th>
+            <th className="text-left px-3 py-1.5 text-[11px] uppercase tracking-widest text-on-surface-variant font-normal">Name</th>
+            <th className="text-left px-3 py-1.5 text-[11px] uppercase tracking-widest text-on-surface-variant font-normal w-20">Status</th>
+            <th className="hidden sm:table-cell text-left px-3 py-1.5 text-[11px] uppercase tracking-widest text-on-surface-variant font-normal w-24">Last Run</th>
+            <th className="hidden sm:table-cell text-left px-3 py-1.5 text-[11px] uppercase tracking-widest text-on-surface-variant font-normal w-24">Next Run</th>
+            <th className="hidden sm:table-cell text-left px-3 py-1.5 text-[11px] uppercase tracking-widest text-on-surface-variant font-normal w-16">Polling</th>
           </tr>
         </thead>
         <tbody>
@@ -142,7 +143,7 @@ function SourceStatusBoard({
               ok: 'text-emerald-400',
               fail: 'text-red-400',
               running: 'text-amber-400 animate-pulse',
-              pending: 'text-gray-600',
+              pending: 'text-on-surface-variant/60',
             }
             const outcomeLabel: Record<SourceOutcome, string> = {
               ok: '● OK',
@@ -159,18 +160,18 @@ function SourceStatusBoard({
                   isSelected ? 'bg-amber-gold/5 border-l-2 border-l-amber-gold/40' : 'hover:bg-white/5'
                 }`}
               >
-                <td className="px-3 py-2 font-mono text-[11px] text-gray-400 uppercase">{src.type}</td>
-                <td className="px-3 py-2 text-gray-200 max-w-[180px] truncate">{src.name}</td>
+                <td className="px-3 py-2 font-mono text-[11px] text-on-surface-variant uppercase">{src.type}</td>
+                <td className="px-3 py-2 text-on-surface max-w-[180px] truncate">{src.name}</td>
                 <td className={`px-3 py-2 font-mono text-[11px] font-bold ${outcomeColor[outcome]}`}>{outcomeLabel[outcome]}</td>
-                <td className="px-3 py-2 font-mono text-[11px] text-gray-400">
+                <td className="hidden sm:table-cell px-3 py-2 font-mono text-[11px] text-on-surface-variant">
                   {lastRunAge === null ? '—' : lastRunAge < 60 ? `${lastRunAge}s ago` : `${Math.floor(lastRunAge / 60)}m ago`}
                 </td>
-                <td className="px-3 py-2 font-mono text-[11px] text-gray-400">
+                <td className="hidden sm:table-cell px-3 py-2 font-mono text-[11px] text-on-surface-variant">
                   {nextRunSecs === null ? '—' : nextRunSecs === 0 ? 'now' : `${nextRunSecs}s`}
                 </td>
-                <td className="px-3 py-2">
+                <td className="hidden sm:table-cell px-3 py-2">
                   <span className={`text-[11px] uppercase tracking-wider font-mono ${
-                    polling ? 'text-emerald-400' : 'text-gray-600'
+                    polling ? 'text-emerald-400' : 'text-on-surface-variant/60'
                   }`}>{polling ? 'on' : 'off'}</span>
                 </td>
               </tr>
@@ -330,8 +331,8 @@ export default function AdminDebug() {
   return (
     <div className="space-y-6 max-w-5xl">
       <section className="space-y-3">
-        <h2 className="text-[11px] uppercase tracking-widest text-gray-400">Remote Feed Diagnostics</h2>
-        <p className="text-xs text-gray-500">
+        <h2 className="text-[11px] uppercase tracking-widest text-on-surface-variant">Remote Feed Diagnostics</h2>
+        <p className="text-xs text-on-surface-variant">
           Run on-demand probes for remote ingestion feeds to detect silent failures before they impact operators.
         </p>
 
@@ -350,7 +351,7 @@ export default function AdminDebug() {
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-3 p-3 border border-white/10 bg-black/30">
           <div className="md:col-span-2">
-            <label className="block text-[11px] uppercase tracking-widest text-gray-500 mb-1">Source</label>
+            <label className="block text-[11px] uppercase tracking-widest text-on-surface-variant mb-1">Source</label>
             <select
               value={selectedSourceId}
               onChange={(e) => setSelectedSourceId(e.target.value)}
@@ -359,7 +360,7 @@ export default function AdminDebug() {
             >
               {sources.map((s) => (
                 <option key={s.id ?? s.url} value={String(s.id ?? s.url)}>
-                  [{s.type}] {s.name} ({s.url})
+                  [{s.type}] {s.name}
                 </option>
               ))}
               {sources.length === 0 && <option value="">No supported remote sources configured</option>}
@@ -367,7 +368,7 @@ export default function AdminDebug() {
           </div>
 
           <div>
-            <label className="block text-[11px] uppercase tracking-widest text-gray-500 mb-1">Probe Window</label>
+            <label className="block text-[11px] uppercase tracking-widest text-on-surface-variant mb-1">Probe Window</label>
             <select
               value={durationSeconds}
               onChange={(e) => setDurationSeconds(Number(e.target.value))}
@@ -394,14 +395,14 @@ export default function AdminDebug() {
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3 p-3 border border-white/10 bg-black/20">
           <div>
-            <label className="block text-[11px] uppercase tracking-widest text-gray-500 mb-1">Polling Status</label>
-            <div className="text-xs text-gray-300">
+            <label className="block text-[11px] uppercase tracking-widest text-on-surface-variant mb-1">Polling Status</label>
+            <div className="text-xs text-on-surface">
               {selectedPollingEnabled ? 'Enabled' : 'Disabled'}
             </div>
           </div>
 
           <div>
-            <label className="block text-[11px] uppercase tracking-widest text-gray-500 mb-1">Poll Interval</label>
+            <label className="block text-[11px] uppercase tracking-widest text-on-surface-variant mb-1">Poll Interval</label>
             <select
               value={selectedPollingInterval}
               onChange={(e) => {
@@ -422,7 +423,7 @@ export default function AdminDebug() {
             <button
               onClick={toggleSelectedPolling}
               disabled={!selectedSource}
-              className="w-full py-2 text-[11px] font-bold uppercase tracking-widest border border-white/20 text-gray-100 hover:bg-white/10 disabled:opacity-40 transition-colors"
+              className="w-full py-2 text-[11px] font-bold uppercase tracking-widest border border-white/20 text-on-surface hover:bg-white/10 disabled:opacity-40 transition-colors"
             >
               {selectedPollingEnabled ? 'Disable Polling' : 'Enable Polling'}
             </button>
@@ -435,19 +436,19 @@ export default function AdminDebug() {
       {result && (
         <>
           <section className="space-y-2">
-            <h3 className="text-[11px] uppercase tracking-widest text-gray-400">Probe Target</h3>
-            <div className="p-3 border border-white/10 bg-surface-container-low text-xs text-gray-300">
-              <div>Type: <span className="text-gray-100 uppercase">{result.source.type}</span></div>
-              <div>Source: <span className="text-gray-100">{result.source.display_url}</span></div>
-              <div>Duration: <span className="text-gray-100">{result.source.duration_seconds}s</span></div>
+            <h3 className="text-[11px] uppercase tracking-widest text-on-surface-variant">Probe Target</h3>
+            <div className="p-3 border border-white/10 bg-surface-container-low text-xs text-on-surface">
+              <div>Type: <span className="text-on-surface uppercase">{result.source.type}</span></div>
+              <div>Source: <span className="font-mono text-on-surface break-all">{maskUrl(result.source.display_url)}</span></div>
+              <div>Duration: <span className="text-on-surface">{result.source.duration_seconds}s</span></div>
             </div>
           </section>
 
           <section className="space-y-2">
-            <h3 className="text-[11px] uppercase tracking-widest text-gray-400">Probe Checks</h3>
+            <h3 className="text-[11px] uppercase tracking-widest text-on-surface-variant">Probe Checks</h3>
             <div className="border border-white/10 bg-surface-container-low">
               {result.checks.length === 0 ? (
-                <p className="px-3 py-2 text-xs text-gray-500">No checks were produced for this source.</p>
+                <p className="px-3 py-2 text-xs text-on-surface-variant">No checks were produced for this source.</p>
               ) : (
                 result.checks.map((check, idx) => <CheckRow key={`${check.name}-${idx}`} check={check} />)
               )}
@@ -458,23 +459,23 @@ export default function AdminDebug() {
             <section className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {result.ws && (
                 <div className="space-y-2">
-                  <h3 className="text-[11px] uppercase tracking-widest text-gray-400">WebSocket Event Types</h3>
+                  <h3 className="text-[11px] uppercase tracking-widest text-on-surface-variant">WebSocket Event Types</h3>
                   <div className="border border-white/10 bg-surface-container-low p-3 space-y-2">
                     <div className="flex items-center gap-2">
                       <StatusPill ok={result.ws.connected} />
-                      <span className="text-xs text-gray-300">WS Connection</span>
+                      <span className="text-xs text-on-surface">WS Connection</span>
                     </div>
                     {result.ws.error && <p className="text-xs text-red-400">{result.ws.error}</p>}
                     <div className="space-y-1">
                       {Object.keys(result.ws.event_counts).length === 0 && (
-                        <p className="text-xs text-gray-500">No events observed in probe window.</p>
+                        <p className="text-xs text-on-surface-variant">No events observed in probe window.</p>
                       )}
                       {Object.entries(result.ws.event_counts)
                         .sort((a, b) => b[1] - a[1])
                         .map(([eventType, count]) => (
                           <div key={eventType} className="flex justify-between text-xs font-mono">
-                            <span className="text-gray-300">{eventType}</span>
-                            <span className="text-gray-400">{count}</span>
+                            <span className="text-on-surface">{eventType}</span>
+                            <span className="text-on-surface-variant">{count}</span>
                           </div>
                         ))}
                     </div>
@@ -484,19 +485,19 @@ export default function AdminDebug() {
 
               {result.storage && (
                 <div className="space-y-2">
-                  <h3 className="text-[11px] uppercase tracking-widest text-gray-400">Persisted Message State</h3>
+                  <h3 className="text-[11px] uppercase tracking-widest text-on-surface-variant">Persisted Message State</h3>
                   <div className="border border-white/10 bg-surface-container-low p-3 text-xs space-y-2">
                     <div className="flex justify-between">
-                      <span className="text-gray-500">Total messages</span>
-                      <span className="text-gray-200 font-mono">{result.storage.total_messages}</span>
+                      <span className="text-on-surface-variant">Total messages</span>
+                      <span className="text-on-surface font-mono">{result.storage.total_messages}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-500">Last hour</span>
-                      <span className="text-gray-200 font-mono">{result.storage.last_hour_messages}</span>
+                      <span className="text-on-surface-variant">Last hour</span>
+                      <span className="text-on-surface font-mono">{result.storage.last_hour_messages}</span>
                     </div>
                     <div className="flex justify-between gap-3">
-                      <span className="text-gray-500">Latest timestamp</span>
-                      <span className="text-gray-200 font-mono text-right">
+                      <span className="text-on-surface-variant">Latest timestamp</span>
+                      <span className="text-on-surface font-mono text-right">
                         {result.storage.latest_timestamp || '—'}
                       </span>
                     </div>
@@ -507,12 +508,12 @@ export default function AdminDebug() {
           )}
 
           <section className="space-y-2">
-            <h3 className="text-[11px] uppercase tracking-widest text-gray-400">Recommendations</h3>
+            <h3 className="text-[11px] uppercase tracking-widest text-on-surface-variant">Recommendations</h3>
             <div className="border border-white/10 bg-surface-container-low p-3">
               {result.recommendations.length === 0 ? (
                 <p className="text-xs text-emerald-300">No immediate issues detected.</p>
               ) : (
-                <ul className="space-y-1 text-xs text-gray-200 list-disc pl-5">
+                <ul className="space-y-1 text-xs text-on-surface list-disc pl-5">
                   {result.recommendations.map((r, i) => (
                     <li key={i}>{r}</li>
                   ))}

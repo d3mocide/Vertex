@@ -36,9 +36,9 @@ import { WsClientChart } from './metrics/WsClientChart'
 type TabName = 'system' | 'ingestion' | 'quality' | 'storage' | 'events'
 
 const TABS: { label: string; value: TabName; icon: string }[] = [
-  { label: 'System Health', value: 'system', icon: 'favorite' },
-  { label: 'Data Ingestion', value: 'ingestion', icon: 'cloud_download' },
-  { label: 'Data Quality', value: 'quality', icon: 'analytics' },
+  { label: 'System', value: 'system', icon: 'favorite' },
+  { label: 'Ingest', value: 'ingestion', icon: 'cloud_download' },
+  { label: 'Quality', value: 'quality', icon: 'analytics' },
   { label: 'Storage', value: 'storage', icon: 'storage' },
   { label: 'Events', value: 'events', icon: 'event' },
 ]
@@ -186,23 +186,24 @@ export default function AdminMetrics() {
   return (
     <div className="space-y-6">
       {/* Tab Navigation */}
-      <div className="border-b border-white/10 -mx-6 px-6">
-        <div className="flex gap-1 overflow-x-auto">
-          {TABS.map((tab) => (
-            <button
-              key={tab.value}
-              onClick={() => setCurrentTab(tab.value)}
-              className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-colors text-[11px] font-bold uppercase tracking-widest whitespace-nowrap ${
-                currentTab === tab.value
-                  ? 'border-amber-gold text-amber-gold'
-                  : 'border-transparent text-on-surface-variant hover:text-on-surface'
-              }`}
-            >
-              <span className="ms text-[16px]">{tab.icon}</span>
-              {tab.label}
-            </button>
-          ))}
-        </div>
+      <div className="grid grid-cols-5 md:flex md:gap-1 border border-white/10 md:border-0 md:border-b bg-surface-container-low md:bg-transparent" role="tablist">
+        {TABS.map((tab) => (
+          <button
+            key={tab.value}
+            type="button"
+            role="tab"
+            aria-selected={currentTab === tab.value}
+            onClick={() => setCurrentTab(tab.value)}
+            className={`flex flex-col md:flex-row items-center justify-center gap-1 md:gap-2 px-1 md:px-4 py-2 md:py-3 border-b-2 transition-colors text-[10px] md:text-[11px] font-bold uppercase tracking-wider md:tracking-widest whitespace-nowrap ${
+              currentTab === tab.value
+                ? 'border-amber-gold text-amber-gold bg-amber-gold/5 md:bg-transparent'
+                : 'border-transparent text-on-surface-variant hover:text-on-surface'
+            }`}
+          >
+            <span className="ms text-[18px] md:text-[16px]" aria-hidden="true">{tab.icon}</span>
+            {tab.label}
+          </button>
+        ))}
       </div>
 
       {/* Tab Content */}
@@ -211,7 +212,7 @@ export default function AdminMetrics() {
         {currentTab === 'system' && (
           <>
             <section>
-              <h2 className="text-[11px] uppercase tracking-widest text-gray-500 mb-3">System Health Bar</h2>
+              <h2 className="label-caps mb-3">Services</h2>
               <HealthBar
                 metrics={metrics}
                 dbPingMs={metrics?.db_ping_ms ?? -1}
@@ -226,12 +227,12 @@ export default function AdminMetrics() {
               <section className="p-4 border border-white/10 bg-surface-container-low">
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   <div>
-                    <div className="text-[11px] uppercase tracking-widest text-gray-500 mb-1">Status</div>
+                    <div className="text-[11px] uppercase tracking-widest text-on-surface-variant mb-1">Status</div>
                     <div className="flex items-center gap-2">
                       <span className={`w-2 h-2 rounded-full ${
-                        metrics.error_pct <= 2 && metrics.p95_ms <= 500 ? 'bg-emerald-400' 
-                        : metrics.error_pct <= 5 && metrics.p95_ms <= 1000 ? 'bg-amber-400'
-                        : 'bg-red-400'
+                        metrics.error_pct <= 2 && metrics.p95_ms <= 500 ? 'bg-green-ais'
+                        : metrics.error_pct <= 5 && metrics.p95_ms <= 1000 ? 'bg-amber-gold'
+                        : 'bg-red-emergency'
                       }`} />
                       <span className="font-mono text-[11px]">
                         {metrics.error_pct <= 2 && metrics.p95_ms <= 500 ? 'HEALTHY'
@@ -241,7 +242,7 @@ export default function AdminMetrics() {
                     </div>
                   </div>
                   <div>
-                    <div className="text-[11px] uppercase tracking-widest text-gray-500 mb-1">Uptime</div>
+                    <div className="text-[11px] uppercase tracking-widest text-on-surface-variant mb-1">Uptime</div>
                     <div className="font-mono text-[11px] text-on-surface">
                       {metrics && 'uptime_seconds' in metrics && metrics.uptime_seconds
                         ? (() => {
@@ -254,11 +255,11 @@ export default function AdminMetrics() {
                     </div>
                   </div>
                   <div>
-                    <div className="text-[11px] uppercase tracking-widest text-gray-500 mb-1">Pollers Stale</div>
+                    <div className="text-[11px] uppercase tracking-widest text-on-surface-variant mb-1">Pollers Stale</div>
                     <div className="font-mono text-[11px]">{pollers.filter((p) => p.status === 'stale').length} of {pollers.length}</div>
                   </div>
                   <div>
-                    <div className="text-[11px] uppercase tracking-widest text-gray-500 mb-1">Errors</div>
+                    <div className="text-[11px] uppercase tracking-widest text-on-surface-variant mb-1">Errors</div>
                     <div className={`font-mono text-[11px] ${metrics.error_pct > 5 ? 'text-red-400' : 'text-on-surface'}`}>
                       {metrics.error_pct.toFixed(1)}%
                     </div>

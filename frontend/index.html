@@ -32,6 +32,9 @@
   <script>
     (function () {
       var d = document.documentElement
+      // navigator.standalone exists only on iOS: the installed iPhone app,
+      // where iOS 26+ blurs the top of the page (see --edge-clear in index.css).
+      if (navigator.standalone === true) d.classList.add('ios-pwa')
       function apply() {
         var standalone = navigator.standalone === true ||
           (window.matchMedia && matchMedia('(display-mode: standalone)').matches)
