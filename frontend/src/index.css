@@ -126,9 +126,11 @@
   --chrome-top: calc(var(--safe-top) + var(--edge-clear));
 }
 html.ios-pwa {
-  /* 36px: on the user's iOS 27 iPhone the blur fades out ~35pt below the
-     62pt status bar (measured from a device screenshot, 2026-09-27). */
-  --edge-clear: min(2.25rem, calc(var(--safe-top) * 100));
+  /* 26px: the iOS 27 blur fades out ~35pt below the 62pt status bar
+     (measured on the user's iPhone, 2026-09-27); with the header as the top
+     bar's bottom edge the user preferred it 10px higher, into the blur's
+     faint tail. */
+  --edge-clear: min(1.625rem, calc(var(--safe-top) * 100));
 }
 
 /* MapLibre control override — must live outside @layer so it wins over
