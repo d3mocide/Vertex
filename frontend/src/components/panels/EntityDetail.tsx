@@ -207,7 +207,7 @@ export function EntityDetail() {
 
   return (
     <aside
-      className="absolute top-12 lg:top-28 left-0 lg:left-auto right-0 lg:right-4 hud-panel w-full lg:w-80 z-[60] flex flex-col max-h-[55vh] lg:max-h-[calc(100vh-8rem)]"
+      className="absolute top-0 lg:top-28 left-0 lg:left-auto right-0 lg:right-4 hud-panel w-full lg:w-80 z-[60] flex flex-col max-h-[55vh] lg:max-h-[calc(100vh-8rem)]"
       aria-label={`Entity detail: ${entity.display_name ?? entity.entity_id}`}
       role="complementary"
     >

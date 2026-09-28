@@ -63,7 +63,7 @@ function Dashboard() {
 
   return (
     <div
-      className="dark h-full w-full overflow-hidden flex flex-col font-body text-sm antialiased bg-onyx-black text-on-surface pt-safe-chrome pb-[calc(3.5rem_+_env(safe-area-inset-bottom))] lg:pb-0"
+      className="dark h-full w-full overflow-hidden flex flex-col font-body text-sm antialiased bg-onyx-black text-on-surface lg:pt-safe-chrome pb-[calc(3.5rem_+_env(safe-area-inset-bottom))] lg:pb-0"
       data-mode={mode}
     >
       {/* Map Background Layer */}
@@ -77,16 +77,27 @@ function Dashboard() {
         <Map />
       </div>
 
-      {/* Status-bar band — a solid backdrop for the iOS status bar / Dynamic
-          Island (plus the 8px gap above the chrome). Solid rather than frosted:
-          a blurred live map read as a smear, and its edge dimmed the advisory
-          strip below. Collapses to 0 height off iOS. */}
+      {/* Status-bar band (iPad / large screens) — a solid backdrop for the
+          status bar. Solid rather than frosted: a blurred live map read as a
+          smear. Collapses to 0 height where there is no inset. */}
       <div
-        className="fixed top-0 inset-x-0 z-30 pointer-events-none bg-onyx-deep h-safe-chrome"
+        className="hidden lg:block fixed top-0 inset-x-0 z-30 pointer-events-none bg-onyx-deep h-safe-chrome"
         aria-hidden="true"
       />
 
-      <AlertStatusBar />
+      {/* Phones: one top bar. Its surface runs up under the status bar (and
+          the iOS 26+ edge blur, which only has plain colour to smear), with
+          the header and then the advisory strip at its bottom edge — a
+          separate dark band above an amber strip read as an empty gap. */}
+      <div className="lg:hidden shrink-0 relative z-40 pt-safe-chrome bg-onyx-deep/90 backdrop-blur-md shadow-[0_4px_30px_rgba(0,0,0,0.5)]">
+        {isCritical && <div className="absolute inset-0 bg-red-emergency/5 pointer-events-none" aria-hidden="true" />}
+        <Header flush />
+        <AlertStatusBar />
+      </div>
+
+      <div className="hidden lg:block shrink-0">
+        <AlertStatusBar />
+      </div>
 
       <div className="flex flex-1 min-h-0 relative z-10 pointer-events-none">
         <div className="hidden lg:flex pointer-events-auto h-full shrink-0">
@@ -94,7 +105,7 @@ function Dashboard() {
         </div>
 
         <div className="relative flex-1 min-w-0 overflow-hidden transition-all duration-300 pointer-events-none">
-          <div className="absolute top-0 inset-x-0 z-40 pointer-events-none">
+          <div className="hidden lg:block absolute top-0 inset-x-0 z-40 pointer-events-none">
             <div className="pointer-events-auto">
               <Header />
               <EnvBar />
@@ -107,7 +118,7 @@ function Dashboard() {
                 (docked above the nav on mobile, floating on desktop) so it
                 never covers the end of a page. */}
             {activeTab !== 'safety' && (
-              <div id="page-scroll" className="absolute top-12 lg:top-24 inset-x-0 bottom-0 z-10 bg-onyx-black/40 backdrop-blur-sm overflow-y-auto pb-14 lg:pb-24">
+              <div id="page-scroll" className="absolute top-0 lg:top-24 inset-x-0 bottom-0 z-10 bg-onyx-black/40 backdrop-blur-sm overflow-y-auto pb-14 lg:pb-24">
                 {activeTab === 'infrastructure' && <InfrastructureGrid />}
                 {activeTab === 'environment'    && <EnvironmentPanel   />}
                 {activeTab === 'intel'          && <IntelPanel         />}
@@ -124,7 +135,7 @@ function Dashboard() {
               <>
                 <EntitySearchPanel />
                 <EntityDetail />
-                <div className="absolute top-14 lg:top-28 left-2 lg:left-[352px] flex flex-col lg:flex-row items-start gap-2 z-30 pointer-events-none *:pointer-events-auto">
+                <div className="absolute top-2 lg:top-28 left-2 lg:left-[352px] flex flex-col lg:flex-row items-start gap-2 z-30 pointer-events-none *:pointer-events-auto">
                   <button
                     type="button"
                     onClick={() => setMapToolsOpen((v) => !v)}
