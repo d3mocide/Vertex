@@ -2063,3 +2063,8 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 - **ODOT RWIS** (`weather:rwis`, `/weather/rwis`): road-weather stations within 100 km via the existing TripCheck key (`/Rwis/Inventory`, `/Rwis/Status`). Units checked against NWS: temperatures are hundredths of °C, wind mph. Stations reporting id -1 are skipped (ambiguous).
 - **NASA FIRMS** (`pollers/firms.py`, `fire:hotspots`, `/weather/fire/hotspots`): VIIRS hotspots within `FIRMS_RADIUS_KM` (150). Idle until `FIRMS_MAP_KEY` is set. Untested against the live API (no key yet).
 - Environment page: **Nearby Conditions** card (airport stations + road weather with ice-risk / low-visibility flags) and **Satellite Hotspots** card (hidden when empty).
+
+## 2026-09-29 — ODF fire danger layer, AQI blank fix
+
+- **ODF fire danger** (`pollers/odf_fire_danger.py`, `fire:danger`, `/weather/fire/danger`): official public fire danger (Low…Extreme) for ODF's 63 protection zones, from the public ArcGIS view behind gisapps.odf.oregon.gov/firerestrictions (`Fire_Danger_Level_View`). Map layer `FireDangerLayer` (Settings → "Fire Danger (ODF)", off by default; polygons in the app's signal colours) and a **Fire Danger · ODF** card on the Environment page. Tualatin's valley floor is in no ODF zone, so the card shows the nearest zones. The IFPL level is not shown (values include an undocumented 5). The "Current Year Fires" ODF layer is effectively empty (1 record) and was not used.
+- **AQI blank**: AirNow intermittently 5xx's and `weather:current` is rewritten whole each poll, so the tile blanked. The last good AQI is now kept for up to 3 h (seeded from `weather_observations` after a restart).

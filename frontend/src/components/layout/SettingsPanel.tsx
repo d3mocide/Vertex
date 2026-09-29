@@ -18,6 +18,8 @@ export function SettingsPanel() {
     setGoesVisible,
     firePerimetersVisible,
     setFirePerimetersVisible,
+    fireDangerVisible,
+    setFireDangerVisible,
     camerasVisible,
     setCamerasVisible,
     geofencesVisible,
@@ -44,7 +46,7 @@ export function SettingsPanel() {
     setEntityFilter,
     debugInsets,
     setDebugInsets,
-  } = useCivicPick('settingsOpen', 'setSettingsOpen', 'radarVisible', 'setRadarVisible', 'radarOpacity', 'setRadarOpacity', 'smokeVisible', 'setSmokeVisible', 'goesVisible', 'setGoesVisible', 'firePerimetersVisible', 'setFirePerimetersVisible', 'camerasVisible', 'setCamerasVisible', 'geofencesVisible', 'setGeofencesVisible', 'trailsVisible', 'setTrailsVisible', 'lightningVisible', 'setLightningVisible', 'nwsAlertsVisible', 'setNwsAlertsVisible', 'lightningDensityVisible', 'setLightningDensityVisible', 'railTracksVisible', 'setRailTracksVisible', 'gaugesVisible', 'setGaugesVisible', 'dispatchVisible', 'setDispatchVisible', 'terrainEnabled', 'setTerrainEnabled', 'terrainExaggeration', 'setTerrainExaggeration', 'entityFilter', 'setEntityFilter', 'debugInsets', 'setDebugInsets')
+  } = useCivicPick('settingsOpen', 'setSettingsOpen', 'radarVisible', 'setRadarVisible', 'radarOpacity', 'setRadarOpacity', 'smokeVisible', 'setSmokeVisible', 'goesVisible', 'setGoesVisible', 'firePerimetersVisible', 'setFirePerimetersVisible', 'fireDangerVisible', 'setFireDangerVisible', 'camerasVisible', 'setCamerasVisible', 'geofencesVisible', 'setGeofencesVisible', 'trailsVisible', 'setTrailsVisible', 'lightningVisible', 'setLightningVisible', 'nwsAlertsVisible', 'setNwsAlertsVisible', 'lightningDensityVisible', 'setLightningDensityVisible', 'railTracksVisible', 'setRailTracksVisible', 'gaugesVisible', 'setGaugesVisible', 'dispatchVisible', 'setDispatchVisible', 'terrainEnabled', 'setTerrainEnabled', 'terrainExaggeration', 'setTerrainExaggeration', 'entityFilter', 'setEntityFilter', 'debugInsets', 'setDebugInsets')
 
   const [notifPermission, setNotifPermission] = useState(() => notificationPermission())
   const userRole = getUserRole()
@@ -146,6 +148,7 @@ export function SettingsPanel() {
 
               {/* Hazards & Environmental */}
               <ToggleRow label="Fire Perimeters" icon="local_fire_department" checked={firePerimetersVisible} onChange={setFirePerimetersVisible} />
+              <ToggleRow label="Fire Danger (ODF)" icon="whatshot" checked={fireDangerVisible} onChange={setFireDangerVisible} />
               <ToggleRow label="Stream Gauges" icon="water" checked={gaugesVisible} onChange={setGaugesVisible} />
 
               {/* Operational & Tactical */}

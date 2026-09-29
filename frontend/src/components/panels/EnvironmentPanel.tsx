@@ -10,6 +10,7 @@ import { RadarControls } from './environment/RadarMiniMap'
 import { GdacsCard } from './environment/GdacsCard'
 import { NearbyConditionsCard } from './environment/NearbyConditionsCard'
 import { HotspotsCard } from './environment/HotspotsCard'
+import { FireDangerCard } from './environment/FireDangerCard'
 import { NwwsCard } from './environment/NwwsCard'
 import { FeedAge } from '../common/FeedAge'
 import { PageHeader, StatTiles, type Stat } from '../common/Page'
@@ -189,6 +190,7 @@ export function EnvironmentPanel() {
             <NearbyConditionsCard />
             <NwwsCard />
             {fireCard}
+            <FireDangerCard />
             <HotspotsCard />
             <AqiGauge aqi={weather.aqi} />
             <GdacsCard />
@@ -199,6 +201,7 @@ export function EnvironmentPanel() {
             <div className="flex-1 min-w-0 flex flex-col gap-8">
               <NwwsCard />
               {fireCard}
+              <FireDangerCard />
               <HotspotsCard />
               <AqiGauge aqi={weather.aqi} />
               <GdacsCard />

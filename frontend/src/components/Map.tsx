@@ -6,6 +6,7 @@ import { RadarLayer }           from './layers/RadarLayer'
 import { SmokeLayer }           from './layers/SmokeLayer'
 import { GOESLayer }            from './layers/GOESLayer'
 import { FirePerimeterLayer }   from './layers/FirePerimeterLayer'
+import { FireDangerLayer }      from './layers/FireDangerLayer'
 import { GeofenceLayer }        from './layers/GeofenceLayer'
 import { CustomLayersLayer }    from './layers/CustomLayersLayer'
 import { AnnotationOverlay }    from './layers/AnnotationOverlay'
@@ -202,6 +203,7 @@ export function Map() {
           <LightningDensityLayer map={map} />
           <SmokeLayer            map={map} />
           <GOESLayer             map={map} />
+          <FireDangerLayer       map={map} />
           <FirePerimeterLayer    map={map} />
           <GeofenceLayer         map={map} />
           <CustomLayersLayer     map={map} />

@@ -142,6 +142,12 @@ async def get_fire_hotspots():
     return await _feed_or("feed:fire:hotspots", [])
 
 
+@router.get("/fire/danger")
+async def get_fire_danger():
+    """ODF fire danger by protection zone (GeoJSON) plus the zones nearest the region."""
+    return await _feed_or("feed:fire:danger", {"type": "FeatureCollection", "features": [], "home": None, "nearby": []})
+
+
 @router.get("/stations")
 async def get_weather_stations():
     """Latest readings from the primary NWS station and its neighbours."""

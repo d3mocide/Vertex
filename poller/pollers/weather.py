@@ -1,10 +1,11 @@
 import asyncio
 import logging
+import time
 import httpx
 from config import settings
 from security import validate_request_url
 from bus import set_feed
-from db import write_weather_obs
+from db import latest_weather_aqi, write_weather_obs
 from normalizers.weather import normalize_observation
 from .base import BasePoller
 
@@ -12,6 +13,7 @@ logger = logging.getLogger(__name__)
 
 NWS_BASE = "https://api.weather.gov"
 _HEADERS = {"User-Agent": "Vertex/0.1 (vertex; contact@localhost)"}
+_AQI_KEEP_S = 3 * 3600   # how long the last good AirNow reading stands in for a failed one
 
 
 class WeatherPoller(BasePoller):
@@ -21,6 +23,10 @@ class WeatherPoller(BasePoller):
     async def setup(self):
         self._airnow_consecutive_failures = 0
         self._station_meta: dict[str, dict] = {}
+        self._last_aqi: tuple[dict, float] | None = None
+        stored = await latest_weather_aqi(_AQI_KEEP_S / 3600)
+        if stored:
+            self._last_aqi = (stored, time.monotonic())
         # Trigger NWWS fetch on first cycle
         self._nwws_tick = 999
 
@@ -32,6 +38,13 @@ class WeatherPoller(BasePoller):
         )
 
         payload = obs if isinstance(obs, dict) else {}
+        if isinstance(aqi, dict) and aqi:
+            self._last_aqi = (aqi, time.monotonic())
+        elif self._last_aqi and time.monotonic() - self._last_aqi[1] < _AQI_KEEP_S:
+            # AirNow often 5xx's for a while and this feed is rewritten whole every
+            # poll — without this the AQI tile went blank. It updates hourly, so a
+            # recent reading is still the right one to show.
+            aqi = self._last_aqi[0]
         if isinstance(aqi, dict) and aqi:
             payload.update(aqi)
 

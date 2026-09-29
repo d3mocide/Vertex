@@ -362,6 +362,21 @@ async def write_weather_obs(payload: dict) -> None:
     )
 
 
+async def latest_weather_aqi(max_age_hours: float = 3) -> dict | None:
+    """Most recent stored AQI, so a restart during an AirNow outage isn't blank."""
+    if _pool is None:
+        return None
+    try:
+        row = await _pool.fetchrow(
+            "SELECT aqi, aqi_label FROM weather_observations "
+            "WHERE aqi IS NOT NULL AND ts > now() - make_interval(secs => $1) ORDER BY ts DESC LIMIT 1",
+            max_age_hours * 3600.0,
+        )
+    except Exception:   # table not created yet on a very first start
+        return None
+    return {"aqi": row["aqi"], "aqi_label": row["aqi_label"]} if row else None
+
+
 async def event_recorded(event_type: str, match: dict[str, str], within_days: int = 30) -> bool:
     """True if an event of this type whose details match every key/value was
     already written in the last `within_days`. Persistent dedupe for pollers

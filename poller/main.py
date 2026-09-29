@@ -19,6 +19,7 @@ from pollers.radio_incident_poller import RadioIncidentPoller
 from pollers.seismic import SeismicPoller
 from pollers.fire import FirePoller
 from pollers.firms import FirmsPoller
+from pollers.odf_fire_danger import OdfFireDangerPoller
 from pollers.aprs import AprsPoller
 from pollers.acars import AcarsPoller
 from pollers.cot_emitter import CotEmitter
@@ -149,6 +150,7 @@ async def main():
         SeismicPoller(),
         FirePoller(),
         FirmsPoller(),
+        OdfFireDangerPoller(),
         AprsPoller(),
         CotEmitter(),
         CotReceiver(),
