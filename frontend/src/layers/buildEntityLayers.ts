@@ -205,32 +205,45 @@ export function buildEntityLayers(
     updateTriggers: { getRadius: cycle, getFillColor: cycle, getLineColor: cycle },
   })
 
-  // Ring around aircraft with a job: air ambulance / rescue / fire in red, police in amber,
-  // military/news/government in grey. An emergency squawk pulses red instead.
+  // Glow behind aircraft with a job: the plane's own silhouette, enlarged and soft, in the role
+  // colour — red for air ambulance / rescue / fire, amber for police, grey for military / news /
+  // government. An emergency squawk glows red and breathes (opacity, not size).
   const roleAircraft = trackArr.filter((t) => t.type === 'air' && (t.role || t.alert))
   const pulse = Number.isFinite(cycle) ? cycle : 0
-  const roleRingLayer = new ScatterplotLayer<Track>({
-    id:             'aircraft-role-rings',
-    data:           roleAircraft,
-    getPosition:    (t) => [t.lon, t.lat],
-    getRadius:      (t) => (t.alert ? 20 + pulse * 24 : 15),
-    // Pixel radii, hard-capped: a ring around a plane must never be larger than the plane's own marker area.
-    radiusMinPixels: 10,
-    radiusMaxPixels: 48,
-    getFillColor:   (t) => (t.alert ? [255, 80, 80, Math.round(110 * (1 - pulse * pulse))] : [0, 0, 0, 0]),
-    getLineColor:   (t) => {
-      if (t.alert) return [255, 80, 80, Math.round(255 * (1 - pulse * pulse * 0.6))]
-      const [r, g, b] = roleMeta(t.role)?.rgb ?? [140, 140, 140]
-      return [r, g, b, 230]
+  const glowIcon = (t: Track) => {
+    const icon = baseIcon(t)
+    if (zoom >= 9) return icon
+    if (zoom >= 6 && (t.type === 'air')) return icon
+    return 'dot'
+  }
+  const glowColor = (t: Track, strength: number): [number, number, number, number] => {
+    if (t.alert) {
+      const breathe = 0.65 + 0.35 * Math.sin(pulse * Math.PI)   // 0.65 … 1.0
+      return [255, 80, 80, Math.round(255 * strength * breathe)]
+    }
+    const [r, g, b] = roleMeta(t.role)?.rgb ?? [140, 140, 140]
+    return [r, g, b, Math.round(255 * strength)]
+  }
+  const roleGlowLayers = ['outer', 'inner'].map((ring, i) => new IconLayer<Track>({
+    id:          `aircraft-role-glow-${ring}`,
+    data:        roleAircraft,
+    iconAtlas:   atlas.url,
+    iconMapping: atlas.mapping,
+    getIcon:     glowIcon,
+    getPosition: (t) => [t.lon, t.lat],
+    getAngle:    (t) => -t.courseTrue,
+    getColor:    (t) => glowColor(t, i === 0 ? 0.22 : 0.5),
+    getSize:     (t) => entityIconSize(selectedUid, t, zoom) + (i === 0 ? 20 : 10),
+    sizeUnits:   'pixels',
+    billboard:   false,
+    pickable:    false,
+    updateTriggers: {
+      getIcon:  zoom,
+      getAngle: roleAircraft.map(t => t.courseTrue),
+      getColor: [pulse, roleAircraft.map(t => `${t.role}${t.alert}`).join()],
+      getSize:  [selectedUid, zoom],
     },
-    radiusUnits:    'pixels',
-    stroked:        true,
-    filled:         true,
-    getLineWidth:   2,
-    lineWidthUnits: 'pixels',
-    pickable:       false,
-    updateTriggers: { getRadius: pulse, getFillColor: pulse, getLineColor: [pulse, roleAircraft.map(t => `${t.role}${t.alert}`).join()] },
-  })
+  }))
 
   // APRS labels: show at z10+, color matches station type
   const aprsLabelLayer = new TextLayer<Track>({
@@ -283,5 +296,5 @@ export function buildEntityLayers(
     fontFamily: 'monospace',
   })
 
-  return [selectionRingLayer, emergencyRingLayer, roleRingLayer, iconOutlineLayer, iconLayer, aprsLabelLayer, takLabelLayer, sensorLabelLayer]
+  return [selectionRingLayer, emergencyRingLayer, ...roleGlowLayers, iconOutlineLayer, iconLayer, aprsLabelLayer, takLabelLayer, sensorLabelLayer]
 }

@@ -9,7 +9,7 @@ export interface RoleMeta {
   short: string
   text: string                       // Tailwind text token
   border: string                     // Tailwind border token (badge outline)
-  rgb: [number, number, number]      // map ring colour
+  rgb: [number, number, number]      // map glow colour
 }
 
 const RED: [number, number, number] = [198, 40, 40]     // red-emergency
