@@ -17,6 +17,7 @@ import { buildMeshNodeLayers, type MeshNodePoint } from '../layers/buildMeshNode
 import { buildDispatchLayers } from '../layers/buildDispatchLayer'
 import { buildReplayTracks } from '../layers/replayTracks'
 import type { RadioIncident } from '../storeTypes'
+import { isSupplementSource } from '../storeTypes'
 
 import { extractRailSegments, snapPointToRail, type RailSegment } from '../layers/railSnap'
 import { fetchRailGeoJSON } from '../layers/railData'
@@ -602,7 +603,7 @@ export function MapOverlay({ map }: Props) {
           if (track.type === 'air' && !ef.aircraft) continue
           if (track.type === 'air') {
             const source = (track.source ?? '').toLowerCase()
-            const isSupplement = source === 'opensky'
+            const isSupplement = isSupplementSource(source)
             if (isSupplement && !ef.adsbSupplement) continue
             if (!isSupplement && !ef.adsbLocal) continue
           }

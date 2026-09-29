@@ -426,3 +426,9 @@ export interface ReplayEvent {
   severity:   string
   summary:    string
 }
+
+/** Aircraft that come from an external feed (OpenSky, airplanes.live/adsb.fi) rather than our own receiver. */
+export function isSupplementSource(source: string | undefined | null): boolean {
+  const s = (source ?? '').toLowerCase()
+  return s === 'opensky' || s === 'community'
+}

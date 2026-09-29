@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import { WS_URL, API_BASE } from '../config'
 import { useCivicStore, useCivicPick } from '../store'
 import type { Entity, EntityTypeFilter, RadioIncidentFeed, AdvisoryFeed } from '../storeTypes'
+import { isSupplementSource } from '../storeTypes'
 import { wsTokenParam, authHeaders } from '../auth'
 import { initNotifications, maybeNotify, notifyMeshMessage } from '../notifications'
 import { parseSummary } from '../summaryUtils'
@@ -196,10 +197,10 @@ export function useWebSocket() {
               const aircraft = msgData.aircraft as Parameters<typeof setAircraftSnapshot>[0]
               const state = useCivicStore.getState()
               const existingLocalAircraft = Object.values(state.entities).filter(
-                (e) => e.entity_type === 'aircraft' && (e.source ?? '').toLowerCase() !== 'opensky',
+                (e) => e.entity_type === 'aircraft' && !isSupplementSource(e.source),
               ).length
               const snapshotLocalAircraft = aircraft.filter(
-                (e) => e.entity_type === 'aircraft' && (e.source ?? '').toLowerCase() !== 'opensky',
+                (e) => e.entity_type === 'aircraft' && !isSupplementSource(e.source),
               ).length
               const beastHealthy = msgData?.beast_healthy === true
               const lastFrameAge = typeof msgData?.last_frame_age_s === 'number' ? msgData.last_frame_age_s : null

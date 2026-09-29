@@ -31,8 +31,8 @@ _OPERATOR_RULES: list[tuple[str, list[str]]] = [
     ("medical", [r"LIFE ?FLIGHT", r"AIR METHODS", r"REACH AIR", r"MERCY FLIGHTS?", r"AIRLINK",
                  r"MED-?EVAC", r"AIR AMBULANCE", r"AIR MEDICAL", r"AEROMEDICAL", r"METRO AVIATION",
                  r"\bPHI AIR", r"LIFENET", r"MED-?TRANS", r"STAT MED"]),
-    ("fire", [r"\bFIRE\b", r"FIREFIGHT", r"FORESTRY", r"FOREST SERVICE", r"INTERAGENCY", r"\bTANKER\b",
-              r"HELITANKER"]),
+    ("fire", [r"\bFIRE (DEPARTMENT|DEPT|DISTRICT|RESCUE|AND RESCUE|SERVICE|PROTECTION|AVIATION|& RESCUE)\b",
+              r"FIREFIGHT", r"FORESTRY", r"FOREST SERVICE", r"INTERAGENCY", r"AIR TANKER", r"HELITANKER"]),
     ("law_enforcement", [r"\bPOLICE\b", r"SHERIFF", r"STATE PATROL", r"HIGHWAY PATROL", r"MARSHALS?\b",
                          r"BORDER PROTECTION", r"CUSTOMS", r"HOMELAND SECURITY", r"FEDERAL BUREAU",
                          r"DRUG ENFORCEMENT", r"ALCOHOL, TOBACCO", r"DEPARTMENT OF JUSTICE", r"AIR SUPPORT"]),
@@ -45,17 +45,30 @@ _OPERATOR_RULES: list[tuple[str, list[str]]] = [
 ]
 _COMPILED_OPERATORS = [(role, [re.compile(p) for p in pats]) for role, pats in _OPERATOR_RULES]
 
-# ICAO callsign prefixes (3 letters + digits) of operators that fly under their own designator.
+# Callsign prefixes (followed by digits) that were checked against real data — an ICAO airline
+# designator is only useful when we know who owns it, so nothing here is a guess. (An earlier "AMF" =
+# air medical guess was wrong: AMF is Ameriflight, a cargo carrier.)
+#   REH     REACH Air Medical Services (hexdb.io OperatorFlagCode for its aircraft)
+#   RCH/PAT US Air Mobility Command "Reach" / US Army "Priority Air Transport"
+#   TANKER/RESCUE/DUSTOFF  words dispatchers and crews use on air
 _CALLSIGN_PREFIXES: dict[str, str] = {
-    "LFN": "medical", "REH": "medical", "AMF": "medical", "LIFE": "medical",
-    "RESCUE": "rescue", "CGN": "rescue",
-    "TANKER": "fire", "RCH": "military", "DUSTOFF": "military", "PAT": "military",
+    "REH": "medical",
+    "RESCUE": "rescue",
+    "TANKER": "fire",
+    "RCH": "military", "DUSTOFF": "military", "PAT": "military",
 }
 
-# Registrations that are an operator's fleet marking: Life Flight Network uses N###LF.
-_REGISTRATION_RULES: list[tuple[re.Pattern, str, str]] = [
-    (re.compile(r"^N\d{1,3}LF$"), "medical", "registration N###LF (Life Flight Network)"),
-]
+# Life Flight Network marks its helicopters N###LF. Individuals hold N###LF numbers too (a Van's RV-7
+# among them), so the marking only counts on a rotorcraft.
+_LF_REGISTRATION = re.compile(r"^N\d{1,3}LF$")
+_ROTORCRAFT_TYPES = {
+    "R22", "R44", "R66", "B06", "B407", "B412", "B429", "B430", "B505", "EC20", "EC30", "EC35", "EC45", "EC55",
+    "AS50", "AS55", "AS65", "AS32", "A109", "A119", "A139", "A169", "S76", "S92", "H60", "H47", "H46", "H500",
+    "MD52", "MD60", "MD90", "MD50", "EXPL", "S61", "S64", "B105", "B06T",
+}
+
+# Owner lists ("BANK X TRUST, OPERATOR Y, HARTFORD FIRE INSURANCE CO") carry lenders and insurers.
+_FINANCE = re.compile(r"INSURANCE|\bBANK\b|\bTRUST\b|FINANCIAL|CREDIT UNION|MORTGAGE|\bCAPITAL\b|FUNDING", re.I)
 
 # The US military owns the ICAO block AE0000-AFFFFF.
 _MIL_HEX = (0xAE0000, 0xAFFFFF)
@@ -83,14 +96,22 @@ def alert_label(alert: str) -> str:
     return _ALERT_LABELS.get(alert, alert)
 
 
+def _is_rotorcraft(identity: dict) -> bool:
+    cat = str(identity.get("category") or "").upper()
+    return cat in ("A7", "7") or str(identity.get("icao_type") or "").upper() in _ROTORCRAFT_TYPES
+
+
 def classify_aircraft(identity: dict) -> tuple[str, str] | None:
     """(role, reason) or None. `identity` is the enriched aircraft identity dict."""
     operator = str(identity.get("operator") or "").upper()
     if operator:
+        # Owners come as "A, B, C" — judge each party, skipping lenders and insurers.
+        parties = [s.strip() for s in operator.split(",") if s.strip() and not _FINANCE.search(s)]
         for role, patterns in _COMPILED_OPERATORS:
-            for p in patterns:
-                if p.search(operator):
-                    return role, f"operator: {identity.get('operator')}"
+            for party in parties:
+                for p in patterns:
+                    if p.search(party):
+                        return role, f"operator: {identity.get('operator')}"
 
     callsign = str(identity.get("callsign") or "").strip().upper()
     if callsign:
@@ -100,9 +121,8 @@ def classify_aircraft(identity: dict) -> tuple[str, str] | None:
                 return role, f"callsign {callsign}"
 
     reg = str(identity.get("registration") or "").strip().upper()
-    for pattern, role, why in _REGISTRATION_RULES:
-        if reg and pattern.match(reg):
-            return role, why
+    if reg and _LF_REGISTRATION.match(reg) and _is_rotorcraft(identity):
+        return "medical", "registration N###LF on a helicopter (Life Flight Network)"
 
     icao24 = str(identity.get("icao24") or "").strip().lower()
     if re.fullmatch(r"[0-9a-f]{6}", icao24) and _MIL_HEX[0] <= int(icao24, 16) <= _MIL_HEX[1]:

@@ -228,6 +228,20 @@ class Settings(BaseSettings):
     adsb_opensky_username: str = ""
     adsb_opensky_password: str = ""
 
+    # Community ADS-B supplement: free readsb-style APIs (airplanes.live, adsb.fi). Unlike OpenSky
+    # they have no daily credit quota, and they include registration / type / registered owner.
+    # Aircraft your own receiver saw recently are left alone, exactly as with the OpenSky supplement.
+    # URLs are tried in order; {lat} {lon} {radius} are filled from REGION_LAT/LON and the radius below.
+    adsb_community_supplement: bool = True
+    adsb_community_urls: str = (
+        "https://api.airplanes.live/v2/point/{lat}/{lon}/{radius},"
+        "https://opendata.adsb.fi/api/v2/lat/{lat}/lon/{lon}/dist/{radius}"
+    )
+    adsb_community_interval: int = 15          # both services allow 1 request/second
+    adsb_community_radius_nm: int = 75
+    adsb_community_stale_threshold: int = 25
+    adsb_community_record_observations: bool = True
+
     # Observation persistence mode
     # record: persist every observation row (current behavior)
     # live_only: keep live entity updates, skip observation inserts

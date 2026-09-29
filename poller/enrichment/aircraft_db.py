@@ -30,6 +30,11 @@ class AircraftDb:
         self._reg_blob = b""
         self._type_idx = array("H")
         self._types: list[tuple[str, str]] = []
+        # Registered owner/operator ("REACH AIR MEDICAL SERVICES LLC"), ~150k distinct strings shared
+        # by index; index 0 is "no owner". Also the tar1090 flag byte (military, "interesting", …).
+        self._owner_idx = array("I")
+        self._owners: list[str] = [""]
+        self._flags = array("H")
         self._loaded_path: str | None = None
         self._load_first_available()
 
@@ -56,6 +61,29 @@ class AircraftDb:
         reg = self._reg_blob[self._reg_offsets[i]:self._reg_offsets[i + 1]].decode("utf-8", "replace")
         type_icao, type_long = self._types[self._type_idx[i]]
         return {"registration": reg, "type_icao": type_icao, "type_long": type_long}
+
+    def lookup_owner(self, icao: str | None) -> str:
+        """Registered owner/operator from the DB ("" if unknown). Kept apart from lookup() so its
+        shape stays stable for callers and tests."""
+        key = self._normalize_icao(icao)
+        if not key or not self._owner_idx:
+            return ""
+        code = int(key, 16)
+        i = bisect_left(self._icaos, code)
+        if i == len(self._icaos) or self._icaos[i] != code:
+            return ""
+        return self._owners[self._owner_idx[i]]
+
+    def lookup_flags(self, icao: str | None) -> int:
+        """tar1090 DB flags: bit 0 military, bit 1 interesting, bit 2 PIA, bit 3 LADD (0 if unknown)."""
+        key = self._normalize_icao(icao)
+        if not key or not self._flags:
+            return 0
+        code = int(key, 16)
+        i = bisect_left(self._icaos, code)
+        if i == len(self._icaos) or self._icaos[i] != code:
+            return 0
+        return self._flags[i]
 
     def _load_first_available(self):
         for candidate in self._candidate_paths():
@@ -84,6 +112,9 @@ class AircraftDb:
     def _load_csv(self, path: str) -> int:
         opener = gzip.open if path.endswith(".gz") else open
         icaos, type_idx, offsets = array("I"), array("H"), array("I", [0])
+        owner_idx, flags = array("I"), array("H")
+        owners: list[str] = [""]
+        owner_ids: dict[str, int] = {"": 0}
         blob = bytearray()
         type_ids: dict[tuple[str, str], int] = {}
         types: list[tuple[str, str]] = []
@@ -120,18 +151,34 @@ class AircraftDb:
                 type_idx.append(tid)
                 blob += registration.encode("utf-8")
                 offsets.append(len(blob))
+                # Columns 3 and 6 (flags, owner/operator) exist in the tar1090 export; older files stop at 5.
+                owner = parts[6].strip() if len(parts) > 6 else ""
+                if owner.startswith("Miscode"):
+                    owner = ""
+                oid = owner_ids.get(owner)
+                if oid is None:
+                    oid = owner_ids[owner] = len(owners)
+                    owners.append(owner)
+                owner_idx.append(oid)
+                try:
+                    flags.append(int(parts[3].strip() or "0", 16) & 0xFFFF)
+                except ValueError:
+                    flags.append(0)
 
         if not in_order:
-            icaos, type_idx, offsets, blob = self._sort_dedupe(icaos, type_idx, offsets, blob)
+            icaos, type_idx, offsets, blob, owner_idx, flags = self._sort_dedupe(
+                icaos, type_idx, offsets, blob, owner_idx, flags)
         self._icaos, self._type_idx, self._reg_offsets = icaos, type_idx, offsets
         self._reg_blob, self._types = bytes(blob), types
+        self._owner_idx, self._owners, self._flags = owner_idx, owners, flags
         return len(icaos)
 
     @staticmethod
-    def _sort_dedupe(icaos, type_idx, offsets, blob):
+    def _sort_dedupe(icaos, type_idx, offsets, blob, owner_idx, flags):
         """Sort by ICAO; on duplicate addresses the later row wins (as the old dict did)."""
         order = sorted(range(len(icaos)), key=lambda i: (icaos[i], i))
         out_i, out_t, out_o, out_b = array("I"), array("H"), array("I", [0]), bytearray()
+        out_w, out_f = array("I"), array("H")
         for n, i in enumerate(order):
             if n + 1 < len(order) and icaos[order[n + 1]] == icaos[i]:
                 continue  # a later row has the same address
@@ -139,4 +186,6 @@ class AircraftDb:
             out_t.append(type_idx[i])
             out_b += blob[offsets[i]:offsets[i + 1]]
             out_o.append(len(out_b))
-        return out_i, out_t, out_o, out_b
+            out_w.append(owner_idx[i])
+            out_f.append(flags[i])
+        return out_i, out_t, out_o, out_b, out_w, out_f

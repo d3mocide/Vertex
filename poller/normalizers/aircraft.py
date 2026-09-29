@@ -62,7 +62,24 @@ def _numeric_or_none(value) -> Optional[float]:
     return value if isinstance(value, (int, float)) and not isinstance(value, bool) else None
 
 
-def normalize_tar1090(ac: dict) -> Optional[dict]:
+def _tar1090_identity(ac: dict, icao: str) -> dict:
+    """Identity from a readsb aircraft record. Community feeds (airplanes.live, adsb.fi) also send
+    the tar1090 DB fields — registration, type, description and registered owner/operator — so an
+    aircraft is described from its first sighting instead of waiting on a lookup."""
+    identity = {
+        "icao24": icao,
+        "callsign": (ac.get("flight") or "").strip(),
+        "squawk": ac.get("squawk"),
+        "category": ac.get("category"),
+    }
+    for key, field in (("registration", "r"), ("icao_type", "t"), ("type", "desc"), ("operator", "ownOp")):
+        value = str(ac.get(field) or "").strip()
+        if value:
+            identity[key] = value
+    return identity
+
+
+def normalize_tar1090(ac: dict, source: str = "ultrafeeder") -> Optional[dict]:
     icao = ac.get("hex", "").lower()
     if not icao or ac.get("lat") is None or ac.get("lon") is None:
         return None
@@ -85,14 +102,9 @@ def normalize_tar1090(ac: dict) -> Optional[dict]:
     return {
         "entity_id": f"aircraft:{icao}",
         "entity_type": "aircraft",
-        "source": "ultrafeeder",
+        "source": source,
         "display_name": ac.get("flight", "").strip() or icao.upper(),
-        "identity": {
-            "icao24": icao,
-            "callsign": ac.get("flight", "").strip(),
-            "squawk": ac.get("squawk"),
-            "category": ac.get("category"),
-        },
+        "identity": _tar1090_identity(ac, icao),
         "lat": ac.get("lat"),
         "lon": ac.get("lon"),
         "position_stale": position_stale,

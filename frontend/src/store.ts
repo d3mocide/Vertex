@@ -13,7 +13,7 @@ import type {
   TrafficFlowSensor, UtilityStatus, OregonStatus, MeshMessage, MeshLink,
   AcarsMessage,
 } from './storeTypes'
-import { ALT_RANGE_DEFAULT, SPD_RANGE_DEFAULT } from './storeTypes'
+import { ALT_RANGE_DEFAULT, SPD_RANGE_DEFAULT, isSupplementSource } from './storeTypes'
 
 // ─── Store ────────────────────────────────────────────────────────────────────
 export interface CivicStore {
@@ -488,7 +488,7 @@ export const useCivicStore = create<CivicStore>()(
       // provided they have not gone stale based on their last_seen.
       for (const [id, entity] of Object.entries(s.entities)) {
         if (entity.entity_type === 'aircraft') {
-          const isOpensky = (entity.source ?? '').toLowerCase() === 'opensky'
+          const isOpensky = isSupplementSource(entity.source)
           const limit = isOpensky ? 600_000 : 120_000
           if (entity.last_seen) {
             const age = Date.now() - new Date(entity.last_seen).getTime()
@@ -554,7 +554,7 @@ export const useCivicStore = create<CivicStore>()(
       }
       for (const [id, e] of Object.entries(next)) {
         let limit = STALE_MS[e.entity_type]
-        if (e.entity_type === 'aircraft' && (e.source ?? '').toLowerCase() === 'opensky') {
+        if (e.entity_type === 'aircraft' && isSupplementSource(e.source)) {
           limit = 600_000 // 10 min threshold for OpenSky (polls every 4 min)
         }
         if (limit && e.last_seen) {

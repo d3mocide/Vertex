@@ -1,6 +1,7 @@
 import { Layer, type LayerContext } from '@deck.gl/core'
 import { IconLayer, ScatterplotLayer, TextLayer } from '@deck.gl/layers'
 import type { Track } from '../store'
+import { isSupplementSource } from '../storeTypes'
 import { getAtlasIcons } from './atlasIcons'
 import { entityColor } from './colorUtils'
 import { roleMeta } from '../aircraftRoles'
@@ -166,7 +167,7 @@ export function buildEntityLayers(
       // delayed) and stale/dead-reckoned local tracks (estimated during a
       // signal gap).
       if (t.type === 'air') {
-        if ((t.source ?? '').toLowerCase() === 'opensky') {
+        if (isSupplementSource(t.source)) {
           return tagColorMap?.[t.uid] ?? entityColor(t, 120)
         }
         if (t.positionStale || t.positionDr) {

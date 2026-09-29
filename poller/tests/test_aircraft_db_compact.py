@@ -70,3 +70,27 @@ def test_unbounded_eonet_sources_are_scoped_to_the_region(monkeypatch):
     assert "&bbox=" in fire._with_region_bbox(base)
     assert fire._with_region_bbox(base + "&bbox=1,2,3,4") == base + "&bbox=1,2,3,4"
     assert fire._with_region_bbox("https://example.org/fires.json") == "https://example.org/fires.json"
+
+
+def test_owner_and_flags_columns_are_loaded_and_survive_sorting(tmp_path, monkeypatch):
+    # Out of order rows exercise the sort/dedupe path, which must carry owner and flags along.
+    db = _db(tmp_path, monkeypatch, [
+        "a00003;N3;B407;00;BELL 407;2015;LIFE FLIGHT NETWORK LLC;",
+        "a00001;N1;C172;01;CESSNA 172;1999;MERCY FLIGHTS INC;",
+        "a00002;N2;B738;00;BOEING 737;2020;Miscode - VARIOUS;",
+        "a00004;N4;PA28;00;PIPER;;;",
+    ])
+    assert db.lookup_owner("a00001") == "MERCY FLIGHTS INC"
+    assert db.lookup_owner("A00003") == "LIFE FLIGHT NETWORK LLC"
+    assert db.lookup_owner("a00002") == ""          # "Miscode" placeholders are not owners
+    assert db.lookup_owner("a00004") == ""
+    assert db.lookup_owner("a00009") == ""
+    assert db.lookup_flags("a00001") == 1           # military bit
+    assert db.lookup_flags("a00003") == 0
+    assert db.lookup("a00003")["registration"] == "N3"      # lookup() itself is unchanged
+
+
+def test_old_five_column_files_still_load_without_owners(tmp_path, monkeypatch):
+    db = _db(tmp_path, monkeypatch, ["a00001;N1;C172;;CESSNA 172"])
+    assert db.lookup("a00001")["registration"] == "N1"
+    assert db.lookup_owner("a00001") == ""

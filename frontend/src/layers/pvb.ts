@@ -1,5 +1,6 @@
 import { destinationPoint } from './geoUtils'
 import type { Track } from '../store'
+import { isSupplementSource } from '../storeTypes'
 
 // Time over which the rendered position blends from the old visual projection
 // to the new server projection. Should be less than the poller interval (5 s).
@@ -50,7 +51,7 @@ function reportKey(track: Track, lastTs: string): string {
 
 function sourceBlendWindowMs(source: string, reportIntervalMs: number): number {
   const src = (source || '').toLowerCase()
-  if (src !== 'opensky') {
+  if (!isSupplementSource(src)) {
     // For local sources (BEAST/UltraFeeder), we want a tight blend.
     // Use 1.2x the observed interval, but cap it so it doesn't get too jittery or too laggy.
     const interval = reportIntervalMs > 0 ? reportIntervalMs : 1000

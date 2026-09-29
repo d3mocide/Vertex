@@ -32,12 +32,29 @@ class AircraftRoleTests(unittest.TestCase):
         self.assertEqual(role(operator="Multnomah County Sheriff's Office"), "law_enforcement")
         self.assertEqual(role(operator="Oregon Department of Forestry"), "fire")
 
-    def test_registration_marking_works_before_owner_lookup_finishes(self):
-        self.assertEqual(role(registration="N406LF"), "medical")
-        self.assertIsNone(role(registration="N406LX"))
+    def test_registration_marking_works_before_owner_lookup_finishes_but_only_on_a_helicopter(self):
+        self.assertEqual(role(registration="N406LF", icao_type="B407"), "medical")
+        self.assertEqual(role(registration="N816LF", category="A7"), "medical")
+        self.assertIsNone(role(registration="N13LF", icao_type="RV7"))        # a private Van's RV-7
+        self.assertIsNone(role(registration="N406LF"))                          # nothing says it is a helicopter
+        self.assertIsNone(role(registration="N406LX", icao_type="B407"))
+
+    def test_ameriflight_is_cargo_not_an_air_ambulance(self):
+        # AMF is Ameriflight's designator; UAS Transervices is its parent/owner.
+        self.assertIsNone(role(callsign="AMF1984", operator="Ameriflight"))
+        self.assertIsNone(role(callsign="AMF1968", operator="UAS TRANSERVICES INC"))
+        self.assertIsNone(role(callsign="AMF1994"))
+
+    def test_lenders_and_insurers_in_an_owner_list_are_ignored(self):
+        owners = "DATAVANT LLC, ARMBRESTER BRADFORD K, FLYING FAITH LLC, HARTFORD FIRE INSURANCE CO, DEGRIECK JEFFREY"
+        self.assertIsNone(role(operator=owners))
+        self.assertEqual(role(operator="WELLS FARGO TRUST CO, LIFE FLIGHT NETWORK LLC"), "medical")
+        self.assertEqual(role(operator="CO FIRE AVIATION LEASING INC"), "fire")
+        self.assertEqual(role(operator="Sacramento Fire Department"), "fire")
 
     def test_callsign_prefix_needs_a_number(self):
         self.assertEqual(role(callsign="REH8"), "medical")
+        self.assertIsNone(role(callsign="LIFE"))
         self.assertIsNone(role(callsign="REHAB"))
         self.assertEqual(role(callsign="RCH123"), "military")
 

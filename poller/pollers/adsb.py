@@ -25,6 +25,18 @@ from .base import BasePoller
 
 logger = logging.getLogger(__name__)
 
+def parse_retry_after(headers) -> int | None:
+    """Seconds a rate-limited API asks us to wait: Retry-After, or OpenSky's X-Rate-Limit-Retry-After-Seconds."""
+    for name in ("retry-after", "x-rate-limit-retry-after-seconds"):
+        value = headers.get(name) if hasattr(headers, "get") else None
+        try:
+            if value is not None and int(float(value)) > 0:
+                return int(float(value))
+        except (TypeError, ValueError):
+            continue
+    return None
+
+
 _SPECIAL_RESEND_S = 3 * 3600   # one event per notable aircraft per this window
 _SPECIAL_MAX_KM = 150          # ignore far-away OpenSky supplements
 
@@ -51,6 +63,10 @@ class AdsbPoller(BasePoller):
         self._last_seen_by_source: dict[str, dict[str, float]] = {}
         self._opensky_poll_count: int = 0
         self._opensky_backoff_seconds: int = 0
+        self._community_task: asyncio.Task | None = None
+        self._community_backoff_seconds: int = 0
+        self._community_url_index: int = 0
+        self._community_poll_count: int = 0
         self._last_opensky_poll_ts: float = 0.0
         self._transport = BeastTransport(on_frame=self._on_beast_frame)
         self._beast_decoder = BeastAircraftDecoder()
@@ -176,6 +192,10 @@ class AdsbPoller(BasePoller):
         if self._source_urls:
             for url in self._source_urls:
                 await self._poll_ultrafeeder(url)
+
+        # Community feeds (airplanes.live / adsb.fi): free, no daily quota, includes owner data
+        if settings.adsb_community_supplement:
+            self._ensure_community_task()
 
         # OpenSky supplement logic (Mode D)
         if settings.adsb_opensky_supplement:
@@ -463,7 +483,7 @@ class AdsbPoller(BasePoller):
         icao = icao.lower()
         now = time.time()
         seen = self._last_seen_by_source.get(icao, {})
-        priority = {"beast": 1, "ultrafeeder": 2, "opensky": 3}
+        priority = {"beast": 1, "ultrafeeder": 2, "community": 3, "opensky": 4}
         my_prio = priority.get(source, 99)
         for other_src, last_ts in seen.items():
             if other_src == source:
@@ -473,12 +493,13 @@ class AdsbPoller(BasePoller):
                 return False
         return True
 
-    def _is_local_recent(self, icao: str) -> bool:
+    def _is_local_recent(self, icao: str, holdoff: float | None = None) -> bool:
         """Returns True if this aircraft was seen locally within the holdoff window."""
         icao = icao.lower()
         seen = self._last_seen_by_source.get(icao, {})
         local_ts = max(seen.get("beast", 0), seen.get("ultrafeeder", 0))
-        return local_ts > 0 and (time.time() - local_ts) < self._effective_opensky_stale_threshold()
+        window = self._effective_opensky_stale_threshold() if holdoff is None else holdoff
+        return local_ts > 0 and (time.time() - local_ts) < window
 
     # ── OpenSky ───────────────────────────────────────────────────────────
 
@@ -502,19 +523,109 @@ class AdsbPoller(BasePoller):
             resp = await client.get(url, headers=headers)
 
         if resp.status_code == 429:
+            # OpenSky says exactly when the daily credits come back; guessing (and retrying on every
+            # restart) only burns requests against a wall. Honour it, up to 12 h.
+            retry_after = parse_retry_after(resp.headers)
             self._opensky_backoff_seconds = (
-                min(self._opensky_backoff_seconds * 2, 3600)
-                if self._opensky_backoff_seconds else 300
+                min(retry_after, 12 * 3600) if retry_after
+                else min(self._opensky_backoff_seconds * 2, 3600) if self._opensky_backoff_seconds else 300
             )
             logger.warning(
-                "[adsb] OpenSky rate limited — backing off %ds",
-                self._opensky_backoff_seconds,
+                "[adsb] OpenSky rate limited — backing off %ds%s",
+                self._opensky_backoff_seconds, " (per Retry-After)" if retry_after else "",
             )
             return None
 
         resp.raise_for_status()
         self._opensky_backoff_seconds = 0
         return resp.json()
+
+    # ── Community feeds (airplanes.live, adsb.fi) ────────────────────────────
+
+    def _community_urls(self) -> list[str]:
+        return [u.strip() for u in settings.adsb_community_urls.split(",") if u.strip()]
+
+    def _ensure_community_task(self) -> None:
+        if self._community_task and not self._community_task.done():
+            return
+        if self._community_task and self._community_task.done():
+            if exc := self._community_task.exception():
+                logger.warning("[adsb] community supplement task ended with error: %s", exc)
+        logger.info("[adsb] community supplement enabled (interval=%ss, radius=%s nm, sources=%d)",
+                    settings.adsb_community_interval, settings.adsb_community_radius_nm, len(self._community_urls()))
+        self._community_task = asyncio.create_task(self._community_supplement_loop())
+
+    async def _community_supplement_loop(self) -> None:
+        while True:
+            await asyncio.sleep(max(settings.adsb_community_interval, self._community_backoff_seconds))
+            try:
+                await self._poll_community_supplement()
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:
+                logger.warning("[adsb] community supplement poll error: %s", type(exc).__name__)
+
+    async def _fetch_community(self) -> list[dict] | None:
+        """Aircraft from the first community API that answers (None if all are unavailable)."""
+        urls = self._community_urls()
+        if not urls:
+            return None
+        headers = {"User-Agent": "Vertex/1.0 (personal situational awareness dashboard)"}
+        for offset in range(len(urls)):
+            idx = (self._community_url_index + offset) % len(urls)
+            url = urls[idx].format(lat=settings.region_lat, lon=settings.region_lon,
+                                   radius=settings.adsb_community_radius_nm)
+            try:
+                async with httpx.AsyncClient(timeout=10) as client:
+                    resp = await client.get(url, headers=headers)
+                if resp.status_code == 429:
+                    wait = parse_retry_after(resp.headers) or 60
+                    self._community_backoff_seconds = min(wait, 900)
+                    logger.warning("[adsb] community feed rate limited — waiting %ds", self._community_backoff_seconds)
+                    continue
+                resp.raise_for_status()
+                data = resp.json()
+                self._community_url_index = idx      # stay on what works
+                self._community_backoff_seconds = 0
+                return data.get("ac") or data.get("aircraft") or []
+            except Exception as exc:
+                # Never log the URL's response body; a failure here just moves on to the next source.
+                logger.info("[adsb] community source %d unavailable: %s", idx, type(exc).__name__)
+        return None
+
+    async def _poll_community_supplement(self) -> None:
+        aircraft = await self._fetch_community()
+        if aircraft is None:
+            return
+        holdoff = min(max(settings.adsb_community_stale_threshold, settings.adsb_community_interval + 5),
+                      self._MAX_OPENSKY_LOCAL_HOLDOFF_SECONDS)
+        pad = 0.25    # the API returns a circle; keep what falls in (or just outside) the operating box
+        published = skipped_local = outside = 0
+        for ac in aircraft:
+            entity = normalize_tar1090(ac, source="community")
+            if not entity:
+                continue
+            lat, lon = entity.get("lat"), entity.get("lon")
+            if not (settings.bbox_min_lat - pad <= lat <= settings.bbox_max_lat + pad
+                    and settings.bbox_min_lon - pad <= lon <= settings.bbox_max_lon + pad):
+                outside += 1
+                continue
+            icao = (entity.get("identity") or {}).get("icao24", "").lower()
+            if not icao:
+                continue
+            self._record_source_seen(icao, "community")
+            self._seed_decoder_reference(icao, entity)
+            if self._is_local_recent(icao, holdoff):
+                skipped_local += 1
+                continue
+            # A sighting from OpenSky in the same window would have been coarser; this one wins.
+            self._unified_entities[icao] = entity
+            await publish_entity(entity, record_observation=settings.adsb_community_record_observations)
+            published += 1
+        self._community_poll_count += 1
+        if self._community_poll_count <= 3 or self._community_poll_count % 40 == 0:
+            logger.info("[adsb] community poll #%d: %d published, %d seen locally, %d outside the region",
+                        self._community_poll_count, published, skipped_local, outside)
 
     def _ensure_opensky_supplement_task(self) -> None:
         if self._opensky_supplement_task and not self._opensky_supplement_task.done():
@@ -744,20 +855,30 @@ class AdsbPoller(BasePoller):
 
             ac_known, ac_meta = self._adsbdb.lookup_cached_aircraft(icao if isinstance(icao, str) else None)
             if ac_known and ac_meta:
+                # Only fill what the lookup actually knows; an empty answer must not erase the
+                # registration/owner a community feed or the local DB already gave us.
                 identity.update({
-                    "registration": ac_meta.get("registration"),
-                    "type": ac_meta.get("type"),
-                    "icao_type": ac_meta.get("icao_type"),
-                    "manufacturer": ac_meta.get("manufacturer"),
-                    "operator": ac_meta.get("operator"),
-                    "operator_country": ac_meta.get("operator_country"),
-                    "country_iso": ac_meta.get("country_iso"),
+                    k: v for k, v in {
+                        "registration": ac_meta.get("registration"),
+                        "type": ac_meta.get("type"),
+                        "icao_type": ac_meta.get("icao_type"),
+                        "manufacturer": ac_meta.get("manufacturer"),
+                        "operator": ac_meta.get("operator"),
+                        "operator_country": ac_meta.get("operator_country"),
+                        "country_iso": ac_meta.get("country_iso"),
+                    }.items() if v
                 })
             elif icao:
                 missing_icaos.add(str(icao))
 
             # Local tar1090-style aircraft DB fallback for static aircraft details.
             if isinstance(icao, str):
+                # The tar1090 DB knows the registered owner/operator of ~600k aircraft with no network
+                # call — this is what tells us an EMS helicopter from a private one on first sight.
+                if not identity.get("operator"):
+                    owner = self._aircraft_db.lookup_owner(icao)
+                    if owner:
+                        identity["operator"] = owner
                 local_meta = self._aircraft_db.lookup(icao)
                 if local_meta:
                     if not identity.get("registration") and local_meta.get("registration"):
