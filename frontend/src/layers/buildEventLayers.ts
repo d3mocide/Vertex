@@ -3,9 +3,11 @@ import type { SystemEvent } from '../store'
 import type { RGBA } from './colorUtils'
 
 export function buildEventLayers(events: SystemEvent[], nowMs: number) {
-  // Only map events that have geographic coordinates
+  // Only map events that have geographic coordinates. special_aircraft events are logged for the
+  // event feed only — the aircraft itself is already on the map (with its role glow), and a 5 km
+  // grey disc under it read as a giant white circle.
   const mappedEvents = events.filter(
-    (e) => e.details?.lat !== undefined && e.details?.lon !== undefined
+    (e) => e.event_type !== 'special_aircraft' && e.details?.lat !== undefined && e.details?.lon !== undefined
   )
 
   if (mappedEvents.length === 0) return []
