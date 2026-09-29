@@ -215,18 +215,18 @@ class Settings(BaseSettings):
     # most OpenSky users register a free account, which makes the fast cadence
     # below safe and gives a smooth ~30s handover when BEAST hits a signal gap.
     adsb_opensky_supplement: bool = True
-    # Seconds between OpenSky polls. With credentials 30s is safe (~2880 req/day
-    # vs 4000 limit). Anonymous (no credentials) budget is ~400 req/day — raise
-    # this to >= 220s for anonymous use to avoid being rate limited.
-    adsb_opensky_interval: int = 30
+    # Seconds between OpenSky polls. One poll costs 1 credit for our bbox. OpenSky only fills
+    # gaps the community feed misses, so 120s (~720/day) is plenty. Anonymous polling is floored at 220s.
+    adsb_opensky_interval: int = 120
     # Seconds since last local sighting before OpenSky may update an aircraft.
     adsb_opensky_stale_threshold: int = 25
     # Write OpenSky supplement positions to the observations table.
     adsb_opensky_record_observations: bool = True
-    # Optional OpenSky Network credentials (https://opensky-network.org).
-    # Authenticated accounts receive 10x the anonymous request budget.
-    adsb_opensky_username: str = ""
-    adsb_opensky_password: str = ""
+    # OpenSky API client (OAuth2 client credentials — create one on your OpenSky account page).
+    # Username/password Basic auth is no longer accepted, so without these the poller is anonymous
+    # (400 credits/day). Registered: 4000/day; accounts with an active feeder: 8000/day.
+    adsb_opensky_client_id: str = ""
+    adsb_opensky_client_secret: str = ""
 
     # Community ADS-B supplement: free readsb-style APIs (airplanes.live, adsb.fi). Unlike OpenSky
     # they have no daily credit quota, and they include registration / type / registered owner.

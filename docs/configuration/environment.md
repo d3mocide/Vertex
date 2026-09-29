@@ -78,8 +78,8 @@ These settings control aircraft ingest strategy and enrichment behavior.
 | `ADSB_OPENSKY_INTERVAL` | OpenSky poll interval in seconds |
 | `ADSB_OPENSKY_STALE_THRESHOLD` | Minutes before an OpenSky-sourced entity is considered stale |
 | `ADSB_OPENSKY_RECORD_OBSERVATIONS` | Persists OpenSky observations to history |
-| `ADSB_OPENSKY_USERNAME` | OpenSky account username (optional, for higher rate limits) |
-| `ADSB_OPENSKY_PASSWORD` | OpenSky account password |
+| `ADSB_OPENSKY_CLIENT_ID` | OpenSky OAuth2 API client id (optional; without it polling is anonymous, 400 credits/day, floored at 220s) |
+| `ADSB_OPENSKY_CLIENT_SECRET` | OpenSky OAuth2 API client secret |
 | `ADSB_HISTORY_MODE` | Observation storage mode: `record` or `live_only` |
 | `ADSB_ENRICHMENT_CACHE_DIR` | Directory for enrichment reference data |
 | `ADSB_AIRCRAFT_DB_PATH` | Aircraft metadata CSV path |

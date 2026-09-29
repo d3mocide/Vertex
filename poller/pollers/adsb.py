@@ -63,6 +63,8 @@ class AdsbPoller(BasePoller):
         self._last_seen_by_source: dict[str, dict[str, float]] = {}
         self._opensky_poll_count: int = 0
         self._opensky_backoff_seconds: int = 0
+        self._opensky_token: str = ""
+        self._opensky_token_expiry: float = 0.0
         self._community_task: asyncio.Task | None = None
         self._community_backoff_seconds: int = 0
         self._community_url_index: int = 0
@@ -101,7 +103,7 @@ class AdsbPoller(BasePoller):
     def _effective_opensky_stale_threshold() -> int:
         # Keep local tracks authoritative for at least one OpenSky cadence window
         # to reduce local↔supplement source flapping in Mode D.
-        holdoff = max(settings.adsb_opensky_stale_threshold, settings.adsb_opensky_interval + 5)
+        holdoff = max(settings.adsb_opensky_stale_threshold, AdsbPoller._opensky_interval() + 5)
         return min(holdoff, AdsbPoller._MAX_OPENSKY_LOCAL_HOLDOFF_SECONDS)
 
     async def _hydrate_from_redis(self) -> None:
@@ -188,8 +190,9 @@ class AdsbPoller(BasePoller):
         if settings.adsb_enable_beast:
             self._ensure_beast_task()
 
-        # Concurrent local HTTP polling (UltraFeeder)
-        if self._source_urls:
+        # Local HTTP polling (UltraFeeder) is a standby for BEAST: same receiver, decoded a second time
+        # at 5 s resolution. Poll it only when BEAST is off or not delivering frames.
+        if self._source_urls and (not settings.adsb_enable_beast or not self._transport.is_healthy):
             for url in self._source_urls:
                 await self._poll_ultrafeeder(url)
 
@@ -493,6 +496,28 @@ class AdsbPoller(BasePoller):
                 return False
         return True
 
+    def _is_community_recent(self, icao: str) -> bool:
+        """True if a community feed (airplanes.live / adsb.fi) reported this aircraft within its holdoff."""
+        seen_ts = self._last_seen_by_source.get(icao.lower(), {}).get("community", 0)
+        return seen_ts > 0 and (time.time() - seen_ts) < self._community_holdoff()
+
+    @staticmethod
+    def _community_holdoff() -> float:
+        return min(max(settings.adsb_community_stale_threshold, settings.adsb_community_interval + 5),
+                   AdsbPoller._MAX_OPENSKY_LOCAL_HOLDOFF_SECONDS)
+
+    def _is_older_than_held(self, icao: str, entity: dict) -> bool:
+        """True if we already hold a newer position fix for this aircraft than `entity` carries.
+
+        Sources report at different latencies (community ~0.3 s, OpenSky 8-60 s). A late, older fix must
+        never overwrite a fresher one, or the icon jumps backwards.
+        """
+        held = self._unified_entities.get(icao.lower())
+        held_ts = held.get("position_ts") if held else None
+        new_ts = entity.get("position_ts")
+        return (isinstance(held_ts, (int, float)) and isinstance(new_ts, (int, float))
+                and new_ts <= held_ts)
+
     def _is_local_recent(self, icao: str, holdoff: float | None = None) -> bool:
         """Returns True if this aircraft was seen locally within the holdoff window."""
         icao = icao.lower()
@@ -502,6 +527,34 @@ class AdsbPoller(BasePoller):
         return local_ts > 0 and (time.time() - local_ts) < window
 
     # ── OpenSky ───────────────────────────────────────────────────────────
+
+    _OPENSKY_TOKEN_URL = (
+        "https://auth.opensky-network.org/auth/realms/opensky-network/protocol/openid-connect/token"
+    )
+    _OPENSKY_ANON_MIN_INTERVAL = 220  # ~390 polls/day against the 400-credit anonymous budget
+
+    async def _opensky_access_token(self, client: httpx.AsyncClient) -> str:
+        """OAuth2 client-credentials bearer token (30 min lifetime), or "" when running anonymous."""
+        if not (settings.adsb_opensky_client_id and settings.adsb_opensky_client_secret):
+            return ""
+        if self._opensky_token and time.time() < self._opensky_token_expiry:
+            return self._opensky_token
+        resp = await client.post(self._OPENSKY_TOKEN_URL, data={
+            "grant_type": "client_credentials",
+            "client_id": settings.adsb_opensky_client_id,
+            "client_secret": settings.adsb_opensky_client_secret,
+        })
+        resp.raise_for_status()
+        body = resp.json()
+        self._opensky_token = body["access_token"]
+        self._opensky_token_expiry = time.time() + max(int(body.get("expires_in", 1800)) - 60, 60)
+        return self._opensky_token
+
+    @staticmethod
+    def _opensky_interval() -> int:
+        if settings.adsb_opensky_client_id and settings.adsb_opensky_client_secret:
+            return settings.adsb_opensky_interval
+        return max(settings.adsb_opensky_interval, AdsbPoller._OPENSKY_ANON_MIN_INTERVAL)
 
     async def _fetch_opensky(self) -> dict | None:
         """Fetch the OpenSky states/all endpoint, applying auth and 429 backoff.
@@ -514,13 +567,13 @@ class AdsbPoller(BasePoller):
             f"&lomin={settings.bbox_min_lon}&lomax={settings.bbox_max_lon}"
         )
         headers: dict[str, str] = {"User-Agent": "Vertex/1.0 (Situational Awareness Dashboard)"}
-        if settings.adsb_opensky_username and settings.adsb_opensky_password:
-            import base64
-            creds = f"{settings.adsb_opensky_username}:{settings.adsb_opensky_password}"
-            headers["Authorization"] = f"Basic {base64.b64encode(creds.encode()).decode()}"
 
         async with httpx.AsyncClient(timeout=20) as client:
+            if token := await self._opensky_access_token(client):
+                headers["Authorization"] = f"Bearer {token}"
             resp = await client.get(url, headers=headers)
+            if resp.status_code == 401 and token:
+                self._opensky_token = ""  # expired early or revoked; refetch on the next poll
 
         if resp.status_code == 429:
             # OpenSky says exactly when the daily credits come back; guessing (and retrying on every
@@ -597,8 +650,7 @@ class AdsbPoller(BasePoller):
         aircraft = await self._fetch_community()
         if aircraft is None:
             return
-        holdoff = min(max(settings.adsb_community_stale_threshold, settings.adsb_community_interval + 5),
-                      self._MAX_OPENSKY_LOCAL_HOLDOFF_SECONDS)
+        holdoff = self._community_holdoff()
         pad = 0.25    # the API returns a circle; keep what falls in (or just outside) the operating box
         published = skipped_local = outside = 0
         for ac in aircraft:
@@ -618,7 +670,8 @@ class AdsbPoller(BasePoller):
             if self._is_local_recent(icao, holdoff):
                 skipped_local += 1
                 continue
-            # A sighting from OpenSky in the same window would have been coarser; this one wins.
+            if self._is_older_than_held(icao, entity):
+                continue
             self._unified_entities[icao] = entity
             await publish_entity(entity, record_observation=settings.adsb_community_record_observations)
             published += 1
@@ -635,7 +688,7 @@ class AdsbPoller(BasePoller):
                 logger.warning("[adsb] OpenSky supplement task ended with error: %s", exc)
         logger.info(
             "[adsb] OpenSky supplement enabled (interval=%ss, stale_threshold=%ss, effective_local_holdoff=%ss)",
-            settings.adsb_opensky_interval,
+            self._opensky_interval(),
             settings.adsb_opensky_stale_threshold,
             self._effective_opensky_stale_threshold(),
         )
@@ -643,7 +696,7 @@ class AdsbPoller(BasePoller):
 
     async def _opensky_supplement_loop(self) -> None:
         while True:
-            await asyncio.sleep(max(settings.adsb_opensky_interval, self._opensky_backoff_seconds))
+            await asyncio.sleep(max(self._opensky_interval(), self._opensky_backoff_seconds))
             try:
                 await self._poll_opensky_supplement()
             except asyncio.CancelledError:
@@ -657,6 +710,7 @@ class AdsbPoller(BasePoller):
             return
         supplemented = 0
         skipped_local = 0
+        skipped_community = 0
         for state in data.get("states") or []:
             entity = normalize_opensky(state)
             if not entity:
@@ -669,6 +723,10 @@ class AdsbPoller(BasePoller):
                 if self._is_local_recent(icao):
                     skipped_local += 1
                     continue
+                # OpenSky only fills gaps: community fixes are ~30x fresher and carry owner data.
+                if self._is_community_recent(icao) or self._is_older_than_held(icao, entity):
+                    skipped_community += 1
+                    continue
                 self._unified_entities[icao] = entity
                 await publish_entity(
                     entity,
@@ -679,10 +737,11 @@ class AdsbPoller(BasePoller):
         self._opensky_poll_count += 1
         if self._opensky_poll_count <= 3 or self._opensky_poll_count % 10 == 0:
             logger.info(
-                "[adsb] OpenSky supplement poll #%d: %d published, %d skipped (seen locally)",
+                "[adsb] OpenSky supplement poll #%d: %d published, %d seen locally, %d covered by community",
                 self._opensky_poll_count,
                 supplemented,
                 skipped_local,
+                skipped_community,
             )
 
     async def _poll_ultrafeeder(self, url: str):
@@ -707,7 +766,7 @@ class AdsbPoller(BasePoller):
 
     async def _poll_opensky(self):
         now = time.time()
-        if (now - self._last_opensky_poll_ts) < max(settings.adsb_opensky_interval, self._opensky_backoff_seconds):
+        if (now - self._last_opensky_poll_ts) < max(self._opensky_interval(), self._opensky_backoff_seconds):
             return
         self._last_opensky_poll_ts = now
         data = await self._fetch_opensky()
