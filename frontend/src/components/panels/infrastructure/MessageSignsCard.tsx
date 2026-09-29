@@ -10,7 +10,7 @@ interface Sign {
   page1: string[]
   page2: string[]
   text: string
-  kind: 'message' | 'travel'
+  kind: 'message' | 'speed' | 'travel'
 }
 
 /** What ODOT's freeway signs are telling drivers right now. Messages first; travel times stay small. */
@@ -30,8 +30,9 @@ export function MessageSignsCard() {
   }, [])
 
   const messages = signs.filter((s) => s.kind === 'message')
+  const speed = signs.filter((s) => s.kind === 'speed')
   const travel = signs.filter((s) => s.kind === 'travel')
-  if (messages.length === 0 && travel.length === 0) return null
+  if (messages.length === 0 && speed.length === 0 && travel.length === 0) return null
 
   return (
     <div className="hud-panel p-3">
@@ -57,16 +58,16 @@ export function MessageSignsCard() {
         </div>
       )}
 
-      {travel.length > 0 && (
+      {speed.length + travel.length > 0 && (
         <details className="mt-2 group">
           <summary className="cursor-pointer list-none flex items-center gap-1 text-[11px] uppercase tracking-widest text-on-surface-variant hover:text-on-surface">
             <span className="ms text-[14px] group-open:rotate-90 transition-transform" aria-hidden="true">chevron_right</span>
-            Travel-time signs ({travel.length})
+            Speed advisories &amp; travel times ({speed.length + travel.length})
           </summary>
           <div className="mt-1 space-y-1">
-            {travel.map((s) => (
+            {[...speed, ...travel].map((s) => (
               <div key={s.id} className="flex items-center gap-3 font-mono text-[11px] border border-white/10 bg-white/[0.02] px-3 py-1">
-                <span className="text-on-surface-variant w-24 shrink-0 truncate">{s.route} · {Math.round(s.dist_km)} km</span>
+                <span className="text-on-surface-variant w-28 shrink-0 truncate">{s.kind === 'speed' ? 'speed' : s.route} · {Math.round(s.dist_km)} km</span>
                 <span className="text-on-surface">{s.text.replace(/TRAVEL TIME TO:\s*\/?\s*/i, '')}</span>
               </div>
             ))}

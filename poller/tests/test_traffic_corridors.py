@@ -102,5 +102,24 @@ class SignTests(unittest.TestCase):
         self.assertEqual([(s["id"], s["kind"]) for s in signs], [(2, "message"), (1, "travel")])
 
 
+class SignKindTests(unittest.TestCase):
+    def test_run_together_travel_times_are_still_travel_times(self):
+        inv = [{"device-id": 1, "device-name": "VMS x", "latitude": 45.4, "longitude": -122.7}]
+        sts = [{"device-id": 1, "dms-device-status": "in service", "dmsCurrentMessage": {"phase1Line1": "84VIA HOGANVIA 181ST18MIN20MINTIME"}}]
+        self.assertEqual(parse_signs(inv, sts, *TUALATIN)[0]["kind"], "travel")
+
+
+class SpeedSignTests(unittest.TestCase):
+    def test_per_lane_speed_signs_collapse_and_rank_after_messages(self):
+        inv = [{"device-id": i, "device-name": f"VAS I205 SB @ OR213 ({l} Lane) MP10.19", "latitude": 45.4, "longitude": -122.7}
+               for i, l in enumerate("ABC", start=1)]
+        inv.append({"device-id": 9, "device-name": "VMS I5 NB @ x", "latitude": 45.5, "longitude": -122.7})
+        sts = [{"device-id": i, "dms-device-status": "in service", "dmsCurrentMessage": {"phase1Line1": "SLOW"}} for i in (1, 2, 3)]
+        sts.append({"device-id": 9, "dms-device-status": "in service", "dmsCurrentMessage": {"phase1Line1": "CRASH AHEAD"}})
+        signs = parse_signs(inv, sts, *TUALATIN)
+        self.assertEqual([(s["kind"], s["text"]) for s in signs], [("message", "CRASH AHEAD"), ("speed", "SLOW")])
+        self.assertNotIn("Lane", signs[1]["name"])
+
+
 if __name__ == "__main__":
     unittest.main()

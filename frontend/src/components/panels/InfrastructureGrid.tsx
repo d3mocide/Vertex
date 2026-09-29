@@ -197,7 +197,7 @@ export function InfrastructureGrid() {
 
         {/* Right now: what is closed or slow, and how the roads, signs and power look */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-          <IncidentsNow incidents={triage.now} cameras={allCameras} onOpenCamera={setSelectedCamId} />
+          <IncidentsNow groups={triage.now} cameras={allCameras} onOpenCamera={setSelectedCamId} />
 
           <div className="flex flex-col gap-4">
             <RoadStatusCard />

@@ -38,6 +38,15 @@ export interface TrafficIncident {
   lon?: number
   severity?: string
   dist_km?: number
+  // Set by the poller (traffic.py triage_incidents): ODOT's rating alone is unreliable.
+  start?: string                       // first reported (pubDate is the last update)
+  kind?: 'closure' | 'delay' | 'low'
+  scope?: 'road' | 'ramp' | null
+  unplanned?: boolean                  // crash, hazard, landslide … as opposed to planned work
+  group?: string | null                // closures within ~2.5 km share a group
+  lead?: boolean
+  group_size?: number
+  sched_end?: string
 }
 
 // ─── Feed freshness (backend /health/feeds + WebSocket feed_update.ts) ───────

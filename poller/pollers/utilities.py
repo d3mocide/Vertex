@@ -1,9 +1,12 @@
 from datetime import datetime, timezone
+import json
 import logging
+import re
+import time
 import httpx
 from config import settings
 from security import validate_request_url
-from bus import set_feed
+from bus import get_bus, set_feed
 from normalizers.beast_math import haversine_km
 from .base import BasePoller
 
@@ -16,6 +19,46 @@ METRO_COUNTIES = {"MULTNOMAH", "WASHINGTON", "CLACKAMAS"}
 
 _OUTAGE_MAP_KM = 150     # outage areas farther than this are not sent to the map
 _OUTAGE_NEAR_KM = 30     # "near you" list
+
+
+# ─── What might explain an outage ─────────────────────────────────────────────
+# ODIN publishes how many meters are out and where — never why. PGE and PacifiCorp keep cause and
+# restoration time in their own outage maps. What we can say honestly is what else is going on:
+# a wind/storm/ice/heat alert in effect, or lightning close by in the last hour. These are hints,
+# labelled as context in the UI, not a diagnosis.
+_WEATHER_CAUSE = re.compile(r"wind|storm|thunder|ice\b|icy|freez|snow|winter|heat|fire|flood|tornado", re.I)
+_LIGHTNING_KM = 25
+_LIGHTNING_WINDOW_S = 3600
+
+
+def outage_context(alerts: list[dict], strikes: list[dict], lat: float | None, lon: float | None,
+                   now_s: float | None = None) -> list[str]:
+    now_s = time.time() if now_s is None else now_s
+    out: list[str] = []
+    events = []
+    for a in alerts or []:
+        ev = str(a.get("event") or "")
+        if _WEATHER_CAUSE.search(ev) and ev not in events:
+            events.append(ev)
+    if events:
+        out.append(f"{events[0]} in effect" + (f" (+{len(events) - 1} more)" if len(events) > 1 else ""))
+    if lat is not None and lon is not None:
+        close = [s for s in strikes or []
+                 if now_s - (s.get("ts") or 0) / 1000 <= _LIGHTNING_WINDOW_S
+                 and haversine_km(s["lat"], s["lon"], lat, lon) <= _LIGHTNING_KM]
+        if close:
+            out.append(f"{len(close)} lightning strike{'s' if len(close) != 1 else ''} within {_LIGHTNING_KM} km in the last hour")
+    return out
+
+
+async def _feed_list(key: str) -> list:
+    """A list feed from Redis ([] if missing or unreadable)."""
+    try:
+        raw = await (await get_bus()).get(key)
+        data = json.loads(raw) if raw else []
+        return data if isinstance(data, list) else []
+    except Exception:
+        return []
 
 
 def _centroid(geometry: dict) -> tuple[float, float] | None:
@@ -46,6 +89,8 @@ def summarize_outages(features: list[dict], lat: float, lon: float) -> tuple[lis
             "meters_served": p.get("metersServed"),
             "tract": p.get("tract"),
             "dist_km": dist,
+            "lat": centre[0] if centre else None,
+            "lon": centre[1] if centre else None,
         }
         if geom and dist is not None and dist <= _OUTAGE_MAP_KM:
             mapped.append({"type": "Feature", "geometry": geom, "properties": entry})
@@ -120,6 +165,11 @@ class UtilityPoller(BasePoller):
 
                 synced_at = datetime.now(timezone.utc).isoformat()
                 mapped, near = summarize_outages(features, settings.region_lat, settings.region_lon)
+                if near:
+                    alerts = await _feed_list("feed:weather:alerts")
+                    strikes = await _feed_list("feed:lightning:strikes")
+                    for entry in near:
+                        entry["context"] = outage_context(alerts, strikes, entry.get("lat"), entry.get("lon"))
                 await set_feed("utility:outages", {"type": "FeatureCollection", "features": mapped, "near": near,
                                                    "updated": synced_at})
                 await set_feed("utility:oregon", {

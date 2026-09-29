@@ -216,20 +216,118 @@ def _parse_odot_incidents(data: dict) -> list[dict]:
         elif route and location:
             location = f"{route} - {location}"
 
-        items.append({
+        sched = ((inc.get("schedule") or {}).get("project-schedule")) or {}
+        ramp_lanes = [str(l.get("lane-type", "")).lower()
+                      for l in ((inc.get("off-hwy-lanes") or {}).get("affected-lanes") or [])]
+        item = {
             "title":       _clean(title),
             "description": _clean(description),
             "location":    location,
             "link":        inc.get("info-url", ""),
             "pubDate":     inc.get("update-time", inc.get("create-time", inc.get("startTime", ""))),
+            "start":       inc.get("create-time") or "",     # first reported (pubDate is the last update)
             "lat":         lat,
             "lon":         lon,
             "severity":    severity,
             "dist_km":     round(_distance_km(h_lat, h_lon, lat, lon), 2),
-        })
+            "event":       inc.get("event-type-id") or "",
+            "event_sub":   str(inc.get("event-subtype-id") or ""),
+            "sched_end":   sched.get("end-date-time") or "",
+            "ramp":        any("ramp" in t for t in ramp_lanes),
+        }
+        items.append(item)
 
     # Keep nearest incidents at the top, consistent with camera ordering.
     items.sort(key=lambda x: x.get("dist_km", float("inf")))
+    return triage_incidents(items)
+
+
+# ─── Incident triage ──────────────────────────────────────────────────────────
+# ODOT's impact rating cannot be trusted on its own: "Full closure of I-5 southbound" is filed as
+# "No to Minimum Delay" and a night closure of I-205 as "Estimated delay". So the words and the
+# structured fields (event type, affected ramp lanes) decide what is a closure, how big, and whether
+# it is an event or planned work.
+_ROAD_CLOSED = re.compile(
+    r"full (road )?closures?|all lanes[^.]{0,60}clos|closed the road|road is (currently )?closed|"
+    r"closure of (i|us|or|hwy|highway)[- ]?\d", re.I)
+_RAMP_WORD = re.compile(r"\b(on-?ramp|off-?ramp|ramps?|exit \d+|the exit)\b", re.I)
+_CLOSED_WORD = re.compile(r"\bclos(ed|ure)\b", re.I)
+_DELAY_IMPACT = re.compile(r"estimated delay|20 minutes|over 2 hours|2\+ hours|major|severe", re.I)
+_EVENT_TEXT = re.compile(r"\b(crash|collision|stalled|blocked|debris|hazard|hazmat|landslide|injur|fatal|fire)\b", re.I)
+_UNPLANNED_EVENTS = {"VH", "DS", "CN"}          # vehicle/crash, disaster, oversize load
+_UNPLANNED_SUBTYPES = {"265", "270"}            # debris report, landslide
+_GROUP_KM = 2.5                                 # closures this close belong to one project/event
+
+
+def _first_sentence(text: str) -> str:
+    return re.split(r"(?<=[.!?])\s", (text or "").strip(), maxsplit=1)[0]
+
+
+def classify_incident(item: dict) -> dict:
+    """kind (closure|delay|low), scope (road|ramp|None), unplanned — from words and event codes."""
+    title = item.get("title") or ""
+    lead = f"{title} {_first_sentence(item.get('description') or '')}"
+    impact = (item.get("severity") or "").lower()
+    rated_closed = bool(re.search(r"closure|detour", impact))
+
+    scope = None
+    if _ROAD_CLOSED.search(lead):
+        scope = "road"
+    elif rated_closed or (_CLOSED_WORD.search(title) and _RAMP_WORD.search(title)):
+        scope = "ramp" if (item.get("ramp") or _RAMP_WORD.search(title)) else "road"
+
+    unplanned = (
+        item.get("event") in _UNPLANNED_EVENTS
+        or item.get("event_sub") in _UNPLANNED_SUBTYPES
+        or bool(_EVENT_TEXT.search(title))
+    )
+    if scope:
+        kind = "closure"
+    elif _DELAY_IMPACT.search(impact) or unplanned:
+        kind = "delay"
+    else:
+        kind = "low"
+    return {"kind": kind, "scope": scope, "unplanned": unplanned}
+
+
+def triage_incidents(items: list[dict]) -> list[dict]:
+    """Add kind/scope/unplanned to every incident and cluster closures that belong together.
+
+    Closures within 2.5 km of one another are one project (the I-5 southbound shutdown and the
+    five ramps it drags with it). Each cluster gets a `group`; its most important member —
+    a road closure over a ramp, then the most recently updated — is the `lead`.
+    """
+    for it in items:
+        it.update(classify_incident(it))
+        it["group"] = None
+        it["lead"] = False
+        it["group_size"] = 1
+
+    closures = [it for it in items if it["kind"] == "closure" and it.get("lat") is not None]
+    parent = list(range(len(closures)))
+
+    def find(i: int) -> int:
+        while parent[i] != i:
+            parent[i] = parent[parent[i]]
+            i = parent[i]
+        return i
+
+    for i in range(len(closures)):
+        for j in range(i + 1, len(closures)):
+            a, b = closures[i], closures[j]
+            if _distance_km(a["lat"], a["lon"], b["lat"], b["lon"]) <= _GROUP_KM:
+                parent[find(i)] = find(j)
+
+    clusters: dict[int, list[dict]] = {}
+    for i, it in enumerate(closures):
+        clusters.setdefault(find(i), []).append(it)
+
+    for n, members in enumerate(clusters.values()):
+        lead = max(members, key=lambda m: (m["scope"] == "road", m.get("pubDate") or ""))
+        for m in members:
+            m["group"] = f"c{n}"
+            m["group_size"] = len(members)
+        lead["lead"] = True
     return items
 
 
@@ -396,9 +494,12 @@ def summarize_corridors(stations: list[dict], lat: float, lon: float,
 
 
 # ─── Message signs (DMS) ──────────────────────────────────────────────────────
-_TRAVEL_SIGN = re.compile(r"TRAVEL TIME|\bMIN\b|^[\d\s/]+$", re.I)
+_TRAVEL_SIGN = re.compile(r"TRAVEL TIME|\d\s*MIN|\bMIN\b|^[\d\s/]+$", re.I)
+_SPEED_SIGN_NAME = re.compile(r"^(VAS|VSL)\b", re.I)          # variable advisory / speed-limit signs
+_SPEED_TEXT = re.compile(r"^(slow|advisory|speed ?\d+|speed limit)\b|\bspeed ?\d{2}\b", re.I)
+_LANE_SUFFIX = re.compile(r"\s*\((?:[A-Z]|\d)\s*lane\)", re.I)
 _SIGN_RADIUS_KM = 60
-_SIGN_MAX = 12
+_SIGN_MAX = 10
 
 
 def parse_signs(inventory: list, statuses: list, lat: float, lon: float,
@@ -423,18 +524,40 @@ def parse_signs(inventory: list, statuses: list, lat: float, lon: float,
         if dist > radius_km:
             continue
         text = " / ".join(p1 or p2)
+        name = (dev.get("device-name") or "").strip()
         out.append({
             "id": dev.get("device-id"),
-            "name": (dev.get("device-name") or "").strip(),
+            "name": name,
             "route": dev.get("route-id"),
             "dist_km": round(dist, 1),
             "page1": p1, "page2": p2 if p2 != p1 else [],
             "text": text,
             # Travel times / speeds are routine; anything else is a message drivers were meant to read.
-            "kind": "travel" if _TRAVEL_SIGN.search(text) else "message",
+            "kind": ("travel" if _TRAVEL_SIGN.search(text)
+                     else "speed" if (_SPEED_SIGN_NAME.match(name) or _SPEED_TEXT.search(text)) else "message"),
         })
-    out.sort(key=lambda d: (d["kind"] != "message", d["dist_km"]))
-    return out[:_SIGN_MAX]
+
+    # Variable speed signs come one per lane ("… (A Lane)", "(B Lane)") with the same words:
+    # keep one per place and message.
+    seen: set[tuple[str, str]] = set()
+    unique: list[dict] = []
+    for d in sorted(out, key=lambda d: d["dist_km"]):
+        key = (_LANE_SUFFIX.sub("", d["name"]).strip().lower(), d["text"])
+        if key in seen:
+            continue
+        seen.add(key)
+        d["name"] = _LANE_SUFFIX.sub("", d["name"]).strip()
+        unique.append(d)
+    unique.sort(key=lambda d: ({"message": 0, "speed": 1, "travel": 2}[d["kind"]], d["dist_km"]))
+    # Caps per kind so a day full of closure messages cannot squeeze the rest out.
+    caps = {"message": _SIGN_MAX, "speed": 3, "travel": 4}
+    taken: dict[str, int] = {}
+    kept: list[dict] = []
+    for d in unique:
+        taken[d["kind"]] = taken.get(d["kind"], 0) + 1
+        if taken[d["kind"]] <= caps[d["kind"]]:
+            kept.append(d)
+    return kept
 
 
 def _parse_odot_inventory(data: dict) -> dict:

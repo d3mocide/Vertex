@@ -3,7 +3,7 @@ import { API_BASE } from '../../../config'
 import { authHeaders } from '../../../auth'
 import { formatAge, useFeedFreshness } from '../../common/FeedAge'
 
-interface Near { utility: string; county: string; meters_out: number; meters_served: number | null; dist_km: number | null }
+interface Near { utility: string; county: string; meters_out: number; meters_served: number | null; dist_km: number | null; context?: string[] }
 interface Outages { near: Near[] }
 
 /**
@@ -48,18 +48,31 @@ export function PowerCard({ statewide, metro, pge, pacific }: { statewide: numbe
         <div className="space-y-1.5">
           <div className="text-[12px] text-amber-gold font-bold">{nearTotal} meters out near you</div>
           {near.slice(0, 5).map((o, i) => (
-            <div key={`${o.county}-${i}`} className="flex items-center gap-3 border border-white/10 bg-white/[0.02] px-3 py-1.5 font-mono text-[11px]">
-              <span className="text-on-surface flex-1 truncate">{o.utility}</span>
-              <span className="text-on-surface-variant">{o.county}</span>
-              <span className="text-amber-gold w-16 text-right">{o.meters_out} out</span>
-              <span className="text-on-surface-variant w-12 text-right">{o.dist_km != null ? `${Math.round(o.dist_km)} km` : ''}</span>
+            <div key={`${o.county}-${i}`} className="border border-white/10 bg-white/[0.02] px-3 py-1.5 font-mono text-[11px]">
+              <div className="flex items-center gap-3">
+                <span className="text-on-surface flex-1 truncate">{o.utility}</span>
+                <span className="text-on-surface-variant">{o.county}</span>
+                <span className="text-amber-gold w-16 text-right">{o.meters_out} out</span>
+                <span className="text-on-surface-variant w-12 text-right">{o.dist_km != null ? `${Math.round(o.dist_km)} km` : ''}</span>
+              </div>
+              {/* The utility's own cause is not public; this is what else is going on nearby. */}
+              <div className="mt-0.5 text-on-surface-variant">
+                {o.context && o.context.length > 0
+                  ? <><span className="uppercase tracking-widest">Context </span><span className="text-on-surface">{o.context.join(' · ')}</span></>
+                  : 'No cause published · nothing unusual nearby'}
+              </div>
             </div>
           ))}
         </div>
       )}
 
-      <div className="mt-2 pt-2 border-t border-white/5 font-mono text-[11px] text-on-surface-variant">
-        Oregon: {statewide} meters out · metro {metro} · PGE {pge} · Pacific Power {pacific}
+      <div className="mt-2 pt-2 border-t border-white/5 font-mono text-[11px] text-on-surface-variant space-y-1">
+        <div>Oregon: {statewide} meters out · metro {metro} · PGE {pge} · Pacific Power {pacific}</div>
+        {near.some((o) => /portland general/i.test(o.utility)) && (
+          <a href="https://portlandgeneral.com/outages" target="_blank" rel="noreferrer noopener" className="inline-block uppercase tracking-widest text-amber-gold hover:text-white">
+            Cause &amp; restoration time: PGE outage map ↗
+          </a>
+        )}
       </div>
     </div>
   )
