@@ -2068,3 +2068,12 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 
 - **ODF fire danger** (`pollers/odf_fire_danger.py`, `fire:danger`, `/weather/fire/danger`): official public fire danger (Low…Extreme) for ODF's 63 protection zones, from the public ArcGIS view behind gisapps.odf.oregon.gov/firerestrictions (`Fire_Danger_Level_View`). Map layer `FireDangerLayer` (Settings → "Fire Danger (ODF)", off by default; polygons in the app's signal colours) and a **Fire Danger · ODF** card on the Environment page. Tualatin's valley floor is in no ODF zone, so the card shows the nearest zones. The IFPL level is not shown (values include an undocumented 5). The "Current Year Fires" ODF layer is effectively empty (1 record) and was not used.
 - **AQI blank**: AirNow intermittently 5xx's and `weather:current` is rewritten whole each poll, so the tile blanked. The last good AQI is now kept for up to 3 h (seeded from `weather_observations` after a restart).
+
+## 2026-09-29 — Environment page overhaul (priority order, less scroll)
+
+- **New order** (desktop: left column Outlook → Fire & Smoke → Geohazards, sticky right column Radar → Nearby Conditions; phones: Outlook → Radar (collapsed, tap to open) → Nearby → Fire & Smoke → Geohazards). Page is ~35–45% shorter.
+- **Status**: one "ALL CLEAR" line when there are no NWS alerts/hazards; otherwise the alerts plus only the lit hazards (replaces the six always-on tiles). Stat tiles: temperature, wind (+gusts), humidity, AQI. The duplicate AQI card is gone.
+- **Outlook** card: NWS hourly strip (next 24 h: temp, rain chance, wind) + day/night periods (`weather:forecast`, `/weather/forecast`, poller `_fetch_forecast`, `normalize_forecast`) + forecaster discussion (storm report only while <24 h old; CF6 hidden).
+- **Fire & Smoke** merges the old fire, ODF danger and hotspots cards (four numbers when quiet; lists only when non-empty). **Geohazards** merges seismic + GDACS (one line when empty); the panel makes one `/events?hours=72` fetch for both.
+- RWIS: an empty status list from ODOT (seen once, ~10 min) no longer blanks the road-weather feed.
+- Removed: `FireStatusCard` (helpers kept), `FireDangerCard`, `HotspotsCard`, `SeismicCard`, `GdacsCard`, `AqiGauge` usage.

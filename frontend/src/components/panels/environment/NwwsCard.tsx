@@ -59,7 +59,10 @@ function preview(p: NwwsProduct): string {
   return body.replace(/\s+/g, ' ').trim()
 }
 
-export function NwwsCard() {
+/** Recent forecaster products. The storm report only counts while it is fresh. */
+const LSR_MAX_AGE_MS = 24 * 3600 * 1000
+
+export function NwwsProducts() {
   const [products, setProducts] = useState<NwwsProduct[]>([])
   const [expanded, setExpanded] = useState<string | null>(null)
 
@@ -76,58 +79,58 @@ export function NwwsCard() {
   }, [])
 
   // CF6 is a monthly climate table — reference data, not situational awareness.
-  const shown = products.filter((p) => p.code !== 'CF6')
+  // A storm report from days ago is history, not news.
+  const shown = products.filter((p) => {
+    if (p.code === 'CF6') return false
+    if (p.code === 'LSR') {
+      const t = p.issuance_time ? Date.parse(p.issuance_time) : NaN
+      return !Number.isNaN(t) && Date.now() - t < LSR_MAX_AGE_MS
+    }
+    return true
+  })
   if (shown.length === 0) return null
 
   return (
-    <div className="hud-panel p-4 bg-onyx-deep/40">
-      <div className="label-caps mb-3 flex items-center gap-2">
-        <span className="ms text-[14px] leading-none text-sky-400" aria-hidden="true">feed</span>
-        NWS TEXT PRODUCTS
-        <span className="ml-auto font-mono text-[11px] text-on-surface-variant">{shown[0]?.office}</span>
-      </div>
+    <div className="space-y-2">
+      {shown.map((p) => {
+        const isOpen = expanded === p.code
+        const color = CODE_COLORS[p.code] ?? 'text-gray-400'
+        const icon = CODE_ICONS[p.code] ?? 'article'
+        return (
+          <div key={p.code} className="border border-white/10 bg-white/[0.02]">
+            <button
+              className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-white/[0.03] transition-colors"
+              onClick={() => setExpanded(isOpen ? null : p.code)}
+              aria-expanded={isOpen}
+            >
+              <span className={`ms text-[12px] leading-none ${color}`} aria-hidden="true">{icon}</span>
+              <span className={`text-[11px] lg:text-[12px] font-bold ${color} uppercase tracking-wide flex-1`}>{p.name}</span>
+              <span className="font-mono text-[11px] text-on-surface-variant shrink-0">
+                {formatIso(p.issuance_time)}
+              </span>
+              <span className="ms text-[12px] leading-none text-on-surface-variant ml-1" aria-hidden="true">
+                {isOpen ? 'expand_less' : 'expand_more'}
+              </span>
+            </button>
 
-      <div className="space-y-2">
-        {shown.map((p) => {
-          const isOpen = expanded === p.code
-          const color = CODE_COLORS[p.code] ?? 'text-gray-400'
-          const icon = CODE_ICONS[p.code] ?? 'article'
-          return (
-            <div key={p.code} className="border border-white/10 bg-white/[0.02]">
-              <button
-                className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-white/[0.03] transition-colors"
-                onClick={() => setExpanded(isOpen ? null : p.code)}
-                aria-expanded={isOpen}
-              >
-                <span className={`ms text-[12px] leading-none ${color}`} aria-hidden="true">{icon}</span>
-                <span className={`text-[11px] lg:text-[12px] font-bold ${color} uppercase tracking-wide flex-1`}>{p.name}</span>
-                <span className="font-mono text-[11px] text-on-surface-variant shrink-0">
-                  {formatIso(p.issuance_time)}
-                </span>
-                <span className="ms text-[12px] leading-none text-on-surface-variant ml-1" aria-hidden="true">
-                  {isOpen ? 'expand_less' : 'expand_more'}
-                </span>
-              </button>
+            {isOpen && p.text && (
+              <div className="border-t border-white/5 px-3 py-2">
+                <pre className="font-mono text-[11px] text-on-surface-variant whitespace-pre-wrap break-words leading-relaxed max-h-72 overflow-y-auto">
+                  {readable(p.text)}
+                </pre>
+              </div>
+            )}
 
-              {isOpen && p.text && (
-                <div className="border-t border-white/5 px-3 py-2">
-                  <pre className="font-mono text-[11px] text-on-surface-variant whitespace-pre-wrap break-words leading-relaxed max-h-72 overflow-y-auto">
-                    {readable(p.text)}
-                  </pre>
-                </div>
-              )}
-
-              {!isOpen && p.text && (
-                <div className="border-t border-white/5 px-3 pb-2 pt-1">
-                  <p className="text-[11px] lg:text-[12px] text-on-surface-variant leading-relaxed line-clamp-3">
-                    {preview(p)}
-                  </p>
-                </div>
-              )}
-            </div>
-          )
-        })}
-      </div>
+            {!isOpen && p.text && (
+              <div className="border-t border-white/5 px-3 pb-2 pt-1">
+                <p className="text-[12px] text-on-surface-variant leading-relaxed line-clamp-4">
+                  {preview(p)}
+                </p>
+              </div>
+            )}
+          </div>
+        )
+      })}
     </div>
   )
 }

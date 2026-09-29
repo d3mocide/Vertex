@@ -204,6 +204,7 @@ export interface WeatherAlert {
 export interface WeatherState {
   temp_f?:     number
   wind_mph?:   number
+  wind_gust_mph?: number | null
   wind_dir?:   string
   condition?:  string
   humidity?:   number

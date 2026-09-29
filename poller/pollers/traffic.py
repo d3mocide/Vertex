@@ -103,11 +103,16 @@ class TrafficPoller(BasePoller):
                         self._rwis_inventory_at = time.time()
                     resp = await client.get(f"{_ODOT_API_BASE}{_ODOT_RWIS_STATUS_PATH}", headers=headers)
                     resp.raise_for_status()
-                    await set_feed(
-                        "weather:rwis",
-                        parse_rwis(self._rwis_inventory, resp.json().get("WeatherStations") or [],
-                                   settings.region_lat, settings.region_lon),
-                    )
+                    statuses = resp.json().get("WeatherStations") or []
+                    if not statuses:
+                        # ODOT sometimes answers 200 with an empty list; keep the last
+                        # good feed rather than blanking the card.
+                        logger.warning("[traffic] RWIS status came back empty; keeping the previous readings")
+                    else:
+                        await set_feed(
+                            "weather:rwis",
+                            parse_rwis(self._rwis_inventory, statuses, settings.region_lat, settings.region_lon),
+                        )
                 except Exception as exc:
                     logger.warning("[traffic] RWIS fetch failed: %s", exc)
 

@@ -2,16 +2,13 @@ import { useEffect, useState } from 'react'
 import { useCivicStore, SystemEvent } from '../../store'
 import { API_BASE } from '../../config'
 import { authHeaders, clearToken } from '../../auth'
-import { FireStatusCard, firePanelEntityFromEntity, type FirePanelEntity, type FireRelevance } from './environment/FireStatusCard'
-import { SeismicCard } from './environment/SeismicCard'
-import { AqiGauge } from './environment/AqiGauge'
+import { firePanelEntityFromEntity, type FirePanelEntity, type FireRelevance } from './environment/FireStatusCard'
+import { FireSmokeCard } from './environment/FireSmokeCard'
+import { GeohazardsCard } from './environment/GeohazardsCard'
+import { OutlookCard } from './environment/OutlookCard'
 import { WeatherAlertCard } from './environment/WeatherAlertCard'
 import { RadarControls } from './environment/RadarMiniMap'
-import { GdacsCard } from './environment/GdacsCard'
 import { NearbyConditionsCard } from './environment/NearbyConditionsCard'
-import { HotspotsCard } from './environment/HotspotsCard'
-import { FireDangerCard } from './environment/FireDangerCard'
-import { NwwsCard } from './environment/NwwsCard'
 import { FeedAge } from '../common/FeedAge'
 import { PageHeader, StatTiles, type Stat } from '../common/Page'
 
@@ -19,7 +16,8 @@ export function EnvironmentPanel() {
   const weather = useCivicStore((s) => s.weather)
   const liveSystemEvents = useCivicStore((s) => s.systemEvents)
   const entities = useCivicStore((s) => s.entities)
-  const [seismicEvents, setSeismicEvents] = useState<SystemEvent[]>([])
+  const [recentEvents, setRecentEvents] = useState<SystemEvent[]>([])
+  const [radarOpen, setRadarOpen] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
 
   useEffect(() => {
@@ -41,31 +39,42 @@ export function EnvironmentPanel() {
   const localFires = fireEntities.filter((fire) => fire.relevance === 'local')
   const regionalFires = fireEntities.filter((fire) => fire.relevance === 'regional')
 
-  const mergedSeismicEvents = Array.from(
+  // Quakes: last 24 h, stored plus live. Disasters: last 72 h, regional only (distant
+  // ones are recorded as severity "info" for the briefing), each GDACS event once.
+  const dayAgo = Date.now() - 24 * 3600 * 1000
+  const quakes = Array.from(
     new Map(
-      [...seismicEvents, ...liveSystemEvents.filter((ev) => ev.event_type === 'seismic')].map((ev) => [ev.event_id, ev]),
+      [...recentEvents, ...liveSystemEvents].filter((ev) => ev.event_type === 'seismic' && Date.parse(ev.ts) >= dayAgo)
+        .map((ev) => [ev.event_id, ev]),
     ).values(),
   ).sort((a, b) => Date.parse(b.ts) - Date.parse(a.ts))
-
+  const seenDisaster = new Set<string>()
+  const disasters = recentEvents.filter((ev) => {
+    if (ev.event_type !== 'gdacs' || ev.severity === 'info') return false
+    const id = String((ev.details as { gdacs_event_id?: string })?.gdacs_event_id ?? ev.event_id)
+    if (seenDisaster.has(id)) return false
+    seenDisaster.add(id)
+    return true
+  })
 
   useEffect(() => {
     let cancelled = false
 
-    const loadSeismic = async () => {
+    const loadEvents = async () => {
       try {
-        const res = await fetch(`${API_BASE}/events?hours=24`, { headers: authHeaders() })
+        const res = await fetch(`${API_BASE}/events?hours=72`, { headers: authHeaders() })
         if (res.status === 401) { clearToken(); window.location.reload(); return }
         if (!res.ok) return
         const data = await res.json() as SystemEvent[]
         if (cancelled || !Array.isArray(data)) return
-        setSeismicEvents(data.filter((ev) => ev.event_type === 'seismic'))
+        setRecentEvents(data.filter((ev) => ev.event_type === 'seismic' || ev.event_type === 'gdacs'))
       } catch {
         // Keep last known list when request fails.
       }
     }
 
-    loadSeismic()
-    const timer = setInterval(loadSeismic, 60000)
+    loadEvents()
+    const timer = setInterval(loadEvents, 60000)
     return () => { cancelled = true; clearInterval(timer) }
   }, [])
 
@@ -89,82 +98,63 @@ export function EnvironmentPanel() {
   const hasWarning = weather.alerts.some((a) => /warning/i.test(a.event))
   const tiles: Stat[] = [
     { label: 'Temperature', value: weather.temp_f != null ? `${Math.round(weather.temp_f)}°F` : '—', hint: weather.condition ?? undefined },
-    { label: 'Air quality', value: aqi ?? '—', tone: aqiTone, hint: weather.aqi_label ?? undefined },
     { label: 'Wind', value: weather.wind_mph != null ? `${Math.round(weather.wind_mph)} mph` : '—',
-      hint: [weather.wind_dir, weather.humidity != null ? `${Math.round(weather.humidity)}% RH` : null].filter(Boolean).join(' · ') || undefined },
-    { label: 'NWS alerts', value: alertCount, tone: alertCount ? (hasWarning ? 'alert' : 'warn') : 'good',
-      hint: alertCount ? weather.alerts[0].event : 'None for this region' },
+      hint: [weather.wind_dir, weather.wind_gust_mph ? `gusts ${Math.round(weather.wind_gust_mph)}` : null].filter(Boolean).join(' · ') || undefined },
+    { label: 'Humidity', value: weather.humidity != null ? `${Math.round(weather.humidity)}%` : '—' },
+    { label: 'Air quality', value: aqi ?? '—', tone: aqiTone, hint: weather.aqi_label ?? undefined },
   ]
 
-  // One line of hazard icons; only active hazards light up.
-  const hazardStrip = (
-    <div className="flex items-center gap-2 flex-wrap" role="list" aria-label="Hazard status">
-      {hazards.map((h) => (
-        <span
-          key={h.label}
-          role="listitem"
-          aria-label={`${h.label}: ${h.level === 'none' ? 'no alerts' : h.level}`}
-          className={`h-8 px-2.5 flex items-center gap-1.5 border text-[11px] font-bold uppercase tracking-widest ${
-            h.level === 'warning' ? 'border-red-emergency/50 bg-red-emergency/10 text-red-emergency'
-            : h.level === 'watch' ? 'border-amber-gold/50 bg-amber-gold/10 text-amber-gold'
-            : 'border-white/5 text-on-surface-variant/50'}`}
-        >
-          <span className="ms text-[16px] leading-none" aria-hidden="true" style={{ fontVariationSettings: `'FILL' ${h.level === 'none' ? 0 : 1}` }}>{h.icon}</span>
-          {h.label}
-          {h.level !== 'none' && <span className="font-mono">{h.level}</span>}
-        </span>
-      ))}
+  // All quiet is one line. Anything active: the alerts themselves, then only the hazards that are lit.
+  const activeHazards = hazards.filter((h) => h.level !== 'none')
+  const statusBlock = alertCount === 0 && activeHazards.length === 0 ? (
+    <div className="hud-panel px-4 py-3 bg-onyx-deep/40 flex items-center gap-3" role="status">
+      <span className="ms text-[18px] leading-none text-green-ais" aria-hidden="true">check_circle</span>
+      <span className="label-caps !text-green-ais">ALL CLEAR</span>
+      <span className="text-[12px] text-on-surface-variant">No NWS alerts for this region</span>
     </div>
-  )
-
-  // The NWS tile already says "0 · none for this region" when quiet.
-  // Desktop: the full hazard board (one row of six status tiles). Phones use
-  // the strip above — the board took a whole screen there.
-  const hazardBoard = (
-    <div className="hidden lg:grid grid-cols-6 gap-3" role="list" aria-label="Hazard status board">
-      {hazards.map((h) => {
-        const active = h.level !== 'none'
-        const warn = h.level === 'warning'
-        const tone = warn ? 'text-red-emergency' : 'text-amber-gold'
-        return (
-          <div
-            key={h.label}
-            role="listitem"
-            aria-label={`${h.label}: ${active ? h.level : 'no alerts'}`}
-            className={`relative p-4 border flex flex-col items-center gap-2 text-center transition-all duration-500 ${
-              warn ? 'border-red-emergency/30 bg-red-emergency/5 shadow-[0_0_15px_rgba(198,40,40,0.15)]'
-              : active ? 'border-amber-gold/30 bg-amber-gold/5 shadow-[0_0_15px_rgba(255,184,0,0.1)]'
-              : 'border-white/5 bg-white/[0.02] hover:bg-white/[0.04]'}`}
-          >
-            {active && (
-              <span className={`absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full animate-ping ${warn ? 'bg-red-emergency' : 'bg-amber-gold'}`} aria-hidden="true" />
-            )}
-            <span
-              className={`ms text-[24px] leading-none ${active ? tone : 'text-on-surface-variant opacity-40'}`}
-              aria-hidden="true"
-              style={{ fontVariationSettings: `'FILL' ${active ? 1 : 0}` }}
-            >
-              {h.icon}
-            </span>
-            <span className={`text-[11px] font-black uppercase tracking-tight ${active ? 'text-on-surface' : 'text-on-surface-variant/60'}`}>{h.label}</span>
-            <span className={`font-mono text-[11px] font-bold tracking-widest ${active ? tone : 'text-on-surface-variant/40'}`}>
-              {warn ? 'WARNING ACTIVE' : active ? 'WATCH ACTIVE' : 'SECURE'}
-            </span>
-          </div>
-        )
-      })}
-    </div>
-  )
-
-  const alertsBlock = alertCount === 0 ? null : (
-    <div className="space-y-3">
+  ) : (
+    <section aria-label="Weather advisories" className="space-y-3">
       {weather.alerts.map((alert, i) => <WeatherAlertCard key={i} alert={alert} />)}
-    </div>
+      {activeHazards.length > 0 && (
+        <div className="flex items-center gap-2 flex-wrap" role="list" aria-label="Active hazards">
+          {activeHazards.map((h) => (
+            <span
+              key={h.label}
+              role="listitem"
+              className={`h-8 px-2.5 flex items-center gap-1.5 border text-[11px] font-bold uppercase tracking-widest ${
+                h.level === 'warning' ? 'border-red-emergency/50 bg-red-emergency/10 text-red-emergency'
+                : 'border-amber-gold/50 bg-amber-gold/10 text-amber-gold'}`}
+            >
+              <span className="ms text-[16px] leading-none" aria-hidden="true" style={{ fontVariationSettings: "'FILL' 1" }}>{h.icon}</span>
+              {h.label}<span className="font-mono">{h.level}</span>
+            </span>
+          ))}
+        </div>
+      )}
+    </section>
   )
 
   const fireCard = (
-    <FireStatusCard localFires={localFires} regionalFires={regionalFires} aqi={weather.aqi} aqiLabel={weather.aqi_label} />
+    <FireSmokeCard localFires={localFires} regionalFires={regionalFires} aqi={weather.aqi} aqiLabel={weather.aqi_label} />
   )
+
+  // Phones keep radar one tap away: it is a big dark panel that pushed everything else below the fold.
+  const radar = isMobile ? (
+    <div className="hud-panel bg-onyx-deep/40">
+      <button
+        type="button"
+        onClick={() => setRadarOpen((v) => !v)}
+        aria-expanded={radarOpen}
+        className="w-full flex items-center gap-2 px-4 py-3 text-left focus:outline-none"
+      >
+        <span className="ms text-[16px] leading-none text-sky-400" aria-hidden="true">radar</span>
+        <span className="label-caps">RADAR</span>
+        <span className="ml-auto font-mono text-[11px] text-on-surface-variant">{radarOpen ? 'hide' : 'tap to view'}</span>
+        <span className="ms text-[16px] leading-none text-on-surface-variant" aria-hidden="true">{radarOpen ? 'expand_less' : 'expand_more'}</span>
+      </button>
+      {radarOpen && <RadarControls />}
+    </div>
+  ) : <RadarControls />
 
   return (
     <div className="flex flex-col h-full z-10">
@@ -174,41 +164,29 @@ export function EnvironmentPanel() {
         subtitle={<span className="flex items-center gap-2">Tualatin, OR <FeedAge feedKey="weather:current" prefix="Updated" className="text-[11px]" /></span>}
       />
 
-      <div className="flex-1 overflow-y-auto min-h-0 pb-6">
+      <div className="flex-1 overflow-y-auto min-h-0 pb-24">
         <div className="p-4 lg:p-6 space-y-4">
+          {statusBlock}
           <StatTiles items={tiles} />
-          <section aria-label="Weather advisories" className="space-y-3">
-            {alertsBlock}
-            <div className="lg:hidden">{hazardStrip}</div>
-            {hazardBoard}
-          </section>
         </div>
 
         {isMobile ? (
-          <div className="flex flex-col gap-6 px-4 pb-4">
-            <RadarControls />
+          <div className="flex flex-col gap-4 px-4 pb-4">
+            <OutlookCard />
+            {radar}
             <NearbyConditionsCard />
-            <NwwsCard />
             {fireCard}
-            <FireDangerCard />
-            <HotspotsCard />
-            <AqiGauge aqi={weather.aqi} />
-            <GdacsCard />
-            <SeismicCard events={mergedSeismicEvents} />
+            <GeohazardsCard quakes={quakes} disasters={disasters} />
           </div>
         ) : (
-          <div className="flex gap-8 px-6 pb-6 items-start">
-            <div className="flex-1 min-w-0 flex flex-col gap-8">
-              <NwwsCard />
+          <div className="flex gap-6 px-6 pb-6 items-start">
+            <div className="flex-1 min-w-0 flex flex-col gap-6">
+              <OutlookCard />
               {fireCard}
-              <FireDangerCard />
-              <HotspotsCard />
-              <AqiGauge aqi={weather.aqi} />
-              <GdacsCard />
-              <SeismicCard events={mergedSeismicEvents} />
+              <GeohazardsCard quakes={quakes} disasters={disasters} />
             </div>
-            <div className="flex-1 min-w-0 flex flex-col gap-8">
-              <RadarControls />
+            <div className="flex-1 min-w-0 flex flex-col gap-6 sticky top-4">
+              {radar}
               <NearbyConditionsCard />
             </div>
           </div>

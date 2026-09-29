@@ -148,6 +148,12 @@ async def get_fire_danger():
     return await _feed_or("feed:fire:danger", {"type": "FeatureCollection", "features": [], "home": None, "nearby": []})
 
 
+@router.get("/forecast")
+async def get_weather_forecast():
+    """NWS hourly (24 h) and 12-hour period forecast for the region."""
+    return await _feed_or("feed:weather:forecast", {"hourly": [], "periods": [], "updated": None})
+
+
 @router.get("/stations")
 async def get_weather_stations():
     """Latest readings from the primary NWS station and its neighbours."""

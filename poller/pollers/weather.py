@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import re
 import time
 import httpx
 from config import settings
@@ -16,6 +17,34 @@ _HEADERS = {"User-Agent": "Vertex/0.1 (vertex; contact@localhost)"}
 _AQI_KEEP_S = 3 * 3600   # how long the last good AirNow reading stands in for a failed one
 
 
+def _wind_mph(text: str | None) -> int | None:
+    """NWS wind strings: "10 mph", "5 to 10 mph" → the top of the range."""
+    nums = [int(n) for n in re.findall(r"\d+", text or "")]
+    return max(nums) if nums else None
+
+
+def normalize_forecast(hourly: dict, periods: dict, hours: int = 24, days: int = 6) -> dict:
+    """NWS gridpoint hourly + 12-hour forecasts → the small shape the UI needs."""
+    hp = (hourly.get("properties") or {}).get("periods") or []
+    dp = (periods.get("properties") or {}).get("periods") or []
+
+    def pop(p):
+        return (p.get("probabilityOfPrecipitation") or {}).get("value")
+
+    return {
+        "updated": (periods.get("properties") or {}).get("updateTime"),
+        "hourly": [{
+            "ts": p.get("startTime"), "temp_f": p.get("temperature"), "pop": pop(p),
+            "wind_mph": _wind_mph(p.get("windSpeed")), "wind_dir": p.get("windDirection") or "",
+            "short": p.get("shortForecast") or "",
+        } for p in hp[:hours]],
+        "periods": [{
+            "name": p.get("name"), "temp_f": p.get("temperature"), "is_day": p.get("isDaytime"),
+            "pop": pop(p), "short": p.get("shortForecast") or "", "detail": p.get("detailedForecast") or "",
+        } for p in dp[:days]],
+    }
+
+
 class WeatherPoller(BasePoller):
     name = "weather"
     interval = 300  # 5 minutes
@@ -29,6 +58,8 @@ class WeatherPoller(BasePoller):
             self._last_aqi = (stored, time.monotonic())
         # Trigger NWWS fetch on first cycle
         self._nwws_tick = 999
+        self._forecast_tick = 999
+        self._forecast_urls: tuple[str, str] | None = None
 
     async def poll(self):
         obs, aqi = await asyncio.gather(
@@ -65,6 +96,14 @@ class WeatherPoller(BasePoller):
                 except Exception as exc:
                     logger.debug("[weather] could not persist %s: %s", st.get("id"), exc)
 
+        # Forecast every 30 min (NWS refreshes the grid roughly hourly)
+        self._forecast_tick += 1
+        if self._forecast_tick >= (1800 // self.interval):
+            self._forecast_tick = 0
+            forecast = await self._fetch_forecast()
+            if forecast:
+                await set_feed("weather:forecast", forecast)
+
         # NWS text products every 30 min
         self._nwws_tick += 1
         if self._nwws_tick >= (1800 // self.interval):
@@ -82,6 +121,24 @@ class WeatherPoller(BasePoller):
             return normalize_observation(resp.json())
         except Exception as exc:
             logger.warning("[weather] NWS observation failed: %s", exc)
+            return {}
+
+    async def _fetch_forecast(self) -> dict:
+        """Hourly + 12-hour NWS forecast for the region centre."""
+        try:
+            async with httpx.AsyncClient(timeout=20, headers=_HEADERS) as client:
+                if self._forecast_urls is None:
+                    r = await client.get(f"{NWS_BASE}/points/{settings.region_lat:.4f},{settings.region_lon:.4f}")
+                    r.raise_for_status()
+                    props = r.json()["properties"]
+                    self._forecast_urls = (props["forecastHourly"], props["forecast"])
+                hourly, periods = await asyncio.gather(
+                    client.get(self._forecast_urls[0]), client.get(self._forecast_urls[1]))
+                hourly.raise_for_status()
+                periods.raise_for_status()
+            return normalize_forecast(hourly.json(), periods.json())
+        except Exception as exc:
+            logger.warning("[weather] forecast failed: %s", exc)
             return {}
 
     async def _fetch_stations(self) -> list[dict]:
