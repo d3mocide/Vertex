@@ -11,6 +11,7 @@ import os
 import sys
 import unittest
 from datetime import datetime, timezone
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
 _BACKEND_ROOT = os.path.join(os.path.dirname(__file__), "..")
@@ -82,10 +83,19 @@ def _make_app(mock_db: AsyncMock) -> tuple[FastAPI, TestClient]:
 
 def _make_obs_row(entity_id: str = "E1", entity_type: str = "aircraft",
                   display_name: str = "Test", lat: float = 45.5, lon: float = -122.3):
-    """Return a tuple (Observation-like, entity_type, display_name) as the query returns."""
+    """Return a flat replay row, as the raw SQL in /observations/replay yields."""
     obs = _MockObs(entity_id=entity_id, lat=lat, lon=lon,
                    ts=datetime.now(timezone.utc))
-    return (obs, entity_type, display_name)
+    return _replay_row(obs, entity_type, display_name)
+
+
+def _replay_row(obs, entity_type: str = "aircraft", display_name: str = "Test"):
+    """Flatten an observation + entity columns the way the replay query selects them."""
+    return SimpleNamespace(
+        entity_id=obs.entity_id, entity_type=entity_type, display_name=display_name,
+        ts=obs.ts, lat=obs.lat, lon=obs.lon,
+        altitude=obs.altitude, heading=obs.heading, speed=obs.speed,
+    )
 
 
 class _MockObs:
@@ -168,7 +178,7 @@ class TestReplayEndpoint(unittest.IsolatedAsyncioTestCase):
                         ts=datetime(2026, 1, 1, 0, 0, 0, tzinfo=timezone.utc))
         obs2 = _MockObs(entity_id="E1", lat=45.6, lon=-122.4,
                         ts=datetime(2026, 1, 1, 0, 1, 0, tzinfo=timezone.utc))
-        rows = [(obs1, "aircraft", "Plane"), (obs2, "aircraft", "Plane")]
+        rows = [_replay_row(obs1, "aircraft", "Plane"), _replay_row(obs2, "aircraft", "Plane")]
 
         mock_db = AsyncMock()
         mock_result = MagicMock()
@@ -270,7 +280,7 @@ class TestReplayEndpoint(unittest.IsolatedAsyncioTestCase):
         )
         mock_db = AsyncMock()
         mock_result = MagicMock()
-        mock_result.all.return_value = [(obs, "aircraft", "Plane")]
+        mock_result.all.return_value = [_replay_row(obs, "aircraft", "Plane")]
         mock_db.execute = AsyncMock(return_value=mock_result)
         _, client = _make_app(mock_db)
 
