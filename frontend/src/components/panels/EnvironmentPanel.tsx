@@ -7,11 +7,8 @@ import { SeismicCard } from './environment/SeismicCard'
 import { AqiGauge } from './environment/AqiGauge'
 import { WeatherAlertCard } from './environment/WeatherAlertCard'
 import { RadarControls } from './environment/RadarMiniMap'
-import { PirepCard } from './environment/PirepCard'
-import { MetarCard } from './environment/MetarCard'
 import { GdacsCard } from './environment/GdacsCard'
 import { NwwsCard } from './environment/NwwsCard'
-import { PWSCard } from './environment/PWSCard'
 import { FeedAge } from '../common/FeedAge'
 import { PageHeader, StatTiles, type Stat } from '../common/Page'
 
@@ -192,9 +189,6 @@ export function EnvironmentPanel() {
             <AqiGauge aqi={weather.aqi} />
             <GdacsCard />
             <SeismicCard events={mergedSeismicEvents} />
-            <PWSCard />
-            <MetarCard />
-            <PirepCard />
           </div>
         ) : (
           <div className="flex gap-8 px-6 pb-6 items-start">
@@ -207,9 +201,6 @@ export function EnvironmentPanel() {
             </div>
             <div className="flex-1 min-w-0 flex flex-col gap-8">
               <RadarControls />
-              <PWSCard />
-              <MetarCard />
-              <PirepCard />
             </div>
           </div>
         )}

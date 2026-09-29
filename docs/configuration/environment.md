@@ -47,8 +47,6 @@ When relocating the system, update the region center, bounding box, and weather 
 | `ODOT_API_KEY` | TripCheck API key | Required for traffic feeds |
 | `AIRNOW_API_KEY` | AirNow API key | Required for AQI |
 | `AISSTREAM_API_KEY` | AISstream API key | Only needed when using cloud AIS fallback |
-| `WUNDERGROUND_API_KEY` | Wunderground API key | Required for Personal Weather Station data |
-| `WUNDERGROUND_STATION_ID` | Wunderground station ID | The specific PWS station to poll |
 
 ## Wildfire and APRS Controls
 

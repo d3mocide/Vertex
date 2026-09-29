@@ -19,7 +19,6 @@ async def health():
 # lightning) are reported without a threshold.
 _FEED_MAX_AGE_S = {
     "weather:current": 900, "weather:alerts": 300, "weather:nwws_products": 5400,
-    "weather:aviation_obs": 2700, "weather:aviation_hazards": 2700, "weather:pws": 900,
     "traffic:incidents": 600, "traffic:flow": 600, "traffic:cameras": 3600,
     "utility:oregon": 1200, "utility:pge": 1200,
     "alerts:flash": 300, "news:local": 900, "intel:alerts": 900,

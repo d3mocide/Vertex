@@ -2047,3 +2047,9 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 - **Red token drift fixed**: exclusion zones and fire icon/charts now use red-emergency #C62828 (were #FF3B30 / #FF5252).
 - Status colours in `StorageSummary` / `EntityFreshness` (#FF5252) intentionally left as health colours.
 - **Incidents page map/list**: tapping the selected pin again, or empty map, deselects; the selected incident is lifted above the paged list as an expanded "Selected" card with a Clear button (no more page-jumping).
+
+## 2026-09-29 — Environment page: local focus, dead feeds out, weather history
+
+- **Removed** the Weather Underground PWS feed (never configured — empty keys) and the aviation-weather feeds on the Environment page (METAR/TAF, PIREP/SIGMET/AIRMET): poller fetchers, `/weather/pws` + `/weather/aviation/*` routes, health entries, `PWSCard`/`MetarCard`/`PirepCard`, `WUNDERGROUND_*` config/env/docs. The planes page is unaffected — its origin/destination METARs come from the separate ADS-B `MetarClient` enrichment.
+- **Weather history**: new `weather_observations` table (one row per NWS station reading, AQI merged in); written by `WeatherPoller` via `write_weather_obs`; `GET /weather/history?hours=`.
+- **Seismic** now local-only: everything ≤300 km, M3+ to 800 km, nothing beyond (was M5+ worldwide). Added `test_seismic_gating.py`.

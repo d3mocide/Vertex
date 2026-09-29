@@ -88,7 +88,7 @@ const interfaceOverview = (
       <DocGrid>
         <DocCard icon="map" title="Safety" description="The main map view where all layers and entities are visible." />
         <DocCard icon="construction" title="Infrastructure" description="Traffic cameras, road sensors, and corridor monitoring." />
-        <DocCard icon="thermostat" title="Environment" description="Weather observations, METAR/TAF, and wildfire perimeters." />
+        <DocCard icon="thermostat" title="Environment" description="Weather observations, forecast discussions, hydrology, and wildfire perimeters." />
         <DocCard icon="psychology" title="Intel Feed" description="Local government news, FlashAlert newswire, and tactical intelligence resources." />
         <DocCard icon="warning" title="Incidents" description="Real-time traffic incidents and emergency alerts." />
         <DocCard icon="radio" title="Comms" description="Dedicated space for Mesh messages and Radio talkgroups." />
@@ -224,13 +224,8 @@ const infoPanels = (
         The Environment panel is your primary source for weather and regional hazard monitoring.
       </DocText>
       <DocGrid>
-        <DocCard 
-          icon={<AtlasIcon name="aircraft" color={COLORS.AIR} size={20} />} 
-          title="Aviation Weather" 
-          description="Real-time METAR/TAF with flight category coding." 
-        />
         <DocCard icon="description" title="Text Products" description="Area Forecast Discussions (AFD) and HWO logs." />
-        <DocCard icon="volcano" title="Seismic" description="Global and regional earthquake events with depth markers." />
+        <DocCard icon="volcano" title="Seismic" description="Local and regional earthquakes (Cascadia focus) with depth markers." />
         <DocCard 
           icon={<AtlasIcon name="stream" color={COLORS.STREAM} size={20} />} 
           title="Hydrology" 

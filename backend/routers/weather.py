@@ -1,9 +1,15 @@
 import json
 import struct
 import zlib
+from datetime import datetime, timedelta, timezone
 
 import httpx
-from fastapi import APIRouter, Request, Response
+from fastapi import APIRouter, Depends, Query, Request, Response
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from db.models import WeatherObservation
+from deps import get_db
 from redis_bus import get_redis
 
 router = APIRouter(prefix="/weather", tags=["weather"])
@@ -78,30 +84,6 @@ async def get_weather_alerts():
         return []
 
 
-@router.get("/aviation/hazards")
-async def get_aviation_hazards():
-    """PIREPs, SIGMETs, and AIRMETs cached from aviationweather.gov."""
-    raw = await get_redis().get("feed:weather:aviation_hazards")
-    if not raw:
-        return {"pireps": [], "sigmets": [], "airmets": []}
-    try:
-        return json.loads(raw)
-    except (json.JSONDecodeError, TypeError):
-        return {"pireps": [], "sigmets": [], "airmets": []}
-
-
-@router.get("/aviation/obs")
-async def get_aviation_obs():
-    """Nearby METARs and TAFs cached from aviationweather.gov."""
-    raw = await get_redis().get("feed:weather:aviation_obs")
-    if not raw:
-        return {"metars": [], "tafs": []}
-    try:
-        return json.loads(raw)
-    except (json.JSONDecodeError, TypeError):
-        return {"metars": [], "tafs": []}
-
-
 @router.get("/smoke/wms")
 async def proxy_smoke_wms(request: Request):
     # Proxy NOAA smoke WMS tiles through backend to avoid browser CORS failures.
@@ -156,13 +138,22 @@ async def get_nwws_products():
         return []
 
 
-@router.get("/pws")
-async def get_pws_observation():
-    """Current Personal Weather Station observation from Weather Underground."""
-    raw = await get_redis().get("feed:weather:pws")
-    if not raw:
-        return {}
-    try:
-        return json.loads(raw)
-    except (json.JSONDecodeError, TypeError):
-        return {}
+@router.get("/history")
+async def get_weather_history(
+    hours: int = Query(24, ge=1, le=24 * 30, description="How far back to look"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Stored primary-station readings (temp, wind, humidity, AQI), oldest first."""
+    rows = (await db.execute(
+        select(WeatherObservation)
+        .where(WeatherObservation.ts >= datetime.now(timezone.utc) - timedelta(hours=hours))
+        .order_by(WeatherObservation.ts)
+    )).scalars().all()
+    return [
+        {
+            "ts": r.ts.isoformat(), "station": r.station, "temp_f": r.temp_f,
+            "humidity": r.humidity, "wind_mph": r.wind_mph, "wind_gust_mph": r.wind_gust_mph,
+            "wind_dir": r.wind_dir, "condition": r.condition, "aqi": r.aqi, "aqi_label": r.aqi_label,
+        }
+        for r in rows
+    ]

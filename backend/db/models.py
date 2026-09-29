@@ -83,6 +83,25 @@ class Event(Base):
     details: Mapped[Optional[dict]] = mapped_column(JSON)
 
 
+class WeatherObservation(Base):
+    """History of the primary-station reading + AQI (the live feed only holds the latest)."""
+    __tablename__ = "weather_observations"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    ts: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    station: Mapped[str] = mapped_column(String(128))
+    temp_f: Mapped[Optional[float]] = mapped_column(Float)
+    humidity: Mapped[Optional[float]] = mapped_column(Float)
+    wind_mph: Mapped[Optional[float]] = mapped_column(Float)
+    wind_gust_mph: Mapped[Optional[float]] = mapped_column(Float)
+    wind_dir: Mapped[Optional[str]] = mapped_column(String(8))
+    condition: Mapped[Optional[str]] = mapped_column(String(128))
+    aqi: Mapped[Optional[int]] = mapped_column(Integer)
+    aqi_label: Mapped[Optional[str]] = mapped_column(String(64))
+
+    __table_args__ = (UniqueConstraint("station", "ts", name="uq_weather_obs_station_ts"),)
+
+
 class AcarsMessage(Base):
     __tablename__ = "acars_messages"
 

@@ -15,15 +15,17 @@ logger = logging.getLogger(__name__)
 _USGS_FEED = "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_hour.geojson"
 _HEADERS = {"User-Agent": "Vertex/1.0 (Situational Awareness Dashboard)"}
 
-def _severity(mag: float, dist_km: float) -> str:
-    """Severity by what the quake means for the region, not its global size.
+# Vertex is about this region. Local quakes are all recorded, regional ones
+# (the Cascadia margin: offshore, BC, the Willamette/Puget lowlands) from M3,
+# and nothing beyond — the world's M5s were only ever background.
+_LOCAL_KM = 300
+_REGIONAL_KM = 800
+_REGIONAL_MIN_MAG = 3.0
 
-    Distant quakes are recorded for context only: a M6.6 near New Caledonia
-    used to be "high" and surfaced as a priority threat on the Incidents page.
-    """
-    if dist_km > 1500:
-        return "info"
-    if dist_km <= 300:
+
+def _severity(mag: float, dist_km: float) -> str:
+    """Severity by what the quake means for the region, not its global size."""
+    if dist_km <= _LOCAL_KM:
         return "high" if mag >= 3.5 else "medium" if mag >= 2.5 else "low"
     return "high" if mag >= 5.0 else "medium" if mag >= 4.0 else "low"
 
@@ -79,14 +81,10 @@ class SeismicPoller(BasePoller):
 
             # Distance-based gating
             dist_km = haversine_km(lat, lon, settings.region_lat, settings.region_lon)
-            if dist_km <= 300:
-                pass  # Local (< ~160 nm): accept all
-            elif dist_km <= 1500:
-                if mag < 3.0:
-                    continue  # Regional (< ~800 nm): accept >= 3.0
-            else:
-                if mag < 5.0:
-                    continue  # Global: accept >= 5.0
+            if dist_km > _REGIONAL_KM:
+                continue
+            if dist_km > _LOCAL_KM and mag < _REGIONAL_MIN_MAG:
+                continue
 
             severity = _severity(mag, dist_km)
 

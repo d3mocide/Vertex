@@ -309,6 +309,59 @@ async def write_event(
     return event_id
 
 
+_WEATHER_DDL = """
+CREATE TABLE IF NOT EXISTS weather_observations (
+    id SERIAL PRIMARY KEY,
+    ts TIMESTAMPTZ NOT NULL,
+    station VARCHAR(128) NOT NULL,
+    temp_f DOUBLE PRECISION, humidity DOUBLE PRECISION,
+    wind_mph DOUBLE PRECISION, wind_gust_mph DOUBLE PRECISION,
+    wind_dir VARCHAR(8), condition VARCHAR(128),
+    aqi INTEGER, aqi_label VARCHAR(64),
+    CONSTRAINT uq_weather_obs_station_ts UNIQUE (station, ts)
+);
+CREATE INDEX IF NOT EXISTS ix_weather_observations_ts ON weather_observations (ts);
+"""
+_weather_table_ready = False
+
+
+async def write_weather_obs(payload: dict) -> None:
+    """Keep one row per station reading (NWS updates hourly; polling is 5 min).
+
+    A repeat of the same reading only refreshes its AQI, which changes on its own
+    schedule. The table is normally created by the backend; the DDL here covers a
+    poller that starts first.
+    """
+    global _weather_table_ready
+    if _pool is None or not payload:
+        return
+    if not _weather_table_ready:
+        await _pool.execute(_WEATHER_DDL)
+        _weather_table_ready = True
+    raw_ts = payload.get("timestamp")
+    try:
+        ts = datetime.datetime.fromisoformat(str(raw_ts).replace("Z", "+00:00"))
+    except ValueError:
+        ts = datetime.datetime.now(datetime.timezone.utc)
+    if ts.tzinfo is None:
+        ts = ts.replace(tzinfo=datetime.timezone.utc)
+    await _pool.execute(
+        """
+        INSERT INTO weather_observations
+            (ts, station, temp_f, humidity, wind_mph, wind_gust_mph, wind_dir, condition, aqi, aqi_label)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        ON CONFLICT (station, ts) DO UPDATE
+            SET aqi = COALESCE(EXCLUDED.aqi, weather_observations.aqi),
+                aqi_label = COALESCE(EXCLUDED.aqi_label, weather_observations.aqi_label)
+        """,
+        ts, str(payload.get("station") or "")[:128],
+        payload.get("temp_f"), payload.get("humidity"),
+        payload.get("wind_mph"), payload.get("wind_gust_mph"),
+        (payload.get("wind_dir") or None), (str(payload.get("condition") or "")[:128] or None),
+        payload.get("aqi"), payload.get("aqi_label"),
+    )
+
+
 async def event_recorded(event_type: str, match: dict[str, str], within_days: int = 30) -> bool:
     """True if an event of this type whose details match every key/value was
     already written in the last `within_days`. Persistent dedupe for pollers

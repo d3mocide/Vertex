@@ -288,11 +288,6 @@ class Settings(BaseSettings):
     nws_office: str = "PQR"
     nws_climate_station: str = "PDX"
 
-    # Weather Underground / Weather Company Personal Weather Station.
-    # Obtain an API key at https://www.wunderground.com/member/api-keys
-    wunderground_api_key: str = ""
-    wunderground_station_id: str = ""
-
     class Config:
         env_file = ".env"
 
