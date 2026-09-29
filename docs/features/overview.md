@@ -50,7 +50,7 @@ Environmental coverage includes:
 - NWS observations and weather alerts with zone-based filtering
 - Aviation weather: METAR and TAF with flight category color coding
 - Aviation hazards: PIREPs, SIGMETs, and AIRMETs
-- NWS text products: AFD, HWO, LSR via the National Weather Wire Service feed
+- NWS text products: AFD, LSR, CF6 via the National Weather Wire Service feed
 - Personal Weather Stations via Wunderground API
 - AirNow AQI integration
 - NOAA GOES satellite imagery tiles (IR / visible toggle in Settings)

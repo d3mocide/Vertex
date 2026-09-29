@@ -73,6 +73,16 @@ async def get_weather():
         return {}
 
 
+async def _feed_or(key: str, default):
+    raw = await get_redis().get(key)
+    if not raw:
+        return default
+    try:
+        return json.loads(raw)
+    except (json.JSONDecodeError, TypeError):
+        return default
+
+
 @router.get("/alerts")
 async def get_weather_alerts():
     raw = await get_redis().get("feed:weather:alerts")
@@ -126,9 +136,27 @@ async def get_fire_perimeters():
         return {"type": "FeatureCollection", "features": []}
 
 
+@router.get("/fire/hotspots")
+async def get_fire_hotspots():
+    """NASA FIRMS satellite fire detections near the region (cached by poller)."""
+    return await _feed_or("feed:fire:hotspots", [])
+
+
+@router.get("/stations")
+async def get_weather_stations():
+    """Latest readings from the primary NWS station and its neighbours."""
+    return await _feed_or("feed:weather:stations", [])
+
+
+@router.get("/rwis")
+async def get_rwis_stations():
+    """ODOT road-weather stations near the region, nearest first."""
+    return await _feed_or("feed:weather:rwis", [])
+
+
 @router.get("/nwws")
 async def get_nwws_products():
-    """Recent NWS text products (AFD, HWO, LSR) from the local forecast office."""
+    """Recent NWS text products (AFD, LSR, CF6) from the local forecast office."""
     raw = await get_redis().get("feed:weather:nwws_products")
     if not raw:
         return []

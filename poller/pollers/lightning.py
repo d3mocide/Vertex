@@ -5,10 +5,14 @@ and publishes strikes as a rolling feed for the frontend map layer.
 Blitzortung is a worldwide crowdsourced lightning detection network.
 Data is freely available without an API key.
 
-Protocol:
-    Connect to any Blitzortung WebSocket server (ws1..ws8) over WSS (443)
-  Send subscription JSON with the bounding box of interest
-  Receive JSON messages: {"time": <nanoseconds>, "lat": <deg>, "lon": <deg>}
+Protocol (unofficial, as used by blitzortung.org's own map):
+  Connect to a Blitzortung WebSocket server (ws1, ws2, ws7, ws8) over WSS (443)
+  Send {"a": 111} — the server then streams *every* strike worldwide (~5-10/s)
+  Each frame is a JSON strike {"time": <ns>, "lat": <deg>, "lon": <deg>, ...}
+  compressed with a small LZW-style scheme (see _decode). Bounding-box
+  subscriptions are ignored by the server, so strikes are filtered here.
+
+The earlier bounding-box subscription never received a single frame.
 
 Strikes are accumulated in a 5-second window and published as
 feed:lightning:strikes so the backend can relay them to the frontend
@@ -40,6 +44,27 @@ _MAX_RECONNECT   = 120    # seconds maximum retry backoff
 _BBOX_PAD        = 5.0    # degrees padding around configured bbox
 
 
+def _decode(frame: str) -> str:
+    """Undo Blitzortung's LZW-style frame compression."""
+    if not frame:
+        return frame
+    table: dict[int, str] = {}
+    chars = list(frame)
+    cur = chars[0]
+    prev = cur
+    out = [cur]
+    next_code = 256
+    for ch in chars[1:]:
+        code = ord(ch)
+        entry = ch if code < 256 else table.get(code, prev + cur)
+        out.append(entry)
+        cur = entry[0]
+        table[next_code] = prev + cur
+        next_code += 1
+        prev = entry
+    return "".join(out)
+
+
 class LightningPoller(BasePoller):
     name     = "lightning"
     interval = 60   # unused — streaming override below
@@ -64,12 +89,7 @@ class LightningPoller(BasePoller):
         import websockets
 
         server = random.choice(_WS_SERVERS)
-        sub = json.dumps({
-            "west":  settings.bbox_min_lon - _BBOX_PAD,
-            "east":  settings.bbox_max_lon + _BBOX_PAD,
-            "south": settings.bbox_min_lat - _BBOX_PAD,
-            "north": settings.bbox_max_lat + _BBOX_PAD,
-        })
+        sub = json.dumps({"a": 111})
 
         logger.info("[lightning] connecting to %s", server)
         async with websockets.connect(
@@ -83,7 +103,7 @@ class LightningPoller(BasePoller):
 
             async for raw in ws:
                 try:
-                    data = json.loads(raw)
+                    data = json.loads(_decode(raw) if isinstance(raw, str) else raw)
                     strikes = self._parse_message(data)
                     buffer.extend(strikes)
                     # Cap buffer to avoid unbounded growth during connection pauses
@@ -98,6 +118,11 @@ class LightningPoller(BasePoller):
                     await set_feed("lightning:strikes", buffer[-_MAX_BUFFER:])
                     buffer = []
                     last_flush = now
+
+    @staticmethod
+    def _near(lat: float, lon: float) -> bool:
+        return (settings.bbox_min_lat - _BBOX_PAD <= lat <= settings.bbox_max_lat + _BBOX_PAD
+                and settings.bbox_min_lon - _BBOX_PAD <= lon <= settings.bbox_max_lon + _BBOX_PAD)
 
     def _parse_message(self, data: dict) -> list[dict]:
         # API returns either a single strike dict or {"strikes": [...]}
@@ -118,6 +143,9 @@ class LightningPoller(BasePoller):
                 lon /= 1000.0
 
             if not (-90 <= lat <= 90 and -180 <= lon <= 180):
+                continue
+            # The server sends the whole world; keep what is near us.
+            if not self._near(lat, lon):
                 continue
 
             ns_time = s.get("time")

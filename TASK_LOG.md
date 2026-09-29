@@ -2053,3 +2053,13 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 - **Removed** the Weather Underground PWS feed (never configured — empty keys) and the aviation-weather feeds on the Environment page (METAR/TAF, PIREP/SIGMET/AIRMET): poller fetchers, `/weather/pws` + `/weather/aviation/*` routes, health entries, `PWSCard`/`MetarCard`/`PirepCard`, `WUNDERGROUND_*` config/env/docs. The planes page is unaffected — its origin/destination METARs come from the separate ADS-B `MetarClient` enrichment.
 - **Weather history**: new `weather_observations` table (one row per NWS station reading, AQI merged in); written by `WeatherPoller` via `write_weather_obs`; `GET /weather/history?hours=`.
 - **Seismic** now local-only: everything ≤300 km, M3+ to 800 km, nothing beyond (was M5+ worldwide). Added `test_seismic_gating.py`.
+
+## 2026-09-29 — Local feeds: RWIS, nearby NWS stations, FIRMS, lightning fix, GDACS clamp
+
+- **Lightning** (`pollers/lightning.py`): the Blitzortung poller had never received a strike — the bbox subscription it sent is ignored by the server. It now sends `{"a":111}` (global stream), decodes the LZW-style frames (`_decode`) and filters to the region itself. Unofficial protocol; strikes only appear when there is thunderstorm activity nearby.
+- **GDACS** clamped to ≤500 km and to flood/wildfire/volcano/tsunami (earthquakes belong to the seismic poller; far cyclones/droughts and far Red alerts are gone).
+- **HWO** dropped from the NWS text products: the Portland office no longer publishes it as text (API returns none).
+- **Nearby NWS stations** (`weather:stations`, `/weather/stations`): KHIO + `NWS_NEARBY_STATIONS` (KPDX, KTTD, KVUO, KSPB, KUAO); readings also stored in `weather_observations`.
+- **ODOT RWIS** (`weather:rwis`, `/weather/rwis`): road-weather stations within 100 km via the existing TripCheck key (`/Rwis/Inventory`, `/Rwis/Status`). Units checked against NWS: temperatures are hundredths of °C, wind mph. Stations reporting id -1 are skipped (ambiguous).
+- **NASA FIRMS** (`pollers/firms.py`, `fire:hotspots`, `/weather/fire/hotspots`): VIIRS hotspots within `FIRMS_RADIUS_KM` (150). Idle until `FIRMS_MAP_KEY` is set. Untested against the live API (no key yet).
+- Environment page: **Nearby Conditions** card (airport stations + road weather with ice-risk / low-visibility flags) and **Satellite Hotspots** card (hidden when empty).

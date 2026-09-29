@@ -18,7 +18,7 @@ async def health():
 # poll cycles). Feeds that only publish on change (radio:active, mesh:status,
 # lightning) are reported without a threshold.
 _FEED_MAX_AGE_S = {
-    "weather:current": 900, "weather:alerts": 300, "weather:nwws_products": 5400,
+    "weather:current": 900, "weather:stations": 900, "weather:rwis": 1500, "fire:hotspots": 2700, "weather:alerts": 300, "weather:nwws_products": 5400,
     "traffic:incidents": 600, "traffic:flow": 600, "traffic:cameras": 3600,
     "utility:oregon": 1200, "utility:pge": 1200,
     "alerts:flash": 300, "news:local": 900, "intel:alerts": 900,

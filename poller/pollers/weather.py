@@ -20,6 +20,7 @@ class WeatherPoller(BasePoller):
 
     async def setup(self):
         self._airnow_consecutive_failures = 0
+        self._station_meta: dict[str, dict] = {}
         # Trigger NWWS fetch on first cycle
         self._nwws_tick = 999
 
@@ -42,6 +43,15 @@ class WeatherPoller(BasePoller):
             except Exception as exc:
                 logger.warning("[weather] could not persist observation: %s", exc)
 
+        stations = await self._fetch_stations()
+        if stations:
+            await set_feed("weather:stations", stations)
+            for st in stations:
+                try:
+                    await write_weather_obs(st)
+                except Exception as exc:
+                    logger.debug("[weather] could not persist %s: %s", st.get("id"), exc)
+
         # NWS text products every 30 min
         self._nwws_tick += 1
         if self._nwws_tick >= (1800 // self.interval):
@@ -60,6 +70,35 @@ class WeatherPoller(BasePoller):
         except Exception as exc:
             logger.warning("[weather] NWS observation failed: %s", exc)
             return {}
+
+    async def _fetch_stations(self) -> list[dict]:
+        """Latest reading from the primary station and its neighbours (one feed)."""
+        ids = [settings.nws_station_primary] + [
+            s.strip().upper() for s in settings.nws_nearby_stations.split(",") if s.strip()
+        ]
+        ids = list(dict.fromkeys(ids))
+
+        async with httpx.AsyncClient(timeout=15, headers=_HEADERS) as client:
+            async def one(sid: str) -> dict | None:
+                try:
+                    if sid not in self._station_meta:
+                        m = await client.get(f"{NWS_BASE}/stations/{sid}")
+                        m.raise_for_status()
+                        mj = m.json()
+                        lon, lat = (mj.get("geometry") or {}).get("coordinates", [None, None])[:2]
+                        self._station_meta[sid] = {
+                            "name": (mj.get("properties") or {}).get("name") or sid,
+                            "lat": lat, "lon": lon,
+                        }
+                    r = await client.get(f"{NWS_BASE}/stations/{sid}/observations/latest")
+                    r.raise_for_status()
+                    return {"id": sid, **self._station_meta[sid], **normalize_observation(r.json())}
+                except Exception as exc:
+                    logger.debug("[weather] station %s failed: %s", sid, exc)
+                    return None
+
+            got = await asyncio.gather(*(one(s) for s in ids))
+        return [g for g in got if g and g.get("temp_f") is not None]
 
     async def _fetch_aqi(self) -> dict:
         if not settings.airnow_api_key:
@@ -133,12 +172,14 @@ class WeatherPoller(BasePoller):
                 self._airnow_consecutive_failures = 0
 
     async def _fetch_nwws_products(self) -> list[dict]:
-        """Fetch recent NWS text products (AFD, HWO, LSR) for the local forecast office."""
+        """Fetch recent NWS text products (AFD, LSR, CF6) for the local forecast office.
+
+    HWO is not fetched: the Portland office no longer publishes it as text (the
+    API returns none for PQR/PDX)."""
         office = settings.nws_office or "PQR"
         climate = settings.nws_climate_station or "PDX"
         product_types = [
             ("AFD", "Area Forecast Discussion", office),
-            ("HWO", "Hazardous Weather Outlook", office),
             ("LSR", "Local Storm Report", office),
             ("CF6", "F6 Climate Data", climate),
         ]

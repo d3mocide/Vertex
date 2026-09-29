@@ -224,7 +224,7 @@ const infoPanels = (
         The Environment panel is your primary source for weather and regional hazard monitoring.
       </DocText>
       <DocGrid>
-        <DocCard icon="description" title="Text Products" description="Area Forecast Discussions (AFD) and HWO logs." />
+        <DocCard icon="description" title="Text Products" description="Area Forecast Discussions (AFD), storm reports, and climate data." />
         <DocCard icon="volcano" title="Seismic" description="Local and regional earthquakes (Cascadia focus) with depth markers." />
         <DocCard 
           icon={<AtlasIcon name="stream" color={COLORS.STREAM} size={20} />} 

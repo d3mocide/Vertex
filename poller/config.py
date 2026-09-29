@@ -78,6 +78,8 @@ class Settings(BaseSettings):
 
     # NWS
     nws_station_primary: str = "KHIO"
+    # Other NWS/ASOS stations around the region, shown alongside the primary one.
+    nws_nearby_stations: str = "KPDX,KTTD,KVUO,KSPB,KUAO"
     nws_station_secondary: str = "KUAO"
     nws_zone: str = "ORZ109"
     # Fallback alert zones used only if alert_zone_configs table is empty on startup.
@@ -100,6 +102,9 @@ class Settings(BaseSettings):
     # Local fires within the configured bbox or alert radius remain alertable.
     # Regional fires are retained for awareness, but older regional incidents
     # are dropped to keep the feed operationally relevant.
+    # NASA FIRMS satellite hotspots (free key: firms.modaps.eosdis.nasa.gov/api/map_key)
+    firms_map_key: str = ""
+    firms_radius_km: int = 150
     fire_alert_radius_km: int = 150
     fire_alert_recent_hours: int = 720    # 30 days
     fire_regional_radius_km: int = 1200
@@ -282,7 +287,7 @@ class Settings(BaseSettings):
     p25_audio_ws_url: str = ""
 
     # NWS text products (NWWS-style). The API files products under different
-    # location ids: forecaster products (AFD, HWO, LSR) under the Weather
+    # location ids: forecaster products (AFD, LSR, CF6) under the Weather
     # Forecast Office id (Portland = PQR), climate reports (CF6) under the
     # climate station id (Portland = PDX).
     nws_office: str = "PQR"

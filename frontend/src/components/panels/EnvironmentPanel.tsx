@@ -8,6 +8,8 @@ import { AqiGauge } from './environment/AqiGauge'
 import { WeatherAlertCard } from './environment/WeatherAlertCard'
 import { RadarControls } from './environment/RadarMiniMap'
 import { GdacsCard } from './environment/GdacsCard'
+import { NearbyConditionsCard } from './environment/NearbyConditionsCard'
+import { HotspotsCard } from './environment/HotspotsCard'
 import { NwwsCard } from './environment/NwwsCard'
 import { FeedAge } from '../common/FeedAge'
 import { PageHeader, StatTiles, type Stat } from '../common/Page'
@@ -184,8 +186,10 @@ export function EnvironmentPanel() {
         {isMobile ? (
           <div className="flex flex-col gap-6 px-4 pb-4">
             <RadarControls />
+            <NearbyConditionsCard />
             <NwwsCard />
             {fireCard}
+            <HotspotsCard />
             <AqiGauge aqi={weather.aqi} />
             <GdacsCard />
             <SeismicCard events={mergedSeismicEvents} />
@@ -195,12 +199,14 @@ export function EnvironmentPanel() {
             <div className="flex-1 min-w-0 flex flex-col gap-8">
               <NwwsCard />
               {fireCard}
+              <HotspotsCard />
               <AqiGauge aqi={weather.aqi} />
               <GdacsCard />
               <SeismicCard events={mergedSeismicEvents} />
             </div>
             <div className="flex-1 min-w-0 flex flex-col gap-8">
               <RadarControls />
+              <NearbyConditionsCard />
             </div>
           </div>
         )}

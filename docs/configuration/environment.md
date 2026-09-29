@@ -42,7 +42,7 @@ When relocating the system, update the region center, bounding box, and weather 
 | `NWS_STATION_PRIMARY` | Primary NWS observation station | Example: `KHIO` |
 | `NWS_STATION_SECONDARY` | Secondary observation station | Fallback station |
 | `NWS_ZONE` | Primary NWS zone code | Used for local weather context |
-| `NWS_OFFICE` | NWS forecast office identifier | Used to fetch NWWS text products (AFD, HWO, LSR). Example: `PQR` |
+| `NWS_OFFICE` | NWS forecast office identifier | Used to fetch NWWS text products (AFD, LSR, CF6). Example: `PQR` |
 | `NWS_ALERT_ZONES` | Comma-separated alert zones | Used as startup fallback if alert zones are not populated elsewhere |
 | `ODOT_API_KEY` | TripCheck API key | Required for traffic feeds |
 | `AIRNOW_API_KEY` | AirNow API key | Required for AQI |

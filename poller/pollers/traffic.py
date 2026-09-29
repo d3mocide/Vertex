@@ -1,6 +1,7 @@
 import ipaddress
 import logging
 import re
+import time
 import httpx
 from urllib.parse import urlparse
 from config import settings
@@ -16,6 +17,10 @@ _ODOT_INCIDENTS_PATH = "/Incidents"
 _ODOT_CCTV_PATH = "/Cctv/Inventory"
 _ODOT_FLOW_PATH = "/TrafficDetector/Roadway"
 _ODOT_INV_PATH = "/TrafficDetector/Inventory"
+_ODOT_RWIS_INV_PATH = "/Rwis/Inventory"
+_ODOT_RWIS_STATUS_PATH = "/Rwis/Status"
+_RWIS_RADIUS_KM = 100      # statewide list is 229 stations; keep the ones around us
+_RWIS_EVERY_N_POLLS = 5    # stations report every ~10 min; the poll is every minute
 
 
 class TrafficPoller(BasePoller):
@@ -24,6 +29,9 @@ class TrafficPoller(BasePoller):
 
     def __init__(self):
         self._station_map: dict = {}
+        self._rwis_inventory: list = []
+        self._rwis_tick = _RWIS_EVERY_N_POLLS  # first poll fetches
+        self._rwis_inventory_at = 0.0
 
     async def setup(self):
         if not settings.odot_api_key:
@@ -81,6 +89,27 @@ class TrafficPoller(BasePoller):
                 await set_feed("traffic:flow", _parse_odot_flow(resp.json(), self._station_map))
             except Exception as exc:
                 logger.warning("[traffic] flow fetch failed: %s", exc)
+
+            # 4. Road-weather stations (RWIS) around the region
+            self._rwis_tick += 1
+            if self._rwis_tick >= _RWIS_EVERY_N_POLLS:
+                self._rwis_tick = 0
+                try:
+                    # Inventory (locations) barely changes: refresh hourly.
+                    if not self._rwis_inventory or time.time() - self._rwis_inventory_at > 3600:
+                        resp = await client.get(f"{_ODOT_API_BASE}{_ODOT_RWIS_INV_PATH}", headers=headers)
+                        resp.raise_for_status()
+                        self._rwis_inventory = resp.json().get("ess-site-list") or []
+                        self._rwis_inventory_at = time.time()
+                    resp = await client.get(f"{_ODOT_API_BASE}{_ODOT_RWIS_STATUS_PATH}", headers=headers)
+                    resp.raise_for_status()
+                    await set_feed(
+                        "weather:rwis",
+                        parse_rwis(self._rwis_inventory, resp.json().get("WeatherStations") or [],
+                                   settings.region_lat, settings.region_lon),
+                    )
+                except Exception as exc:
+                    logger.warning("[traffic] RWIS fetch failed: %s", exc)
 
 
 def _parse_odot_incidents(data: dict) -> list[dict]:
@@ -338,3 +367,64 @@ async def _check_camera_health(cameras: list[dict]) -> None:
 
     await asyncio.gather(*[_probe(cam) for cam in cameras])
 
+
+
+# ─── ODOT road-weather stations (RWIS) ────────────────────────────────────────
+# Units, checked against neighbouring NWS stations: temperatures (air, dew point,
+# pavement) are hundredths of °C, wind is mph. 32767 / 65535 mean "no reading".
+# Some sensors report id -1 for several different sites, so their status rows
+# cannot be told apart — those stations are skipped.
+_RWIS_MISSING = {32767, 65535, -32768}
+
+
+def _rwis_val(v):
+    return None if v is None or v in _RWIS_MISSING else v
+
+
+def _c100_to_f(v):
+    v = _rwis_val(v)
+    return None if v is None else round(v / 100 * 9 / 5 + 32, 1)
+
+
+def parse_rwis(inventory: list, statuses: list, lat: float, lon: float,
+               radius_km: float = _RWIS_RADIUS_KM) -> list[dict]:
+    """Nearby ODOT road-weather stations with readings in display units, nearest first."""
+    by_id = {s.get("station-id"): s for s in statuses}
+    out: list[dict] = []
+    for site in inventory:
+        slat, slon = site.get("latitude"), site.get("longitude")
+        if slat is None or slon is None or (site.get("station-id") or -1) <= 0:
+            continue
+        dist = haversine_km(slat, slon, lat, lon)
+        if dist > radius_km:
+            continue
+        st = by_id.get(site.get("station-id")) or {}
+        rw = st.get("RoadWeather") or {}
+        sc = st.get("SurfaceCondition") or {}
+        surface = [_c100_to_f(t.get("surface-temperature")) for t in (sc.get("surface-temperatures") or [])]
+        surface = [t for t in surface if t is not None]
+        temp_f = _c100_to_f(rw.get("air-temperature"))
+        wind = _rwis_val(rw.get("avg-wind-speed"))
+        # A station with no air temperature and no wind has nothing to show.
+        if temp_f is None and wind is None and not surface:
+            continue
+        precip = rw.get("precip-type")
+        out.append({
+            "id": site.get("station-id"),
+            "name": (site.get("station-name") or "").replace("RWIS ", "", 1),
+            "lat": slat, "lon": slon,
+            "route": site.get("route-id"),
+            "elev_ft": site.get("elevation"),
+            "dist_km": round(dist, 1),
+            "temp_f": temp_f,
+            "dew_f": _c100_to_f(rw.get("dewpoint-temp")),
+            "humidity": _rwis_val(rw.get("relative-humidity")),
+            "wind_mph": wind,
+            "gust_mph": _rwis_val(rw.get("avg-wind-gust-speed")),
+            "visibility_m": _rwis_val(rw.get("visibility")),
+            "precip": precip if precip and precip != "No Precipitation" else None,
+            "surface_f": min(surface) if surface else None,
+            "updated": rw.get("last-update-time"),
+        })
+    out.sort(key=lambda r: r["dist_km"])
+    return out

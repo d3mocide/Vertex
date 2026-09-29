@@ -41,21 +41,23 @@ _EVENT_LABELS = {
 _seen: dict[str, float] = {}
 
 
+# Vertex is about this region: only disasters within reach of it are recorded.
+# Earthquakes are left to the seismic poller (it has the local USGS detail), and
+# cyclones/droughts elsewhere in the world never touch us.
+_MAX_KM = 500
+_LOCAL_TYPES = {"FL", "WF", "VO", "TS"}
+
+
 def _alert_severity(level: str, dist_km: float) -> str:
-    """GDACS level for disasters that can affect the region; distant ones are context only."""
-    if dist_km > 1500:
-        return "info"
+    """GDACS level, as recorded."""
     return {"Red": "high", "Orange": "medium"}.get(level, "low")
 
 
-def _distance_gating(dist_km: float, level: str) -> bool:
-    """Return True if the event should be ingested given its distance and alert level."""
-    if level == "Red":
-        return True  # Red alerts always matter globally
-    if level == "Orange":
-        return dist_km <= 8000
-    # Green: only nearby events
-    return dist_km <= 1500
+def _distance_gating(dist_km: float, level: str, event_type: str = "") -> bool:
+    """Return True if the event should be ingested: a relevant kind, close enough."""
+    if event_type and event_type not in _LOCAL_TYPES:
+        return False
+    return dist_km <= _MAX_KM
 
 
 def _parse_float(el: ET.Element | None, attr: str | None = None) -> float | None:
@@ -141,7 +143,7 @@ class GdacsPoller(BasePoller):
                 continue
 
             dist_km = haversine_km(lat, lon, settings.region_lat, settings.region_lon)
-            if not _distance_gating(dist_km, alert_level):
+            if not _distance_gating(dist_km, alert_level, event_type):
                 continue
 
             title   = (item.findtext("title") or "").strip()
