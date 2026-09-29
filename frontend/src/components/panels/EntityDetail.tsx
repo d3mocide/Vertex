@@ -22,7 +22,7 @@ const TYPE_COLORS: Record<string, string> = {
   aircraft:       'text-cyan-adsb',
   vessel:         'text-green-ais',
   train:          'text-amber-gold',
-  mesh_node:      'text-amber-p25',
+  mesh_node:      'text-lime-rf',
   satellite:      'text-violet-space',
   aprs:           'text-cyan-adsb',
   fire_incident:  'text-red-emergency',

@@ -5,10 +5,10 @@ import { DocHeader, DocSection, DocText, DocCard, DocGrid, DocList, DocCallout, 
 const COLORS = {
   AIR: '#00FF64',
   SEA: '#0090C8',
-  MESH: '#FF8F00',
+  MESH: '#76DD00',
   APRS: '#B388FF',
   STREAM: '#4FC3F7',
-  FIRE: '#FF5252',
+  FIRE: '#C62828',
   TAK: '#00E6B4',
   LIGHTNING: '#FFFF64',
   CAMERA: '#FFFFFF'

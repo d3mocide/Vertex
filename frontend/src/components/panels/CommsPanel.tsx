@@ -33,7 +33,7 @@ function NodeRow({ node, distM }: { node: Entity; distM: number }) {
   return (
     <div className="flex items-center justify-between p-1.5 px-3 hover:bg-white/10 transition-colors group">
       <div className="flex items-center gap-2.5">
-        <span className={`ms text-[14px] ${isMesh ? 'text-amber-p25' : 'text-violet-space'} opacity-80`}>
+        <span className={`ms text-[14px] ${isMesh ? 'text-lime-rf' : 'text-violet-space'} opacity-80`}>
           {isMesh ? 'hub' : 'sensors'}
         </span>
         <div className="flex flex-col -space-y-0.5">

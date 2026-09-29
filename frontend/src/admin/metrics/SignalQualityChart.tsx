@@ -3,7 +3,7 @@ import type { SignalQualityData } from './types'
 const ENTITY_COLORS: Record<string, string> = {
   aircraft:      '#00BFFF',      // cat-air (ADS-B)
   vessel:        '#00C853',      // cat-sea (AIS)
-  mesh_node:     '#FF8F00',      // cat-mesh
+  mesh_node:     '#76DD00',      // lime-rf
   aprs_position: '#B388FF',      // cat-aprs
   p25:           '#FF8F00',      // cat-mesh (P25 radio)
 

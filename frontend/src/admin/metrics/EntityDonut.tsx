@@ -7,12 +7,12 @@ const TYPE_COLORS: Record<string, string> = {
   vessel: '#00C853',         // cat-sea (AIS)
   aprs: '#B388FF',           // cat-aprs (APRS packet)
   p25: '#FF8F00',            // cat-mesh (P25 radio)
-  mesh_node: '#FF8F00',      // cat-mesh
-  meshcore: '#FF8F00',       // cat-mesh
+  mesh_node: '#76DD00',      // lime-rf
+  meshcore: '#76DD00',       // lime-rf
   stream_gauge: '#4FC3F7',   // cat-stream (hydro)
   lightning: '#FFE94D',      // cat-lightning (high-vis yellow)
-  fire_incident: '#FF5252',  // cat-fire
-  fire: '#FF5252',           // cat-fire
+  fire_incident: '#C62828',  // red-emergency
+  fire: '#C62828',           // red-emergency
   ground: '#B388FF',         // cat-aprs (ground stations)
   seismic: '#4FC3F7',        // cat-stream (hydro-adjacent)
   weather: '#4FC3F7',        // cat-stream (water/weather)

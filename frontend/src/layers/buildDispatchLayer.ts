@@ -1,63 +1,85 @@
-import { ScatterplotLayer } from '@deck.gl/layers'
-import type { RadioIncident } from '../storeTypes'
+import { IconLayer } from '@deck.gl/layers'
+import type { RadioIncident, RadioIncidentCategory } from '../storeTypes'
+import { getAtlasIcons } from './atlasIcons'
 
 /*
  * Dispatch incidents on the main map: located radio incidents (poller
- * radio_incidents.py) from the last few hours, coloured like the Incidents
- * page pins — red life safety, amber serious, grey routine — fading with
- * age. Routine calls are left off here; the Incidents page lists them.
+ * radio_incidents.py) from the last few hours. Atlas icons (atlasIcons.ts):
+ * the Scope-mark corner brackets say "heard on dispatch", the glyph inside
+ * says what kind. Brand signal colours: red emergency for life safety, the
+ * P25 amber for everything else significant (P25 radio is its signal), fading
+ * with age. Each icon is a solid plate with the glyph knocked out, so it reads
+ * as a block of colour beside the outline entity markers. A halo marks
+ * anything heard in the last hour, and life safety always keeps a lighter-red
+ * halo. Routine calls stay on the Incidents page.
  */
 
 const WINDOW_MS = 6 * 60 * 60 * 1000
 const ACTIVE_MS = 60 * 60 * 1000
 
-const RED: [number, number, number] = [198, 40, 40]      // --red-emergency
-const AMBER: [number, number, number] = [255, 184, 0]    // --amber-gold
-const GREY: [number, number, number] = [140, 140, 140]
+const RED_EMERGENCY: [number, number, number] = [198, 40, 40]   // #C62828
+const AMBER_P25: [number, number, number] = [255, 143, 0]       // #FF8F00
+// Lighter red for the life-safety halo — the token red is dim on a dark map.
+const RED_HALO: [number, number, number] = [255, 112, 100]
 
-export function dispatchColor(sev: number): [number, number, number] {
-  return sev >= 5 ? RED : sev >= 3 ? AMBER : GREY
+export const DISPATCH_GLYPH: Record<RadioIncidentCategory, string> = {
+  water_rescue: 'dispatch_life', rescue: 'dispatch_life', violence: 'dispatch_life',
+  train_or_ped_struck: 'dispatch_life',
+  structure_fire: 'dispatch_fire', outside_fire: 'dispatch_fire', vehicle_fire: 'dispatch_fire',
+  fire: 'dispatch_fire', fire_alarm: 'dispatch_fire',
+  gas_leak: 'dispatch_hazard', carbon_monoxide: 'dispatch_hazard', hazmat: 'dispatch_hazard',
+  crash: 'dispatch_traffic',
+  assault: 'dispatch_medical', medical: 'dispatch_medical',
+  other: 'dispatch_other',
 }
 
-export function buildDispatchLayers(incidents: RadioIncident[], visible: boolean, nowMs: number) {
+export function dispatchColor(sev: number): [number, number, number] {
+  return sev >= 5 ? RED_EMERGENCY : AMBER_P25
+}
+
+export function buildDispatchLayers(incidents: RadioIncident[], visible: boolean, nowMs: number, zoom: number) {
   if (!visible) return []
   const data = incidents.filter((i) =>
     i.lat != null && i.lon != null && i.severity >= 3
     && nowMs - Date.parse(i.last_seen) < WINDOW_MS && i.status !== 'cleared')
   if (data.length === 0) return []
+
+  const atlas = getAtlasIcons()
   const alpha = (i: RadioIncident) => {
     const age = Math.min(1, Math.max(0, (nowMs - Date.parse(i.last_seen)) / WINDOW_MS))
-    return Math.round(235 - age * 150)
+    return Math.round(255 - age * 140)
   }
-  const recent = data.filter((i) => nowMs - Date.parse(i.last_seen) < ACTIVE_MS)
+  // Region view: the same small dot other layers use; glyphs from zoom 8.
+  const far = zoom < 8
+  const haloed = data.filter((i) => i.severity >= 5 || nowMs - Date.parse(i.last_seen) < ACTIVE_MS)
+  const minute = Math.floor(nowMs / 60_000)
+  const common = {
+    iconAtlas: atlas.url,
+    iconMapping: atlas.mapping,
+    sizeUnits: 'pixels' as const,
+    billboard: true,
+    getPosition: (i: RadioIncident) => [i.lon!, i.lat!] as [number, number],
+  }
   return [
-    // Halo on anything heard in the last hour.
-    new ScatterplotLayer<RadioIncident>({
+    new IconLayer<RadioIncident>({
+      ...common,
       id: 'dispatch-incidents-halo',
-      data: recent,
+      data: haloed,
       pickable: false,
-      stroked: true,
-      filled: false,
-      radiusUnits: 'pixels',
-      getRadius: (i) => (i.severity >= 5 ? 16 : 12),
-      lineWidthUnits: 'pixels',
-      getLineWidth: 2,
-      getLineColor: (i) => [...dispatchColor(i.severity), 150],
-      getPosition: (i) => [i.lon!, i.lat!],
+      getIcon: () => 'halo',
+      getSize: (i) => (far ? 22 : i.severity >= 5 ? 60 : 50),
+      getColor: (i) => (i.severity >= 5 ? [...RED_HALO, 150] : [...dispatchColor(i.severity), 110]),
+      updateTriggers: { getSize: [far] },
     }),
-    new ScatterplotLayer<RadioIncident>({
+    new IconLayer<RadioIncident>({
+      ...common,
       id: 'dispatch-incidents',
       data,
       pickable: true,
-      stroked: true,
-      radiusUnits: 'pixels',
-      getRadius: (i) => (i.severity >= 5 ? 8 : 6),
-      lineWidthUnits: 'pixels',
-      getLineWidth: 1.5,
-      getFillColor: (i) => [...dispatchColor(i.severity), alpha(i)],
-      getLineColor: [5, 5, 5, 220],
-      getPosition: (i) => [i.lon!, i.lat!],
-      updateTriggers: { getFillColor: [Math.floor(nowMs / 60_000)] },
+      getIcon: (i) => (far ? 'dot' : DISPATCH_GLYPH[i.category] ?? 'dispatch_other'),
+      getSize: (i) => (far ? (i.severity >= 5 ? 11 : 9) : i.severity >= 5 ? 36 : 32),
+      getColor: (i) => [...dispatchColor(i.severity), alpha(i)],
+      updateTriggers: { getIcon: [far], getSize: [far], getColor: [minute] },
     }),
   ]
 }

@@ -4,6 +4,8 @@
 // Row 0: aircraft | vessel | mesh    | aprs
 // Row 1: stream   | lightning | fire | camera
 // Row 2: ring     | dot    | halo    | tak_client
+// Row 3: train    | rf_sensor | dispatch_life | dispatch_fire
+// Row 4: dispatch_medical | dispatch_hazard | dispatch_traffic | dispatch_other
 
 export interface IconAtlasResult {
   url: string
@@ -33,7 +35,7 @@ function entry(col: number, row: number) {
 export function createAtlasIcons(): IconAtlasResult {
   const canvas = document.createElement('canvas')
   canvas.width  = CELL * 4   // 256
-  canvas.height = CELL * 4   // 256 (row 3 added for train)
+  canvas.height = CELL * 5   // 320 (row 3 train…, row 4 dispatch incidents)
   const ctx = canvas.getContext('2d')!
 
   const W = '#ffffff'
@@ -320,6 +322,101 @@ export function createAtlasIcons(): IconAtlasResult {
     ctx.globalCompositeOperation = 'source-over'
   }
 
+  // ─── Dispatch incidents (radio) — Scope-mark brackets + solid plate ────────
+  // The brackets (from the Vertex logo) mark "heard on dispatch" — a signal,
+  // not an entity. Inside, a solid plate carries the glyph knocked out of it,
+  // so the icon reads as a block of colour (priority) rather than a thin
+  // outline. Glyphs are drawn in the old 18..46 box and scaled onto the plate.
+  const dispatchCell = (
+    col: number, row: number,
+    glyph: (ox: number, oy: number) => void,
+    inlay?: (ox: number, oy: number) => void,
+  ) => {
+    const [ox, oy] = cellOrigin(col, row)
+    ctx.fillStyle = W
+    ctx.strokeStyle = W
+    ctx.lineJoin = 'miter'
+    ctx.lineCap = 'square'
+    // Brackets, box 5..59
+    ctx.lineWidth = 3.4
+    const a = 11, lo = 5, hi = 59
+    ctx.beginPath()
+    ctx.moveTo(ox + lo, oy + lo + a); ctx.lineTo(ox + lo, oy + lo); ctx.lineTo(ox + lo + a, oy + lo)
+    ctx.moveTo(ox + hi - a, oy + lo); ctx.lineTo(ox + hi, oy + lo); ctx.lineTo(ox + hi, oy + lo + a)
+    ctx.moveTo(ox + hi, oy + hi - a); ctx.lineTo(ox + hi, oy + hi); ctx.lineTo(ox + hi - a, oy + hi)
+    ctx.moveTo(ox + lo + a, oy + hi); ctx.lineTo(ox + lo, oy + hi); ctx.lineTo(ox + lo, oy + hi - a)
+    ctx.stroke()
+    // Plate 15..49
+    ctx.fillRect(ox + 15, oy + 15, 34, 34)
+    // Glyph knocked out of the plate
+    const s = 0.62
+    const withGlyphSpace = (fn: () => void) => {
+      ctx.save()
+      ctx.translate(ox + 32, oy + 32)
+      ctx.scale(s, s)
+      ctx.translate(-(ox + 32), -(oy + 32))
+      fn()
+      ctx.restore()
+    }
+    ctx.globalCompositeOperation = 'destination-out'
+    ctx.fillStyle = 'rgba(0,0,0,1)'
+    ctx.strokeStyle = 'rgba(0,0,0,1)'
+    withGlyphSpace(() => glyph(ox, oy))
+    ctx.globalCompositeOperation = 'source-over'
+    ctx.fillStyle = W
+    ctx.strokeStyle = W
+    if (inlay) withGlyphSpace(() => inlay(ox, oy))
+  }
+
+  // Row 3, Col 2 · DISPATCH LIFE SAFETY — the logo's diamond, pip inlaid
+  dispatchCell(2, 3, (ox, oy) => {
+    ctx.beginPath()
+    ctx.moveTo(ox + 32, oy + 16); ctx.lineTo(ox + 48, oy + 32)
+    ctx.lineTo(ox + 32, oy + 48); ctx.lineTo(ox + 16, oy + 32)
+    ctx.closePath(); ctx.fill()
+  }, (ox, oy) => ctx.fillRect(ox + 27, oy + 27, 10, 10))
+
+  // Row 3, Col 3 · DISPATCH FIRE — flame
+  dispatchCell(3, 3, (ox, oy) => {
+    ctx.beginPath()
+    ctx.moveTo(ox + 32, oy + 16)
+    ctx.bezierCurveTo(ox + 37, oy + 23, ox + 43, oy + 27, ox + 43, oy + 35)
+    ctx.bezierCurveTo(ox + 43, oy + 43, ox + 37, oy + 48, ox + 32, oy + 48)
+    ctx.bezierCurveTo(ox + 27, oy + 48, ox + 21, oy + 43, ox + 21, oy + 35)
+    ctx.bezierCurveTo(ox + 21, oy + 29, ox + 25, oy + 27, ox + 27, oy + 23)
+    ctx.bezierCurveTo(ox + 27, oy + 29, ox + 31, oy + 29, ox + 30, oy + 24)
+    ctx.bezierCurveTo(ox + 31, oy + 21, ox + 32, oy + 18, ox + 32, oy + 16)
+    ctx.closePath(); ctx.fill()
+  })
+
+  // Row 4, Col 0 · DISPATCH MEDICAL — square-cut cross
+  dispatchCell(0, 4, (ox, oy) => {
+    ctx.fillRect(ox + 27, oy + 16, 10, 32)
+    ctx.fillRect(ox + 16, oy + 27, 32, 10)
+  })
+
+  // Row 4, Col 1 · DISPATCH HAZARD — triangle, "!" inlaid
+  dispatchCell(1, 4, (ox, oy) => {
+    ctx.beginPath()
+    ctx.moveTo(ox + 32, oy + 16); ctx.lineTo(ox + 49, oy + 47); ctx.lineTo(ox + 15, oy + 47)
+    ctx.closePath(); ctx.fill()
+  }, (ox, oy) => {
+    ctx.fillRect(ox + 29.5, oy + 28, 5, 10)
+    ctx.fillRect(ox + 29.5, oy + 40, 5, 5)
+  })
+
+  // Row 4, Col 2 · DISPATCH TRAFFIC — crossed bars (collision)
+  dispatchCell(2, 4, (ox, oy) => {
+    ctx.lineWidth = 8
+    ctx.beginPath()
+    ctx.moveTo(ox + 20, oy + 20); ctx.lineTo(ox + 44, oy + 44)
+    ctx.moveTo(ox + 44, oy + 20); ctx.lineTo(ox + 20, oy + 44)
+    ctx.stroke()
+  })
+
+  // Row 4, Col 3 · DISPATCH OTHER — the logo's pip
+  dispatchCell(3, 4, (ox, oy) => ctx.fillRect(ox + 22, oy + 22, 20, 20))
+
   return {
     url:    canvas.toDataURL(),
     width:  canvas.width,
@@ -339,6 +436,12 @@ export function createAtlasIcons(): IconAtlasResult {
       tak_client: entry(3, 2),
       train:      entry(0, 3),
       rf_sensor:  entry(1, 3),
+      dispatch_life:    entry(2, 3),
+      dispatch_fire:    entry(3, 3),
+      dispatch_medical: entry(0, 4),
+      dispatch_hazard:  entry(1, 4),
+      dispatch_traffic: entry(2, 4),
+      dispatch_other:   entry(3, 4),
     },
   }
 }
@@ -347,4 +450,26 @@ let _cache: IconAtlasResult | null = null
 export function getAtlasIcons(): IconAtlasResult {
   if (!_cache) _cache = createAtlasIcons()
   return _cache
+}
+
+/**
+ * One atlas icon tinted to a colour, as ImageData — for plain MapLibre maps
+ * (map.addImage, pixelRatio 2) that can't read the deck.gl atlas mask.
+ */
+export async function atlasIconImage(name: string, color: string): Promise<ImageData | null> {
+  const atlas = getAtlasIcons()
+  const cell = atlas.mapping[name]
+  if (!cell) return null
+  const img = new Image()
+  img.src = atlas.url
+  await img.decode()
+  const c = document.createElement('canvas')
+  c.width = cell.width
+  c.height = cell.height
+  const ctx = c.getContext('2d')!
+  ctx.drawImage(img, cell.x, cell.y, cell.width, cell.height, 0, 0, cell.width, cell.height)
+  ctx.globalCompositeOperation = 'source-in'   // keep the icon's alpha, take the colour
+  ctx.fillStyle = color
+  ctx.fillRect(0, 0, c.width, c.height)
+  return ctx.getImageData(0, 0, c.width, c.height)
 }

@@ -5,6 +5,8 @@ import type { RadioIncident, RadioIncidentCategory } from '../../storeTypes'
 import { MAP_STYLE, DEFAULT_CENTER } from '../../config'
 import { ensureKnownStyleImages, KNOWN_STYLE_IMAGE_FALLBACKS } from '../Map'
 import { ChipRow, Chip, EmptyState } from '../common/Page'
+import { DISPATCH_GLYPH } from '../../layers/buildDispatchLayer'
+import { atlasIconImage } from '../../layers/atlasIcons'
 
 // ─── Classification metadata ─────────────────────────────────────────────────
 
@@ -55,8 +57,11 @@ const SORTS: Record<SortKey, { label: string; compare: (now: number) => (a: Radi
     b.units.length - a.units.length || b.severity - a.severity },
 }
 
-// Map pin colours — severity signal (red = life safety, amber = serious).
-const PIN = { critical: '#C62828', serious: '#FFB800', routine: '#8C8C8C' }
+// Map pin colours — brand signal colours: red emergency = life safety, P25
+// amber = serious (P25 radio is this data's signal), grey = routine. Pins are
+// the atlas dispatch icons (atlasIcons.ts), tinted per tone.
+const PIN = { critical: '#C62828', serious: '#FF8F00', routine: '#8C8C8C' }
+const TONE = (sev: number) => (sev >= 5 ? 'critical' : sev >= 3 ? 'serious' : 'routine')
 
 const hhmm = (iso: string) =>
   new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })
@@ -75,7 +80,7 @@ function statusText(i: RadioIncident, now: number): string {
 
 function severityBar(sev: number): string {
   if (sev >= 5) return 'bg-red-emergency'
-  if (sev >= 4) return 'bg-amber-gold'
+  if (sev >= 4) return 'bg-amber-p25'
   return 'bg-outline-variant'
 }
 
@@ -128,20 +133,18 @@ function IncidentMap({ incidents, selectedId, onSelect }: {
       m.addLayer({
         id: 'ri-selected', type: 'circle', source: 'ri',
         filter: ['==', ['get', 'selected'], true],
-        paint: { 'circle-radius': 13, 'circle-color': 'transparent', 'circle-stroke-color': '#F2F2F2', 'circle-stroke-width': 2 },
+        paint: { 'circle-radius': 18, 'circle-color': 'transparent', 'circle-stroke-color': '#F2F2F2', 'circle-stroke-width': 2 },
       })
       m.addLayer({
-        id: 'ri-dot', type: 'circle', source: 'ri',
-        paint: {
-          'circle-radius': ['case', ['>=', ['get', 'severity'], 5], 8, ['>=', ['get', 'severity'], 4], 7, 5],
-          'circle-color': ['case',
-            ['>=', ['get', 'severity'], 5], PIN.critical,
-            ['>=', ['get', 'severity'], 4], PIN.serious,
-            PIN.routine],
-          'circle-opacity': ['case', ['get', 'active'], 0.95, 0.45],
-          'circle-stroke-color': '#050505',
-          'circle-stroke-width': 1,
+        id: 'ri-dot', type: 'symbol', source: 'ri',
+        layout: {
+          'icon-image': ['concat', ['get', 'glyph'], '-', ['get', 'tone']],
+          'icon-size': ['case', ['>=', ['get', 'severity'], 5], 1.1, ['>=', ['get', 'severity'], 3], 0.95, 0.8],
+          'icon-allow-overlap': true,
+          'icon-ignore-placement': true,
+          'symbol-sort-key': ['get', 'severity'],
         },
+        paint: { 'icon-opacity': ['case', ['get', 'active'], 1, 0.5] },
       })
       m.on('click', 'ri-dot', (e) => {
         const id = e.features?.[0]?.properties?.id
@@ -149,8 +152,16 @@ function IncidentMap({ incidents, selectedId, onSelect }: {
       })
       m.on('mouseenter', 'ri-dot', () => { m.getCanvas().style.cursor = 'pointer' })
       m.on('mouseleave', 'ri-dot', () => { m.getCanvas().style.cursor = '' })
-      mapRef.current = m
-      setReady(true)
+      // Every glyph in every tone, tinted from the shared icon atlas.
+      void Promise.all([...new Set(Object.values(DISPATCH_GLYPH))].flatMap((glyph) =>
+        (Object.keys(PIN) as (keyof typeof PIN)[]).map(async (tone) => {
+          const img = await atlasIconImage(glyph, PIN[tone]).catch(() => null)
+          if (img && !m.hasImage(`${glyph}-${tone}`)) m.addImage(`${glyph}-${tone}`, img, { pixelRatio: 2 })
+        }),
+      )).then(() => {
+        mapRef.current = m
+        setReady(true)
+      })
     })
     const ro = new ResizeObserver(() => m.resize())
     ro.observe(containerRef.current)
@@ -172,7 +183,10 @@ function IncidentMap({ incidents, selectedId, onSelect }: {
       type: 'FeatureCollection',
       features: located.map((i) => ({
         type: 'Feature',
-        properties: { id: i.id, severity: i.severity, active: isActive(i, now), selected: i.id === selectedId },
+        properties: {
+          id: i.id, severity: i.severity, active: isActive(i, now), selected: i.id === selectedId,
+          glyph: DISPATCH_GLYPH[i.category] ?? 'dispatch_other', tone: TONE(i.severity),
+        },
         geometry: { type: 'Point', coordinates: [i.lon as number, i.lat as number] },
       })),
     })
@@ -196,7 +210,7 @@ function IncidentMap({ incidents, selectedId, onSelect }: {
       <div ref={containerRef} className="absolute inset-0" aria-label="Incident map" role="region" />
       <div className="absolute top-2 left-2 bg-onyx-black/80 border border-white/10 px-2 py-1 flex gap-3 text-[11px] uppercase tracking-widest text-on-surface-variant pointer-events-none">
         <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-emergency" />Life safety</span>
-        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-gold" />Serious</span>
+        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-p25" />Serious</span>
         <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-on-surface-variant" />Other</span>
       </div>
       <div className="absolute bottom-2 left-2 font-mono text-[11px] text-on-surface-variant bg-onyx-black/80 px-2 py-0.5 pointer-events-none">

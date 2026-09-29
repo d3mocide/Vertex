@@ -257,7 +257,7 @@ export function Sidebar() {
             <button
               type="button"
               onClick={() => toggleEntityType('mesh_node')}
-              className={`text-amber-p25 hover:text-white transition-all flex items-center gap-1 focus:outline-none ${entityFilter.mesh_node ? 'opacity-100' : 'opacity-40'}`}
+              className={`text-lime-rf hover:text-white transition-all flex items-center gap-1 focus:outline-none ${entityFilter.mesh_node ? 'opacity-100' : 'opacity-40'}`}
               title="Toggle mesh nodes layer"
             >
               <span className="ms text-[12px]" aria-hidden="true">hub</span>
@@ -441,7 +441,7 @@ export function Sidebar() {
           <button
             type="button"
             onClick={() => toggleEntityType('mesh_node')}
-            className={`text-amber-p25 hover:text-white transition-all flex items-center text-left focus:outline-none ${entityFilter.mesh_node ? 'opacity-100' : 'opacity-40'}`}
+            className={`text-lime-rf hover:text-white transition-all flex items-center text-left focus:outline-none ${entityFilter.mesh_node ? 'opacity-100' : 'opacity-40'}`}
             title="Toggle mesh nodes layer"
           >
             <span className="ms text-[14px] mr-1.5 shrink-0" aria-hidden="true">hub</span>

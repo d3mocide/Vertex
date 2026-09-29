@@ -2039,3 +2039,10 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 
 ### Data-source audit fixes
 - Real feed timestamps (`feed:meta`, `/health/feeds`, `FeedAge`); mesh-node last-heard from the repeater; NOAA NWPS river gauges (official flood categories) replace USGS legacy thresholds; honest severities for anomalies/distant quakes/GDACS with persistent dedupe; region-filtered SIGMETs; ODOT markup/significance; NWS zones updated for the 2026-04-16 Oregon renumbering plus county/fire zones; MeshCore `companion_name` fix and per-channel history; poller backoff for dead sources; memory (compact aircraft DB, NIFC scoping, heap trim).
+
+## 2026-09-28 — Dispatch icons and priority colours (branch feat/sitrep-harness)
+
+- **Dispatch icons** (`atlasIcons.ts`, `buildDispatchLayer.ts`, `RadioIncidents.tsx`): six atlas icons (life, fire, medical, hazard, traffic, other) — Scope-mark corner brackets ("signal, not entity") around a solid plate with the glyph knocked out. Used by the main-map deck.gl layer (glyphs from zoom 8, dots below) and the Incidents page map (tinted via `atlasIconImage`). Priority: red-emergency #C62828 = life safety (always haloed in a lighter red), amber-p25 #FF8F00 = serious; alpha still fades with age.
+- **Mesh nodes → lime-rf #76DD00** (map layer, Sidebar toggles, comms list, entity detail, admin charts, docs): mesh was the exact P25 orange and hid dispatch pins. Mesh is RF infrastructure, grouped with RF sensors.
+- **Red token drift fixed**: exclusion zones and fire icon/charts now use red-emergency #C62828 (were #FF3B30 / #FF5252).
+- Status colours in `StorageSummary` / `EntityFreshness` (#FF5252) intentionally left as health colours.

@@ -746,8 +746,8 @@ export function MapOverlay({ map }: Props) {
           ...memoGroup('trailSelected', [
             tracksRef.current, sel, trailsVisibleRef.current, replayModeRef.current ? replayTsRef.current : 0,
           ], () => buildTrailLayers(rawTracks, sel, trailsVisibleRef.current, 'selected')),
-          ...memoGroup('dispatch', [dispatchRef.current, dispatchVisibleRef.current, minuteBucket],
-            () => buildDispatchLayers(dispatchRef.current, dispatchVisibleRef.current, nowMs)),
+          ...memoGroup('dispatch', [dispatchRef.current, dispatchVisibleRef.current, minuteBucket, zoom >= 8],
+            () => buildDispatchLayers(dispatchRef.current, dispatchVisibleRef.current, nowMs, zoom)),
           ...timed('entities', () => buildEntityLayers(pvbTracks, sel, cycleRef.current, zoom, missionTagsRef.current)),
           ...timed('events', () => buildEventLayers(systemEventsRef.current, nowMs)),
           ...(lightningVisibleRef.current

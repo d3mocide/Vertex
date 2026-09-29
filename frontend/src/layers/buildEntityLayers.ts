@@ -96,8 +96,8 @@ export function buildEntityLayers(
     lineWidthUnits: 'pixels',
   })
 
-  // Design-guide color for fire_incident: --cat-fire #FF5252
-  const FIRE_ICON_COLOR: [number, number, number, number] = [255, 82, 82, 230]
+  // Design-guide color for fire_incident: red-emergency #C62828
+  const FIRE_ICON_COLOR: [number, number, number, number] = [198, 40, 40, 235]
   const RF_SENSOR_COLOR: [number, number, number, number] = [118, 221, 0, 220]
 
   const baseIcon = (t: Track) =>

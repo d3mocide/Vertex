@@ -12,8 +12,8 @@ export interface MeshNodePoint {
   status: string
 }
 
-// Atlas hue: --cat-mesh #FF8F00
-const MESH_ACTIVE: [number, number, number, number] = [255, 143,   0, 240]
+// Atlas hue: lime-rf #76DD00 — mesh is RF infrastructure; orange is P25/dispatch
+const MESH_ACTIVE: [number, number, number, number] = [118, 221,   0, 240]
 const MESH_STALE:  [number, number, number, number] = [136, 136, 136, 200]
 
 function toMeshNodePoint(e: Entity, nowMs: number): MeshNodePoint | null {
