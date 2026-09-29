@@ -19,29 +19,65 @@ Part of the [Sovereign Watch](https://github.com/d3mocide/Sovereign_Watch) famil
 
 ## // 00 · BRIEF
 
-Vertex fuses aircraft, vessel, traffic, weather, alerts, radio, and community feeds into a single map-centric dashboard designed to run on hardware you control. Onyx surfaces, amber-gold signal accents, and a desaturated tactical map keep the focus where it belongs — on the data.
+Vertex fuses aircraft, vessels, traffic, weather, emergency alerts, trunked radio, mesh networks, and community feeds into a single map-centric dashboard that runs on hardware you control — a Raspberry Pi 5 is enough. Onyx surfaces, amber-gold signal accents, and a desaturated tactical map keep the focus where it belongs: on the data.
 
 ```
 DOMAIN · PUBLIC SAFETY    DENSITY · HIGH / DATA-FIRST
 THEME  · DARK ONLY        RADIUS  · 0px / ALL
 ```
 
-## // 01 · ARCHITECTURE
+<div align="center">
 
-Five containers. One compose file.
+[![Vertex tour — click for the full video with radio audio](docs/img/vertex-tour.gif)](docs/video/vertex-tour.mp4)
+
+<sub>Animated preview · [full tour with P25 radio audio (MP4)](docs/video/vertex-tour.mp4)</sub>
+
+
+![Vertex situational map](docs/img/overview.png)
+
+</div>
+
+## // 01 · WHAT IT DOES
+
+- **Live map** — aircraft, vessels, APRS, mesh nodes, trains, fires, quakes, lightning, radar and smoke on one MapLibre + Deck.gl surface, with trails, replay, geofences and annotations.
+- **Aircraft with a job** — air ambulances, rescue, police, fire and military aircraft get a role glow, a "Notable" filter on the flight log, and events when they show up. Roles come from registration and owner data, never guessed from callsigns.
+- **Radio you can read** — P25 calls are recorded from a local OP25 decoder, transcribed, grouped into incidents, and streamed live in the browser.
+- **Infrastructure triage** — freeway corridor status, road closures folded under their parent event, message signs, and power-outage areas with weather and lightning context.
+- **Environment** — air quality, weather history, nearby NWS and road-weather stations, wildfire danger, FIRMS hotspots and stream gauges, in priority order.
+- **Briefings** — an on-box LLM writes situation reports from the same data; nothing leaves your network.
+
+<div align="center">
+
+| Incidents | Infrastructure |
+|:---:|:---:|
+| ![Incidents](docs/img/incidents.png) | ![Infrastructure](docs/img/infrastructure.png) |
+| **Environment** | **Flight log** |
+| ![Environment](docs/img/environment.png) | ![Flight log](docs/img/flights.png) |
+| **P25 call log** | **Event log** |
+| ![P25 call log](docs/img/comms.png) | ![Event log](docs/img/events.png) |
+
+<img src="docs/img/m-map.png" alt="Mobile map" width="260" />&nbsp;&nbsp;<img src="docs/img/m-env.png" alt="Mobile environment" width="260" />
+
+</div>
+
+## // 02 · ARCHITECTURE
+
+One compose file, seven containers.
 
 | Container | Role | Entry point |
 |-----------|------|-------------|
 | `db` | PostgreSQL 16 + PostGIS 3.4 | `db/` init scripts |
 | `redis` | State cache + pub/sub event bus | Stock image |
+| `mosquitto` | MQTT broker for IoT sensors (rtl_433, Meshtastic) | Stock image |
 | `backend` | FastAPI REST + WebSocket API | `backend/main.py` |
-| `poller` | 9 async background pollers | `poller/main.py` |
+| `poller` | Async pollers for every data source | `poller/main.py` |
+| `transcription` | Speech-to-text for recorded radio calls | `transcription/` |
 | `frontend` | React + MapLibre GL, Nginx-served | `frontend/src/main.tsx` |
 
 ```
-External APIs / SDR hardware
+External APIs / SDR hardware / MQTT
         ↓
-    poller (9 async tasks)
+    poller (async tasks per source)
         ↓  bulk INSERT
     PostgreSQL ← PostGIS geofence queries
         ↓  Redis pub/sub
@@ -50,18 +86,22 @@ External APIs / SDR hardware
     frontend Zustand → Deck.gl → MapLibre GL
 ```
 
-## // 02 · DATA SOURCES
+## // 03 · DATA SOURCES
 
-| Signal | Color | Source |
-|--------|-------|--------|
-| Aircraft (ADS-B) | `#00BFFF` CYAN | OpenSky · local Ultrafeeder |
-| Vessels (AIS) | `#00C853` GREEN | AISstream.io · local AIS-catcher |
-| P25 Radio | `#FF8F00` AMBER | OP25 trunked radio |
-| Emergency | `#C62828` RED | NWS alerts · FlashAlert · county EM |
-| Traffic | `#FFB800` GOLD | ODOT TripCheck |
-| Mesh | `#FFB800` GOLD | MeshCore nodes |
+| Signal | Source |
+|--------|--------|
+| Aircraft (ADS-B) | Local BEAST decoder → airplanes.live / adsb.fi community feeds → OpenSky (gap-filler) |
+| Vessels (AIS) | AIS-catcher (local) or AISstream.io |
+| P25 radio | OP25 trunked-radio decoder (local SDR), Whisper transcription |
+| Weather, alerts | NWS observations and alerts, AirNow, ODF fire danger, NIFC, FIRMS |
+| Traffic, infrastructure | ODOT TripCheck (incidents, cameras, signs), Oregon ODIN power outages |
+| Emergency | FlashAlert, county emergency management RSS, TVF&R |
+| Mesh, ham | MeshCore repeaters and companions, APRS-IS |
+| Rail, hazards | Amtrak, TriMet GTFS-RT, USGS quakes, GDACS, lightning |
 
-## // 03 · QUICK START
+**How aircraft feeds are merged.** Every aircraft keeps one live position, always the freshest available: the local BEAST receiver wins, community feeds fill in beyond its range (~0.3 s old), and OpenSky (OAuth2, ~8–60 s old) only covers aircraft the others miss. An older fix never overwrites a newer one.
+
+## // 04 · QUICK START
 
 ```bash
 cp .env.example .env
@@ -75,15 +115,7 @@ docker compose up -d
 
 Open `http://localhost`. For detailed setup, see [docs/getting-started.md](docs/getting-started.md).
 
-## // 04 · SUPPORTED INTEGRATIONS
-
-- **ADS-B** — Ultrafeeder (local) or OpenSky Network (cloud fallback)
-- **AIS** — AIS-catcher (local) or AISstream.io (cloud fallback)
-- **P25** — OP25 trunked radio decoder (local SDR)
-- **Mesh** — MeshCore node tracking over WebSocket
-- **Weather** — NWS observations and alert zones
-- **Traffic** — ODOT TripCheck incidents and camera streams
-- **Alerts** — FlashAlert and county emergency management RSS
+Set `REGION_LAT` / `REGION_LON` in `.env` to center the map and the receiver range ring; the frontend picks them up when it is rebuilt (`docker compose build frontend`).
 
 ## // 05 · DOCUMENTATION
 
