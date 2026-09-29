@@ -55,3 +55,16 @@ async def get_oregon_status():
             "pacificorp_affected": 0,
             "last_updated": "—"
         }
+
+
+@router.get("/outages")
+async def get_outage_areas():
+    """ODIN outage areas (census tracts) as GeoJSON, plus a `near` list for the region."""
+    empty = {"type": "FeatureCollection", "features": [], "near": [], "updated": None}
+    raw = await get_redis().get("feed:utility:outages")
+    if not raw:
+        return empty
+    try:
+        return json.loads(raw)
+    except (json.JSONDecodeError, TypeError):
+        return empty

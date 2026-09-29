@@ -17,6 +17,9 @@ _ODOT_INCIDENTS_PATH = "/Incidents"
 _ODOT_CCTV_PATH = "/Cctv/Inventory"
 _ODOT_FLOW_PATH = "/TrafficDetector/Roadway"
 _ODOT_INV_PATH = "/TrafficDetector/Inventory"
+_ODOT_DMS_INV_PATH = "/Dms/Inventory"
+_ODOT_DMS_STATUS_PATH = "/Dms/Status"
+_SIGNS_EVERY_N_POLLS = 2   # sign messages change with conditions: check every couple of minutes
 _ODOT_RWIS_INV_PATH = "/Rwis/Inventory"
 _ODOT_RWIS_STATUS_PATH = "/Rwis/Status"
 _RWIS_RADIUS_KM = 100      # statewide list is 229 stations; keep the ones around us
@@ -31,6 +34,9 @@ class TrafficPoller(BasePoller):
         self._station_map: dict = {}
         self._rwis_inventory: list = []
         self._rwis_tick = _RWIS_EVERY_N_POLLS  # first poll fetches
+        self._signs_tick = _SIGNS_EVERY_N_POLLS
+        self._signs_inventory: list = []
+        self._signs_inventory_at = 0.0
         self._rwis_inventory_at = 0.0
 
     async def setup(self):
@@ -86,7 +92,13 @@ class TrafficPoller(BasePoller):
                 url = f"{_ODOT_API_BASE}{_ODOT_FLOW_PATH}"
                 resp = await client.get(url, headers=headers)
                 resp.raise_for_status()
-                await set_feed("traffic:flow", _parse_odot_flow(resp.json(), self._station_map))
+                stations = _parse_odot_flow(resp.json(), self._station_map)
+                if stations:
+                    await set_feed("traffic:flow", stations)
+                    await set_feed("traffic:corridors",
+                                   summarize_corridors(stations, settings.region_lat, settings.region_lon))
+                else:
+                    logger.warning("[traffic] flow came back with no usable detectors; keeping previous readings")
             except Exception as exc:
                 logger.warning("[traffic] flow fetch failed: %s", exc)
 
@@ -115,6 +127,27 @@ class TrafficPoller(BasePoller):
                         )
                 except Exception as exc:
                     logger.warning("[traffic] RWIS fetch failed: %s", exc)
+
+            # 5. Message signs (what the freeway signs are telling drivers right now)
+            self._signs_tick += 1
+            if self._signs_tick >= _SIGNS_EVERY_N_POLLS:
+                self._signs_tick = 0
+                try:
+                    if not self._signs_inventory or time.time() - self._signs_inventory_at > 3600:
+                        resp = await client.get(f"{_ODOT_API_BASE}{_ODOT_DMS_INV_PATH}", headers=headers)
+                        resp.raise_for_status()
+                        self._signs_inventory = resp.json().get("dms-inventory-items") or []
+                        self._signs_inventory_at = time.time()
+                    resp = await client.get(f"{_ODOT_API_BASE}{_ODOT_DMS_STATUS_PATH}", headers=headers)
+                    resp.raise_for_status()
+                    statuses = resp.json().get("dmsItems") or []
+                    if not statuses:
+                        logger.warning("[traffic] sign status came back empty; keeping the previous messages")
+                    else:
+                        await set_feed("traffic:signs",
+                                       parse_signs(self._signs_inventory, statuses, settings.region_lat, settings.region_lon))
+                except Exception as exc:
+                    logger.warning("[traffic] message sign fetch failed: %s", exc)
 
 
 def _parse_odot_incidents(data: dict) -> list[dict]:
@@ -264,52 +297,148 @@ def _parse_odot_cameras(data: dict) -> list[dict]:
     return items
 
 
+def _road_key(highway: str) -> str:
+    """ODOT prefixes some detector names with a region ("R3 I-5"); drop it."""
+    return re.sub(r"^R\d+\s+", "", (highway or "").strip())
+
+
 def _parse_odot_flow(data: dict, station_map: dict) -> list[dict]:
-    """Normalize ODOT Traffic Detector response."""
-    items: list[dict] = []
-    records = data.get("detector-data-items", [])
-    corridors = [c.strip() for c in settings.traffic_flow_corridors.split(",") if c.strip()]
+    """Normalize ODOT Traffic Detector response: one reading per station.
 
-    for rec in records:
-        det_list = rec.get("detector-list", {})
-        detail = det_list.get("detector-data-detail", {})
-
+    The API reports every lane separately. Speed is the vehicle-weighted mean of the
+    lanes that saw traffic; a lane that counted no vehicles reports speed 0, which
+    means "nobody there", not "stopped", so it never drags a station to zero.
+    """
+    corridors = {c.strip() for c in settings.traffic_flow_corridors.split(",") if c.strip()}
+    lanes: dict = {}
+    for rec in data.get("detector-data-items", []):
+        detail = (rec.get("detector-list") or {}).get("detector-data-detail") or {}
         sid = detail.get("station-id")
-        if sid is None:
+        if sid is None or sid not in station_map:
             continue
+        lanes.setdefault(sid, []).append(detail)
 
-        meta = station_map.get(sid)
-        if not meta:
+    items: list[dict] = []
+    for sid, details in lanes.items():
+        meta = station_map[sid]
+        if _road_key(meta.get("road", "")) not in corridors:
             continue
-
-        hwy = meta.get("road", "")
-        loc = meta.get("loc", "")
-
-        found = False
-        for c in corridors:
-            if c in hwy:
-                found = True
-                break
-
-        if not found:
-            continue
-
+        if meta.get("cls") and meta["cls"] != "MAINLINE":
+            continue            # ramp detectors say nothing about the corridor
+        moving = [(d.get("vehicle-count") or 0, d.get("vehicle-speed")) for d in details
+                  if (d.get("vehicle-count") or 0) > 0 and (d.get("vehicle-speed") or 0) > 0]
+        total = sum(c for c, _ in moving)
+        speed = round(sum(c * sp for c, sp in moving) / total) if total else None
+        occs = [d.get("vehicle-occupancy") for d in details if d.get("vehicle-occupancy") is not None]
         items.append({
             "id":    str(sid),
-            "road":  hwy,
-            "loc":   loc,
-            "speed": detail.get("vehicle-speed"),
-            "occ":   detail.get("vehicle-occupancy"),
-            "vol":   detail.get("vehicle-count"),
+            "road":  _road_key(meta.get("road", "")),
+            "dir":   meta.get("dir", ""),
+            "loc":   meta.get("loc", ""),
+            "speed": speed,
+            "occ":   round(sum(occs) / len(occs)) if occs else None,
+            "vol":   sum(d.get("vehicle-count") or 0 for d in details),
             "lat":   meta.get("lat"),
             "lon":   meta.get("lon"),
         })
-            
     return items
 
 
+# ─── Corridor status ──────────────────────────────────────────────────────────
+_DIR_NAMES = {"N": "Northbound", "S": "Southbound", "E": "Eastbound", "W": "Westbound"}
+_DIR_ORDER = {"N": 0, "S": 1, "E": 2, "W": 3}
+_ROAD_ORDER = ["I-5", "I-205", "I-84", "I-405", "US26", "OR-217"]
+_HEAVY_MPH, _SLOW_MPH = 25, 45     # median corridor speed below which it is heavy / slow
+_MIN_VOL = 3                       # vehicles in the interval before a slow reading counts as a queue
+_CORRIDOR_RADIUS_KM = 30
+
+
+def summarize_corridors(stations: list[dict], lat: float, lon: float,
+                        radius_km: float = _CORRIDOR_RADIUS_KM) -> list[dict]:
+    """Per road and direction near the region: median speed, the slowest spot, a status.
+
+    status: "normal" | "slow" | "heavy" | "quiet" (detectors report, nobody driving — late
+    night) | "nodata" (detectors report nothing).
+    """
+    groups: dict[tuple[str, str], list[dict]] = {}
+    for st in stations:
+        if st.get("lat") is None or st.get("lon") is None:
+            continue
+        if haversine_km(st["lat"], st["lon"], lat, lon) > radius_km:
+            continue
+        groups.setdefault((st["road"], st.get("dir", "")), []).append(st)
+
+    out: list[dict] = []
+    for (road, direction), group in groups.items():
+        valid = [s for s in group if s.get("speed") is not None]
+        # A "2 mph" from one vehicle is a sensor near a ramp, not a queue: judge the corridor by
+        # detectors that actually saw traffic, and only fall back to the thin readings if none did.
+        solid = [s for s in valid if (s.get("vol") or 0) >= _MIN_VOL]
+        speeds = sorted(s["speed"] for s in (solid or valid))
+        slowest = min(solid or valid, key=lambda s: s["speed"], default=None)
+        if speeds:
+            median = speeds[len(speeds) // 2] if len(speeds) % 2 else round((speeds[len(speeds) // 2 - 1] + speeds[len(speeds) // 2]) / 2)
+            crawling = sum(1 for s in solid if s["speed"] < _HEAVY_MPH)
+            status = "heavy" if median < _HEAVY_MPH else "slow" if (median < _SLOW_MPH or crawling >= 2) else "normal"
+        else:
+            median = None
+            status = "quiet" if any(s.get("vol") == 0 for s in group) else "nodata"
+        out.append({
+            "road": road, "dir": direction,
+            "label": f"{road} {_DIR_NAMES.get(direction, direction)}".strip(),
+            "status": status, "speed": median,
+            "stations": len(group), "reporting": len(valid),
+            "slowest": {"loc": slowest["loc"], "speed": slowest["speed"]} if slowest else None,
+        })
+    out.sort(key=lambda c: (_ROAD_ORDER.index(c["road"]) if c["road"] in _ROAD_ORDER else 99,
+                            _DIR_ORDER.get(c["dir"], 9)))
+    return out
+
+
+# ─── Message signs (DMS) ──────────────────────────────────────────────────────
+_TRAVEL_SIGN = re.compile(r"TRAVEL TIME|\bMIN\b|^[\d\s/]+$", re.I)
+_SIGN_RADIUS_KM = 60
+_SIGN_MAX = 12
+
+
+def parse_signs(inventory: list, statuses: list, lat: float, lon: float,
+                radius_km: float = _SIGN_RADIUS_KM) -> list[dict]:
+    """Nearby ODOT message signs that are showing something, nearest first."""
+    by_id = {s.get("device-id"): s for s in statuses}
+    out: list[dict] = []
+    for dev in inventory:
+        dlat, dlon = dev.get("latitude"), dev.get("longitude")
+        if dlat is None or dlon is None:
+            continue
+        st = by_id.get(dev.get("device-id")) or {}
+        if str(st.get("dms-device-status", "")).lower() != "in service":
+            continue
+        msg = st.get("dmsCurrentMessage") or {}
+        p1 = [str(msg.get(f"phase1Line{i}") or "").strip() for i in (1, 2, 3)]
+        p2 = [str(msg.get(f"phase2Line{i}") or "").strip() for i in (1, 2, 3)]
+        p1, p2 = [t for t in p1 if t], [t for t in p2 if t]
+        if not p1 and not p2:
+            continue
+        dist = haversine_km(dlat, dlon, lat, lon)
+        if dist > radius_km:
+            continue
+        text = " / ".join(p1 or p2)
+        out.append({
+            "id": dev.get("device-id"),
+            "name": (dev.get("device-name") or "").strip(),
+            "route": dev.get("route-id"),
+            "dist_km": round(dist, 1),
+            "page1": p1, "page2": p2 if p2 != p1 else [],
+            "text": text,
+            # Travel times / speeds are routine; anything else is a message drivers were meant to read.
+            "kind": "travel" if _TRAVEL_SIGN.search(text) else "message",
+        })
+    out.sort(key=lambda d: (d["kind"] != "message", d["dist_km"]))
+    return out[:_SIGN_MAX]
+
+
 def _parse_odot_inventory(data: dict) -> dict:
-    """Map station-id to location metadata."""
+    """Map station-id to location metadata (road, direction, class, position)."""
     mapping = {}
     stations = data.get("traffic-detector-list", [])
     for s in stations:
@@ -320,6 +449,8 @@ def _parse_odot_inventory(data: dict) -> dict:
             mapping[sid] = {
                 "road": loc.get("highway-name", ""),
                 "loc":  loc.get("location-name", ""),
+                "dir":  (loc.get("highway-direction") or "").strip().upper(),
+                "cls":  (det.get("station-class") or "").strip().upper(),
                 "lat":  loc.get("latitude"),
                 "lon":  loc.get("longitude"),
             }

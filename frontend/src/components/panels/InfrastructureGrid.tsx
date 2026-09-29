@@ -1,8 +1,12 @@
 import { useState, useEffect } from 'react'
 import { TrafficCamera, useCivicPick } from '../../store'
-import { isMajorTrafficIncident } from '../../incidentUtils'
+import { triageIncidents } from '../../incidentUtils'
+import { IncidentsNow } from './infrastructure/IncidentsNow'
+import { PlannedWork } from './infrastructure/PlannedWork'
+import { RoadStatusCard } from './infrastructure/RoadStatusCard'
+import { MessageSignsCard } from './infrastructure/MessageSignsCard'
+import { PowerCard } from './infrastructure/PowerCard'
 import { PageHeader } from '../common/Page'
-import { formatAge, useFeedFreshness } from '../common/FeedAge'
 
 function CctvThumbnail({
   cam, ldi, isFavorite, onToggleFavorite,
@@ -102,35 +106,6 @@ function CctvThumbnail({
   )
 }
 
-function UtilityStatusRow({
-  label,
-  value,
-  status,
-}: {
-  label: string
-  value: string
-  status: 'ok' | 'warn' | 'down'
-}) {
-  const dot = {
-    ok:   'bg-green-ais',
-    warn: 'bg-amber-gold animate-pulse',
-    down: 'bg-red-emergency animate-pulse',
-  }[status]
-
-  return (
-    <div className="flex items-center justify-between py-2 border-b border-amber-gold-muted/20">
-      <span className="text-[11px] text-on-surface-variant">{label}</span>
-      <div className="flex items-center gap-2">
-        <span className="font-mono text-[11px] text-on-surface">{value}</span>
-        <span
-          className={`w-2 h-2 rounded-full shrink-0 ${dot}`}
-          aria-label={`Status: ${status}`}
-        />
-      </div>
-    </div>
-  )
-}
-
 // Placeholder camera data when backend returns empty
 const PLACEHOLDER_CAMERAS: TrafficCamera[] = [
   { id: 'cam-001', name: 'I-5 NB / Exit 289', url: '' },
@@ -144,9 +119,7 @@ const PLACEHOLDER_CAMERAS: TrafficCamera[] = [
 export function InfrastructureGrid() {
   const {
     cameras,
-    trafficFlow,
     trafficIncidents,
-    utilityStatus,
     oregonStatus,
     ldiMode,
     setLdiMode,
@@ -154,7 +127,7 @@ export function InfrastructureGrid() {
     setSelectedCamId,
     favoriteCamIds,
     toggleFavoriteCam,
-  } = useCivicPick('cameras', 'trafficFlow', 'trafficIncidents', 'utilityStatus', 'oregonStatus', 'ldiMode', 'setLdiMode', 'selectedCamId', 'setSelectedCamId', 'favoriteCamIds', 'toggleFavoriteCam')
+  } = useCivicPick('cameras', 'trafficIncidents', 'oregonStatus', 'ldiMode', 'setLdiMode', 'selectedCamId', 'setSelectedCamId', 'favoriteCamIds', 'toggleFavoriteCam')
   const [radiusKm, setRadiusKm] = useState(5)
   const [page, setPage] = useState(0)
   const PAGE_SIZE = 12
@@ -176,25 +149,8 @@ export function InfrastructureGrid() {
   const totalPages = Math.ceil(filteredCameras.length / PAGE_SIZE)
   const displayCameras = filteredCameras.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
 
-  // Helper to get flow status
-  const getFlowStatus = (road: string, minSpeed: number = 45) => {
-    const sensor = trafficFlow.find(f => f.road?.includes(road) || f.loc?.includes(road))
-    if (!sensor) return { value: 'No Data', status: 'warn' as const }
-    const speed = sensor.speed || 0
-    if (speed === 0) return { value: 'Stopped', status: 'down' as const }
-    if (speed < minSpeed) return { value: `${speed} MPH`, status: 'warn' as const }
-    return { value: 'Normal Flow', status: 'ok' as const }
-  }
-
-  const pge = utilityStatus || {
-    status: 'Operational',
-    active_outages: 0,
-    customers_affected: 0,
-    last_updated: '—',
-  }
-
-  // Real feed age (was a hard-coded "Just now" with a permanent OK status).
-  const utilityAge = useFeedFreshness('utility:oregon')
+  // Closures and delays near us first; roadwork/notices folded away.
+  const triage = triageIncidents(trafficIncidents)
 
   const oregon = oregonStatus || {
     status: 'Operational',
@@ -237,266 +193,111 @@ export function InfrastructureGrid() {
         </>}
       />
 
-      <div className="flex-1 overflow-y-auto p-4 pb-6 flex flex-col gap-6">
+      <div className="flex-1 overflow-y-auto p-4 pb-24 flex flex-col gap-6">
 
-        {/* ── Two-column body ────────────────────────────────────────── */}
+        {/* Right now: what is closed or slow, and how the roads, signs and power look */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+          <IncidentsNow incidents={triage.now} cameras={allCameras} onOpenCamera={setSelectedCamId} />
 
-          {/* LEFT COLUMN: Cameras */}
-          <div className="flex flex-col gap-6">
-
-            {/* CCTV grid */}
-            <section aria-labelledby="cctv-heading">
-              <div className="flex items-center justify-between mb-3">
-                <h3 id="cctv-heading" className="section-heading">
-                  <span className="ms text-[14px] leading-none" aria-hidden="true">videocam</span>
-                  Traffic Cameras
-                </h3>
-
-                {/* Radius filter */}
-                <div className="flex items-center gap-1 bg-surface-container-highest/50 p-0.5 rounded-sm">
-                  {[5, 10, 20].map((r) => (
-                    <button
-                      key={r}
-                      onClick={() => { setRadiusKm(r); setPage(0); }}
-                      className={`
-                        px-2 py-0.5 font-mono text-[11px] uppercase transition-colors
-                        ${radiusKm === r ? 'bg-amber-gold text-onyx-black font-bold' : 'text-on-surface-variant hover:text-on-surface'}
-                      `}
-                    >
-                      {r}km
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Phones: one swipeable row of every camera in range, so the
-                  camera wall doesn't push status and incidents off-screen. */}
-              <div className="lg:hidden -mx-4 px-4 flex gap-2 overflow-x-auto no-scrollbar snap-x snap-mandatory">
-                {filteredCameras.map((cam) => (
-                  <div key={cam.id} className="w-[78%] shrink-0 snap-start cursor-pointer" onClick={() => setSelectedCamId(cam.id)}>
-                    <CctvThumbnail
-                      cam={cam}
-                      ldi={ldiMode}
-                      isFavorite={favoriteCamIds.includes(cam.id)}
-                      onToggleFavorite={(e) => { e.stopPropagation(); toggleFavoriteCam(cam.id) }}
-                    />
-                  </div>
-                ))}
-              </div>
-
-              <div className="hidden lg:grid grid-cols-3 gap-2">
-                {displayCameras.map((cam) => (
-                  <div key={cam.id} className="cursor-pointer" onClick={() => setSelectedCamId(cam.id)}>
-                    <CctvThumbnail
-                      cam={cam}
-                      ldi={ldiMode}
-                      isFavorite={favoriteCamIds.includes(cam.id)}
-                      onToggleFavorite={(e) => { e.stopPropagation(); toggleFavoriteCam(cam.id) }}
-                    />
-                  </div>
-                ))}
-              </div>
-
-              <div className="flex items-center justify-between mt-3">
-                <p className="font-mono text-[11px] text-on-surface-variant uppercase tracking-widest">
-                  {filteredCameras.length} cameras in range
-                </p>
-
-                {/* Pagination (desktop grid; phones swipe the strip) */}
-                {totalPages > 1 && (
-                  <div className="hidden lg:flex items-center gap-2">
-                    <button
-                      disabled={page === 0}
-                      onClick={() => setPage(p => p - 1)}
-                      className="ms text-[16px] text-on-surface-variant disabled:opacity-20 hover:text-amber-gold transition-colors"
-                    >
-                      chevron_left
-                    </button>
-                    <span className="font-mono text-[11px] text-amber-gold">
-                      {page + 1} / {totalPages}
-                    </span>
-                    <button
-                      disabled={page === totalPages - 1}
-                      onClick={() => setPage(p => p + 1)}
-                      className="ms text-[16px] text-on-surface-variant disabled:opacity-20 hover:text-amber-gold transition-colors"
-                    >
-                      chevron_right
-                    </button>
-                  </div>
-                )}
-              </div>
-            </section>
-          </div>{/* /LEFT COLUMN */}
-
-          {/* RIGHT COLUMN: Utility → Road & Traffic */}
-          <div className="flex flex-col gap-6">
-
-            {/* Regional Utility Status */}
-            <section aria-labelledby="utility-heading">
-              <h3 id="utility-heading" className="section-heading mb-3">
-                <span className="ms text-[14px] leading-none" aria-hidden="true">bolt</span>
-                Regional Utility Status
-              </h3>
-
-              <div className="hud-panel p-3 mb-4">
-                <div className="label-caps mb-2 text-amber-gold">Oregon Statewide (ODIN)</div>
-                <UtilityStatusRow label="Statewide Status"   value={oregon.status}              status={oregon.state_affected > 5000 ? 'down' : oregon.state_affected > 1000 ? 'warn' : 'ok'} />
-                <UtilityStatusRow label="Total Meters Out"   value={String(oregon.state_affected)} status={oregon.state_affected > 1000 ? 'warn' : 'ok'} />
-                <UtilityStatusRow label="Metro Area (W/M/C)" value={String(oregon.metro_affected)} status={oregon.metro_affected > 100 ? 'warn' : 'ok'} />
-              </div>
-
-              <div className="hud-panel p-3">
-                <div className="label-caps mb-2">Major Providers</div>
-                <UtilityStatusRow label="PGE (Portland General)" value={String(oregon.pge_affected)}          status={oregon.pge_affected > 50 ? 'warn' : 'ok'} />
-                <UtilityStatusRow label="Pacific Power (PAC)"    value={String(oregon.pacificorp_affected)}   status={oregon.pacificorp_affected > 50 ? 'warn' : 'ok'} />
-                <UtilityStatusRow
-                  label="Last Sync"
-                  value={utilityAge.ageS == null ? 'No data yet' : formatAge(utilityAge.ageS)}
-                  status={utilityAge.state === 'dead' ? 'down' : utilityAge.state === 'fresh' ? 'ok' : 'warn'}
-                />
-              </div>
-            </section>
-
-            {/* Road & Traffic */}
-            <section aria-labelledby="road-heading">
-              <h3 id="road-heading" className="section-heading mb-3">
-                <span className="ms text-[14px] leading-none" aria-hidden="true">local_gas_station</span>
-                Road &amp; Traffic
-              </h3>
-              <div className="hud-panel p-3">
-                <UtilityStatusRow label="I-5 Northbound"  {...getFlowStatus('I-5')} />
-                <UtilityStatusRow label="I-5 Southbound"  {...getFlowStatus('I-5')} />
-                <UtilityStatusRow label="OR-99W"           {...getFlowStatus('99W')} />
-                <UtilityStatusRow label="Boones Ferry Rd" {...getFlowStatus('Boones Ferry')} />
-              </div>
-            </section>
-
-          </div>{/* /RIGHT COLUMN */}
-
-        </div>{/* /two-column grid */}
-
-        {/* Full-width Incident Feed */}
-        <section aria-labelledby="incidents-heading" className="pt-6 border-t border-amber-gold-muted/30">
-          <div className="flex items-center justify-between mb-4">
-            <h3 id="incidents-heading" className="section-heading">
-              <span className="ms text-[16px] leading-none text-amber-gold" aria-hidden="true">report</span>
-              Active Incident Feed ({trafficIncidents.length})
-            </h3>
-            <span className="font-mono text-[11px] text-on-surface-variant uppercase tracking-widest">
-              ODOT Real-Time Data
-            </span>
+          <div className="flex flex-col gap-4">
+            <RoadStatusCard />
+            <MessageSignsCard />
+            <PowerCard
+              statewide={oregon.state_affected}
+              metro={oregon.metro_affected}
+              pge={oregon.pge_affected}
+              pacific={oregon.pacificorp_affected}
+            />
           </div>
-          
-          {trafficIncidents.length === 0 ? (
-            <div className="hud-panel p-8 text-center bg-onyx-deep/20">
-              <p className="text-[12px] text-on-surface-variant italic">No active traffic incidents reported in the region.</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-              {trafficIncidents.map((incident, idx) => {
-                const isMajor = isMajorTrafficIncident(incident)
-                return (
-                  <article 
-                    key={`${incident.title}-${idx}`} 
-                    className={`
-                      border p-3 flex flex-col gap-2 relative transition-all
-                      ${isMajor 
-                        ? 'border-amber-gold/50 bg-amber-gold/10 shadow-[0_0_15px_rgba(255,184,0,0.1)]' 
-                        : 'border-white/10 bg-onyx-deep/40 opacity-80 hover:opacity-100'}
-                    `}
-                  >
-                    {isMajor && (
-                      <div className="absolute top-0 left-0 w-1 h-full bg-amber-gold" aria-hidden="true" />
-                    )}
-                    
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex-1">
-                        <p className={`text-[13px] font-bold leading-tight ${isMajor ? 'text-amber-gold' : 'text-on-surface'}`}>
-                          {deriveIncidentTitle(incident)}
-                        </p>
-                      </div>
-                      <span className="font-mono text-[11px] text-on-surface-variant shrink-0 bg-onyx-black/60 px-1.5 py-0.5 rounded-sm">
-                        {incident.pubDate ? new Date(incident.pubDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}
-                      </span>
-                    </div>
+        </div>
 
-                    {formatIncidentLocation(incident) && (
-                      <div className="flex items-center gap-1.5 text-[11px] text-amber-gold/80 font-mono">
-                        <span className="ms text-[14px]" aria-hidden="true">location_on</span>
-                        <span className="truncate">{formatIncidentLocation(incident)}</span>
-                      </div>
-                    )}
+        {/* Cameras */}
+    <section aria-labelledby="cctv-heading">
+      <div className="flex items-center justify-between mb-3">
+        <h3 id="cctv-heading" className="section-heading">
+          <span className="ms text-[14px] leading-none" aria-hidden="true">videocam</span>
+          Traffic Cameras
+        </h3>
 
-                    {incident.description && (
-                      <p className="text-[11px] text-on-surface-variant leading-relaxed line-clamp-3 hover:line-clamp-none transition-all">
-                        {incident.description}
-                      </p>
-                    )}
+        {/* Radius filter */}
+        <div className="flex items-center gap-1 bg-surface-container-highest/50 p-0.5 rounded-sm">
+          {[5, 10, 20].map((r) => (
+            <button
+              key={r}
+              onClick={() => { setRadiusKm(r); setPage(0); }}
+              className={`
+                px-2 py-0.5 font-mono text-[11px] uppercase transition-colors
+                ${radiusKm === r ? 'bg-amber-gold text-onyx-black font-bold' : 'text-on-surface-variant hover:text-on-surface'}
+              `}
+            >
+              {r}km
+            </button>
+          ))}
+        </div>
+      </div>
 
-                    <div className="mt-auto pt-2 flex items-center justify-between border-t border-white/5">
-                      <div className="flex gap-2">
-                        {isMajor && (
-                          <span className="bg-amber-gold/20 text-amber-gold text-[11px] font-bold px-1.5 py-0.5 uppercase tracking-tighter rounded-sm">
-                            Significant
-                          </span>
-                        )}
-                        {incident.severity && (
-                          <span className="bg-white/5 text-on-surface-variant text-[11px] font-mono px-1.5 py-0.5 uppercase tracking-tighter rounded-sm">
-                            {incident.severity}
-                          </span>
-                        )}
-                      </div>
-                      {incident.link && (
-                        <a
-                          href={incident.link}
-                          target="_blank"
-                          rel="noreferrer noopener"
-                          className="font-mono text-[11px] uppercase tracking-widest text-amber-gold hover:text-white"
-                        >
-                          Source
-                        </a>
-                      )}
-                    </div>
-                  </article>
-                )
-              })}
-            </div>
-          )}
-        </section>
+      {/* Phones: one swipeable row of every camera in range, so the
+          camera wall doesn't push status and incidents off-screen. */}
+      <div className="lg:hidden -mx-4 px-4 flex gap-2 overflow-x-auto no-scrollbar snap-x snap-mandatory">
+        {filteredCameras.map((cam) => (
+          <div key={cam.id} className="w-[78%] shrink-0 snap-start cursor-pointer" onClick={() => setSelectedCamId(cam.id)}>
+            <CctvThumbnail
+              cam={cam}
+              ldi={ldiMode}
+              isFavorite={favoriteCamIds.includes(cam.id)}
+              onToggleFavorite={(e) => { e.stopPropagation(); toggleFavoriteCam(cam.id) }}
+            />
+          </div>
+        ))}
+      </div>
+
+      <div className="hidden lg:grid grid-cols-3 xl:grid-cols-6 gap-2">
+        {displayCameras.map((cam) => (
+          <div key={cam.id} className="cursor-pointer" onClick={() => setSelectedCamId(cam.id)}>
+            <CctvThumbnail
+              cam={cam}
+              ldi={ldiMode}
+              isFavorite={favoriteCamIds.includes(cam.id)}
+              onToggleFavorite={(e) => { e.stopPropagation(); toggleFavoriteCam(cam.id) }}
+            />
+          </div>
+        ))}
+      </div>
+
+      <div className="flex items-center justify-between mt-3">
+        <p className="font-mono text-[11px] text-on-surface-variant uppercase tracking-widest">
+          {filteredCameras.length} cameras in range
+        </p>
+
+        {/* Pagination (desktop grid; phones swipe the strip) */}
+        {totalPages > 1 && (
+          <div className="hidden lg:flex items-center gap-2">
+            <button
+              disabled={page === 0}
+              onClick={() => setPage(p => p - 1)}
+              className="ms text-[16px] text-on-surface-variant disabled:opacity-20 hover:text-amber-gold transition-colors"
+            >
+              chevron_left
+            </button>
+            <span className="font-mono text-[11px] text-amber-gold">
+              {page + 1} / {totalPages}
+            </span>
+            <button
+              disabled={page === totalPages - 1}
+              onClick={() => setPage(p => p + 1)}
+              className="ms text-[16px] text-on-surface-variant disabled:opacity-20 hover:text-amber-gold transition-colors"
+            >
+              chevron_right
+            </button>
+          </div>
+        )}
+      </div>
+    </section>
+
+        {/* Roadwork and notices with little impact, folded */}
+        <PlannedWork incidents={triage.planned} hiddenStale={triage.hiddenStale} />
 
       </div>
     </div>
   )
-}
-
-function formatIncidentLocation(incident: { location?: string; lat?: number; lon?: number }): string | undefined {
-  const location = incident.location?.trim()
-  if (location) return location
-
-  if (typeof incident.lat === 'number' && typeof incident.lon === 'number') {
-    return `${incident.lat.toFixed(4)}, ${incident.lon.toFixed(4)}`
-  }
-
-  return undefined
-}
-
-function deriveIncidentTitle(incident: {
-  title?: string
-  description?: string
-  location?: string
-  lat?: number
-  lon?: number
-}): string {
-  const title = (incident.title ?? '').trim()
-  const generic = /^traffic\s+incident$/i.test(title)
-  if (title && !generic) return title
-
-  const location = formatIncidentLocation(incident)
-  if (location) return `Incident near ${location}`
-
-  const description = (incident.description ?? '').trim()
-  if (description) return description
-
-  return 'Traffic incident'
 }

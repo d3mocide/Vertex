@@ -45,7 +45,7 @@ Operational implications:
 | NIFC Fire Perimeters (`poller/pollers/nifc.py`) | Fetches all active fire perimeters from WFIGS GeoJSON. No client-side geographic filter — the upstream endpoint covers all of North America. | None |
 | Lightning (`poller/pollers/lightning.py`) | WebSocket subscription uses configured BBOX with +/- 5 degree pad. | `BBOX_*` |
 | Stream Gauge (`poller/pollers/streamgauge.py`) | USGS query includes `bBox` from configured bounds. | `BBOX_*` |
-| Traffic (`poller/pollers/traffic.py`) | Incidents and cameras are clipped to BBOX. Cameras are distance-ranked to region center. Flow is filtered by configured corridor-name fragments. | `BBOX_*`, `REGION_LAT/LON`, `TRAFFIC_FLOW_CORRIDORS` |
+| Traffic (`poller/pollers/traffic.py`) | Incidents and cameras are clipped to BBOX. Cameras are distance-ranked to region center. Flow is limited to the configured highway names (mainline detectors only). | `BBOX_*`, `REGION_LAT/LON`, `TRAFFIC_FLOW_CORRIDORS` |
 | Seismic (`poller/pollers/seismic.py`) | Distance tiers from region center control magnitude threshold acceptance. | `REGION_LAT/LON` |
 | APRS (`poller/pollers/aprs.py`) | APRS-IS login filter uses centerpoint radius. | `REGION_LAT/LON`, `APRS_FILTER_RADIUS_KM` |
 | Alerts (`poller/pollers/alerts.py`) | NWS CAP feed filtered by zone code list; non-NWS feeds are source-defined. | `NWS_ALERT_ZONES`, `alert_zones` |

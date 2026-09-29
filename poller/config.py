@@ -93,7 +93,7 @@ class Settings(BaseSettings):
     # Traffic flow corridor filter — comma-separated highway name fragments.
     # Only detector stations whose highway name contains one of these fragments
     # are included in the traffic:flow feed. Override to match your region.
-    traffic_flow_corridors: str = "I-5,99W,Pacific Highway"
+    traffic_flow_corridors: str = "I-5,I-205,I-84,I-405,US26,OR-217"
 
     # EPA AirNow AQI API (free key from airnowapi.org)
     airnow_api_key: str = ""

@@ -27,3 +27,15 @@ async def get_cameras():
 @router.get("/flow")
 async def get_flow():
     return _safe_json(await get_redis().get("feed:traffic:flow"))
+
+
+@router.get("/corridors")
+async def get_corridors():
+    """Per road/direction speed and status computed from the ODOT detectors."""
+    return _safe_json(await get_redis().get("feed:traffic:corridors"))
+
+
+@router.get("/signs")
+async def get_signs():
+    """ODOT message signs near the region that are currently showing a message."""
+    return _safe_json(await get_redis().get("feed:traffic:signs"))

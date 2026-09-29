@@ -114,8 +114,10 @@ export interface CivicStore {
   setGoesVisible:      (v: boolean) => void
   firePerimetersVisible: boolean
   fireDangerVisible: boolean
+  outagesVisible: boolean
   setFirePerimetersVisible: (v: boolean) => void
   setFireDangerVisible: (v: boolean) => void
+  setOutagesVisible: (v: boolean) => void
   setCamerasVisible:   (v: boolean) => void
   setGeofencesVisible: (v: boolean) => void
   setTrailsVisible:    (v: boolean) => void
@@ -411,6 +413,7 @@ export const useCivicStore = create<CivicStore>()(
   goesVisible:            false,
   firePerimetersVisible:  false,
   fireDangerVisible:      false,
+  outagesVisible:         false,
   camerasVisible:         false,
   geofencesVisible:    true,
   trailsVisible:       true,
@@ -653,6 +656,7 @@ export const useCivicStore = create<CivicStore>()(
   setGoesVisible:           (goesVisible)           => set({ goesVisible }),
   setFirePerimetersVisible: (firePerimetersVisible) => set({ firePerimetersVisible }),
   setFireDangerVisible: (fireDangerVisible) => set({ fireDangerVisible }),
+  setOutagesVisible: (outagesVisible) => set({ outagesVisible }),
   setCamerasVisible:        (camerasVisible)        => set({ camerasVisible }),
   setGeofencesVisible: (geofencesVisible) => set({ geofencesVisible }),
   setTrailsVisible:    (trailsVisible)    => set({ trailsVisible }),
@@ -769,6 +773,7 @@ export const useCivicStore = create<CivicStore>()(
       goesVisible:          state.goesVisible,
       firePerimetersVisible: state.firePerimetersVisible,
       fireDangerVisible: state.fireDangerVisible,
+      outagesVisible: state.outagesVisible,
       camerasVisible:       state.camerasVisible,
       geofencesVisible:   state.geofencesVisible,
       annotationsVisible: state.annotationsVisible,

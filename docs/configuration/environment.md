@@ -109,7 +109,7 @@ Cursor-on-Target (CoT) output sends entity positions to TAK-compatible receivers
 
 | Variable | Purpose | Notes |
 |----------|---------|-------|
-| `TRAFFIC_FLOW_CORRIDORS` | Comma-separated highway filters | Used to narrow traffic detector coverage |
+| `TRAFFIC_FLOW_CORRIDORS` | Comma-separated ODOT highway names (exact, e.g. `I-5,I-205,US26,OR-217`) | Which freeways get corridor speed status |
 | `VITE_RADAR_LAYER` | Primary radar overlay layer ID | Frontend build-time variable |
 | `VITE_RADAR_FALLBACK_LAYER` | Fallback radar layer at low zoom | Frontend build-time variable |
 | `VITE_RADAR_FALLBACK_MAX_ZOOM` | Zoom threshold below which fallback layer activates | Frontend build-time variable |

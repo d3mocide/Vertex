@@ -37,6 +37,7 @@ export interface TrafficIncident {
   lat?: number
   lon?: number
   severity?: string
+  dist_km?: number
 }
 
 // ─── Feed freshness (backend /health/feeds + WebSocket feed_update.ts) ───────
