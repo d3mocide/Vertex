@@ -33,7 +33,7 @@ _OPERATOR_RULES: list[tuple[str, list[str]]] = [
                  r"\bPHI AIR", r"LIFENET", r"MED-?TRANS", r"STAT MED"]),
     ("fire", [r"\bFIRE (DEPARTMENT|DEPT|DISTRICT|RESCUE|AND RESCUE|SERVICE|PROTECTION|AVIATION|& RESCUE)\b",
               r"FIREFIGHT", r"FORESTRY", r"FOREST SERVICE", r"INTERAGENCY", r"AIR TANKER", r"HELITANKER"]),
-    ("law_enforcement", [r"\bPOLICE\b", r"SHERIFF", r"STATE PATROL", r"HIGHWAY PATROL", r"MARSHALS?\b",
+    ("law_enforcement", [r"\bPOLICE\b", r"\bSTATE POL", r"SHERIFF", r"STATE PATROL", r"HIGHWAY PATROL", r"MARSHALS?\b",
                          r"BORDER PROTECTION", r"CUSTOMS", r"HOMELAND SECURITY", r"FEDERAL BUREAU",
                          r"DRUG ENFORCEMENT", r"ALCOHOL, TOBACCO", r"DEPARTMENT OF JUSTICE", r"AIR SUPPORT"]),
     ("military", [r"UNITED STATES (ARMY|AIR FORCE|NAVY|MARINE)", r"\bARMY\b", r"AIR FORCE", r"\bNAVY\b",

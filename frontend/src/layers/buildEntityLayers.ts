@@ -208,14 +208,18 @@ export function buildEntityLayers(
   // Ring around aircraft with a job: air ambulance / rescue / fire in red, police in amber,
   // military/news/government in grey. An emergency squawk pulses red instead.
   const roleAircraft = trackArr.filter((t) => t.type === 'air' && (t.role || t.alert))
+  const pulse = Number.isFinite(cycle) ? cycle : 0
   const roleRingLayer = new ScatterplotLayer<Track>({
     id:             'aircraft-role-rings',
     data:           roleAircraft,
     getPosition:    (t) => [t.lon, t.lat],
-    getRadius:      (t) => (t.alert ? 20 + cycle * 24 : 15),
-    getFillColor:   (t) => (t.alert ? [255, 80, 80, Math.round(110 * (1 - cycle * cycle))] : [0, 0, 0, 0]),
+    getRadius:      (t) => (t.alert ? 20 + pulse * 24 : 15),
+    // Pixel radii, hard-capped: a ring around a plane must never be larger than the plane's own marker area.
+    radiusMinPixels: 10,
+    radiusMaxPixels: 48,
+    getFillColor:   (t) => (t.alert ? [255, 80, 80, Math.round(110 * (1 - pulse * pulse))] : [0, 0, 0, 0]),
     getLineColor:   (t) => {
-      if (t.alert) return [255, 80, 80, Math.round(255 * (1 - cycle * cycle * 0.6))]
+      if (t.alert) return [255, 80, 80, Math.round(255 * (1 - pulse * pulse * 0.6))]
       const [r, g, b] = roleMeta(t.role)?.rgb ?? [140, 140, 140]
       return [r, g, b, 230]
     },
@@ -225,7 +229,7 @@ export function buildEntityLayers(
     getLineWidth:   2,
     lineWidthUnits: 'pixels',
     pickable:       false,
-    updateTriggers: { getRadius: cycle, getFillColor: cycle, getLineColor: [cycle, roleAircraft.map(t => `${t.role}${t.alert}`).join()] },
+    updateTriggers: { getRadius: pulse, getFillColor: pulse, getLineColor: [pulse, roleAircraft.map(t => `${t.role}${t.alert}`).join()] },
   })
 
   // APRS labels: show at z10+, color matches station type
