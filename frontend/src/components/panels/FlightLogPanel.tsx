@@ -4,7 +4,8 @@ import { Entity, useCivicPick } from '../../store'
 import type { AcarsMessage } from '../../storeTypes'
 import { API_BASE, MAP_STYLE, DEFAULT_CENTER } from '../../config'
 import { authHeaders } from '../../auth'
-import { PageHeader, StatusDot, Chip } from '../common/Page'
+import { PageHeader, StatusDot, Chip, ChipRow } from '../common/Page'
+import { ALERT_LABEL, ROLE_META, ROLE_ORDER, roleMeta } from '../../aircraftRoles'
 import { ensureKnownStyleImages, KNOWN_STYLE_IMAGE_FALLBACKS } from '../Map'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -56,7 +57,12 @@ interface FlightEntry {
   firstSeen:   string
   lastSeen:    string
   liveEntity:  Entity | null
+  role?:       string   // medical / rescue / law_enforcement … (live identity, else the event history)
+  alert?:      string   // emergency squawk seen on this aircraft
 }
+
+/** Recorded sightings of notable aircraft (poller events), so past flights keep their role. */
+interface RoleInfo { role?: string; alert?: string }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function fmtAlt(ft: number | null | undefined): string {
@@ -223,7 +229,7 @@ function AcarsMessageRow({ msg }: { msg: AcarsMessage }) {
 }
 
 function AircraftRow({
-  entityId, displayName, liveEntity, isSelected, lastSeen, hasAcars, onClick,
+  entityId, displayName, liveEntity, isSelected, lastSeen, hasAcars, role, alert, onClick,
 }: {
   entityId:    string
   displayName: string
@@ -231,8 +237,11 @@ function AircraftRow({
   isSelected:  boolean
   lastSeen:    string
   hasAcars:    boolean
+  role?:       string
+  alert?:      string
   onClick:     () => void
 }) {
+  const meta = roleMeta(role)
   const callsign = getIdent(liveEntity, 'callsign') !== '--'
     ? getIdent(liveEntity, 'callsign')
     : (displayName || entityId.split(':').pop()?.toUpperCase() || '--')
@@ -271,6 +280,16 @@ function AircraftRow({
               {callsign}
             </span>
             {isLive && <span className="w-1 h-1 rounded-full bg-green-ais shrink-0" title="Live" />}
+            {alert && (
+              <span className="font-mono text-[10px] font-bold uppercase tracking-wider px-1 py-px border border-red-emergency text-red-emergency bg-red-emergency/10 leading-tight shrink-0 animate-pulse">
+                {ALERT_LABEL[alert] ?? alert}
+              </span>
+            )}
+            {meta && (
+              <span title={meta.label} className={`font-mono text-[10px] font-bold uppercase tracking-wider px-1 py-px border leading-tight shrink-0 ${meta.text} ${meta.border}`}>
+                {meta.short}
+              </span>
+            )}
             {hasAcars && reg && (
               <span
                 title={`ACARS data available for ${reg}`}
@@ -511,6 +530,8 @@ export function FlightLogPanel() {
   const [acarsHistory,   setAcarsHistory]   = useState<AcarsMessage[]>([])
   const [loadingAcars,   setLoadingAcars]   = useState(false)
   const [acarsTails,     setAcarsTails]     = useState<Set<string>>(new Set())
+  const [roleHistory,    setRoleHistory]    = useState<Record<string, RoleInfo>>({})
+  const [roleFilter,     setRoleFilter]     = useState<string>('all')   // 'all' | a role | 'alert'
 
   const lastFetchedDetailId = useRef<string | null>(null)
   const [isMobile, setIsMobile] = useState(false)
@@ -641,6 +662,32 @@ export function FlightLogPanel() {
   }, [acarsMessages, acarsHistory, selectedRegistration])
 
   // ── Build merged flight list (replay + live store) ─────────────────────────
+  // Sightings of notable aircraft recorded by the poller (last 72 h): lets a flight that has
+  // already left the live feed keep its role badge and be found with the role filters.
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/events?hours=72`, { headers: authHeaders() })
+        if (!res.ok) return
+        const data = await res.json() as { event_type: string; entity_id: string | null; details?: { role?: string; alert?: string } }[]
+        if (cancelled || !Array.isArray(data)) return
+        const next: Record<string, RoleInfo> = {}
+        for (const ev of data) {
+          if ((ev.event_type !== 'special_aircraft' && ev.event_type !== 'aircraft_alert') || !ev.entity_id) continue
+          const cur = next[ev.entity_id] ?? {}
+          if (ev.details?.role) cur.role = ev.details.role
+          if (ev.details?.alert) cur.alert = ev.details.alert
+          next[ev.entity_id] = cur
+        }
+        setRoleHistory(next)
+      } catch { /* keep last known */ }
+    }
+    load()
+    const t = setInterval(load, 2 * 60 * 1000)
+    return () => { cancelled = true; clearInterval(t) }
+  }, [])
+
   const allFlights = useMemo((): FlightEntry[] => {
     const map = new Map<string, FlightEntry>()
     const cutoffMs = Date.now() - timeWindow * 60_000
@@ -681,6 +728,14 @@ export function FlightLogPanel() {
       }
     }
 
+    // Role: what the live identity says now, else what the poller recorded earlier.
+    for (const [id, f] of map) {
+      const live = f.liveEntity?.identity
+      const role  = (live?.['role']  as string | undefined) ?? roleHistory[id]?.role
+      const alert = (live?.['alert'] as string | undefined) ?? roleHistory[id]?.alert
+      if (role || alert) map.set(id, { ...f, role, alert })
+    }
+
     return [...map.values()].sort((a, b) => {
       // Live aircraft first, then sorted by lastSeen descending
       const aLive = a.liveEntity != null ? 1 : 0
@@ -688,7 +743,7 @@ export function FlightLogPanel() {
       if (aLive !== bLive) return bLive - aLive
       return Date.parse(b.lastSeen || '0') - Date.parse(a.lastSeen || '0')
     })
-  }, [replayFlights, entities, timeWindow])
+  }, [replayFlights, entities, timeWindow, roleHistory])
 
   // ── Throttled display list ─────────────────────────────────────────────────
   const allFlightsRef = useRef<FlightEntry[]>([])
@@ -710,10 +765,23 @@ export function FlightLogPanel() {
     if (updateHz === 0) setDisplayFlights([...allFlights])
   }, [allFlights, updateHz])
 
+  // How many of each notable kind are in the current list (drives the role chips).
+  const roleCounts = useMemo(() => {
+    const c: Record<string, number> = {}
+    for (const f of displayFlights) {
+      if (f.role) c[f.role] = (c[f.role] ?? 0) + 1
+      if (f.alert) c.alert = (c.alert ?? 0) + 1
+    }
+    return c
+  }, [displayFlights])
+
   const filteredFlights = useMemo(() => {
-    if (!search) return displayFlights
+    const byRole = roleFilter === 'all' ? displayFlights
+      : roleFilter === 'alert' ? displayFlights.filter(f => f.alert)
+      : displayFlights.filter(f => f.role === roleFilter)
+    if (!search) return byRole
     const q = search.toLowerCase()
-    return displayFlights.filter(f => {
+    return byRole.filter(f => {
       const callsign = ((f.liveEntity?.identity?.['callsign'] as string) || f.displayName || '').toLowerCase()
       const reg      = ((f.liveEntity?.identity?.['registration'] as string) || '').toLowerCase()
       const type     = ((f.liveEntity?.identity?.['icao_type'] as string) || '').toLowerCase()
@@ -721,7 +789,7 @@ export function FlightLogPanel() {
       const icao24   = f.entityId.split(':').pop()?.toLowerCase() || ''
       return callsign.includes(q) || reg.includes(q) || type.includes(q) || operator.includes(q) || icao24.includes(q)
     })
-  }, [displayFlights, search])
+  }, [displayFlights, search, roleFilter])
 
   const mobileTotalPages = Math.max(1, Math.ceil(filteredFlights.length / MOBILE_PAGE_SIZE))
 
@@ -796,6 +864,28 @@ export function FlightLogPanel() {
           ))}
         </>}
       />
+
+      {/* ── Notable aircraft: only shown once something notable has been seen ── */}
+      {Object.keys(roleCounts).length > 0 && (
+        <div className="px-4 py-2 border-b border-white/5 bg-onyx-deep/40">
+          <ChipRow>
+            <span className="font-mono text-[11px] text-on-surface-variant uppercase tracking-widest">Notable</span>
+            <Chip active={roleFilter === 'all'} onClick={() => setRoleFilter('all')}>All</Chip>
+            {roleCounts.alert > 0 && (
+              <Chip active={roleFilter === 'alert'} onClick={() => setRoleFilter(roleFilter === 'alert' ? 'all' : 'alert')}
+                activeClass="border-red-emergency text-red-emergency bg-red-emergency/10 font-bold">
+                Alert squawk <span className="opacity-70">{roleCounts.alert}</span>
+              </Chip>
+            )}
+            {ROLE_ORDER.filter(r => roleCounts[r] > 0).map(r => (
+              <Chip key={r} active={roleFilter === r} onClick={() => setRoleFilter(roleFilter === r ? 'all' : r)}
+                activeClass={`${ROLE_META[r].border} ${ROLE_META[r].text} bg-white/5 font-bold`}>
+                {ROLE_META[r].label} <span className="opacity-70">{roleCounts[r]}</span>
+              </Chip>
+            ))}
+          </ChipRow>
+        </div>
+      )}
 
       {/* ── Body: Split pane layout ── */}
       <div className="flex-1 min-h-0 flex flex-col lg:flex-row overflow-y-auto lg:overflow-hidden bg-onyx-black/5">
@@ -904,6 +994,8 @@ export function FlightLogPanel() {
                         isSelected={selectedEntityId === f.entityId}
                         lastSeen={f.lastSeen}
                         hasAcars={hasAcars}
+                          role={f.role}
+                          alert={f.alert}
                         onClick={() => handleSelectFlight(f.entityId)}
                       />
                     )
@@ -1199,6 +1291,8 @@ export function FlightLogPanel() {
                           isSelected={selectedEntityId === f.entityId}
                           lastSeen={f.lastSeen}
                           hasAcars={hasAcars}
+                          role={f.role}
+                          alert={f.alert}
                           onClick={() => handleSelectFlight(f.entityId)}
                         />
                       )

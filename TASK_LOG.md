@@ -2077,3 +2077,9 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 - **Fire & Smoke** merges the old fire, ODF danger and hotspots cards (four numbers when quiet; lists only when non-empty). **Geohazards** merges seismic + GDACS (one line when empty); the panel makes one `/events?hours=72` fetch for both.
 - RWIS: an empty status list from ODOT (seen once, ~10 min) no longer blanks the road-weather feed.
 - Removed: `FireStatusCard` (helpers kept), `FireDangerCard`, `HotspotsCard`, `SeismicCard`, `GdacsCard`, `AqiGauge` usage.
+
+## 2026-09-29 — Aircraft roles (air ambulance, rescue, police, fire, military …)
+
+- **Classifier** `poller/enrichment/aircraft_roles.py`: role from registered owner/operator (adsbdb), callsign prefix, registration marking (N###LF = Life Flight Network), the US-military ICAO block and squawk 1255; life-safety roles win over military (a Coast Guard helicopter is "rescue"). Keyword lists are data — extend them as new local operators show up. Emergency squawks 7500/7600/7700/7400 set `identity.alert`. Rules were seeded from the 75 helicopters seen locally (Life Flight, REACH, Mercy Flights, Metro Aviation, USCG, Army, BPA…).
+- `AdsbPoller` adds `identity.role/role_label/role_reason`, `identity.alert` and `role_*`/`alert_*` tags to the enriched snapshot, and records a `special_aircraft` event (or `aircraft_alert`, severity high/medium) once per aircraft per 3 h, so history outlives the live feed.
+- **Flights page**: "Notable" chip row (counts per role + alert squawk), role/alert badges on rows, roles kept for past flights from the event history. **Map**: ring around notable aircraft (red = air ambulance/rescue/fire, amber = police, grey = military/news/gov; emergency squawk pulses). Aircraft detail shows the role and why.

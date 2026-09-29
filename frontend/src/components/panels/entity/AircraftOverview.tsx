@@ -1,4 +1,5 @@
 import type { Entity } from '../../../storeTypes'
+import { roleMeta } from '../../../aircraftRoles'
 
 export interface OverviewProps {
   entity: Entity
@@ -39,6 +40,8 @@ export function AircraftOverview({ entity, getIdentity, trail = [] }: OverviewPr
   const squawk = getIdentity('squawk')
   const squawkAlert = squawk ? EMERGENCY_SQUAWKS[squawk] : undefined
 
+  const role = roleMeta(entity.identity?.role)
+
   const identityRows: [string, string | undefined][] = [
     ['Type',    entity.entity_type],
     ['Source',  entity.source],
@@ -76,6 +79,17 @@ export function AircraftOverview({ entity, getIdentity, trail = [] }: OverviewPr
           <span className="font-mono text-[11px] font-bold tracking-wider">
             SQUAWK {squawk} — {squawkAlert.label}
           </span>
+        </div>
+      )}
+
+      {/* What this aircraft is for, and why we think so */}
+      {role && (
+        <div className={`flex items-center gap-2 px-2 py-1.5 border bg-white/5 ${role.border} ${role.text}`}>
+          <span className="ms text-[14px] leading-none" aria-hidden="true">flight</span>
+          <span className="font-mono text-[11px] font-bold tracking-wider uppercase">{role.label}</span>
+          {getIdentity('role_reason') && (
+            <span className="font-mono text-[11px] text-on-surface-variant normal-case truncate">· {getIdentity('role_reason')}</span>
+          )}
         </div>
       )}
 

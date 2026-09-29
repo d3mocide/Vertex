@@ -3,6 +3,7 @@ import { IconLayer, ScatterplotLayer, TextLayer } from '@deck.gl/layers'
 import type { Track } from '../store'
 import { getAtlasIcons } from './atlasIcons'
 import { entityColor } from './colorUtils'
+import { roleMeta } from '../aircraftRoles'
 
 // ─── StencilClearLayer ────────────────────────────────────────────────────────
 // Clears MapLibre tile stencil buffer bleed before deck.gl draws.
@@ -203,6 +204,29 @@ export function buildEntityLayers(
     updateTriggers: { getRadius: cycle, getFillColor: cycle, getLineColor: cycle },
   })
 
+  // Ring around aircraft with a job: air ambulance / rescue / fire in red, police in amber,
+  // military/news/government in grey. An emergency squawk pulses red instead.
+  const roleAircraft = trackArr.filter((t) => t.type === 'air' && (t.role || t.alert))
+  const roleRingLayer = new ScatterplotLayer<Track>({
+    id:             'aircraft-role-rings',
+    data:           roleAircraft,
+    getPosition:    (t) => [t.lon, t.lat],
+    getRadius:      (t) => (t.alert ? 20 + cycle * 24 : 15),
+    getFillColor:   (t) => (t.alert ? [255, 80, 80, Math.round(110 * (1 - cycle * cycle))] : [0, 0, 0, 0]),
+    getLineColor:   (t) => {
+      if (t.alert) return [255, 80, 80, Math.round(255 * (1 - cycle * cycle * 0.6))]
+      const [r, g, b] = roleMeta(t.role)?.rgb ?? [140, 140, 140]
+      return [r, g, b, 230]
+    },
+    radiusUnits:    'pixels',
+    stroked:        true,
+    filled:         true,
+    getLineWidth:   2,
+    lineWidthUnits: 'pixels',
+    pickable:       false,
+    updateTriggers: { getRadius: cycle, getFillColor: cycle, getLineColor: [cycle, roleAircraft.map(t => `${t.role}${t.alert}`).join()] },
+  })
+
   // APRS labels: show at z10+, color matches station type
   const aprsLabelLayer = new TextLayer<Track>({
     id: 'aprs-labels',
@@ -254,5 +278,5 @@ export function buildEntityLayers(
     fontFamily: 'monospace',
   })
 
-  return [selectionRingLayer, emergencyRingLayer, iconOutlineLayer, iconLayer, aprsLabelLayer, takLabelLayer, sensorLabelLayer]
+  return [selectionRingLayer, emergencyRingLayer, roleRingLayer, iconOutlineLayer, iconLayer, aprsLabelLayer, takLabelLayer, sensorLabelLayer]
 }

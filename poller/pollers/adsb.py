@@ -4,8 +4,13 @@ import time
 from typing import Any
 import httpx
 from config import settings
-from bus import publish_entity, set_aircraft_snapshot
+import json
+from datetime import datetime, timezone
+from bus import get_bus, publish_entity, set_aircraft_snapshot
+from db import write_event
+from sanitize import sanitize_payload
 from enrichment.aircraft_db import AircraftDb
+from enrichment.aircraft_roles import ROLES, alert_for, alert_label, classify_aircraft
 from enrichment.airlines_db import AirlinesDb
 from enrichment.airports_db import AirportsDb
 from enrichment.adsbdb import AdsbdbClient
@@ -20,6 +25,9 @@ from .base import BasePoller
 
 logger = logging.getLogger(__name__)
 
+_SPECIAL_RESEND_S = 3 * 3600   # one event per notable aircraft per this window
+_SPECIAL_MAX_KM = 150          # ignore far-away OpenSky supplements
+
 
 class AdsbPoller(BasePoller):
     name = "adsb"
@@ -27,6 +35,7 @@ class AdsbPoller(BasePoller):
     _MAX_OPENSKY_LOCAL_HOLDOFF_SECONDS = 90
 
     def __init__(self):
+        self._special_seen: dict[str, float] = {}
         self._source_urls: list[str] = []
         self._beast_task: asyncio.Task | None = None
         self._registry_worker_task: asyncio.Task | None = None
@@ -639,6 +648,76 @@ class AdsbPoller(BasePoller):
             "airports": airports,
         }
         await set_aircraft_snapshot(snapshot)
+        await self._record_special_aircraft(enriched)
+
+    async def _record_special_aircraft(self, enriched: list[dict]) -> None:
+        """One event per notable aircraft (and per alert squawk) every few hours.
+
+        These give the flight log a history of medical, rescue, police and fire
+        flights — and an emergency squawk a place in the event stream — instead of
+        living only in the current snapshot.
+        """
+        now = time.time()
+        for key in [k for k, ts in self._special_seen.items() if now - ts > _SPECIAL_RESEND_S]:
+            del self._special_seen[key]
+
+        for entity in enriched:
+            identity = entity.get("identity") or {}
+            dist = entity.get("distance_km")
+            if isinstance(dist, (int, float)) and dist > _SPECIAL_MAX_KM:
+                continue
+            icao = identity.get("icao24")
+            if not icao:
+                continue
+            found: list[tuple[str, str, str, str]] = []   # (event_type, dedupe key, severity, summary)
+            who = identity.get("callsign") or identity.get("registration") or icao
+            if identity.get("role"):
+                found.append((
+                    "special_aircraft", f"{icao}:role", "info",
+                    f"{identity.get('role_label')}: {who}"
+                    + (f" ({identity.get('type') or identity.get('icao_type')})" if identity.get("type") or identity.get("icao_type") else ""),
+                ))
+            if identity.get("alert"):
+                found.append((
+                    "aircraft_alert", f"{icao}:{identity['alert']}",
+                    "medium" if identity["alert"] == "radio_failure" else "high",
+                    f"{who}: {alert_label(identity['alert'])}",
+                ))
+            for event_type, key, severity, summary in found:
+                if key in self._special_seen:
+                    continue
+                self._special_seen[key] = now
+                details = {
+                    "entity_id": entity.get("entity_id"),
+                    "icao24": icao,
+                    "role": identity.get("role"),
+                    "role_label": identity.get("role_label"),
+                    "role_reason": identity.get("role_reason"),
+                    "alert": identity.get("alert"),
+                    "callsign": identity.get("callsign"),
+                    "registration": identity.get("registration"),
+                    "operator": identity.get("operator"),
+                    "type": identity.get("type") or identity.get("icao_type"),
+                    "squawk": identity.get("squawk"),
+                    "lat": entity.get("lat"), "lon": entity.get("lon"),
+                    "altitude": entity.get("altitude"),
+                    "distance_km": dist,
+                }
+                try:
+                    event_id = await write_event(event_type, entity.get("entity_id"), severity, summary, details)
+                    if event_id:
+                        bus = await get_bus()
+                        await bus.publish("civic:updates", json.dumps(sanitize_payload({
+                            "type": "event",
+                            "data": {
+                                "event_id": event_id, "event_type": event_type,
+                                "entity_id": entity.get("entity_id"),
+                                "ts": datetime.now(timezone.utc).isoformat(),
+                                "severity": severity, "summary": summary, "details": details,
+                            },
+                        })))
+                except Exception as exc:
+                    logger.warning("[adsb] could not record %s for %s: %s", event_type, icao, exc)
 
     def _enrich_aircraft_cache_only(self, aircraft: list[dict]) -> tuple[list[dict], dict]:
         enriched: list[dict] = []
@@ -740,6 +819,26 @@ class AdsbPoller(BasePoller):
                 entity.pop("distance_km", None)
 
             identity["phase"] = self._classify_phase(entity)
+
+            # Who flies it: air ambulance, rescue, law enforcement, ... plus emergency squawks.
+            hit = classify_aircraft(identity)
+            tags = [t for t in (entity.get("tags") or []) if not str(t).startswith(("role_", "alert_"))]
+            if hit:
+                identity["role"], identity["role_reason"] = hit
+                identity["role_label"] = ROLES[hit[0]]
+                tags.append(f"role_{hit[0]}")
+            else:
+                for k in ("role", "role_reason", "role_label"):
+                    identity.pop(k, None)
+            alert = alert_for(identity.get("squawk"))
+            if alert:
+                identity["alert"] = alert
+                tags.append(f"alert_{alert}")
+            else:
+                identity.pop("alert", None)
+            if tags:
+                entity["tags"] = tags
+
             entity["identity"] = identity
             enriched.append(entity)
 

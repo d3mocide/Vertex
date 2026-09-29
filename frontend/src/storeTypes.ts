@@ -151,6 +151,8 @@ export interface Track {
   type:          'air' | 'sea' | 'ground' | 'hazard' | 'tak' | 'rail' | 'sensor'
   callsign?:     string
   category?:     string
+  role?:         string        // aircraft role (medical, rescue, law_enforcement, …)
+  alert?:        string        // aircraft alert squawk (emergency, hijack, …)
   stationType?:  string
   trail:         TrailPt[]     // raw history, newest last, capped at 150 pts
   smoothedTrail: number[][]    // [[lon,lat],...] after 2× Chaikin
