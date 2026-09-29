@@ -80,6 +80,12 @@ services:
     build:
       context: ./backend
     restart: unless-stopped
+    # Public resolvers: the host's DHCP-provided DNS was unreadable at container start once, leaving
+    # these containers with no external name resolution (AIS/OpenSky/etc. all failed). Service names
+    # (redis, db) still resolve through Docker's embedded resolver.
+    dns:
+      - 1.1.1.1
+      - 1.0.0.1
     deploy:
       resources:
         limits:
@@ -150,6 +156,12 @@ services:
         condition: service_healthy
       mosquitto:
         condition: service_healthy
+    # Public resolvers: the host's DHCP-provided DNS was unreadable at container start once, leaving
+    # these containers with no external name resolution (AIS/OpenSky/etc. all failed). Service names
+    # (redis, db) still resolve through Docker's embedded resolver.
+    dns:
+      - 1.1.1.1
+      - 1.0.0.1
     networks:
       - internal
     volumes:
