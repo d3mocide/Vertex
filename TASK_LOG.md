@@ -2046,3 +2046,4 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 - **Mesh nodes → lime-rf #76DD00** (map layer, Sidebar toggles, comms list, entity detail, admin charts, docs): mesh was the exact P25 orange and hid dispatch pins. Mesh is RF infrastructure, grouped with RF sensors.
 - **Red token drift fixed**: exclusion zones and fire icon/charts now use red-emergency #C62828 (were #FF3B30 / #FF5252).
 - Status colours in `StorageSummary` / `EntityFreshness` (#FF5252) intentionally left as health colours.
+- **Incidents page map/list**: tapping the selected pin again, or empty map, deselects; the selected incident is lifted above the paged list as an expanded "Selected" card with a Clear button (no more page-jumping).

@@ -101,7 +101,7 @@ const zoneName = (tag: string) => tag.replace(/ \([a-z]+\)$/, '')
 function IncidentMap({ incidents, selectedId, onSelect }: {
   incidents: RadioIncident[]
   selectedId: string | null
-  onSelect: (id: string) => void
+  onSelect: (id: string | null) => void
 }) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<maplibregl.Map | null>(null)
@@ -109,6 +109,8 @@ function IncidentMap({ incidents, selectedId, onSelect }: {
   const fitted = useRef(false)
   const onSelectRef = useRef(onSelect)
   onSelectRef.current = onSelect
+  const selectedIdRef = useRef(selectedId)
+  selectedIdRef.current = selectedId
 
   useEffect(() => {
     if (!containerRef.current) return
@@ -146,9 +148,10 @@ function IncidentMap({ incidents, selectedId, onSelect }: {
         },
         paint: { 'icon-opacity': ['case', ['get', 'active'], 1, 0.5] },
       })
-      m.on('click', 'ri-dot', (e) => {
-        const id = e.features?.[0]?.properties?.id
-        if (typeof id === 'string') onSelectRef.current(id)
+      // Tap a pin to select it, tap it again — or empty map — to let go.
+      m.on('click', (e) => {
+        const id = m.queryRenderedFeatures(e.point, { layers: ['ri-dot'] })[0]?.properties?.id
+        onSelectRef.current(typeof id === 'string' && id !== selectedIdRef.current ? id : null)
       })
       m.on('mouseenter', 'ri-dot', () => { m.getCanvas().style.cursor = 'pointer' })
       m.on('mouseleave', 'ri-dot', () => { m.getCanvas().style.cursor = '' })
@@ -222,11 +225,12 @@ function IncidentMap({ incidents, selectedId, onSelect }: {
 
 // ─── Card ────────────────────────────────────────────────────────────────────
 
-function IncidentCard({ incident: i, now, selected, onSelect }: {
+function IncidentCard({ incident: i, now, selected, onSelect, expanded = false }: {
   incident: RadioIncident
   now: number
   selected: boolean
   onSelect: () => void
+  expanded?: boolean
 }) {
   const meta = CATEGORY[i.category] ?? CATEGORY.other
   const active = isActive(i, now)
@@ -295,7 +299,7 @@ function IncidentCard({ incident: i, now, selected, onSelect }: {
           )}
         </div>
 
-        <details className="group">
+        <details className="group" open={expanded}>
           <summary className="cursor-pointer text-[11px] uppercase tracking-widest text-on-surface-variant hover:text-on-surface list-none flex items-center gap-1">
             <span className="ms text-[14px] group-open:rotate-90 transition-transform" aria-hidden="true">chevron_right</span>
             Radio transcript
@@ -369,18 +373,14 @@ export function RadioIncidents() {
     .sort(SORTS[sort].compare(now)),
   [base, filter, sort, now])
 
-  // Paged list; the map shows every match. Filters/sort start from page 1,
-  // and selecting a pin (or opening an incident from the advisory bar)
-  // turns to the page that holds it.
+  // Paged list; the map shows every match. Filters/sort start from page 1.
+  // The selected incident (pin tap, or opened from the advisory bar) is lifted
+  // out of the pages and shown expanded above them, so it never needs a page turn.
   const pages = Math.max(1, Math.ceil(shown.length / PAGE_SIZE))
   useEffect(() => { setPage(0) }, [filter, sort, activeOnly, showRoutine, zone])
-  useEffect(() => {
-    if (!selectedId) return
-    const idx = shown.findIndex((i) => i.id === selectedId)
-    if (idx >= 0) setPage(Math.floor(idx / PAGE_SIZE))
-  }, [selectedId, shown])
   const current = Math.min(page, pages - 1)
-  const pageItems = shown.slice(current * PAGE_SIZE, (current + 1) * PAGE_SIZE)
+  const selected = shown.find((i) => i.id === selectedId)
+  const pageItems = shown.slice(current * PAGE_SIZE, (current + 1) * PAGE_SIZE).filter((i) => i.id !== selectedId)
 
   return (
     <section ref={sectionRef} className="space-y-3 scroll-mt-4" aria-labelledby="radio-incidents-heading">
@@ -446,6 +446,20 @@ export function RadioIncidents() {
             <EmptyState icon="filter_alt_off">No incidents match these filters.</EmptyState>
           ) : (
             <>
+              {selected && (
+                <div className="mb-2">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="label-caps !text-amber-gold">Selected</span>
+                    <button type="button" onClick={() => setSelectedId(null)}
+                            className="flex items-center gap-1 text-[11px] uppercase tracking-widest text-on-surface-variant hover:text-on-surface focus:outline-none">
+                      <span className="ms text-[14px]" aria-hidden="true">close</span>Clear
+                    </button>
+                  </div>
+                  <ul>
+                    <IncidentCard incident={selected} now={now} selected expanded onSelect={() => setSelectedId(null)} />
+                  </ul>
+                </div>
+              )}
               <ul className="space-y-2">
                 {pageItems.map((i) => (
                   <IncidentCard
