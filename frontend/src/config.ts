@@ -24,6 +24,9 @@ export const PRESERVE_DRAWING_BUFFER = (import.meta.env.VITE_PRESERVE_DRAWING_BU
 
 
 
+// Region label shown in page headers (REGION_NAME in .env)
+export const REGION_NAME = (import.meta.env.VITE_REGION_NAME as string | undefined)?.trim() || 'Tualatin Valley'
+
 // Default view: Tualatin, OR
 export const DEFAULT_CENTER: [number, number] = [
   Number(import.meta.env.VITE_REGION_LON ?? -122.7635),
