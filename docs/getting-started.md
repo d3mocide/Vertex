@@ -54,7 +54,9 @@ The source file is hot-reloaded by the poller and can also be updated through th
 
 Update the region center (`REGION_LAT`, `REGION_LON`), region name, and bounding box in `.env` so feeds are filtered for your area.
 
-The map center and range ring are baked into the frontend at build time, so after changing region values rebuild it: `docker compose build frontend && docker compose up -d`. Restart the `poller` and `backend` as well.
+The frontend learns the region from the backend when it loads, so no rebuild is needed. After changing region values in `.env`, restart the backend and poller (`docker compose up -d --force-recreate backend poller`) and reload the page.
+
+Leave `REGION_LAT` and `REGION_LON` out of `.env` if you would rather choose the region in the app: a region saved there is stored in the database, the backend uses it immediately, and the poller restarts itself to apply it. Values set in `.env` always win and lock the region (the app then refuses to change it and says which variables to remove).
 
 ### 2. Add source endpoints
 

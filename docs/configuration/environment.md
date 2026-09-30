@@ -25,9 +25,11 @@ These settings control map centering and feed relevance.
 
 | Variable | Purpose |
 |----------|---------|
-| `REGION_LAT` | Default map latitude |
-| `REGION_LON` | Default map longitude |
+| `REGION_LAT` | Map center latitude. Setting this or `REGION_LON` pins the region to the environment |
+| `REGION_LON` | Map center longitude |
 | `REGION_NAME` | Region label shown in the app |
+
+**Precedence:** environment variables win, then a region saved in the app (stored in the database), then the built-in defaults. `GET /api/v1/config/region` reports the region in force, where it came from (`env`, `database` or `default`) and whether it is locked by the environment. Leave `REGION_LAT` and `REGION_LON` unset to manage the region in the app. Bounding-box variables (`BBOX_*`) and the NWS office remain environment settings when the region is pinned.
 | `BBOX_MIN_LAT` | Southern bounding edge |
 | `BBOX_MAX_LAT` | Northern bounding edge |
 | `BBOX_MIN_LON` | Western bounding edge |

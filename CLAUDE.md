@@ -150,6 +150,7 @@ Base path: `/api/v1/`
 | `/radio` | P25 stream metadata |
 | `/utilities` | Geofence CRUD |
 | `/capabilities` | Which regional data contracts have a provider here (drives what the UI shows) |
+| `/config/region` | The operator's region: `GET` reports it and where it came from, `PUT` (admin) saves it in the database unless `.env` pins it, `POST /resolve` suggests NWS office, zones, timezone and name for a location |
 | `/ws` | WebSocket event stream |
 
 ---

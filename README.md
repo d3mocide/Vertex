@@ -111,7 +111,7 @@ docker compose up -d
 
 Open `http://localhost`. For detailed setup, see [docs/getting-started.md](docs/getting-started.md).
 
-Set `REGION_LAT` / `REGION_LON` in `.env` to center the map and the receiver range ring; the frontend picks them up when it is rebuilt (`docker compose build frontend`).
+Set `REGION_LAT` / `REGION_LON` in `.env` to center the map and the receiver range ring (restart the backend and poller to apply). The frontend reads the region at runtime, so no rebuild is needed.
 
 ## // 05 · DOCUMENTATION
 

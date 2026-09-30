@@ -194,6 +194,16 @@ Replace "edit `.env` and rebuild" with a first-run setup step:
 
 Storing the region at runtime removes the frontend rebuild and is the prerequisite for everything else here.
 
+## Runtime region (phase 1, implemented)
+
+- **Endpoints:** `GET /api/v1/config/region` returns the region in force (name, center, bounding box, timezone, optional NWS identifiers), its `source` (`env`, `database` or `default`), and whether it is `locked` by the environment. `PUT` (admin) stores a region; it answers `409` and names the variables to remove when `REGION_LAT`/`REGION_LON` are set. `POST /api/v1/config/region/resolve` turns a latitude and longitude into a suggested name, NWS office, forecast/county/fire zones, timezone and a default bounding box (US only) without saving anything. (`/config/regions`, plural, is the older list of monitoring regions from `sources.yml`.)
+- **Storage:** the `app_settings` table, created automatically on existing installs.
+- **Precedence:** environment, then database, then defaults, so existing deployments are unchanged.
+- **Backend:** reads the region from the database on each request, so both uvicorn workers agree the moment it is saved; `/capabilities` follows it.
+- **Poller:** applies the stored region before any poller is built, checks for changes every 30 seconds, and restarts itself when it changes (pollers read the region in many places, so a restart is simpler and safer than hot-swapping). Docker brings it back.
+- **Frontend:** loads the region after sign-in, before the dashboard mounts, and falls back to built-in defaults if the backend is unreachable. The build-time `VITE_REGION_*` arguments are gone.
+- **Not yet covered:** alert zones (stored in `alert_zone_configs`/`sources.yml`) and the climate station (`NWS_CLIMATE_STATION`) are still configured separately; the setup wizard (phase 4) will derive them from the resolver output.
+
 ## Contributing a pack
 
 1. Copy `regions/_template/` to `regions/<your-area>/`.
@@ -219,7 +229,7 @@ Packs can run code in the poller, which has network access. Mitigations:
 | Phase | Outcome | Behavior change |
 |-------|---------|-----------------|
 | 0 | Contract inventory and specs; `/api/v1/capabilities`; UI hides cards with no provider — **done** ([contracts](../contracts/README.md), `backend/capabilities.py`) | none for Oregon; clean empty states elsewhere |
-| 1 | Region moves to runtime config (backend endpoint, DB-backed, env override); frontend stops using build args; NWS-based region resolver | none; no more frontend rebuild for a location change |
+| 1 | Region moves to runtime config (backend endpoint, DB-backed, env override); frontend stops using build args; NWS-based region resolver — **done** (see below) | none; no more frontend rebuild for a location change |
 | 2 | Provider interface and registry; Oregon code moved into `regions/oregon/` behind it; `OregonStatus` replaced by the generic outage contract | none, verified by fixture tests |
 | 3 | Declarative providers (`gtfs_rt`, `arcgis_featureserver`, `rss`/`cap`, `wzdx`, `json_rest`); pack loader; `make pack-check`; CI | none |
 | 4 | Setup wizard and pack suggestion; a second pack from a different kind of region to prove the abstraction | new setup flow |
