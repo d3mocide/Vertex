@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+import admin_health
 from db.models import Entity, Observation, Event
 from deps import get_db, get_redis_client
 from metrics_collector import HISTORY_KEY_PREFIX, p95_from_buckets
@@ -31,6 +32,12 @@ class StorageStats(BaseModel):
     obs_per_day_7d: float
     event_count: int
     event_type_counts: dict[str, int]
+    oldest_observation_at: str | None = None
+    oldest_age_days: float | None = None
+    last_purge: dict | None = None
+    health: dict | None = None
+    steady_state: dict | None = None
+    table_sizes: list[dict] = []
 
 
 _STORAGE_CACHE_KEY = "cache:admin_storage"
@@ -46,10 +53,26 @@ async def get_storage(db: AsyncSession = Depends(get_db)):
         stats = StorageStats.model_validate_json(cached)
         raw = await r.get(_RETENTION_KEY)   # may have just been changed
         stats.retention_days = int(raw) if raw else _DEFAULT_RETENTION_DAYS
+        await _apply_health(stats, r)
         return stats
     stats = await _compute_storage(db)
     await r.set(_STORAGE_CACHE_KEY, stats.model_dump_json(), ex=_STORAGE_CACHE_S)
+    await _apply_health(stats, r)
     return stats
+
+
+async def _apply_health(stats: StorageStats, r) -> None:
+    """Judge purge health from the (cached) oldest observation, the *current* retention setting and the
+    poller's last recorded purge, so a retention change takes effect without waiting for the cache."""
+    if stats.oldest_observation_at:
+        from datetime import datetime, timezone
+        oldest = datetime.fromisoformat(stats.oldest_observation_at)
+        stats.oldest_age_days = (datetime.now(timezone.utc) - oldest).total_seconds() / 86400
+    raw = await r.get("metrics:last_purge")
+    stats.last_purge = json.loads(raw) if raw else None
+    stats.health = admin_health.storage_health(stats.oldest_age_days, stats.retention_days, stats.last_purge, time.time())
+    stats.steady_state = admin_health.steady_state_estimate(
+        stats.obs_per_day_7d, stats.retention_days, stats.table_size_bytes, stats.observation_count)
 
 
 async def _compute_storage(db: AsyncSession) -> StorageStats:
@@ -76,6 +99,17 @@ async def _compute_storage(db: AsyncSession) -> StorageStats:
     )
     obs_per_day_7d: float = float(growth_row.scalar() or 0)
 
+    # Oldest observation: with retention working, this sits right at the retention age.
+    oldest = await db.scalar(select(func.min(Observation.ts)))
+
+    # Where the space goes.
+    size_rows = await db.execute(text("""
+        SELECT c.relname AS name, pg_total_relation_size(c.oid) AS bytes
+        FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+        WHERE n.nspname = 'public' AND c.relkind = 'r'
+        ORDER BY 2 DESC LIMIT 6"""))
+    table_sizes = [{"name": r.name, "bytes": int(r.bytes)} for r in size_rows]
+
     # Event stats
     event_count = await db.scalar(select(func.count(Event.event_id))) or 0
     event_type_rows = await db.execute(
@@ -96,6 +130,8 @@ async def _compute_storage(db: AsyncSession) -> StorageStats:
         obs_per_day_7d=round(obs_per_day_7d, 1),
         event_count=event_count,
         event_type_counts=event_type_counts,
+        oldest_observation_at=oldest.isoformat() if oldest else None,
+        table_sizes=table_sizes,
     )
 
 
@@ -364,38 +400,154 @@ async def get_signal_quality(
     }
 
 
-@router.get("/entity-freshness")
-async def get_entity_freshness(db: AsyncSession = Depends(get_db)):
-    """Entity freshness by type — bucketed by time since last observation."""
+_ACTIVITY_CACHE_KEY = "cache:admin_entity_activity"
+_ACTIVITY_CACHE_S = 60
+_ACTIVE_NOW_MIN = 15
+
+
+async def _compute_entity_activity(db: AsyncSession) -> dict:
     rows = await db.execute(
-        text("""
+        text(f"""
             SELECT
                 entity_type,
-                COUNT(*)                                                             AS total,
-                COUNT(*) FILTER (WHERE last_seen > now() - interval '5 minutes')    AS fresh_5m,
-                COUNT(*) FILTER (WHERE last_seen <= now() - interval '5 minutes'
-                                   AND last_seen > now() - interval '15 minutes')   AS recent_15m,
-                COUNT(*) FILTER (WHERE last_seen <= now() - interval '15 minutes'
-                                   AND last_seen > now() - interval '60 minutes')   AS stale_60m,
-                COUNT(*) FILTER (WHERE last_seen <= now() - interval '60 minutes')  AS very_stale
+                COUNT(*)                                                                   AS registry_total,
+                COUNT(*) FILTER (WHERE last_seen > now() - interval '{_ACTIVE_NOW_MIN} minutes') AS active_now,
+                COUNT(*) FILTER (WHERE last_seen > now() - interval '24 hours')            AS seen_24h,
+                EXTRACT(EPOCH FROM (now() - MAX(last_seen)))                               AS newest_age_s
             FROM entities
             GROUP BY entity_type
-            ORDER BY total DESC
         """)
     )
-    return {
-        "types": [
-            {
-                "entity_type": row.entity_type,
-                "total": row.total,
-                "fresh_5m": row.fresh_5m,
-                "recent_15m": row.recent_15m,
-                "stale_60m": row.stale_60m,
-                "very_stale": row.very_stale,
-            }
-            for row in rows
-        ],
-    }
+    types = {r.entity_type: r for r in rows}
+    # Distinct entities seen in each of the last 24 hours, per type: the shape of the day at a glance.
+    hourly_rows = await db.execute(
+        text("""
+            SELECT e.entity_type,
+                   FLOOR(EXTRACT(EPOCH FROM (date_trunc('hour', now()) - date_trunc('hour', o.ts))) / 3600)::int AS hours_ago,
+                   COUNT(DISTINCT o.entity_id) AS n
+            FROM observations o JOIN entities e USING (entity_id)
+            WHERE o.ts > date_trunc('hour', now()) - interval '23 hours'
+            GROUP BY 1, 2
+        """)
+    )
+    hourly: dict[str, list[int]] = {t: [0] * 24 for t in types}
+    for r in hourly_rows:
+        if r.entity_type in hourly and 0 <= r.hours_ago < 24:
+            hourly[r.entity_type][23 - r.hours_ago] = r.n     # oldest first, current hour last
+
+    out = []
+    for name, r in types.items():
+        newest = None if r.newest_age_s is None else float(r.newest_age_s)
+        series = hourly[name]
+        out.append({
+            "entity_type": name,
+            "active_now": r.active_now,
+            "seen_24h": r.seen_24h,
+            "dormant": r.registry_total - r.seen_24h,
+            "registry_total": r.registry_total,
+            "hourly": series,
+            "peak_hour": max(series),
+            "newest_age_s": None if newest is None else round(newest),
+            **admin_health.type_liveness(name, newest),
+        })
+    out.sort(key=lambda t: (-t["seen_24h"], -t["registry_total"]))
+    out.extend(await _dispatch_rows(db))
+    return {"types": out, "active_window_min": _ACTIVE_NOW_MIN}
+
+
+async def _dispatch_rows(db: AsyncSession) -> list[dict]:
+    """Radio calls and the dispatch incidents extracted from them, tracked like the map entities."""
+    from datetime import datetime, timezone
+    now = datetime.now(timezone.utc)
+    rows: list[dict] = []
+
+    call = (await db.execute(text(f"""
+        SELECT COUNT(*) AS total,
+               COUNT(*) FILTER (WHERE started_at > now() - interval '{_ACTIVE_NOW_MIN} minutes') AS recent,
+               COUNT(*) FILTER (WHERE transcription IS NOT NULL AND transcription <> '') AS transcribed,
+               AVG(duration_s) AS avg_dur,
+               EXTRACT(EPOCH FROM (now() - MAX(started_at))) AS newest_age_s
+        FROM p25_recordings WHERE started_at > now() - interval '24 hours'"""))).one()
+    hours = [0] * 24
+    for r in await db.execute(text("""
+        SELECT FLOOR(EXTRACT(EPOCH FROM (date_trunc('hour', now()) - date_trunc('hour', started_at))) / 3600)::int AS hours_ago,
+               COUNT(*) AS n
+        FROM p25_recordings WHERE started_at > date_trunc('hour', now()) - interval '23 hours' GROUP BY 1""")):
+        if 0 <= r.hours_ago < 24:
+            hours[23 - r.hours_ago] = r.n
+    rows.append({
+        "entity_type": "radio_call", "label": "Radio calls", "group": "dispatch",
+        "active_now": call.recent, "active_window_min": _ACTIVE_NOW_MIN, "seen_24h": call.total, "dormant": 0,
+        "registry_total": call.total, "hourly": hours, "peak_hour": max(hours),
+        "newest_age_s": None if call.newest_age_s is None else round(float(call.newest_age_s)),
+        "continuous": False, "live": None, "live_window_min": None,
+        "extra": {"transcribed_pct": admin_health.pct(call.transcribed, call.total),
+                  "avg_duration_s": None if call.avg_dur is None else round(float(call.avg_dur), 1)},
+    })
+
+    incidents: list[dict] = []
+    try:
+        raw = await get_redis_client().get("feed:radio:incidents")
+        incidents = (json.loads(raw).get("incidents") or []) if raw else []
+    except Exception:
+        incidents = []
+    d = admin_health.dispatch_activity(incidents, now)
+    rows.append({
+        "entity_type": "dispatch_incident", "label": "Dispatch incidents", "group": "dispatch",
+        "active_now": d["active_now"], "active_window_min": admin_health.DISPATCH_ACTIVE_WINDOW_MIN,
+        "seen_24h": d["seen_24h"], "dormant": 0, "registry_total": d["seen_24h"], "hourly": d["hourly"],
+        "peak_hour": max(d["hourly"]), "newest_age_s": d["newest_age_s"],
+        "continuous": False, "live": None, "live_window_min": None,
+        "extra": {"located_pct": d["located_pct"], "life_safety": d["life_safety"], "categories": d["categories"]},
+    })
+    return rows
+
+
+@router.get("/entity-activity")
+async def get_entity_activity(db: AsyncSession = Depends(get_db)):
+    """What is active on the map, by entity type: how many are being seen right now, how many in the last 24 h,
+    and the hourly shape of the day. (Per-entity "freshness" was the wrong question: aircraft, vessels and mesh
+    nodes naturally come and go, so most of a day's entities are always "old".) `live` says whether a feed that
+    should be continuous is delivering, judged by the newest sighting of its type. Entities not seen in 24 h are
+    `dormant`: the entity table is a registry that is never pruned."""
+    r = get_redis_client()
+    cached = await r.get(_ACTIVITY_CACHE_KEY)
+    if cached:
+        return json.loads(cached)
+    data = await _compute_entity_activity(db)
+    await r.set(_ACTIVITY_CACHE_KEY, json.dumps(data), ex=_ACTIVITY_CACHE_S)
+    return data
+
+
+_EVENT_CACHE_KEY = "cache:admin_event_activity"
+
+
+@router.get("/event-activity")
+async def get_event_activity(db: AsyncSession = Depends(get_db)):
+    """Events by type: the last 24 h with an hourly shape, next to the all-time total. (All-time totals alone were
+    dominated by geofence crossings and said nothing about what is happening now.)"""
+    r = get_redis_client()
+    cached = await r.get(_EVENT_CACHE_KEY)
+    if cached:
+        return json.loads(cached)
+    rows = await db.execute(text("""
+        SELECT event_type, COUNT(*) AS total,
+               COUNT(*) FILTER (WHERE ts > now() - interval '24 hours') AS n24,
+               COUNT(*) FILTER (WHERE ts > now() - interval '1 hour') AS n1
+        FROM events GROUP BY event_type"""))
+    types = {x.event_type: {"event_type": x.event_type, "total": x.total, "last_24h": x.n24, "last_hour": x.n1,
+                            "hourly": [0] * 24} for x in rows}
+    for x in await db.execute(text("""
+        SELECT event_type,
+               FLOOR(EXTRACT(EPOCH FROM (date_trunc('hour', now()) - date_trunc('hour', ts))) / 3600)::int AS hours_ago,
+               COUNT(*) AS n
+        FROM events WHERE ts > date_trunc('hour', now()) - interval '23 hours' GROUP BY 1, 2""")):
+        if x.event_type in types and 0 <= x.hours_ago < 24:
+            types[x.event_type]["hourly"][23 - x.hours_ago] = x.n
+    out = sorted(types.values(), key=lambda t: (-t["last_24h"], -t["total"]))
+    data = {"types": out, "total": sum(t["total"] for t in out), "last_24h": sum(t["last_24h"] for t in out)}
+    await r.set(_EVENT_CACHE_KEY, json.dumps(data), ex=60)
+    return data
 
 
 @router.get("/talkgroup-activity")
@@ -430,33 +582,6 @@ async def get_talkgroup_activity(
             }
             for row in rows
         ],
-    }
-
-
-@router.get("/mesh-battery")
-async def get_mesh_battery(db: AsyncSession = Depends(get_db)):
-    """Battery level for all tracked mesh nodes that report it."""
-    rows = await db.execute(
-        text("""
-            SELECT
-                entity_id,
-                COALESCE(identity->>'name', identity->>'node_id', entity_id) AS label,
-                (identity->>'battery_level')::int                            AS battery_level
-            FROM entities
-            WHERE entity_type = 'mesh_node'
-              AND identity->>'battery_level' IS NOT NULL
-            ORDER BY (identity->>'battery_level')::int DESC
-        """)
-    )
-    return {
-        "nodes": [
-            {
-                "entity_id": row.entity_id,
-                "label": row.label,
-                "battery_level": row.battery_level,
-            }
-            for row in rows
-        ]
     }
 
 
@@ -517,35 +642,6 @@ async def get_data_quality(db: AsyncSession = Depends(get_db)):
                 COUNT(DISTINCT e.entity_id) AS total
             FROM entities e
             WHERE e.last_seen > now() - interval '24 hours' AND e.entity_type = 'vessel'
-            UNION ALL
-            SELECT
-                'Mesh battery'      AS label,
-                'mesh_node'         AS entity_type,
-                'battery_level'     AS field,
-                COUNT(DISTINCT e.entity_id) FILTER (
-                    WHERE (e.identity->>'battery_level') IS NOT NULL
-                ) AS present,
-                COUNT(DISTINCT e.entity_id) AS total
-            FROM entities e
-            WHERE e.last_seen > now() - interval '24 hours' AND e.entity_type = 'mesh_node'
-            UNION ALL
-            SELECT
-                'Aircraft signal quality' AS label,
-                'aircraft'          AS entity_type,
-                'signal_quality'    AS field,
-                COUNT(*) FILTER (WHERE signal_quality IS NOT NULL) AS present,
-                COUNT(*)            AS total
-            FROM observations
-            WHERE ts > now() - interval '24 hours' AND entity_id IN (SELECT entity_id FROM entities WHERE entity_type = 'aircraft')
-            UNION ALL
-            SELECT
-                'Vessel signal quality' AS label,
-                'vessel'            AS entity_type,
-                'signal_quality'    AS field,
-                COUNT(*) FILTER (WHERE signal_quality IS NOT NULL) AS present,
-                COUNT(*)            AS total
-            FROM observations
-            WHERE ts > now() - interval '24 hours' AND entity_id IN (SELECT entity_id FROM entities WHERE entity_type = 'vessel')
         """)
     )
     result = []
@@ -559,7 +655,30 @@ async def get_data_quality(db: AsyncSession = Depends(get_db)):
             "total": row.total,
             "pct": pct,
         })
+    result.extend(await _dispatch_quality_rows(db))
     return {"rows": result}
+
+
+async def _dispatch_quality_rows(db: AsyncSession) -> list[dict]:
+    """How well the radio pipeline is doing: calls that got a transcript, incidents that got a map location."""
+    rows = []
+    call = (await db.execute(text("""
+        SELECT COUNT(*) AS total,
+               COUNT(*) FILTER (WHERE transcription IS NOT NULL AND transcription <> '') AS present
+        FROM p25_recordings WHERE started_at > now() - interval '24 hours'"""))).one()
+    if call.total:
+        rows.append({"label": "Radio calls - Transcribed", "entity_type": "radio_call", "field": "transcription",
+                     "present": call.present, "total": call.total, "pct": admin_health.pct(call.present, call.total)})
+    try:
+        raw = await get_redis_client().get("feed:radio:incidents")
+        incidents = (json.loads(raw).get("incidents") or []) if raw else []
+    except Exception:
+        incidents = []
+    if incidents:
+        located = sum(1 for i in incidents if i.get("lat") is not None and i.get("lon") is not None)
+        rows.append({"label": "Dispatch incidents - Located on map", "entity_type": "dispatch_incident", "field": "lat/lon",
+                     "present": located, "total": len(incidents), "pct": admin_health.pct(located, len(incidents))})
+    return rows
 
 
 @router.get("/squawk-alerts")
@@ -591,18 +710,158 @@ async def get_squawk_alerts(
     }
 
 
+_FEED_COUNTS_KEY = "cache:admin_feed_counts"
+_FEED_COUNTS_S = 60
+
+
+def _item_count(value) -> int | None:
+    """How many records a feed snapshot holds (None when it is not a list of records)."""
+    if isinstance(value, list):
+        return len(value)
+    if isinstance(value, dict):
+        for k in ("features", "aircraft", "incidents", "strikes", "items", "data"):
+            if isinstance(value.get(k), list):
+                return len(value[k])
+    return None
+
+
+async def _feed_item_counts(r, keys: list[str]) -> dict[str, int | None]:
+    """Record counts per feed. Parsing every snapshot is not free, so it is cached briefly."""
+    cached = await r.get(_FEED_COUNTS_KEY)
+    if cached:
+        return json.loads(cached)
+    counts: dict[str, int | None] = {}
+    for key in keys:
+        raw = await r.get(f"feed:{key}")
+        try:
+            counts[key] = _item_count(json.loads(raw)) if raw else None
+        except Exception:
+            counts[key] = None
+    await r.set(_FEED_COUNTS_KEY, json.dumps(counts), ex=_FEED_COUNTS_S)
+    return counts
+
+
+@router.get("/overview")
+async def get_overview(db: AsyncSession = Depends(get_db)):
+    """One call that answers "is anything wrong?": service details, every data source's freshness against how
+    often it should update, and the list of things that need attention (most severe first)."""
+    from datetime import datetime, timezone
+    from routers.health import _FEED_MAX_AGE_S
+
+    r = get_redis_client()
+    now = time.time()
+
+    metrics = await get_metrics(db)
+    pollers = (await get_pollers(db)).get("pollers", [])
+    storage = await get_storage(db)
+    pool = await get_db_pool()
+    activity = (await get_entity_activity(db))["types"]
+
+    # ── PostgreSQL ────────────────────────────────────────────────────────────
+    postgres: dict = {"ping_ms": metrics.get("db_ping_ms", -1.0) if metrics.get("available") else None}
+    try:
+        row = (await db.execute(text(
+            "SELECT pg_database_size(current_database()) AS size, "
+            "(SELECT count(*) FROM pg_stat_activity WHERE datname = current_database()) AS conns, "
+            "current_setting('max_connections')::int AS max_conns"))).one()
+        postgres.update(size_bytes=int(row.size), connections=int(row.conns), max_connections=int(row.max_conns))
+        if postgres["ping_ms"] is None:
+            postgres["ping_ms"] = 0.0
+    except Exception:
+        postgres["ping_ms"] = -1.0
+
+    # ── Redis ─────────────────────────────────────────────────────────────────
+    redis_info: dict = {"ping_ms": metrics.get("redis_ping_ms", -1.0) if metrics.get("available") else None}
+    try:
+        info = await r.info()
+        redis_info.update(used_memory_bytes=int(info.get("used_memory", 0)), max_memory_bytes=int(info.get("maxmemory", 0)),
+                          clients=int(info.get("connected_clients", 0)), keys=int(await r.dbsize()))
+        if redis_info["ping_ms"] is None:
+            redis_info["ping_ms"] = 0.0
+    except Exception:
+        redis_info["ping_ms"] = -1.0
+
+    # ── Data sources ──────────────────────────────────────────────────────────
+    raw_meta = await r.hgetall("feed:meta")
+    ages: dict[str, float] = {}
+    for key, ts in raw_meta.items():
+        key = key.decode() if isinstance(key, bytes) else key
+        ts = ts.decode() if isinstance(ts, bytes) else ts
+        try:
+            ages[key] = (datetime.now(timezone.utc) - datetime.fromisoformat(ts)).total_seconds()
+        except ValueError:
+            continue
+    counts = await _feed_item_counts(r, sorted(ages))
+    feeds = [admin_health.feed_row(k, a, _FEED_MAX_AGE_S.get(k), counts.get(k)) for k, a in ages.items()
+             if k not in admin_health.HIDDEN_FEEDS]
+    order = {"down": 0, "stale": 1, "ok": 2, "on_change": 3}
+    feeds.sort(key=lambda f: (order[f["status"]], f["group"], f["label"]))
+
+    # ── AI briefing and the local ADS-B receiver ─────────────────────────────
+    briefing = None
+    try:
+        raw = await r.get("feed:summary:latest")
+        if raw:
+            b = json.loads(raw)
+            age = (datetime.now(timezone.utc) - datetime.fromisoformat(b["ts"])).total_seconds()
+            briefing = {"age_s": round(age), "posture": b.get("posture"), "model": b.get("model"),
+                        "duration_s": b.get("duration_s")}
+    except Exception:
+        briefing = None
+    receiver = None
+    try:
+        raw = await r.get("feed:aircraft_snapshot")
+        if raw:
+            snap = json.loads(raw)
+            receiver = {k: snap.get(k) for k in ("beast_connected", "beast_healthy", "last_frame_age_s", "count", "positioned", "frames_dropped")}
+    except Exception:
+        receiver = None
+
+    poller_counts = {s: sum(1 for p in pollers if p["status"] == s) for s in ("ok", "stale", "error", "unknown")}
+    quiet_pollers = sorted(pollers, key=lambda p: -p["staleness_s"])[:1]
+    api = {k: metrics.get(k) for k in ("req_rate", "error_pct", "p95_ms", "memory_mb", "cpu_pct", "ws_clients", "uptime_seconds")} \
+        if metrics.get("available") else None
+
+    issues = admin_health.build_issues({
+        "postgres": postgres, "redis": redis_info, "pollers": pollers, "feeds": feeds,
+        "activity": activity, "storage": storage.health, "pool": pool if "level" in pool else None,
+        "api": api, "briefing_age_s": briefing["age_s"] if briefing else None, "receiver": receiver,
+    })
+    return {
+        "status": admin_health.overall_status(issues),
+        "issues": issues,
+        "checked_at": now,
+        "services": {
+            "postgres": postgres,
+            "redis": redis_info,
+            "api": api,
+            "pollers": {"total": len(pollers), **poller_counts,
+                        "slowest": ({"name": quiet_pollers[0]["name"], "staleness_s": quiet_pollers[0]["staleness_s"]}
+                                    if quiet_pollers else None)},
+            "briefing": briefing,
+            "receiver": receiver,
+        },
+        "feeds": feeds,
+    }
+
+
 @router.get("/db-pool")
 async def get_db_pool():
     """SQLAlchemy async engine connection pool statistics."""
     from db.session import engine
     pool = engine.pool
     try:
-        return {
+        max_overflow = int(getattr(pool, "_max_overflow", 10))
+        out = {
             "pool_size": pool.size(),
+            "max_overflow": max_overflow,
             "checked_in": pool.checkedin(),
             "checked_out": pool.checkedout(),
             "overflow": pool.overflow(),
             "invalid": pool.invalid() if hasattr(pool, "invalid") else 0,
         }
+        # One snapshot of one of the backend's worker processes: judged against the pool's real capacity.
+        out.update(admin_health.pool_status(out["pool_size"], out["checked_out"], max_overflow))
+        return out
     except Exception as exc:
         return {"error": str(exc)}
