@@ -101,3 +101,5 @@ Dependabot then opened three frontend follow-ups as its update queue continued:
 | #171 | TypeScript 7.0.2 | Incorporated | Strict type-checking and the complete production/PWA build pass with zero npm vulnerabilities. |
 
 The prior CI job only ran `tsc --noEmit`, which would not detect the Tailwind/PostCSS failure. It now also runs `npm run build` for every push and pull request. Tailwind major updates are deferred in Dependabot until that migration is planned.
+
+The next queue slot produced #172 for pyModeS 2.22.0. This remains on the required v2 API line and is incorporated: the full decoder coverage executes rather than skipping, and all 357 poller tests pass. A final direct-package inventory also incorporated FastAPI 0.142.2, cryptography 50.0.2, and LiteLLM 1.103.1 before Dependabot could open redundant requests. The regenerated production locks remain clean under `pip-audit`.

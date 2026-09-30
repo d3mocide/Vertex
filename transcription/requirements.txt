@@ -3,4 +3,4 @@ asyncpg==0.31.0
 redis[hiredis]==8.1.0
 pydantic-settings==2.15.0
 requests==2.34.2
-litellm==1.102.1
+litellm==1.103.1

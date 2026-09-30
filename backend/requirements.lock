@@ -27,7 +27,7 @@ cffi==2.1.1
     # via bcrypt
 click==8.5.0
     # via uvicorn
-fastapi==0.142.1
+fastapi==0.142.2
     # via -r backend/requirements.txt
 geoalchemy2==0.20.0
     # via -r backend/requirements.txt
