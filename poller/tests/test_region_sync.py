@@ -110,3 +110,18 @@ def test_gate_off_uses_the_built_in_defaults_immediately():
 def test_works_without_redis():
     s = _settings()
     assert asyncio.run(rs.apply_or_wait(FakePool(STORED), s, None, sleep=_no_sleep)) == "database"
+
+
+def test_station_choices_apply_without_overriding_environment_fields():
+    nws={'office':'BOU','forecast_zone':'COZ039','station_primary':'KAAA','station_secondary':'KBBB','nearby_stations':['KBBB'],'climate_station':'AAA'}
+    s=_settings(fields_set={'nws_station_primary','nws_climate_station'})
+    s.nws_station_primary='KZZZ';s.nws_climate_station='ZZZ'
+    rs.apply(s,{**STORED,'nws':nws})
+    assert s.nws_station_primary=='KZZZ' and s.nws_climate_station=='ZZZ'
+    assert s.nws_nearby_stations=='KBBB' and s.nws_station_secondary=='KBBB' and s.nws_zone=='COZ039'
+
+
+def test_unresolved_stations_clear_default_region_fallbacks():
+    s=_settings()
+    rs.apply(s,{**STORED,'nws':{'station_primary':'','station_secondary':'','nearby_stations':[],'climate_station':''}})
+    assert s.nws_station_primary=='' and s.nws_climate_station=='' and s.nws_nearby_stations==''

@@ -94,6 +94,7 @@ FEED_INFO: dict[str, tuple[str, str]] = {
     "weather:rwis": ("Road-weather stations", "Weather"), "weather:nwws_products": ("NWS text products", "Weather"),
     "hydro:status": ("River gauges", "Weather"), "lightning:strikes": ("Lightning strikes", "Weather"),
     "fire:danger": ("Fire danger", "Fire"), "fire:perimeters": ("Fire perimeters", "Fire"),
+    "fire:nifc_incidents": ("Wildfire incidents", "Fire"),
     "fire:hotspots": ("Satellite hotspots", "Fire"),
     "traffic:incidents": ("Road incidents", "Traffic"), "traffic:cameras": ("Cameras", "Traffic"),
     "traffic:signs": ("Message signs", "Traffic"), "traffic:flow": ("Detector flow", "Traffic"),

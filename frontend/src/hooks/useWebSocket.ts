@@ -95,7 +95,6 @@ export function useWebSocket() {
     setRadio,
     appendSystemEvent,
     setUtilityStatus,
-    setOregonStatus,
     setAirports,
     setWeather,
     setAlerts,
@@ -112,7 +111,7 @@ export function useWebSocket() {
     updateLinkHistory,
     setMeshStatus,
     appendAcarsMessage,
-  } = useCivicPick('setEntities', 'setAircraftSnapshot', 'upsertEntities', 'purgeStaleEntities', 'setConnected', 'setRadio', 'appendSystemEvent', 'setUtilityStatus', 'setOregonStatus', 'setAirports', 'setWeather', 'setAlerts', 'setNews', 'setCameras', 'setTrafficFlow', 'setTrafficIncidents', 'setRadioIncidents', 'setAdvisories', 'setFeedMeta', 'setSummary', 'appendLightningStrikes', 'appendMeshMessage', 'updateLinkHistory', 'setMeshStatus', 'appendAcarsMessage')
+  } = useCivicPick('setEntities', 'setAircraftSnapshot', 'upsertEntities', 'purgeStaleEntities', 'setConnected', 'setRadio', 'appendSystemEvent', 'setUtilityStatus', 'setAirports', 'setWeather', 'setAlerts', 'setNews', 'setCameras', 'setTrafficFlow', 'setTrafficIncidents', 'setRadioIncidents', 'setAdvisories', 'setFeedMeta', 'setSummary', 'appendLightningStrikes', 'appendMeshMessage', 'updateLinkHistory', 'setMeshStatus', 'appendAcarsMessage')
 
   useEffect(() => {
     let cancelled = false
@@ -269,8 +268,7 @@ export function useWebSocket() {
               setRadio((msgData ?? msg) as unknown as Parameters<typeof setRadio>[0])
             } else if (msg.key === 'utility:pge') {
               setUtilityStatus(msg.data as Parameters<typeof setUtilityStatus>[0])
-            } else if (msg.key === 'utility:oregon') {
-              setOregonStatus(msg.data as Parameters<typeof setOregonStatus>[0])
+
             } else if (msg.key === 'weather:current' && msgData) {
               setWeather({
                 temp_f: typeof msgData.temp_f === 'number' ? msgData.temp_f : undefined,

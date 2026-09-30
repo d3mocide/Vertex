@@ -1,0 +1,28 @@
+{
+  "type": "FeatureCollection",
+  "features": [],
+  "near": [],
+  "updated": "2026-09-30T00:00:00+00:00",
+  "near_radius_km": 30,
+  "coverage": [
+    "Example state"
+  ],
+  "utilities": [
+    {
+      "id": "example-provider:example-electric",
+      "name": "Example Electric",
+      "state": "OR",
+      "coverage": "Example state",
+      "meters_out": 12,
+      "nearby_meters_out": 0,
+      "counties": [
+        "Example County"
+      ],
+      "provider_id": "example-provider",
+      "attribution": "Example publisher"
+    }
+  ],
+  "providers": [
+    "example-provider"
+  ]
+}

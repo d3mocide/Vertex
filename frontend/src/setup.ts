@@ -30,6 +30,11 @@ export interface PackInfo {
 }
 
 export interface ResolvedLocation {
+  station_primary: string
+  station_secondary: string
+  nearby_stations: string[]
+  climate_station: string
+  station_warning?: string
   office: string | null
   forecast_zone: string | null
   county_zone: string | null
@@ -47,7 +52,7 @@ export interface RegionDraft {
   lon: number
   radius_km: number
   timezone: string
-  nws?: Record<string, string>
+  nws?: Record<string, string | string[]>
   packs: string[]         // one or more installed packs; [] for core feeds only
 }
 

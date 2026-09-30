@@ -1,3 +1,4 @@
+import { RegionalFeedStatus } from '../common/RegionalFeedStatus'
 import { useState, useEffect } from 'react'
 import { TrafficCamera, useCivicPick } from '../../store'
 import { triageIncidents } from '../../incidentUtils'
@@ -111,14 +112,13 @@ export function InfrastructureGrid() {
   const {
     cameras,
     trafficIncidents,
-    oregonStatus,
     ldiMode,
     setLdiMode,
     selectedCamId,
     setSelectedCamId,
     favoriteCamIds,
     toggleFavoriteCam,
-  } = useCivicPick('cameras', 'trafficIncidents', 'oregonStatus', 'ldiMode', 'setLdiMode', 'selectedCamId', 'setSelectedCamId', 'favoriteCamIds', 'toggleFavoriteCam')
+  } = useCivicPick('cameras', 'trafficIncidents', 'ldiMode', 'setLdiMode', 'selectedCamId', 'setSelectedCamId', 'favoriteCamIds', 'toggleFavoriteCam')
   const [radiusKm, setRadiusKm] = useState(5)
   const [page, setPage] = useState(0)
   const PAGE_SIZE = 12
@@ -153,14 +153,7 @@ export function InfrastructureGrid() {
   // Closures and delays near us first; roadwork/notices folded away.
   const triage = triageIncidents(trafficIncidents)
 
-  const oregon = oregonStatus || {
-    status: 'Operational',
-    state_affected: 0,
-    metro_affected: 0,
-    pge_affected: 0,
-    pacificorp_affected: 0,
-    last_updated: '—',
-  }
+
 
   return (
     <div
@@ -196,6 +189,8 @@ export function InfrastructureGrid() {
 
       <div className="flex-1 overflow-y-auto p-4 pb-24 flex flex-col gap-6">
 
+        <RegionalFeedStatus contracts={['traffic.incidents', 'traffic.cameras', 'traffic.signs', 'traffic.corridors', 'roadwx.stations', 'outages.areas']} />
+
         {nothingHere && (
           <div className="hud-panel p-6 max-w-2xl">
             <div className="label-caps mb-2">No infrastructure feeds for {caps?.region.name ?? 'this region'}</div>
@@ -215,12 +210,7 @@ export function InfrastructureGrid() {
           <div className="flex flex-col gap-4">
             {hasCorridors && <RoadStatusCard />}
             {hasSigns && <MessageSignsCard />}
-            {hasOutages && <PowerCard
-              statewide={oregon.state_affected}
-              metro={oregon.metro_affected}
-              pge={oregon.pge_affected}
-              pacific={oregon.pacificorp_affected}
-            />}
+            {hasOutages && <PowerCard />}
           </div>
         </div>}
 

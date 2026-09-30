@@ -28,21 +28,24 @@ export interface Capabilities {
   contracts: Record<string, ContractCapability>
 }
 
-// One shared fetch for the whole app, refreshed every few minutes.
-const REFRESH_MS = 5 * 60 * 1000
+// One shared freshness check for the whole app, refreshed each minute.
+const REFRESH_MS = 60 * 1000
 let current: Capabilities | null = null
+let unavailable = false
 const listeners = new Set<() => void>()
 let timer: number | undefined
 
 async function load() {
   try {
-    const res = await fetch(`${API_BASE}/capabilities`, { headers: authHeaders() })
-    if (!res.ok) return
+    const res = await fetch(`${API_BASE}/capabilities`, { headers: authHeaders(), signal: AbortSignal.timeout(10_000) })
+    if (!res.ok) throw new Error('Freshness check failed')
     current = (await res.json()) as Capabilities
-    listeners.forEach((l) => l())
+    unavailable = false
   } catch {
-    // Keep the last known value; the UI treats "unknown" as available.
+    // Keep the last known data, but make failed freshness checks visible.
+    unavailable = true
   }
+  listeners.forEach((l) => l())
 }
 
 function subscribe(listener: () => void) {
@@ -75,4 +78,9 @@ export function useContractAvailable(id: string): boolean {
   if (!caps) return true
   const c = caps.contracts[id]
   return !c || c.status !== 'none'
+}
+
+/** Whether the latest freshness check failed; cached capabilities may still exist. */
+export function useCapabilitiesUnavailable(): boolean {
+  return useSyncExternalStore(subscribe, () => unavailable, () => false)
 }

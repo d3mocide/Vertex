@@ -103,6 +103,25 @@ def summarize_outages(features: list[dict], lat: float, lon: float) -> tuple[lis
     return mapped, near
 
 
+def utility_summaries(features, near):
+    """Statewide ODIN totals per utility, separate from the distance-limited map features."""
+    utilities = {}
+    for feature in features:
+        props = feature.get('properties') or {}
+        name = str(props.get('utilityName') or 'Unknown').strip()
+        key = name.casefold()
+        row = utilities.setdefault(key, {'id': key, 'name': name.title(), 'state': 'OR', 'coverage': 'Oregon',
+            'meters_out': 0, 'nearby_meters_out': 0, 'counties': set()})
+        row['meters_out'] += props.get('metersOut') or 0
+        if props.get('CountyName'):
+            row['counties'].add(props['CountyName'])
+    for area in near:
+        key = area['utility'].casefold()
+        if key in utilities:
+            utilities[key]['nearby_meters_out'] += area['meters_out']
+    return [{**row, 'counties': sorted(row['counties'])} for row in sorted(utilities.values(), key=lambda row: (-row['meters_out'], row['name']))]
+
+
 class UtilityPoller(BasePoller):
     name = "utilities"
     interval = 300  # 5 minutes is plenty for statewide aggregated data
@@ -174,7 +193,9 @@ class UtilityPoller(BasePoller):
                     for entry in near:
                         entry["context"] = outage_context(alerts, strikes, entry.get("lat"), entry.get("lon"))
                 await set_feed("utility:outages", {"type": "FeatureCollection", "features": mapped, "near": near,
-                                                   "updated": synced_at})
+                                                   "updated": synced_at, "near_radius_km": _OUTAGE_NEAR_KM,
+                                                   "coverage": ["Oregon"],
+                                                   "utilities": utility_summaries(features, near)})
                 await set_feed("utility:oregon", {
                     "provider": "Oregon ODIN",
                     "status": "Operational" if state_total_affected < 1000 else "Regional Outages",

@@ -164,7 +164,9 @@ export function SetupWizard({ firstRun, onClose }: { firstRun: boolean; onClose:
       nws: resolved ? Object.fromEntries(Object.entries({
         office: resolved.office, forecast_zone: resolved.forecast_zone,
         county_zone: resolved.county_zone, fire_zone: resolved.fire_zone,
-      }).filter(([, v]) => v)) as Record<string, string> : undefined,
+        station_primary: resolved.station_primary, station_secondary: resolved.station_secondary,
+        climate_station: resolved.climate_station, nearby_stations: resolved.nearby_stations,
+      }).filter(([key, v]) => v != null && (v !== '' || key.includes('station')))) as Record<string, string | string[]> : undefined,
       packs: packIds,
     })
     setSavedStatus(await fetchSetupStatus())
@@ -321,11 +323,16 @@ export function SetupWizard({ firstRun, onClose }: { firstRun: boolean; onClose:
               <dt className="label-caps">Radius</dt><dd className="font-mono text-on-surface">{radius} km</dd>
               <dt className="label-caps">Timezone</dt><dd className="font-mono text-on-surface">{timezone}</dd>
               <dt className="label-caps">Weather office</dt><dd className="font-mono text-on-surface">{resolved?.office ?? '—'}</dd>
+              <dt className="label-caps">Alert zones</dt><dd className="font-mono text-on-surface">{[resolved?.forecast_zone, resolved?.county_zone, resolved?.fire_zone].filter(Boolean).join(', ') || 'Unresolved'}</dd>
+              <dt className="label-caps">Observations</dt><dd className="font-mono text-on-surface">{resolved?.station_primary || 'Unresolved'}{resolved?.nearby_stations?.length ? ` · nearby ${resolved.nearby_stations.join(', ')}` : ''}</dd>
+              <dt className="label-caps">Climate station</dt><dd className="font-mono text-on-surface">{resolved?.climate_station || 'Unresolved'}</dd>
               <dt className="label-caps">Region packs</dt><dd className="text-on-surface">{pack ? pack.name : 'Core feeds only'}</dd>
               {!!pack?.feeds?.news.length && <><dt className="label-caps">News feeds</dt><dd className="text-on-surface">{pack.feeds.news.map((f) => f.name).join(', ')}</dd></>}
               {!!pack?.feeds?.alerts.length && <><dt className="label-caps">Emergency feeds</dt><dd className="text-on-surface">{pack.feeds.alerts.map((f) => f.name).join(', ')}</dd></>}
             </dl>
             {pack && <p className="text-[12px] text-on-surface-variant">Pack feeds are defaults. Existing feeds and disabled settings are kept. Changing packs removes only the previous pack's feeds.</p>}
+            {resolved?.station_warning && <p className="text-[12px] text-amber-gold" role="status">{resolved.station_warning}</p>}
+            <p className="text-[12px] text-on-surface-variant">Explicit weather settings and existing alert zones are preserved. Location-derived choices apply when the poller starts.</p>
             {nav('keys', save, 'Save and finish')}
           </section>
         )}

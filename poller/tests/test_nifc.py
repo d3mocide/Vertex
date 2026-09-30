@@ -37,3 +37,26 @@ async def test_confirmed_empty_perimeter_query_clears_old_data(monkeypatch,setup
     monkeypatch.setattr(nifc,'query_features',AsyncMock(return_value=[]))
     await nifc.NifcPoller().poll()
     assert setup.await_args.args[1]['features']==[]
+
+
+@pytest.mark.asyncio
+async def test_only_distant_incidents_need_name_queries(monkeypatch,setup):
+    import json
+    entities={'near':{'display_name':'Example near','lat':45.3842,'lon':-122.7635},'far':{'display_name':'Example distant','lat':60,'lon':-122}}
+    redis=SimpleNamespace(keys=AsyncMock(return_value=list(entities)),get=AsyncMock(side_effect=lambda key:json.dumps(entities[key])))
+    monkeypatch.setattr(nifc,'get_bus',AsyncMock(return_value=redis))
+    query=AsyncMock(return_value=[]);monkeypatch.setattr(nifc,'query_features',query)
+    await nifc.NifcPoller().poll()
+    assert query.await_count==2
+    supplemental=query.await_args.args[2]['where']
+    assert 'EXAMPLE DISTANT' in supplemental and 'EXAMPLE NEAR' not in supplemental
+
+
+def test_supplemental_queries_obey_encoded_url_budget():
+    from urllib.parse import urlencode
+    names={f"Example wildfire {i} with spaces and apostrophe's" for i in range(100)}
+    batches=list(nifc._name_queries(names,"attr_IncidentTypeCategory = 'WF'"))
+    assert len(batches)>1
+    for params in batches:
+        assert len(urlencode({**params,'resultRecordCount':1000,'resultOffset':20000,'orderByFields':'OBJECTID'}))<=1500
+    assert "apostrophe''s" in batches[0]['where']

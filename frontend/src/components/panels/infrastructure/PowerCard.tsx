@@ -4,30 +4,41 @@ import { authHeaders } from '../../../auth'
 import { formatAge, useFeedFreshness } from '../../common/FeedAge'
 
 interface Near { utility: string; county: string; meters_out: number; meters_served: number | null; dist_km: number | null; context?: string[] }
-interface Outages { near: Near[] }
+interface Outages {
+  near: Near[]
+  updated: string | null
+  near_radius_km?: number
+  coverage?: string[]
+  utilities?: { id: string; name: string; state: string; coverage: string; meters_out: number; nearby_meters_out: number; attribution?: string }[]
+}
 
 /**
  * Power outages: what is out near us first (utility, county, how many meters, how far), with the
  * statewide/metro totals as context. The map layer ("Power Outages" in Settings) draws the areas.
  */
-export function PowerCard({ statewide, metro, pge, pacific }: { statewide: number; metro: number; pge: number; pacific: number }) {
-  const [near, setNear] = useState<Near[]>([])
-  const age = useFeedFreshness('utility:oregon')
+export function PowerCard() {
+  const [data, setData] = useState<Outages | null>(null)
+  const [failed, setFailed] = useState(false)
+  const age = useFeedFreshness('utility:outages')
 
   useEffect(() => {
     const load = async () => {
       try {
         const res = await fetch(`${API_BASE}/utilities/outages`, { headers: authHeaders() })
-        if (res.ok) setNear(((await res.json()) as Outages).near ?? [])
-      } catch { /* non-fatal */ }
+        if (!res.ok) throw new Error('Outage request failed')
+        setData(await res.json() as Outages)
+        setFailed(false)
+      } catch { setFailed(true) }
     }
     load()
-    const t = setInterval(load, 5 * 60 * 1000)
+    const t = setInterval(load, 60 * 1000)
     return () => clearInterval(t)
   }, [])
 
+  const near = data?.near ?? []
   const nearTotal = near.reduce((n, o) => n + o.meters_out, 0)
-  const stale = age.state === 'dead'
+  const stale = age.state === 'dead' || age.state === 'stale'
+  const current = !!data?.updated && age.state === 'fresh' && !failed
 
   return (
     <div className="hud-panel p-3">
@@ -41,8 +52,8 @@ export function PowerCard({ statewide, metro, pge, pacific }: { statewide: numbe
 
       {near.length === 0 ? (
         <div className="flex items-center gap-2 py-1">
-          <span className="w-2 h-2 rounded-full bg-green-ais shrink-0" />
-          <span className="text-[12px] text-on-surface">No outages within 30 km</span>
+          <span className={`w-2 h-2 rounded-full shrink-0 ${current ? 'bg-green-ais' : 'bg-amber-gold'}`} />
+          <span className="text-[12px] text-on-surface">{current ? `No reported outages within ${data?.near_radius_km ?? 30} km in covered areas` : 'Nearby outage status unavailable'}</span>
         </div>
       ) : (
         <div className="space-y-1.5">
@@ -66,8 +77,15 @@ export function PowerCard({ statewide, metro, pge, pacific }: { statewide: numbe
         </div>
       )}
 
+      {(failed || stale) && <p className="mt-2 text-[11px] text-amber-gold">Updates are unavailable or overdue. Showing last known reports.</p>}
       <div className="mt-2 pt-2 border-t border-white/5 font-mono text-[11px] text-on-surface-variant space-y-1">
-        <div>Oregon: {statewide} meters out · metro {metro} · PGE {pge} · Pacific Power {pacific}</div>
+        <div>Reported coverage: {data?.coverage?.join(', ') || 'unreported'}</div>
+        <details>
+          <summary className="cursor-pointer">Utility totals · {data?.utilities?.length ?? 0} reporting utilities</summary>
+          <div className="mt-1 space-y-1">
+            {(data?.utilities ?? []).map((utility) => <div key={utility.id}>{utility.name} · {utility.state} · {utility.meters_out.toLocaleString()} meters out{utility.attribution ? ` · ${utility.attribution}` : ''}</div>)}
+          </div>
+        </details>
         {near.some((o) => /portland general/i.test(o.utility)) && (
           <a href="https://portlandgeneral.com/outages" target="_blank" rel="noreferrer noopener" className="inline-block uppercase tracking-widest text-amber-gold hover:text-white">
             Cause &amp; restoration time: PGE outage map ↗

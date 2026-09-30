@@ -22,7 +22,7 @@ _FEED_MAX_AGE_S = {
     "traffic:incidents": 600, "traffic:flow": 600, "traffic:corridors": 600, "traffic:signs": 900, "traffic:cameras": 3600,
     "utility:oregon": 1200, "utility:outages": 1200, "utility:pge": 1200,
     "alerts:flash": 300, "news:local": 900, "intel:alerts": 900,
-    "fire:perimeters": 5400, "radio:incidents": 600, "summary:latest": 7200,
+    "fire:nifc_incidents": 1800, "fire:perimeters": 5400, "radio:incidents": 600, "summary:latest": 7200,
     "hydro:status": 1800,
 }
 

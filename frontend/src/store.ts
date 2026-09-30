@@ -10,7 +10,7 @@ import type {
   TrafficCamera, SystemEvent, CustomLayerItem, SystemHealth, TrafficIncident,
   SummaryState, RadioIncidentFeed, AdvisoryFeed, FeedMetaEntry, TrailPoint, AirportSnapshot, AppMode, NavTab, EntityTypeFilter,
   RangeFilter, ReplayData, EntityMissionTag, AnnotationItem,
-  TrafficFlowSensor, UtilityStatus, OregonStatus, MeshMessage, MeshLink,
+  TrafficFlowSensor, UtilityStatus, MeshMessage, MeshLink,
   AcarsMessage,
 } from './storeTypes'
 import { ALT_RANGE_DEFAULT, SPD_RANGE_DEFAULT, isSupplementSource } from './storeTypes'
@@ -36,7 +36,6 @@ export interface CivicStore {
   focusIncidentId:  string | null
   feedMeta:         Record<string, FeedMetaEntry>
   utilityStatus:    UtilityStatus | null
-  oregonStatus:     OregonStatus | null
   trail:            TrailPoint[]
   airports:         Record<string, AirportSnapshot>
   summary:          SummaryState
@@ -86,7 +85,6 @@ export interface CivicStore {
   setFocusIncidentId:  (id: string | null) => void
   setFeedMeta:         (patch: Record<string, Partial<FeedMetaEntry> & { ts: string }>) => void
   setUtilityStatus: (status: UtilityStatus) => void
-  setOregonStatus:  (status: OregonStatus) => void
   setTrail:         (trail: TrailPoint[]) => void
   refreshEntityTrack: (entityId: string) => void
   setAirports:      (airports: Record<string, AirportSnapshot>) => void
@@ -388,7 +386,6 @@ export const useCivicStore = create<CivicStore>()(
   focusIncidentId:  null,
   feedMeta:         {},
   utilityStatus:    null,
-  oregonStatus:     null,
   trail:            [],
   airports:         {},
   summary:          defaultSummary,
@@ -604,7 +601,6 @@ export const useCivicStore = create<CivicStore>()(
     return { feedMeta: next }
   }),
   setUtilityStatus: (utilityStatus) => set({ utilityStatus }),
-  setOregonStatus: (oregonStatus) => set({ oregonStatus }),
   setTrail:     (trail)   => set({ trail }),
   refreshEntityTrack: (entityId) =>
     set((s) => {

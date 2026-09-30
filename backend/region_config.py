@@ -145,5 +145,21 @@ def normalize(payload: dict) -> dict:
         out["pack"] = ids[0] if ids else NO_PACK
     nws = payload.get("nws")
     if isinstance(nws, dict):
-        out["nws"] = {k: str(nws[k]) for k in ("office", "forecast_zone", "county_zone", "fire_zone") if nws.get(k)}
+        clean = {}
+        for key, pattern in (("office", r"[A-Z]{3}"), ("forecast_zone", r"[A-Z]{2}Z\d{3}"),
+                             ("county_zone", r"[A-Z]{2}C\d{3}"), ("fire_zone", r"[A-Z]{2}Z\d{3}"),
+                             ("station_primary", r"[A-Z0-9]{3,5}"), ("station_secondary", r"[A-Z0-9]{3,5}"),
+                             ("climate_station", r"[A-Z0-9]{3}")):
+            if key not in nws:
+                continue
+            value = str(nws[key] or '').strip().upper()
+            if value and not re.fullmatch(pattern, value):
+                raise RegionError(f"nws.{key} is not a valid identifier")
+            clean[key] = value
+        if "nearby_stations" in nws:
+            values = nws["nearby_stations"]
+            if not isinstance(values, list) or len(values) > 8 or any(not isinstance(v, str) or not re.fullmatch(r"[A-Z0-9]{3,5}", v) for v in values):
+                raise RegionError("nws.nearby_stations must contain at most 8 station identifiers")
+            clean["nearby_stations"] = list(dict.fromkeys(values))
+        out["nws"] = clean
     return out

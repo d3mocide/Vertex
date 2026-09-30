@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     bbox_max_lon: float = -121.8
     region_name: str = "Default"
     region_timezone: str = "America/Los_Angeles"
+    nws_alert_zones: str = ""  # presence pins alert-zone selection; value stays server-side
     # Only used to tell the capabilities endpoint whether the ODOT provider is configured.
     odot_api_key: str = ""
     wsdot_api_key: str = ""       # WSDOT Traveler API access code; never expose its value

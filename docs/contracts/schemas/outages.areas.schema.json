@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/d3mocide/Vertex/docs/contracts/schemas/outages.areas.schema.json",
   "title": "outages.areas (v0)",
-  "description": "Power-outage areas as a GeoJSON FeatureCollection. Today the feed is Oregon's ODIN; a per-utility summary object (`utility:oregon`) also exists and is tracked for generalization (it hard-codes two utilities).",
+  "description": "Provider-attributed power outage areas, nearby reports, explicit coverage and per-utility totals. Legacy Oregon-specific summary feeds remain compatibility aliases.",
   "type": "object",
   "required": [
     "type",
@@ -13,7 +13,10 @@
       "const": "FeatureCollection"
     },
     "updated": {
-      "type": "string"
+      "type": [
+        "string",
+        "null"
+      ]
     },
     "near": {
       "type": "array",
@@ -60,24 +63,101 @@
                 "type": "integer"
               },
               "meters_served": {
-                "type": "integer"
+                "type": [
+                  "integer",
+                  "null"
+                ]
               },
               "tract": {
                 "type": [
                   "integer",
-                  "string"
+                  "string",
+                  "null"
                 ]
               },
               "dist_km": {
-                "type": "number"
+                "type": [
+                  "number",
+                  "null"
+                ]
               },
               "lat": {
-                "type": "number"
+                "type": [
+                  "number",
+                  "null"
+                ]
               },
               "lon": {
-                "type": "number"
+                "type": [
+                  "number",
+                  "null"
+                ]
               }
             }
+          }
+        }
+      }
+    },
+    "coverage": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "near_radius_km": {
+      "type": "number",
+      "minimum": 0
+    },
+    "providers": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "utilities": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "state",
+          "coverage",
+          "meters_out",
+          "nearby_meters_out"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          },
+          "coverage": {
+            "type": "string"
+          },
+          "meters_out": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "nearby_meters_out": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "counties": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "provider_id": {
+            "type": "string"
+          },
+          "attribution": {
+            "type": "string"
           }
         }
       }

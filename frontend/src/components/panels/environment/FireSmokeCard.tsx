@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { FeedAge } from '../../common/FeedAge'
 import { API_BASE } from '../../../config'
 import { authHeaders } from '../../../auth'
 import { useContractAvailable } from '../../../hooks/useCapabilities'
@@ -77,6 +78,7 @@ export function FireSmokeCard({ localFires, regionalFires, aqi, aqiLabel }: {
       <div className="label-caps mb-3 flex items-center gap-2">
         <span className="ms text-[14px] leading-none text-amber-p25" aria-hidden="true">local_fire_department</span>
         FIRE &amp; SMOKE
+        <FeedAge feedKey="fire:nifc_incidents" prefix="NIFC updated" className="text-[11px]" />
         {nothingToList && <span className="ml-auto font-mono text-[11px] text-green-ais normal-case tracking-normal">Quiet</span>}
       </div>
 

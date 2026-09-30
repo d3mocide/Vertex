@@ -312,3 +312,11 @@ National NIFC incident and perimeter collectors run once independently of select
 incident feed supplements the existing wildfire entities using IRWIN identity, acreage and containment;
 EONET skips fresh NIFC matches by normalized name and proximity. Public fire GIS reads enforce
 response/page bounds and fail rather than replacing cached data with a false empty result.
+
+### Location-derived weather defaults
+
+Setup reviews forecast, county and fire zones, nearby NWS observation stations and a climate identifier present in the official CF6 product inventory. Stations are distance-ranked within 200 km. Optional station lookup failures remain visible and do not prevent reviewing the resolved region; unresolved station/climate choices are left unavailable rather than falling back to another region. Explicit weather environment values take precedence. Setup-owned alert zones use `source=region`; save and poller startup reconcile only those rows, preserving operator/config rows and disabled choices. Additional monitoring zones remain operator-managed.
+
+### Regional source freshness and outage coverage
+
+Infrastructure and Environment surface stale, overdue, pending and missing-key sources independently, even if another provider keeps the combined contract fresh. Failed freshness checks are visible while cached data remains accessible. The Power card reads attributed utility totals and coverage labels from `utility:outages`; missing/stale reports do not imply zero outages. Oregon-only summary feeds remain compatibility aliases. Washington outage coverage is not advertised until a supported provider is added.

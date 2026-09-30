@@ -1,3 +1,4 @@
+import { RegionalFeedStatus } from '../common/RegionalFeedStatus'
 import { useEffect, useState } from 'react'
 import { useCivicStore, SystemEvent } from '../../store'
 import { API_BASE, regionInfo } from '../../config'
@@ -166,6 +167,7 @@ export function EnvironmentPanel() {
 
       <div className="flex-1 overflow-y-auto min-h-0 pb-24">
         <div className="p-4 lg:p-6 space-y-4">
+          <RegionalFeedStatus contracts={['fire.danger', 'roadwx.stations']} />
           {statusBlock}
           <StatTiles items={tiles} />
         </div>

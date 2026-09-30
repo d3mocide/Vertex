@@ -309,15 +309,6 @@ export interface UtilityStatus {
   [key: string]: unknown
 }
 
-export interface OregonStatus {
-  status: string
-  state_affected: number
-  metro_affected: number
-  pge_affected: number
-  pacificorp_affected: number
-  last_updated: string
-  [key: string]: unknown
-}
 
 // ─── Map Annotations ─────────────────────────────────────────────────────────
 export interface AnnotationItem {

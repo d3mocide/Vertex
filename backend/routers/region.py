@@ -10,6 +10,7 @@ import region_config
 from config import settings
 from db.models import AppSetting
 from deps import get_db
+from region_alerts import sync_region_zones
 from pack_selection import load_selection, save_selection, validate_choice
 
 router = APIRouter(prefix="/config/region", tags=["config"])
@@ -91,6 +92,8 @@ async def set_region(body: RegionIn, db: AsyncSession = Depends(get_db)):
     if ids is not None:
         validate_choice(ids, installed)
     async def save_choice(feed_signature=None):
+        if any(k in stored.get("nws", {}) for k in ("forecast_zone", "county_zone", "fire_zone")):
+            await sync_region_zones(db, stored["nws"])
         row = await db.get(AppSetting, region_config.REGION_KEY, populate_existing=True)
         if feed_signature:
             stored["pack_feeds_signature"] = feed_signature

@@ -57,6 +57,15 @@ def apply(settings, stored: dict) -> None:
     if office and "nws_office" not in getattr(settings, "model_fields_set", set()):
         settings.nws_office = office
 
+    nws = stored.get("nws") or {}
+    fields = getattr(settings, "model_fields_set", set())
+    for key, attr in (("forecast_zone", "nws_zone"), ("station_primary", "nws_station_primary"),
+                      ("station_secondary", "nws_station_secondary"), ("climate_station", "nws_climate_station")):
+        if key in nws and attr not in fields:
+            setattr(settings, attr, nws[key])
+    if "nearby_stations" in nws and "nws_nearby_stations" not in fields:
+        settings.nws_nearby_stations = ",".join(nws["nearby_stations"])
+
 
 async def _publish(redis, state: str, sig: str | None, name: str | None) -> None:
     """Tell the backend what this process is doing about the region (best effort)."""
@@ -80,6 +89,8 @@ async def apply_or_wait(pool, settings, redis=None, *, sleep=asyncio.sleep) -> s
         stored = await _read_stored(pool)
         if stored:
             apply(settings, stored)
+            if any(k in stored.get("nws", {}) for k in ("forecast_zone", "county_zone", "fire_zone")):
+                await sync_region_zones(pool, settings, stored["nws"])
             logger.info("[region] applied region %r (%.4f, %.4f)", settings.region_name,
                         settings.region_lat, settings.region_lon)
             await _publish(redis, "applied", signature(stored), settings.region_name)
@@ -94,3 +105,18 @@ async def apply_or_wait(pool, settings, redis=None, *, sleep=asyncio.sleep) -> s
         await _publish(redis, "waiting", None, None)
         await sleep(POLL_S)
         waited += POLL_S
+
+
+async def sync_region_zones(pool, settings, nws):
+    """Restore setup-owned zones before alert collection starts, including after DB recreation."""
+    import provider_catalog  # installs the shared region-support import path
+    from nws_defaults import zone_changes
+    async with pool.acquire() as conn:
+        async with conn.transaction():
+            await conn.execute("SELECT pg_advisory_xact_lock(hashtext('vertex:region-setup'))")
+            rows = await conn.fetch("SELECT zone_code, source FROM alert_zone_configs")
+            added, removed = zone_changes(nws, rows, 'nws_alert_zones' in getattr(settings, 'model_fields_set', set()))
+            if removed:
+                await conn.execute("DELETE FROM alert_zone_configs WHERE source='region' AND zone_code=ANY($1::text[])", removed)
+            for code in added:
+                await conn.execute("INSERT INTO alert_zone_configs (zone_code, enabled, source) VALUES ($1, TRUE, 'region') ON CONFLICT (zone_code) DO NOTHING", code)

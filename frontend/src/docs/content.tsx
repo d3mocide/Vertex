@@ -323,7 +323,7 @@ const infoPanels = (
         <DocCard icon="traffic" title="On the Road Now" description="Closures and delays sorted by impact. Ramps are grouped under the closure they belong to, and each item can show a nearby camera." />
         <DocCard icon="route" title="Freeways" description="Live speed and the slowest point on each major freeway corridor." />
         <DocCard icon="signpost" title="Message Signs" description="What the highway signs are currently showing." />
-        <DocCard icon="power_off" title="Power" description="Outage areas and customers affected. Cause is not published by the source, so likely context (such as a wind alert or nearby lightning) is shown instead." />
+        <DocCard icon="power_off" title="Power" description="Nearby outage reports and per-utility totals, with explicit coverage and update status. Missing or overdue updates mean status is unknown. Cause is not published by the source; weather and lightning appear as context." />
         <DocCard
           icon={<AtlasIcon name="camera" color={COLORS.CAMERA} size={20} />}
           title="Traffic Cameras"
@@ -340,7 +340,7 @@ const infoPanels = (
         <DocCard icon="volcano" title="Geohazards" description="Nearby earthquakes and other geological or disaster alerts." />
       </DocGrid>
       <DocText>
-        Sections are ordered by what matters most locally, and feeds that are not working are hidden rather than left blank.
+        Sections are ordered by what matters most locally. Source notices identify delayed or overdue updates, and the fire card shows when NIFC last updated. Data may remain visible as last known reports.
       </DocText>
     </DocSection>
 

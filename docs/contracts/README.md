@@ -84,14 +84,14 @@ Summarized from detector flow. Which roads count as corridors comes from the reg
 
 ## `outages.areas`
 
-A GeoJSON FeatureCollection of polygons, with top-level `updated` and `near` (areas nearest the region center).
+A GeoJSON FeatureCollection of polygons, with top-level `updated`, `near` (areas nearest the region center), `near_radius_km`, `coverage`, and `utilities`. Utility rows carry stable provider-prefixed IDs, name, state, coverage label, total and nearby meters out, county names and attribution. Totals describe the publisher’s coverage and may include areas beyond the map’s distance cutoff. Missing updates indicate unknown status, not zero outages.
 
 | Feature property | Type | Notes |
 |------------------|------|-------|
 | `utility`, `meters_out` | | *required* |
 | `county`, `meters_served`, `tract`, `dist_km`, `lat`, `lon` | | |
 
-Known leak to fix (roadmap R7): a separate summary feed, `utility:oregon`, hard-codes two utilities (`pge_affected`, `pacificorp_affected`). The generalized contract carries per-utility totals as a list, derivable from the features above.
+The UI uses the per-utility list in `utility:outages`. Older `utility:oregon` and `utility:pge` feeds remain compatibility aliases. Provider snapshots merge without overwriting one another; no Washington outage provider is declared until a supported source is available.
 
 ## `fire.danger`
 

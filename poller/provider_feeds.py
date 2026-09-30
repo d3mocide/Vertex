@@ -35,6 +35,16 @@ def meta_key(pid, feed):
 def merge(feed, snapshots):
     if not snapshots:
         return []
+    if feed == "utility:outages":
+        if not all(isinstance(data, dict) and data.get("type") == "FeatureCollection" for data in snapshots):
+            raise ValueError("Outage providers require a GeoJSON FeatureCollection")
+        return {"type": "FeatureCollection", "features": [f for data in snapshots for f in data.get("features", [])],
+                "near": sorted([row for data in snapshots for row in data.get("near", [])], key=lambda row: row.get("dist_km", float("inf"))),
+                "utilities": [row for data in snapshots for row in data.get("utilities", [])],
+                "coverage": list(dict.fromkeys(label for data in snapshots for label in data.get("coverage", []))),
+                "near_radius_km": min((data.get("near_radius_km", 30) for data in snapshots), default=30),
+                "updated": max((data.get("updated") or "" for data in snapshots), default=""),
+                "providers": [data.get("provider_id") for data in snapshots]}
     if feed == "fire:danger":
         nearby = sorted([row for data in snapshots for row in data.get("nearby", [])], key=lambda row: row.get("dist_km", float("inf")))
         homes = [data["home"] for data in snapshots if data.get("home")]
@@ -67,11 +77,14 @@ def merge(feed, snapshots):
 def provenance(data, pid, ts):
     if not isinstance(data, list):
         if isinstance(data, dict) and data.get("type") == "FeatureCollection":
-            attribution = "WA DNR" if pid == "wadnr-fire-danger" else "ODF" if pid == "odf-fire-danger" else pid
+            attribution = "WA DNR" if pid == "wadnr-fire-danger" else "ODF" if pid == "odf-fire-danger" else "Oregon ODIN" if pid == "oregon-odin" else pid
             result = {**data, "provider_id": pid, "attribution": attribution, "fetched_at": ts}
             result["features"] = [{**f, "properties": {**f.get("properties", {}), "provider_id": pid, "attribution": attribution}}
                                   for f in data.get("features", [])]
             result["nearby"] = [{**row, "provider_id": pid, "attribution": attribution} for row in data.get("nearby", [])]
+            result["near"] = [{**row, "provider_id": pid, "attribution": attribution} for row in data.get("near", [])]
+            result["utilities"] = [{**row, "id": f"{pid}:{row['id']}", "provider_id": pid, "attribution": attribution}
+                                   for row in data.get("utilities", [])]
             if data.get("home"):
                 result["home"] = {**data["home"], "provider_id": pid, "attribution": attribution}
             return result

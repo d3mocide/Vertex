@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react'
 import { API_BASE, ALERTS_POLL_MS, NEWS_POLL_MS, WEATHER_POLL_MS, CAMERAS_POLL_MS } from '../config'
 import { useCivicPick } from '../store'
 import { authHeaders, clearToken } from '../auth'
-import type { TrafficFlowSensor, UtilityStatus, OregonStatus, RadioIncidentFeed, AdvisoryFeed, FeedMetaEntry } from '../storeTypes'
+import type { TrafficFlowSensor, UtilityStatus, RadioIncidentFeed, AdvisoryFeed, FeedMetaEntry } from '../storeTypes'
 import { parseSummary } from '../summaryUtils'
 
 async function fetchJson<T>(url: string): Promise<T | null> {
@@ -25,12 +25,11 @@ export function useAlerts() {
     setTrafficFlow,
     setTrafficIncidents,
     setUtilityStatus,
-    setOregonStatus,
     setSummary,
     setRadioIncidents,
     setAdvisories,
     setFeedMeta,
-  } = useCivicPick('setAlerts', 'setNews', 'setWeather', 'setCameras', 'setTrafficFlow', 'setTrafficIncidents', 'setUtilityStatus', 'setOregonStatus', 'setSummary', 'setRadioIncidents', 'setAdvisories', 'setFeedMeta')
+  } = useCivicPick('setAlerts', 'setNews', 'setWeather', 'setCameras', 'setTrafficFlow', 'setTrafficIncidents', 'setUtilityStatus', 'setSummary', 'setRadioIncidents', 'setAdvisories', 'setFeedMeta')
   const timers = useRef<ReturnType<typeof setInterval>[]>([])
 
   useEffect(() => {
@@ -113,12 +112,8 @@ export function useAlerts() {
 
     // Fetch utilities
     const pollUtilities = async () => {
-      const [pge, oregon] = await Promise.all([
-        fetchJson<UtilityStatus>(`${API_BASE}/utilities/pge`),
-        fetchJson<OregonStatus>(`${API_BASE}/utilities/oregon`),
-      ])
+      const pge = await fetchJson<UtilityStatus>(`${API_BASE}/utilities/pge`)
       if (pge) setUtilityStatus(pge)
-      if (oregon) setOregonStatus(oregon)
     }
 
     // Initial fetch

@@ -59,3 +59,13 @@ class OutageContextTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def test_utility_totals_include_far_areas_and_preserve_zero_reports():
+    from pollers.utilities import utility_summaries
+    features=[tract(-122.76,45.40,5,utility='EXAMPLE ELECTRIC'),tract(-117,44,500,utility='EXAMPLE ELECTRIC'),tract(-122.76,45.40,0,utility='OTHER ELECTRIC')]
+    _,near=summarize_outages(features,*TUALATIN)
+    rows=utility_summaries(features,near)
+    assert rows[0]['meters_out']==505 and rows[0]['nearby_meters_out']==5
+    assert rows[0]['name']=='Example Electric' and rows[0]['coverage']=='Oregon'
+    assert rows[1]['meters_out']==0 and utility_summaries([],[])==[]

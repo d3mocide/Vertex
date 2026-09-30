@@ -103,7 +103,10 @@ class AlertPoller(BasePoller):
         rows = await get_pool().fetch(
             "SELECT zone_code FROM alert_zone_configs WHERE enabled = TRUE"
         )
-        if rows:
+        if "nws_alert_zones" in getattr(settings, "model_fields_set", set()):
+            self._zones = settings.nws_alert_zones
+            logger.info("[alerts] using explicitly configured NWS_ALERT_ZONES")
+        elif rows:
             self._zones = ",".join(row["zone_code"] for row in rows)
             logger.info("[alerts] %d NWS zone(s) loaded from DB: %s", len(rows), self._zones)
         else:

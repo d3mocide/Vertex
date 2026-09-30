@@ -1,5 +1,7 @@
 import json
 import logging
+import math
+from urllib.parse import urlencode
 from datetime import datetime, timedelta, timezone
 
 import httpx
@@ -66,6 +68,28 @@ def _centroid(coords_list) -> tuple[float, float] | None:
         return None
 
 
+def _name_queries(names, where):
+    """Keep encoded supplemental queries below upstream URL limits."""
+    def params(batch):
+        clause = ",".join("'" + name.replace("'", "''") + "'" for name in batch)
+        return {"where": where + f" AND UPPER(poly_IncidentName) IN ({clause})",
+                "outFields": _FIELDS, "f": "geojson", "outSR": "4326", **_SIMPLIFY}
+    def fits(batch):
+        # Reserve the largest pagination offset and the fields query_features adds.
+        return len(urlencode({**params(batch), 'resultRecordCount': 1000,
+                              'resultOffset': 20000, 'orderByFields': 'OBJECTID'})) <= 1500
+    batch = []
+    for name in sorted(names):
+        if batch and not fits(batch + [name]):
+            yield params(batch)
+            batch = []
+        if not fits([name]):
+            raise ValueError('NIFC supplemental name exceeds query limit')
+        batch.append(name)
+    if batch:
+        yield params(batch)
+
+
 class NifcPoller(BasePoller):
     name = "nifc"
     interval = 1800  # 30 minutes — perimeters update every 12-24 h operationally
@@ -92,12 +116,17 @@ class NifcPoller(BasePoller):
         redis = await get_bus()
         keys = await redis.keys("entity:fire:*")
         fire_names: set[str] = set()
+        west, south, east, north = map(float, bbox.split(","))
 
         for k in keys:
             raw = await redis.get(k)
             if not raw: continue
             try:
                 ent = json.loads(raw)
+                lat, lon = ent.get("lat"), ent.get("lon")
+                if all(isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v) for v in (lat, lon)):
+                    if south <= lat <= north and west <= lon <= east:
+                        continue  # The spatial request already covers this incident.
                 name = ent.get("display_name")
                 if name and name != "Wildfire":
                     # Uppercase BEFORE stripping suffixes — EONET titles are title-case
@@ -116,15 +145,7 @@ class NifcPoller(BasePoller):
                 logger.debug("[nifc] spatial sync returned %d features", len(f1))
 
                 # supplement with distant named fires if any
-                if fire_names:
-                    names_str = ",".join([f"""'{n.replace("'", "''")}'""" for n in fire_names])
-                    name_params = {
-                        "where": spatial_params["where"] + f" AND UPPER(poly_IncidentName) IN ({names_str})",
-                        "outFields": _FIELDS,
-                        "f": "geojson",
-                        "outSR": "4326",
-                        **_SIMPLIFY,
-                    }
+                for name_params in _name_queries(fire_names, spatial_params["where"]):
                     features.extend(await query_features(client, _NIFC_BASE, name_params))
         except (httpx.HTTPError, ValueError) as exc:
             logger.warning("[nifc] fetch failed (%s)", type(exc).__name__)

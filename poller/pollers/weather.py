@@ -113,6 +113,8 @@ class WeatherPoller(BasePoller):
                 await set_feed("weather:nwws_products", products)
 
     async def _fetch_observation(self) -> dict:
+        if not settings.nws_station_primary:
+            return {}
         url = f"{NWS_BASE}/stations/{settings.nws_station_primary}/observations/latest"
         try:
             async with httpx.AsyncClient(timeout=15, headers=_HEADERS) as client:
@@ -146,7 +148,7 @@ class WeatherPoller(BasePoller):
         ids = [settings.nws_station_primary] + [
             s.strip().upper() for s in settings.nws_nearby_stations.split(",") if s.strip()
         ]
-        ids = list(dict.fromkeys(ids))
+        ids = list(dict.fromkeys(s for s in ids if s))
 
         async with httpx.AsyncClient(timeout=15, headers=_HEADERS) as client:
             async def one(sid: str) -> dict | None:
@@ -246,8 +248,8 @@ class WeatherPoller(BasePoller):
 
     HWO is not fetched: the Portland office no longer publishes it as text (the
     API returns none for PQR/PDX)."""
-        office = settings.nws_office or "PQR"
-        climate = settings.nws_climate_station or "PDX"
+        office = settings.nws_office
+        climate = settings.nws_climate_station
         product_types = [
             ("AFD", "Area Forecast Discussion", office),
             ("LSR", "Local Storm Report", office),
@@ -256,6 +258,8 @@ class WeatherPoller(BasePoller):
         results: list[dict] = []
         async with httpx.AsyncClient(timeout=15, headers=_HEADERS) as client:
             for code, name, location in product_types:
+                if not location:
+                    continue
                 url = f"{NWS_BASE}/products/types/{code}/locations/{location}"
                 try:
                     resp = await client.get(url)

@@ -156,3 +156,15 @@ async def test_unselected_provider_cannot_repopulate_a_disabled_contract():
 def test_non_list_contracts_cannot_be_overwritten_by_multiple_providers():
     with pytest.raises(ValueError):
         feeds.merge("utility:outages", [{"areas": []}, {"areas": []}])
+
+
+def test_outage_contract_merges_attributed_utilities_and_preserves_coverage():
+    def snapshot(pid,label,total):
+        return feeds.provenance({'type':'FeatureCollection','features':[], 'near':[{'utility':'Example Electric','meters_out':total,'dist_km':2}], 'utilities':[{'id':'example-electric','name':'Example Electric','state':label,'coverage':label,'meters_out':total,'nearby_meters_out':total}], 'coverage':[label],'near_radius_km':30,'updated':'2026-09-30T00:00:00+00:00'},pid,'2026-09-30T00:00:00+00:00')
+    a,b=snapshot('oregon-odin','Oregon',5),snapshot('example-washington','Washington',7)
+    merged=feeds.merge('utility:outages',[a,b])
+    assert merged['coverage']==['Oregon','Washington'] and len(merged['near'])==2
+    assert len({row['id'] for row in merged['utilities']})==2
+    assert sum(row['meters_out'] for row in merged['utilities'])==12
+    assert a['near'][0]['provider_id']=='oregon-odin' and a['utilities'][0]['attribution']=='Oregon ODIN'
+    assert feeds.merge('utility:outages',[a])['utilities'][0]['meters_out']==5
