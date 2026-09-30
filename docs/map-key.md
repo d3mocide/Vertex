@@ -4,17 +4,20 @@ This page describes how map symbols render in Vertex by zoom level and signal ty
 
 ## Last Updated From Code
 
-- Date: 2026-05-12
+- Date: 2026-09-29
 - Intent: Keep this page synchronized with rendering rules in the frontend layer builders.
 - Primary source files:
-  - frontend/src/layers/buildEntityLayers.ts
-  - frontend/src/layers/buildLightningLayer.ts
-  - frontend/src/layers/buildStreamGaugeLayer.ts
-  - frontend/src/layers/buildMeshNodeLayer.ts
-  - frontend/src/layers/buildCameraLayer.ts
-  - frontend/src/layers/colorUtils.ts
-  - frontend/src/layers/FirePerimeterLayer.tsx
-  - frontend/src/layers/GOESLayer.tsx
+  - `frontend/src/layers/buildEntityLayers.ts` and `colorUtils.ts`
+  - `frontend/src/aircraftRoles.ts`
+  - `frontend/src/layers/buildDispatchLayer.ts`
+  - `frontend/src/layers/buildEventLayers.ts`
+  - `frontend/src/layers/buildLightningLayer.ts`
+  - `frontend/src/layers/buildStreamGaugeLayer.ts`
+  - `frontend/src/layers/buildMeshNodeLayer.ts`
+  - `frontend/src/layers/buildCameraLayer.ts`
+  - `frontend/src/layers/buildGeofenceLayers.ts`
+  - `frontend/src/layers/buildObservationRingLayer.ts`
+  - `frontend/src/components/layers/` (MapLibre raster and polygon overlays)
 
 If map symbol behavior changes, update this document in the same change set.
 
@@ -24,178 +27,140 @@ If map symbol behavior changes, update this document in the same change set.
 - Mid: zoom 6 to 8
 - Close: zoom >= 9
 
-## Entity Layer (ADSB, AIS, APRS, Fire/Hazard)
+Most icon layers degrade the same way: a plain **dot** when far, a **ring** (or the full icon for moving entities) at mid zoom, and the **full icon** when close.
 
-Entity layer source: frontend/src/layers/buildEntityLayers.ts
+## Entity Layer
+
+Source: `buildEntityLayers.ts`. Entities are aircraft, vessels, APRS stations, TAK clients, trains, RF sensors and fire hazards.
 
 ### Icon behavior
 
-- ADSB (air)
-  - Far: dot
-  - Mid: aircraft (full icon)
-  - Close: aircraft (full icon)
-- AIS (sea)
-  - Far: dot
-  - Mid: vessel (full icon)
-  - Close: vessel (full icon)
-- APRS (ground)
-  - Far: dot
-  - Mid: dot
-  - Close: aprs (full icon)
-- Hazard
-  - Far: dot
-  - Mid: dot
-  - Close: fire (full icon)
+| Entity | Far | Mid | Close |
+|--------|-----|-----|-------|
+| Aircraft (ADS-B) | dot | aircraft icon | aircraft icon |
+| Vessel (AIS) | dot | vessel icon | vessel icon |
+| TAK client | dot | TAK icon | TAK icon |
+| Train (Amtrak, TriMet) | dot | train icon | train icon |
+| APRS station | dot | dot | APRS icon |
+| RF sensor | dot | dot | sensor icon |
+| Fire hazard | dot | dot | fire icon |
 
 ### Icon sizes
 
 - Far: 8 px
-- Mid:
-  - ADSB/AIS:
-    - Default: 32 px
-    - Selected: 40 px
-  - APRS/Hazard: 10 px
-- Close:
-  - ADSB/AIS/Hazard:
-    - Default: 32 px
-    - Selected: 40 px
-  - APRS:
-    - Default: 24 px
-    - Selected: 30 px
+- Mid: aircraft and vessels 32 px (selected 40 px); everything else 10 px
+- Close: APRS 24 px (selected 30 px), trains 28 px (selected 36 px), everything else 32 px (selected 40 px)
 
 ### Colors
 
-- APRS icon: rgba(179, 136, 255, 230) (atlas violet)
-- Non-APRS entity colors: mission tag color (if present), otherwise dynamic altitude/speed gradient from frontend/src/layers/colorUtils.ts
+- **Aircraft** — altitude gradient: green at ground level, through yellow and orange, to red and magenta at high altitude (scaled to 13,000 m). A mission tag color overrides the gradient when present.
+- **Vessels** — speed gradient: dark blue when slow to bright cyan when fast (scaled to 25 knots).
+- **APRS** — by station type: emergency red, weather light blue, infrastructure violet, aircraft cyan, marine blue, fixed green, mobile/unknown violet.
+- **TAK clients** — teal. **Trains** — amber. **RF sensors** — lime green. **Fire hazards** — orange-red.
 
 ### Labels
 
-- APRS labels are shown at zoom >= 10
-- APRS label color: rgba(179, 136, 255, 220)
+- APRS callsigns and RF sensor names appear at zoom >= 10
+- TAK callsigns appear at zoom >= 9
 
-## Lightning Layer
+### Aircraft with a job (role glow)
 
-Layer source: frontend/src/layers/buildLightningLayer.ts
+Aircraft whose registration or owner identifies a role get a soft glow in the shape of the aircraft:
 
-### Icon behavior
+| Role | Glow |
+|------|------|
+| Search and rescue, air ambulance, aerial firefighting | red |
+| Law enforcement | amber |
+| Military, news/media, government | grey |
 
-- Far: dot
-- Mid: ring
-- Close: lightning (full icon)
+An aircraft squawking an emergency code (7700 and similar) glows red and slowly pulses, and gets an expanding red ring. Roles come from registration and owner data, never from callsign guesses. The flight log has a *Notable* filter for these aircraft.
 
-### Base icon sizes
+### Selection
 
-- Far: 8 px
-- Mid: 18 px
-- Close: 18 px
+The selected entity gets a larger icon and a selection ring.
 
-Final rendered size fades by strike age over 30 seconds.
+## Dispatch Incidents
 
-### Color
+Source: `buildDispatchLayer.ts`. Located incidents extracted from P25 dispatch audio.
 
-- Base hue: rgb(255, 233, 77)
-- Alpha fades with age
+- Shown when severity is 3 or higher, heard within the last 6 hours, and not cleared. Routine calls stay on the Incidents page.
+- **Red** = life safety (severity 5+); **amber** = everything else significant. Icons fade with age.
+- Anything heard in the last hour has a halo; life-safety incidents always keep a lighter-red halo.
+- The glyph shows the kind: life safety (water rescue, rescue, violence, train/pedestrian struck), fire (structure, outside, vehicle, alarm), hazard (gas leak, CO, hazmat), traffic (crash), medical (medical, assault), other.
+- Far (zoom < 8): small dot (9–11 px). Zoom 8 and closer: glyph (32–36 px).
 
-## Stream Gauge Layer
+## Events
 
-Layer source: frontend/src/layers/buildStreamGaugeLayer.ts
+Source: `buildEventLayers.ts`. Located events (earthquakes, GDACS disasters and similar) are drawn as translucent discs.
 
-### Icon behavior
+- Radius is magnitude x 5 km when a magnitude exists; otherwise 20 km (high), 10 km (medium), 5 km (low/other).
+- Color by severity: red (high), amber (medium), cyan (low), grey (other). Fill and outline fade over 24 hours.
+- Aircraft-role events are logged in the event feed only; the aircraft itself is already on the map.
 
-- Far: dot
-- Mid: ring
-- Close: stream (full icon)
+## Lightning
 
-### Sizes
+Source: `buildLightningLayer.ts`
 
-- Far: 7 px
-- Mid: 10 px
-- Close: 18 px
+- Far: dot; mid: ring; close: lightning icon (18 px at mid and close)
+- Yellow, fading with age; size fades over 30 seconds
 
-### Stage colors
+A separate lightning-density overlay shows where strikes concentrate.
 
-- normal: rgba(79, 195, 247, 255)
-- elevated: rgba(255, 241, 118, 255)
-- minor flood: rgba(255, 183, 77, 255)
-- moderate flood: rgba(239, 83, 80, 255)
-- major flood: rgba(183, 28, 28, 255)
-- unknown: rgba(144, 164, 174, 255)
+## Stream Gauges
 
-## Mesh Node Layer
+Source: `buildStreamGaugeLayer.ts`
 
-Layer source: frontend/src/layers/buildMeshNodeLayer.ts
+- Far: dot (7 px); mid: ring (10 px); close: stream icon (18 px)
+- Stage colors: normal (light blue), action/elevated (yellow), minor flood (orange), moderate flood (red), major flood (dark red), stale / out of service / unknown (grey)
 
-### Icon behavior
+## Mesh Nodes
 
-- Far: dot
-- Mid: ring
-- Close: mesh (full icon)
+Source: `buildMeshNodeLayer.ts`
 
-### Sizes
+- Far: dot (8 px); mid: ring (12 px); close: mesh icon (20 px)
+- Active: lime green; stale (no advert within `VITE_MESH_NODE_STALE_HOURS`): grey
+- Node-to-node links are drawn as lines by the mesh links overlay
 
-- Far: 8 px
-- Mid: 12 px
-- Close: 20 px
+## Traffic Cameras
 
-### Colors
+Source: `buildCameraLayer.ts`
 
-- Active: rgba(255, 143, 0, 240)
-- Stale: rgba(136, 136, 136, 200)
+- Far: dot (8 px); mid: ring (12 px); close: camera icon (22 px, selected 28 px)
+- Amber, brighter when selected
 
-## Camera Layer
+## Receiver Range Ring
 
-Layer source: frontend/src/layers/buildCameraLayer.ts
+Source: `buildObservationRingLayer.ts`
 
-### Icon behavior
+A light-blue circle around the region center (`REGION_LAT`/`REGION_LON`) with radius `VITE_OBSERVATION_RANGE_KM` (default 50 km). Set it to `0` to hide the ring.
 
-- Far: dot
-- Mid: ring
-- Close: camera (full icon)
+## Geofences
 
-### Sizes
+Source: `buildGeofenceLayers.ts`
 
-- Far: 8 px
-- Mid: 12 px
-- Close:
-  - Default: 22 px
-  - Selected: 28 px
+- Alert: amber
+- Exclusion: red
+- Info: light blue
+- Area: grey, label-only zones
 
-### Colors
+## Trails and Predicted Path
 
-- Default: rgba(255, 184, 0, 200)
-- Selected: rgba(255, 184, 0, 255)
+Moving entities draw a history trail behind them. A dashed line ahead of the entity shows its predicted path.
 
-## Seismic Event Layer
+## Map Overlays (MapLibre)
 
-Seismic events are rendered as a Deck.gl ScatterplotLayer on the situational map.
+These raster and polygon layers sit beneath the entity layers and are toggled from the map layer controls:
 
-### Appearance
-
-- Points sized by magnitude
-- Color intensity scaled by recency
-
-## Fire Perimeter Layer
-
-Layer source: frontend/src/layers/FirePerimeterLayer.tsx
-
-Active fire perimeters are fetched from the NIFC/WFIGS GeoJSON endpoint and rendered as filled polygons.
-
-- Fill: semi-transparent orange-red
-- Stroke: solid orange-red outline
-- Toggled via the fire perimeters toggle in Settings
-- Refreshed approximately every 30 minutes
-
-## GOES Satellite Overlay
-
-Layer source: frontend/src/layers/GOESLayer.tsx
-
-NOAA GOES satellite imagery is served as WMS tiles proxied via NOAA nowCOAST.
-
-- Two modes: IR (infrared) and visible
-- Rendered as a raster tile layer behind entity layers
-- Toggled via the GOES satellite toggle in Settings
+- weather radar (reflectivity) and NOAA GOES satellite imagery (infrared and visible)
+- smoke plume overlay
+- NWS alert polygons
+- wildfire perimeters (NIFC/WFIGS, refreshed about every 30 minutes) and ODF fire-danger levels
+- power-outage areas
+- rail lines
+- region outlines and terrain
+- drawn annotations and imported KML / GeoJSON layers
 
 ## Notes
 
-- Halo and glow layers are disabled for icon clarity.
-- Selection pulse ring remains enabled for currently selected entities.
+- Operational indicators and anything updated live are Deck.gl layers; MapLibre carries the basemap, raster/weather tiles, terrain and native controls.
+- Dense feeds do not show always-on labels; labels are zoom-gated.

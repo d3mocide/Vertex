@@ -17,6 +17,7 @@ Use it for:
 - radio streams
 - RSS and alert feeds
 - local network endpoints for sensor or decoder services
+- MQTT sources for IoT devices
 - default weather alert zones
 
 Do not use it for:
@@ -43,6 +44,7 @@ API keys and infrastructure values belong in `.env`.
 | `news_feeds` | RSS or Atom feeds shown in the news panel |
 | `alert_feeds` | High-priority emergency or incident feeds |
 | `poller_sources` | Local or remote machine endpoints for ingestion workers |
+| `mqtt_sources` | IoT and hardware devices that publish to an MQTT broker |
 | `alert_zones` | Default NWS alert zone configuration |
 | `regions` | One or more region BBOX definitions used by compatible pollers |
 
@@ -67,7 +69,10 @@ regions:
       min_lon: -123.5
       max_lon: -121.8
     enabled: true
+    show_on_map: false
 ```
+
+`show_on_map` controls whether the region's outline is drawn on the map (default `true`); it does not change filtering.
 
 ## Shared Entry Fields
 
@@ -126,6 +131,7 @@ Supported example `type` values in the current template:
 - `meshcore`
 - `fire`
 - `aprs`
+- `acars`
 
 Example:
 
@@ -140,12 +146,46 @@ poller_sources:
 
 Guidance by type:
 
-- `adsb`: typically a tar1090 or readsb `aircraft.json` endpoint
+- `adsb`: a tar1090 or readsb `aircraft.json` endpoint. When a BEAST receiver is configured (`ADSB_BEAST_HOST` in `.env`), this JSON is only a standby — it is polled while BEAST is silent. Without BEAST it is the primary local source. The community feeds and OpenSky are configured in `.env`, not here
 - `ais`: typically a WebSocket served by AIS-catcher
 - `p25`: typically an OP25 metadata endpoint
-- `meshcore`: typically a MeshCore bridge WebSocket
+- `meshcore`: a pyMC-Repeater base URL (see below)
 - `fire`: open wildfire feed endpoint
 - `aprs`: APRS-IS host and port or `tcp://` URI
+- `acars`: ACARSHub web interface base URL; messages appear per aircraft in the Flight Log. Disabled in the template
+
+### MeshCore URL options
+
+The MeshCore URL can carry options:
+
+- API key as the URL username when auth is enabled: `http://MY_API_KEY@host:8000`
+- `?companion=<name>` locks the connection to one companion identity
+- `?lat=<lat>&lon=<lon>` pins the repeater's own position when its API does not report GPS; the repeater then appears on the map as a mesh node and anchors its link lines
+
+Nodes advertised outside your configured region are dropped when `MESH_BBOX_FILTER` is on (see [Environment Configuration](environment.md)).
+
+## MQTT Sources
+
+`mqtt_sources` subscribes to topics on a broker. The Mosquitto broker starts with the stack; point hardware at your host's LAN address on port `1883` (or `MQTT_PORT`).
+
+```yaml
+mqtt_sources:
+  - name: "RTL_433 Sensors"
+    normalizer: rtl_433
+    broker: mosquitto        # internal service name; use an address for an external broker
+    port: 1883
+    topic: "rtl_433/#"
+    qos: 0
+    auth_enabled: false
+    enabled: false
+    source: config
+```
+
+| Field | Meaning |
+|-------|---------|
+| `normalizer` | Which parser handles the messages: `rtl_433` (RF sensors), `meshtastic` (node JSON uplink), or `ais` (AIS-catcher MQTT output) |
+| `broker`, `port`, `topic`, `qos` | Where and what to subscribe to |
+| `auth_enabled` | `false` for the local broker; `true` for external brokers, with credentials in `.env` as `MQTT_<UPPER_SNAKE_NAME>_USERNAME` / `_PASSWORD` |
 
 ## Alert Zones
 

@@ -2115,3 +2115,8 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 ## 2026-09-29 — Documentation site (docs/index.html) now reads the Markdown files
 - `docs/index.html` no longer embeds copies of the docs: it fetches the `.md` files listed in its `DOCS` catalogue, so the Markdown is the single source of truth. Marked 12.0.2 is vendored in `docs/assets/` so the site works offline. Serve `docs/` over HTTP (file:// will not work).
 - Brought the docs current: environment reference (46 missing settings, OpenSky OAuth2, community feeds), architecture (seven services, aircraft source merging), getting started (rebuild after changing region, first-account setup), feature overview.
+
+## 2026-09-29 — Map key and source configuration docs rewritten from the code
+- `docs/map-key.md` was dated May and wrong in places (mesh nodes were listed as orange; they are lime). Rewritten from the layer builders: entity icons/sizes/colors by zoom, aircraft role glow and emergency ring, dispatch incidents, event discs, lightning, stream gauges, mesh, cameras, receiver range ring, geofences, and the MapLibre overlays.
+- `docs/configuration/sources.md` gained the `mqtt_sources` section, the `acars` type, MeshCore URL options, region `show_on_map`, and corrected ADS-B guidance (BEAST primary, JSON standby).
+- Added `docs/.nojekyll` so GitHub Pages serves the Markdown files as-is.
