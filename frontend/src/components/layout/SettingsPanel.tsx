@@ -4,9 +4,6 @@ import { notificationPermission, requestNotificationPermission } from '../../not
 import { getUserRole, clearToken } from '../../auth'
 import { ToggleRow } from './SettingsPrimitives'
 import { useContractAvailable } from '../../hooks/useCapabilities'
-import { regionInfo } from '../../config'
-import { fetchSetupStatus, type SetupStatus } from '../../setup'
-import { SetupWizard } from '../SetupWizard'
 
 export function SettingsPanel() {
   const {
@@ -60,14 +57,6 @@ export function SettingsPanel() {
 
   const [notifPermission, setNotifPermission] = useState(() => notificationPermission())
   const userRole = getUserRole()
-
-  // Region setup (admins): current source, and whether the poller still needs a restart.
-  const [setupStatus, setSetupStatus] = useState<SetupStatus | null>(null)
-  const [wizardOpen, setWizardOpen] = useState(false)
-  useEffect(() => {
-    if (!settingsOpen || userRole !== 'admin') return
-    void fetchSetupStatus().then(setSetupStatus).catch(() => undefined)
-  }, [settingsOpen, userRole, wizardOpen])
 
   useEffect(() => {
     if (!settingsOpen) return
@@ -141,38 +130,12 @@ export function SettingsPanel() {
                 <span className="ms text-[20px]" aria-hidden="true">admin_panel_settings</span>
                 <span className="flex-1 min-w-0">
                   <span className="block text-[11px] font-bold uppercase tracking-widest">Admin console</span>
-                  <span className="block text-[11px] text-on-surface-variant normal-case tracking-normal">Health, users, feeds, alert rules</span>
+                  <span className="block text-[11px] text-on-surface-variant normal-case tracking-normal">Health, users, feeds, region, alert rules</span>
                 </span>
                 <span className="ms text-[16px]" aria-hidden="true">chevron_right</span>
               </a>
             </section>
           )}
-
-          {/* Region setup */}
-          {userRole === 'admin' && (
-            <section>
-              <button
-                onClick={() => setWizardOpen(true)}
-                className="flex items-center gap-3 w-full py-2.5 px-3 border border-amber-gold/30 text-amber-gold hover:bg-amber-gold/10 transition-colors text-left"
-              >
-                <span className="ms text-[20px]" aria-hidden="true">public</span>
-                <span className="flex-1 min-w-0">
-                  <span className="block text-[11px] font-bold uppercase tracking-widest">Region setup</span>
-                  <span className="block text-[11px] text-on-surface-variant normal-case tracking-normal truncate">
-                    {regionInfo.name}
-                    {setupStatus ? ` · ${setupStatus.source === 'env' ? 'set in .env' : setupStatus.source === 'database' ? 'chosen in the app' : 'defaults'}` : ''}
-                  </span>
-                </span>
-                <span className="ms text-[16px]" aria-hidden="true">chevron_right</span>
-              </button>
-              {setupStatus?.restart_required && (
-                <p className="mt-2 text-[11px] text-amber-gold normal-case tracking-normal" role="status">
-                  Region changed — restart the poller to apply it: <code className="font-mono">docker compose restart poller</code>
-                </p>
-              )}
-            </section>
-          )}
-          {wizardOpen && <SetupWizard firstRun={false} onClose={() => setWizardOpen(false)} />}
 
           {/* Divider */}
           {userRole === 'admin' && <div className="border-t border-white/10" />}

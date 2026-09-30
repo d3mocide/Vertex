@@ -357,7 +357,7 @@ const infoPanels = (
         <DocCard
           icon={<AtlasIcon name="mesh" color={COLORS.MESH} size={20} />}
           title="Mesh"
-          description="Mesh chat, the mesh network with node health, SNR and battery, and the nearest nodes to you."
+          description="Mesh chat, the mesh network with node status and SNR, and the nearest nodes to you."
         />
         <DocCard icon="radio" title="P25 Call Log" description="Recent radio calls with talkgroup, length and a transcript. The RF monitor shows whether the decoder is connected." />
       </DocGrid>

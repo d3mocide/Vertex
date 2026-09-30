@@ -1,20 +1,4 @@
-import React from 'react'
 import type { DbPoolData } from './types'
-
-function PoolCard({
-  label, value, warn = false, critical = false,
-}: { label: string; value: number | string; warn?: boolean; critical?: boolean }) {
-  let colorClass = 'text-on-surface'
-  if (critical) colorClass = 'text-red-emergency'
-  else if (warn) colorClass = 'text-amber-gold'
-
-  return (
-    <div className="border border-white/10 bg-black/30 p-3 text-center">
-      <div className={`text-xl font-mono font-bold ${colorClass}`}>{value}</div>
-      <div className="text-[11px] text-on-surface-variant uppercase tracking-wider mt-1">{label}</div>
-    </div>
-  )
-}
 
 export function DbPoolPanel({ pool }: { pool: DbPoolData | null }) {
   if (!pool) return null
@@ -28,50 +12,32 @@ export function DbPoolPanel({ pool }: { pool: DbPoolData | null }) {
       </section>
     )
   }
-  const utilization = pool.pool_size > 0 ? pool.checked_out / pool.pool_size : 0
-  const utilizationPercent = Math.round(utilization * 100)
+  // Judged against the pool's real capacity (base pool plus the overflow it may open), by the backend.
+  const critical = pool.level === 'critical'
+  const warn = pool.level === 'warn'
+  const pct = Math.round(pool.utilization * 100)
 
   return (
     <section className="space-y-3">
-      <h2 className="text-[11px] uppercase tracking-widest text-on-surface-variant">DB Connection Pool</h2>
-      <div className="border border-white/10 bg-black/30 space-y-4 p-4">
-        {/* Pool cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <PoolCard label="Pool Size" value={pool.pool_size} />
-          <PoolCard label="Active" value={pool.checked_out} warn={utilization > 0.7} critical={utilization > 0.9} />
-          <PoolCard label="Idle" value={pool.checked_in} />
-          <PoolCard label="Overflow" value={Math.max(0, pool.overflow)} critical={pool.overflow > 0} />
+      <h2 className="text-[11px] uppercase tracking-widest text-on-surface-variant">
+        Database connections
+        <span className="ml-2 normal-case tracking-normal font-normal">one backend worker, a snapshot: brief spikes are normal</span>
+      </h2>
+      <div className="border border-white/10 bg-black/30 p-3 space-y-3">
+        <div className="flex flex-wrap items-baseline gap-x-8 gap-y-1 font-mono text-[12px] text-on-surface-variant">
+          <span><span className={`text-lg font-bold ${critical ? 'text-red-emergency' : warn ? 'text-amber-gold' : 'text-on-surface'}`}>{pool.checked_out}</span> in use</span>
+          <span><span className="text-on-surface">{pool.checked_in}</span> idle</span>
+          <span><span className="text-on-surface">{pool.capacity}</span> capacity ({pool.pool_size} + {pool.max_overflow} overflow)</span>
+          {pool.overflow_in_use > 0 && <span><span className="text-on-surface">{pool.overflow_in_use}</span> using overflow</span>}
+          <span className="ml-auto text-on-surface font-bold">{pct}%</span>
         </div>
-
-        {/* Utilization bar */}
-        <div className="flex items-center gap-4">
-          <span className="text-[11px] uppercase tracking-widest text-on-surface-variant shrink-0">Utilization</span>
-          <div className="flex-1 h-1.5 bg-surface-container-highest">
-            <div
-              className={`h-full transition-all ${utilizationPercent > 90 ? 'bg-red-emergency' : utilizationPercent > 70 ? 'bg-amber-gold' : 'bg-emerald-300'}`}
-              style={{ width: `${Math.min(utilizationPercent, 100)}%` }}
-            />
-          </div>
-          <span className="font-mono text-sm font-bold text-on-surface min-w-[3rem] text-right">{utilizationPercent}%</span>
+        <div className="h-1.5 bg-surface-container-highest">
+          <div className={`h-full ${critical ? 'bg-red-emergency' : warn ? 'bg-amber-gold' : 'bg-emerald-300'}`} style={{ width: `${Math.min(pct, 100)}%` }} />
         </div>
-
-        {/* Warnings */}
-        {pool.overflow > 0 && (
-          <div className="flex gap-2 p-2 bg-red-emergency/10 border border-red-emergency/40 text-xs text-red-emergency">
-            <span className="ms text-[16px] shrink-0" aria-hidden="true">error</span>
-            <span>{pool.overflow} overflow connection(s) — pool exhausted. Increase size or reduce concurrent queries.</span>
-          </div>
-        )}
-        {utilization > 0.9 && pool.overflow === 0 && (
-          <div className="flex gap-2 p-2 bg-red-emergency/10 border border-red-emergency/40 text-xs text-red-emergency">
-            <span className="ms text-[16px] shrink-0" aria-hidden="true">error</span>
-            <span>Pool at {utilizationPercent}% utilization — increase pool size immediately.</span>
-          </div>
-        )}
-        {utilization > 0.7 && utilization <= 0.9 && (
-          <div className="flex gap-2 p-2 bg-amber-gold/10 border border-amber-gold/40 text-xs text-amber-gold">
-            <span className="ms text-[16px] shrink-0" aria-hidden="true">warning</span>
-            <span>Pool at {utilizationPercent}% — consider increasing pool size to avoid timeouts.</span>
+        {pool.message && (
+          <div className={`flex gap-2 p-2 border text-xs ${critical ? 'bg-red-emergency/10 border-red-emergency/40 text-red-emergency' : 'bg-amber-gold/10 border-amber-gold/40 text-amber-gold'}`}>
+            <span className="ms text-[16px] shrink-0" aria-hidden="true">{critical ? 'error' : 'warning'}</span>
+            <span>{pool.message}</span>
           </div>
         )}
       </div>

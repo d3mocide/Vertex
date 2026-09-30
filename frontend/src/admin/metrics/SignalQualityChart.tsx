@@ -1,84 +1,34 @@
 import type { SignalQualityData } from './types'
 
-const ENTITY_COLORS: Record<string, string> = {
-  aircraft:      '#00BFFF',      // cat-air (ADS-B)
-  vessel:        '#00C853',      // cat-sea (AIS)
-  mesh_node:     '#76DD00',      // lime-rf
-  aprs_position: '#B388FF',      // cat-aprs
-  p25:           '#FF8F00',      // cat-mesh (P25 radio)
-
-}
-
-function barColor(type: string) {
-  return ENTITY_COLORS[type] ?? '#6B7280'
-}
-
+/**
+ * Receiver-reported signal strength, for the sources that report one. Only positions from your own
+ * receiver carry it; community and OpenSky aircraft do not, so this is about the local ADS-B receiver.
+ */
 export function SignalQualityChart({ data }: { data: SignalQualityData | null }) {
-  if (!data || data.types.length === 0) {
-    return (
-      <section>
-        <h2 className="text-[11px] uppercase tracking-widest text-on-surface-variant mb-3">Signal Quality</h2>
-        <div className="border border-white/10 bg-black/30 p-4">
-          <div className="text-center space-y-2">
-            <div className="text-[11px] text-on-surface-variant">
-              No signal quality data in the last {data?.window_minutes ?? 60} min
-            </div>
-            <div className="text-[11px] text-on-surface-variant/60">
-              Not all sources report signal quality (RSSI, SNR, heading accuracy). 
-              <br />Currently available for: ADS-B, AIS, P25.
-            </div>
-          </div>
-        </div>
-      </section>
-    )
-  }
-
-  const maxAvg = Math.max(...data.types.map(t => t.avg_quality ?? 0), 1)
-
+  const types = data?.types ?? []
   return (
     <section>
       <h2 className="text-[11px] uppercase tracking-widest text-on-surface-variant mb-3">
-        Signal Quality
-        <span className="ml-2 text-on-surface-variant normal-case tracking-normal font-normal">
-          (last {data.window_minutes} min · avg / range per type)
-        </span>
+        Receiver signal
+        <span className="ml-2 normal-case tracking-normal font-normal">last {data?.window_minutes ?? 60} min</span>
       </h2>
-      <div className="border border-white/10 bg-black/30 p-4 space-y-3">
-        {data.types.map((entry) => {
-          const avg = entry.avg_quality ?? 0
-          const barPct = maxAvg > 0 ? (avg / maxAvg) * 100 : 0
-          const color = barColor(entry.entity_type)
-          return (
-            <div key={entry.entity_type} className="space-y-1">
-              <div className="flex items-baseline justify-between">
-                <span className="font-mono text-[11px] text-on-surface capitalize">
-                  {entry.entity_type.replace(/_/g, ' ')}
-                </span>
-                <div className="flex items-baseline gap-3">
-                  <span className="font-mono text-[11px] text-on-surface-variant">
-                    {entry.min_quality?.toFixed(1)} – {entry.max_quality?.toFixed(1)}
-                  </span>
-                  <span className="font-mono text-[11px] font-bold" style={{ color }}>
-                    {avg.toFixed(1)}
-                  </span>
-                  <span className="text-[11px] text-on-surface-variant">
-                    n={entry.sample_count.toLocaleString()}
-                  </span>
-                </div>
-              </div>
-              <div className="h-1.5 bg-surface-container-highest overflow-hidden">
-                <div
-                  className="h-full transition-all duration-500"
-                  style={{ width: `${barPct}%`, backgroundColor: color, opacity: 0.8 }}
-                />
-              </div>
+      {types.length === 0 ? (
+        <div className="border border-white/10 bg-black/30 p-3 text-[12px] text-on-surface-variant">
+          No signal readings in this window (needs a local receiver).
+        </div>
+      ) : (
+        <div className="border border-white/10 bg-black/30 divide-y divide-white/5">
+          {types.map((t) => (
+            <div key={t.entity_type} className="flex flex-wrap items-baseline gap-x-6 gap-y-1 px-3 py-2 text-[12px] font-mono">
+              <span className="text-on-surface capitalize w-28">{t.entity_type.replace(/_/g, ' ')}</span>
+              <span className="text-on-surface-variant">avg <span className="text-on-surface font-bold">{t.avg_quality?.toFixed(1)}</span></span>
+              <span className="text-on-surface-variant">median <span className="text-on-surface">{t.median_quality?.toFixed(1)}</span></span>
+              <span className="text-on-surface-variant">range {t.min_quality?.toFixed(1)} – {t.max_quality?.toFixed(1)}</span>
+              <span className="text-on-surface-variant ml-auto">{t.sample_count.toLocaleString()} readings</span>
             </div>
-          )
-        })}
-        <p className="text-[11px] text-on-surface-variant pt-1 border-t border-white/10">
-          Signal quality is a normalized 0–100 field. Not all entity types report it.
-        </p>
-      </div>
+          ))}
+        </div>
+      )}
     </section>
   )
 }

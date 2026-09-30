@@ -7,6 +7,7 @@ export interface RegionConfig {
   bbox: { min_lat: number; max_lat: number; min_lon: number; max_lon: number }
   timezone: string
   nws: Record<string, string> | null
+  pack: string | null
   source: 'env' | 'database' | 'default'
   locked: boolean                     // pinned by REGION_LAT / REGION_LON in the environment
   locked_by: string[]

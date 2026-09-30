@@ -16,25 +16,22 @@ export function StorageSummary({ storage, retentionDays }: Props) {
     )
   }
 
-  // Calculate days until purge
-  const daysUntilPurge = storage.obs_per_day_7d > 0
-    ? Math.max(0, Math.round(retentionDays - (storage.observation_count / storage.obs_per_day_7d)))
-    : retentionDays
+  // The backend judges purge health: at steady state the oldest observation sits at the retention age, which is
+  // healthy. Trouble is data lingering well past retention, or a purge that stopped running.
+  const health = storage.health
+  const status = health?.status ?? 'ok'
+  const statusColor = status === 'ok' ? '#4ADE80' : status === 'degraded' ? '#FCD34D' : '#FF5252'
+  const statusLabel = status === 'ok' ? 'HEALTHY' : status === 'degraded' ? 'DEGRADED' : 'CRITICAL'
 
-  // Determine health status
-  const isHealthy = daysUntilPurge > 7
-  const isDegraded = daysUntilPurge >= 3 && daysUntilPurge <= 7
-  const isPoor = daysUntilPurge < 3
-
-  // Format bytes
   const formatBytes = (bytes: number): string => {
     if (bytes >= 1_073_741_824) return `${(bytes / 1_073_741_824).toFixed(2)} GB`
     if (bytes >= 1_048_576) return `${(bytes / 1_048_576).toFixed(1)} MB`
     return `${Math.round(bytes / 1024)} KB`
   }
 
-  const statusColor = isHealthy ? '#4ADE80' : isDegraded ? '#FCD34D' : '#FF5252'
-  const statusLabel = isHealthy ? 'HEALTHY' : isDegraded ? 'DEGRADED' : 'CRITICAL'
+  const oldest = storage.oldest_age_days
+  const lastPurge = storage.last_purge
+  const purgeHoursAgo = health?.last_purge_age_hours
 
   return (
     <section className="p-4 border border-white/10 bg-black/30 space-y-4">
@@ -50,11 +47,11 @@ export function StorageSummary({ storage, retentionDays }: Props) {
           </div>
         </div>
 
-        {/* Days Until Purge */}
+        {/* Oldest data */}
         <div>
-          <div className="text-[11px] uppercase tracking-widest text-on-surface-variant mb-2">Days Until Purge</div>
-          <div className="font-mono text-[14px] font-bold" style={{ color: isPoor ? '#FF5252' : isDegraded ? '#FCD34D' : '#4ADE80' }}>
-            {daysUntilPurge}d
+          <div className="text-[11px] uppercase tracking-widest text-on-surface-variant mb-2">Oldest Data</div>
+          <div className="font-mono text-[14px] font-bold" style={{ color: statusColor }}>
+            {oldest === null || oldest === undefined ? '—' : `${oldest.toFixed(1)}d`}
           </div>
           <div className="text-[11px] text-on-surface-variant mt-1">
             of {retentionDays}d retention
@@ -84,20 +81,19 @@ export function StorageSummary({ storage, retentionDays }: Props) {
         </div>
       </div>
 
-      {/* Status warnings */}
-      {isDegraded && (
-        <div className="flex gap-2 p-2 bg-amber-gold/10 border border-amber-gold/40 text-xs text-amber-gold">
-          <span className="ms text-[16px] shrink-0" aria-hidden="true">info</span>
-          <span>Approaching retention limit. Consider increasing retention or reducing ingestion.</span>
-        </div>
-      )}
-
-      {isPoor && (
-        <div className="flex gap-2 p-2 bg-red-emergency/10 border border-red-emergency/40 text-xs text-red-emergency">
-          <span className="ms text-[16px] shrink-0" aria-hidden="true">error</span>
-          <span>Critical: Data will purge in &lt;3 days. Increase retention immediately.</span>
-        </div>
-      )}
+      {/* Purge status */}
+      <div className={`flex gap-2 p-2 border text-xs ${
+        status === 'ok' ? 'bg-black/20 border-white/10 text-on-surface-variant'
+        : status === 'degraded' ? 'bg-amber-gold/10 border-amber-gold/40 text-amber-gold'
+        : 'bg-red-emergency/10 border-red-emergency/40 text-red-emergency'}`}>
+        <span className="ms text-[16px] shrink-0" aria-hidden="true">{status === 'ok' ? 'check_circle' : status === 'degraded' ? 'info' : 'error'}</span>
+        <span>
+          {health?.message ?? 'Purge status unavailable.'}{' '}
+          {lastPurge
+            ? `Last purge: ${purgeHoursAgo !== null && purgeHoursAgo !== undefined ? `${purgeHoursAgo < 1 ? 'under an hour' : `${Math.round(purgeHoursAgo)} h`} ago` : 'recorded'}, ${lastPurge.deleted.toLocaleString()} observations removed.`
+            : 'No purge recorded yet (the first run after an update is recorded).'}
+        </span>
+      </div>
     </section>
   )
 }

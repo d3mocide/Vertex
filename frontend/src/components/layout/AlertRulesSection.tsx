@@ -29,6 +29,7 @@ export function AlertRulesSection({ open }: AlertRulesSectionProps) {
   const [newRuleCooldown, setNewRuleCooldown] = useState('')
   const [newRuleMaxPerHour, setNewRuleMaxPerHour] = useState('')
   const [showAdvanced, setShowAdvanced] = useState(false)
+  const [showForm, setShowForm] = useState(false)
 
   const loadAlertRules = useCallback(async () => {
     try {
@@ -84,6 +85,7 @@ export function AlertRulesSection({ open }: AlertRulesSectionProps) {
       setNewRuleCooldown('')
       setNewRuleMaxPerHour('')
       setShowAdvanced(false)
+      setShowForm(false)
       await loadAlertRules()
     } catch { /* non-fatal */ }
   }
@@ -109,10 +111,63 @@ export function AlertRulesSection({ open }: AlertRulesSectionProps) {
     } catch { /* non-fatal */ }
   }
 
+  const formOpen = showForm || alertRules.length === 0
+
   return (
     <section>
-      <h2 className="label-caps mb-3">Alert Rules</h2>
+      <div className="flex items-center justify-between gap-3 mb-3">
+        <h2 className="label-caps">Alert rules{alertRules.length > 0 ? ` · ${alertRules.length}` : ''}</h2>
+        {alertRules.length > 0 && (
+          <button
+            onClick={() => setShowForm((v) => !v)}
+            className="text-[11px] font-bold uppercase tracking-widest text-amber-gold hover:underline"
+          >
+            {showForm ? 'Cancel' : '+ Add rule'}
+          </button>
+        )}
+      </div>
+
       <div className="space-y-2">
+        {alertRules.length === 0 ? (
+          <p className="text-[11px] text-on-surface-variant">No alert rules configured.</p>
+        ) : (
+          alertRules.map((rule) => (
+            <div key={rule.id} className="border border-white/10 bg-onyx-black/30 p-2">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[11px] text-on-surface font-bold truncate">{rule.name}</span>
+                <button
+                  onClick={() => toggleAlertRule(rule.id, rule.enabled)}
+                  className={`text-[11px] uppercase tracking-widest border px-1.5 py-0.5 ${rule.enabled ? 'text-green-ais border-green-ais/40' : 'text-on-surface-variant border-white/20'}`}
+                >
+                  {rule.enabled ? 'On' : 'Off'}
+                </button>
+              </div>
+              <div className="text-[11px] text-on-surface-variant uppercase tracking-widest mt-1">
+                {rule.action_type !== 'sitrep_delivery' && <span>{rule.trigger_type.replace(/_/g, ' ')} · </span>}
+                {rule.action_type.replace(/_/g, ' ')}
+                {rule.action_type === 'sitrep_delivery' && rule.action_config.interval_hours != null && (
+                  <span className="ml-1 text-amber-gold-dim">· every {String(rule.action_config.interval_hours as number)}h</span>
+                )}
+                {rule.cooldown_seconds != null && rule.cooldown_seconds > 0 && (
+                  <span className="ml-1 text-amber-gold-dim">· cd {rule.cooldown_seconds}s</span>
+                )}
+                {rule.max_per_hour != null && rule.max_per_hour > 0 && (
+                  <span className="ml-1 text-amber-gold-dim">· max {rule.max_per_hour}/hr</span>
+                )}
+              </div>
+              <button
+                onClick={() => deleteAlertRule(rule.id)}
+                className="mt-1 text-[11px] text-red-emergency hover:text-red-emergency/80 uppercase tracking-widest"
+              >
+                Delete
+              </button>
+            </div>
+          ))
+        )}
+      </div>
+
+      {formOpen && (
+      <div className="mt-4 border border-white/10 bg-black/30 p-3 space-y-2">
         <input
           type="text"
           placeholder="Rule name"
@@ -220,45 +275,7 @@ export function AlertRulesSection({ open }: AlertRulesSectionProps) {
           Add Rule
         </button>
       </div>
-
-      <div className="mt-3 space-y-2">
-        {alertRules.length === 0 ? (
-          <p className="text-[11px] text-on-surface-variant">No alert rules configured.</p>
-        ) : (
-          alertRules.map((rule) => (
-            <div key={rule.id} className="border border-white/10 bg-onyx-black/30 p-2">
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-[11px] text-on-surface font-bold truncate">{rule.name}</span>
-                <button
-                  onClick={() => toggleAlertRule(rule.id, rule.enabled)}
-                  className={`text-[11px] uppercase tracking-widest border px-1.5 py-0.5 ${rule.enabled ? 'text-green-ais border-green-ais/40' : 'text-on-surface-variant border-white/20'}`}
-                >
-                  {rule.enabled ? 'On' : 'Off'}
-                </button>
-              </div>
-              <div className="text-[11px] text-on-surface-variant uppercase tracking-widest mt-1">
-                {rule.action_type !== 'sitrep_delivery' && <span>{rule.trigger_type.replace(/_/g, ' ')} · </span>}
-                {rule.action_type.replace(/_/g, ' ')}
-                {rule.action_type === 'sitrep_delivery' && rule.action_config.interval_hours != null && (
-                  <span className="ml-1 text-amber-gold-dim">· every {String(rule.action_config.interval_hours as number)}h</span>
-                )}
-                {rule.cooldown_seconds != null && rule.cooldown_seconds > 0 && (
-                  <span className="ml-1 text-amber-gold-dim">· cd {rule.cooldown_seconds}s</span>
-                )}
-                {rule.max_per_hour != null && rule.max_per_hour > 0 && (
-                  <span className="ml-1 text-amber-gold-dim">· max {rule.max_per_hour}/hr</span>
-                )}
-              </div>
-              <button
-                onClick={() => deleteAlertRule(rule.id)}
-                className="mt-1 text-[11px] text-red-emergency hover:text-red-emergency/80 uppercase tracking-widest"
-              >
-                Delete
-              </button>
-            </div>
-          ))
-        )}
-      </div>
+      )}
     </section>
   )
 }

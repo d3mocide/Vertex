@@ -9,29 +9,30 @@ import type {
   IngestionBucket,
   DbPoolData,
   SignalQualityData,
-  EntityFreshnessData,
+  EntityActivityData,
+  OverviewData,
+  EventActivityData,
   SquawkAlertData,
   TalkgroupActivityData,
-  MeshBatteryData,
   DataQualityData,
 } from './metrics/types'
-import { HealthBar } from './metrics/HealthBar'
+import { AttentionBanner } from './metrics/AttentionBanner'
+import { ServiceCards } from './metrics/ServiceCards'
+import { FeedTable } from './metrics/FeedTable'
 import { LivePerformance } from './metrics/LivePerformance'
-import { PollerGrid } from './metrics/PollerGrid'
-import { IngestionChart } from './metrics/IngestionChart'
-import { EntityDonut } from './metrics/EntityDonut'
+import { PollerSummary } from './metrics/PollerSummary'
+import { IngestByType } from './metrics/IngestByType'
+import { StorageBreakdown } from './metrics/StorageBreakdown'
 import { EventActivity } from './metrics/EventActivity'
 import { StoragePanel } from './metrics/StoragePanel'
 import { DbPoolPanel } from './metrics/DbPoolPanel'
 import { SignalQualityChart } from './metrics/SignalQualityChart'
-import { EntityFreshness } from './metrics/EntityFreshness'
+import { EntityActivity } from './metrics/EntityActivity'
 import { SquawkCounter } from './metrics/SquawkCounter'
 import { TalkgroupActivity } from './metrics/TalkgroupActivity'
-import { MeshBatteryChart } from './metrics/MeshBatteryChart'
 import { DataQualityCard } from './metrics/DataQualityCard'
 import { DataQualitySummary } from './metrics/DataQualitySummary'
 import { StorageSummary } from './metrics/StorageSummary'
-import { WsClientChart } from './metrics/WsClientChart'
 
 type TabName = 'system' | 'ingestion' | 'quality' | 'storage' | 'events'
 
@@ -51,10 +52,11 @@ export default function AdminMetrics() {
   const [ingestion, setIngestion] = useState<IngestionBucket[]>([])
   const [dbPool, setDbPool] = useState<DbPoolData | null>(null)
   const [signalQuality, setSignalQuality] = useState<SignalQualityData | null>(null)
-  const [entityFreshness, setEntityFreshness] = useState<EntityFreshnessData | null>(null)
+  const [entityActivity, setEntityActivity] = useState<EntityActivityData | null>(null)
+  const [overview, setOverview] = useState<OverviewData | null>(null)
+  const [eventActivity, setEventActivity] = useState<EventActivityData | null>(null)
   const [squawkAlerts, setSquawkAlerts] = useState<SquawkAlertData | null>(null)
   const [talkgroupActivity, setTalkgroupActivity] = useState<TalkgroupActivityData | null>(null)
-  const [meshBattery, setMeshBattery] = useState<MeshBatteryData | null>(null)
   const [dataQuality, setDataQuality] = useState<DataQualityData | null>(null)
   const [retentionDays, setRetentionDays] = useState(30)
   const [retentionSaving, setRetentionSaving] = useState(false)
@@ -112,10 +114,24 @@ export default function AdminMetrics() {
     } catch { /* non-fatal */ }
   }, [])
 
-  const loadEntityFreshness = useCallback(async () => {
+  const loadEntityActivity = useCallback(async () => {
     try {
-      const res = await fetch(`${API_BASE}/admin/entity-freshness`, { headers: authHeaders() })
-      if (res.ok) setEntityFreshness(await res.json())
+      const res = await fetch(`${API_BASE}/admin/entity-activity`, { headers: authHeaders() })
+      if (res.ok) setEntityActivity(await res.json())
+    } catch { /* non-fatal */ }
+  }, [])
+
+  const loadEventActivity = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_BASE}/admin/event-activity`, { headers: authHeaders() })
+      if (res.ok) setEventActivity(await res.json())
+    } catch { /* non-fatal */ }
+  }, [])
+
+  const loadOverview = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_BASE}/admin/overview`, { headers: authHeaders() })
+      if (res.ok) setOverview(await res.json())
     } catch { /* non-fatal */ }
   }, [])
 
@@ -133,13 +149,6 @@ export default function AdminMetrics() {
     } catch { /* non-fatal */ }
   }, [])
 
-  const loadMeshBattery = useCallback(async () => {
-    try {
-      const res = await fetch(`${API_BASE}/admin/mesh-battery`, { headers: authHeaders() })
-      if (res.ok) setMeshBattery(await res.json())
-    } catch { /* non-fatal */ }
-  }, [])
-
   const loadDataQuality = useCallback(async () => {
     try {
       const res = await fetch(`${API_BASE}/admin/data-quality`, { headers: authHeaders() })
@@ -148,21 +157,21 @@ export default function AdminMetrics() {
   }, [])
 
   useEffect(() => {
-    loadMetrics(); loadStorage(); loadPollers(); loadIngestion(); loadDbPool()
-    loadSignalQuality(); loadEntityFreshness()
-    loadSquawkAlerts(); loadTalkgroupActivity(); loadMeshBattery(); loadDataQuality()
+    loadMetrics(); loadOverview(); loadStorage(); loadPollers(); loadIngestion(); loadDbPool()
+    loadSignalQuality(); loadEntityActivity(); loadEventActivity()
+    loadSquawkAlerts(); loadTalkgroupActivity(); loadDataQuality()
 
-    const fast = setInterval(() => { loadMetrics(); loadPollers() }, 15_000)
+    const fast = setInterval(() => { loadMetrics(); loadPollers(); loadOverview() }, 15_000)
     const slow = setInterval(() => {
       loadStorage(); loadIngestion(); loadDbPool()
-      loadSignalQuality(); loadEntityFreshness()
-      loadSquawkAlerts(); loadTalkgroupActivity(); loadMeshBattery(); loadDataQuality()
+      loadSignalQuality(); loadEntityActivity(); loadEventActivity()
+      loadSquawkAlerts(); loadTalkgroupActivity(); loadDataQuality()
     }, 60_000)
     return () => { clearInterval(fast); clearInterval(slow) }
   }, [
-    loadMetrics, loadStorage, loadPollers, loadIngestion, loadDbPool,
-    loadSignalQuality, loadEntityFreshness,
-    loadSquawkAlerts, loadTalkgroupActivity, loadMeshBattery, loadDataQuality,
+    loadMetrics, loadOverview, loadStorage, loadPollers, loadIngestion, loadDbPool,
+    loadSignalQuality, loadEntityActivity, loadEventActivity,
+    loadSquawkAlerts, loadTalkgroupActivity, loadDataQuality,
   ])
 
   const saveRetention = async () => {
@@ -180,8 +189,6 @@ export default function AdminMetrics() {
       setRetentionSaving(false)
     }
   }
-
-  const pollerOkCount = pollers.filter((p) => p.status === 'ok').length
 
   return (
     <div className="space-y-6">
@@ -211,90 +218,38 @@ export default function AdminMetrics() {
         {/* System Health Tab */}
         {currentTab === 'system' && (
           <>
+            <AttentionBanner overview={overview} onGoto={setCurrentTab} />
+
             <section>
               <h2 className="label-caps mb-3">Services</h2>
-              <HealthBar
-                metrics={metrics}
-                dbPingMs={metrics?.db_ping_ms ?? -1}
-                redisPingMs={metrics?.redis_ping_ms ?? -1}
-                pollerOkCount={pollerOkCount}
-                pollerTotal={pollers.length}
-              />
+              <ServiceCards overview={overview} />
             </section>
 
-            {/* Overall Health Status */}
-            {metrics && metrics.available && (
-              <section className="p-4 border border-white/10 bg-surface-container-low">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  <div>
-                    <div className="text-[11px] uppercase tracking-widest text-on-surface-variant mb-1">Status</div>
-                    <div className="flex items-center gap-2">
-                      <span className={`w-2 h-2 rounded-full ${
-                        metrics.error_pct <= 2 && metrics.p95_ms <= 500 ? 'bg-green-ais'
-                        : metrics.error_pct <= 5 && metrics.p95_ms <= 1000 ? 'bg-amber-gold'
-                        : 'bg-red-emergency'
-                      }`} />
-                      <span className="font-mono text-[11px]">
-                        {metrics.error_pct <= 2 && metrics.p95_ms <= 500 ? 'HEALTHY'
-                        : metrics.error_pct <= 5 && metrics.p95_ms <= 1000 ? 'DEGRADED'
-                        : 'UNHEALTHY'}
-                      </span>
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-[11px] uppercase tracking-widest text-on-surface-variant mb-1">Uptime</div>
-                    <div className="font-mono text-[11px] text-on-surface">
-                      {metrics && 'uptime_seconds' in metrics && metrics.uptime_seconds
-                        ? (() => {
-                            const h = Math.floor(metrics.uptime_seconds / 3600)
-                            const m = Math.floor((metrics.uptime_seconds % 3600) / 60)
-                            return h > 0 ? `${h}h ${m}m` : `${m}m`
-                          })()
-                        : '—'
-                      }
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-[11px] uppercase tracking-widest text-on-surface-variant mb-1">Pollers Stale</div>
-                    <div className="font-mono text-[11px]">{pollers.filter((p) => p.status === 'stale').length} of {pollers.length}</div>
-                  </div>
-                  <div>
-                    <div className="text-[11px] uppercase tracking-widest text-on-surface-variant mb-1">Errors</div>
-                    <div className={`font-mono text-[11px] ${metrics.error_pct > 5 ? 'text-red-400' : 'text-on-surface'}`}>
-                      {metrics.error_pct.toFixed(1)}%
-                    </div>
-                  </div>
-                </div>
-              </section>
-            )}
+            <FeedTable feeds={overview?.feeds ?? []} />
 
             <LivePerformance metrics={metrics} />
-
-            <WsClientChart history={metrics?.history ?? []} />
           </>
         )}
 
         {/* Data Ingestion Tab */}
         {currentTab === 'ingestion' && (
           <>
-            <PollerGrid pollers={pollers} />
+            <IngestByType buckets={ingestion} />
 
-            <EntityDonut storage={storage} />
-
-            <IngestionChart buckets={ingestion} />
+            <PollerSummary pollers={pollers} />
           </>
         )}
 
         {/* Data Quality Tab */}
         {currentTab === 'quality' && (
           <>
-            <DataQualitySummary dataQuality={dataQuality} entityFreshness={entityFreshness} />
+            <DataQualitySummary activity={entityActivity} />
 
-            <EntityFreshness data={entityFreshness} />
-
-            <SignalQualityChart data={signalQuality} />
+            <EntityActivity data={entityActivity} />
 
             <DataQualityCard data={dataQuality} />
+
+            <SignalQualityChart data={signalQuality} />
           </>
         )}
 
@@ -312,6 +267,8 @@ export default function AdminMetrics() {
               saved={retentionSaved}
             />
 
+            <StorageBreakdown storage={storage} />
+
             <DbPoolPanel pool={dbPool} />
           </>
         )}
@@ -319,13 +276,11 @@ export default function AdminMetrics() {
         {/* Events Tab */}
         {currentTab === 'events' && (
           <>
-            <EventActivity storage={storage} />
-
             <SquawkCounter data={squawkAlerts} />
 
-            <TalkgroupActivity data={talkgroupActivity} />
+            <EventActivity data={eventActivity} />
 
-            <MeshBatteryChart data={meshBattery} />
+            <TalkgroupActivity data={talkgroupActivity} />
           </>
         )}
       </div>

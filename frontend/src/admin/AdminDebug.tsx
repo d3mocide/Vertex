@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { API_BASE } from '../config'
 import { authHeaders } from '../auth'
 import { maskUrl } from './ui'
+import type { PollerEntry } from './metrics/types'
 
 const SUPPORTED_TYPES = ['adsb', 'ais', 'p25', 'meshcore', 'fire', 'aprs'] as const
 type SupportedType = (typeof SUPPORTED_TYPES)[number]
@@ -89,7 +90,9 @@ function SourceStatusBoard({
   nowTick,
   selectedSourceId,
   onSelect,
+  livePollers,
 }: {
+  livePollers: Record<string, PollerEntry>
   sources: RemoteSource[]
   runningBySource: Record<string, boolean>
   resultBySource: Record<string, ProbeResult>
@@ -114,7 +117,8 @@ function SourceStatusBoard({
           <tr className="border-b border-white/5">
             <th className="text-left px-3 py-1.5 text-[11px] uppercase tracking-widest text-on-surface-variant font-normal w-20">Type</th>
             <th className="text-left px-3 py-1.5 text-[11px] uppercase tracking-widest text-on-surface-variant font-normal">Name</th>
-            <th className="text-left px-3 py-1.5 text-[11px] uppercase tracking-widest text-on-surface-variant font-normal w-20">Status</th>
+            <th className="text-left px-3 py-1.5 text-[11px] uppercase tracking-widest text-on-surface-variant font-normal w-36">Live</th>
+            <th className="text-left px-3 py-1.5 text-[11px] uppercase tracking-widest text-on-surface-variant font-normal w-28 whitespace-nowrap">Probe result</th>
             <th className="hidden sm:table-cell text-left px-3 py-1.5 text-[11px] uppercase tracking-widest text-on-surface-variant font-normal w-24">Last Run</th>
             <th className="hidden sm:table-cell text-left px-3 py-1.5 text-[11px] uppercase tracking-widest text-on-surface-variant font-normal w-24">Next Run</th>
             <th className="hidden sm:table-cell text-left px-3 py-1.5 text-[11px] uppercase tracking-widest text-on-surface-variant font-normal w-16">Polling</th>
@@ -162,6 +166,17 @@ function SourceStatusBoard({
               >
                 <td className="px-3 py-2 font-mono text-[11px] text-on-surface-variant uppercase">{src.type}</td>
                 <td className="px-3 py-2 text-on-surface max-w-[180px] truncate">{src.name}</td>
+                <td className="px-3 py-2 font-mono text-[11px]">
+                  {(() => {
+                    // The poller for this source type is already running: show how it is doing right now,
+                    // so the board is useful before any probe has been run.
+                    const p = livePollers[src.type]
+                    if (!p) return <span className="text-on-surface-variant/60">—</span>
+                    const tone = p.status === 'ok' ? 'text-emerald-400' : p.status === 'stale' ? 'text-amber-400' : 'text-red-400'
+                    const age = p.staleness_s < 90 ? `${Math.round(p.staleness_s)}s` : `${Math.round(p.staleness_s / 60)}m`
+                    return <span className={tone} title={p.last_error ?? undefined}>● {p.status === 'ok' ? 'running' : p.status} · {age}</span>
+                  })()}
+                </td>
                 <td className={`px-3 py-2 font-mono text-[11px] font-bold ${outcomeColor[outcome]}`}>{outcomeLabel[outcome]}</td>
                 <td className="hidden sm:table-cell px-3 py-2 font-mono text-[11px] text-on-surface-variant">
                   {lastRunAge === null ? '—' : lastRunAge < 60 ? `${lastRunAge}s ago` : `${Math.floor(lastRunAge / 60)}m ago`}
@@ -194,7 +209,22 @@ export default function AdminDebug() {
   const [resultBySource, setResultBySource] = useState<Record<string, ProbeResult>>({})
   const [lastRunAtBySource, setLastRunAtBySource] = useState<Record<string, number>>({})
   const [nowTick, setNowTick] = useState(() => Date.now())
+  const [livePollers, setLivePollers] = useState<Record<string, PollerEntry>>({})
   const inFlightRef = useRef<Record<string, boolean>>({})
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/admin/pollers`, { headers: authHeaders() })
+        if (!res.ok) return
+        const data = await res.json()
+        setLivePollers(Object.fromEntries((data.pollers ?? []).map((p: PollerEntry) => [p.name, p])))
+      } catch { /* non-fatal */ }
+    }
+    void load()
+    const id = window.setInterval(load, 20_000)
+    return () => window.clearInterval(id)
+  }, [])
 
   useEffect(() => {
     const id = window.setInterval(() => setNowTick(Date.now()), 1000)
@@ -347,6 +377,7 @@ export default function AdminDebug() {
           nowTick={nowTick}
           selectedSourceId={selectedSourceId}
           onSelect={setSelectedSourceId}
+          livePollers={livePollers}
         />
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-3 p-3 border border-white/10 bg-black/30">

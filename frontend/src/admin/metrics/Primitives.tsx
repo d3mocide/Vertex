@@ -45,6 +45,7 @@ export function MetricCard({
   warn = false,
   values,
   color,
+  hint,
 }: {
   label: string
   value: number | null
@@ -52,6 +53,7 @@ export function MetricCard({
   warn?: boolean
   values: number[]
   color?: string
+  hint?: string
 }) {
   return (
     <div className="border border-white/10 bg-black/30 p-3 flex flex-col gap-1">
@@ -60,6 +62,7 @@ export function MetricCard({
       </div>
       <div className="text-[11px] text-on-surface-variant uppercase tracking-wider">{label}</div>
       <AreaSparkline values={values} warn={warn} color={color} />
+      {hint && <div className="text-[10px] font-mono text-on-surface-variant/70">{hint}</div>}
     </div>
   )
 }

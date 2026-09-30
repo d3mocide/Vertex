@@ -13,26 +13,10 @@ function formatAge(iso: string | undefined): string {
   return `${Math.floor(ageSec / 3600)}h ago`
 }
 
-function batteryTextColor(level: number): string {
-  if (level >= 60) return 'text-green-ais'
-  if (level >= 30) return 'text-amber-gold'
-  return 'text-red-emergency'
-}
-
-function getBatteryIcon(level: number): string {
-  if (level >= 80) return 'battery_full'
-  if (level >= 55) return 'battery_6_bar'
-  if (level >= 30) return 'battery_3_bar'
-  if (level >= 15) return 'battery_1_bar'
-  return 'battery_alert'
-}
-
 interface FleetRow {
   entity_id:   string
   name:        string
   distance_m:  number | null
-  battery:     number | null
-  voltage:     number | null
   onRadio:     boolean
   contactType: string
   lastSeen:    string | undefined
@@ -48,8 +32,6 @@ function toFleetRow(e: Entity): FleetRow {
     entity_id:   e.entity_id,
     name:        e.display_name ?? e.entity_id.split(':').pop() ?? e.entity_id,
     distance_m,
-    battery:     typeof id.battery_level === 'number' ? id.battery_level : null,
-    voltage:     typeof id.voltage === 'number' ? id.voltage : null,
     onRadio:     Array.isArray(e.tags) && e.tags.includes('on_radio'),
     contactType: (id.contact_type as string | undefined) ?? 'unknown',
     lastSeen:    e.last_seen,
@@ -86,13 +68,7 @@ export function MeshFleetPanel({ entities }: { entities: Entity[] }) {
     } else {
       // Sort nearest nodes first. Rows with no coordinates go to the bottom.
       return filtered.sort((a, b) => {
-        if (a.distance_m === null && b.distance_m === null) {
-          if (a.battery === null && b.battery === null) return a.name.localeCompare(b.name)
-          if (a.battery === null) return 1
-          if (b.battery === null) return -1
-          if (a.battery !== b.battery) return a.battery - b.battery
-          return a.name.localeCompare(b.name)
-        }
+        if (a.distance_m === null && b.distance_m === null) return a.name.localeCompare(b.name)
         if (a.distance_m === null) return 1
         if (b.distance_m === null) return -1
         if (a.distance_m !== b.distance_m) return a.distance_m - b.distance_m
@@ -221,27 +197,8 @@ export function MeshFleetPanel({ entities }: { entities: Entity[] }) {
                 </span>
               </div>
 
-              {/* Bottom Row: Battery, Distance, Last Seen */}
+              {/* Bottom Row: Distance, Last Seen */}
               <div className="flex items-center justify-between gap-2 text-[11px] font-mono text-on-surface-variant pt-2 border-t border-white/5">
-                {/* Battery */}
-                <div className="flex items-center gap-1 shrink-0" title={row.voltage !== null ? `${row.voltage.toFixed(2)}V` : ''}>
-                  {row.battery !== null ? (
-                    <>
-                      <span className={`ms text-[14px] ${batteryTextColor(row.battery)}`}>
-                        {getBatteryIcon(row.battery)}
-                      </span>
-                      <span className={`font-bold ${batteryTextColor(row.battery)}`}>
-                        {row.battery}%
-                      </span>
-                    </>
-                  ) : (
-                    <>
-                      <span className="ms text-[14px] opacity-40">battery_unknown</span>
-                      <span className="opacity-40">—</span>
-                    </>
-                  )}
-                </div>
-
                 {/* Distance */}
                 <div className="flex items-center gap-1 shrink-0">
                   <span className="ms text-[14px] opacity-60">explore</span>
