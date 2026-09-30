@@ -7,7 +7,7 @@ pydantic-settings==2.15.0
 python-dateutil==2.9.0
 feedparser==6.0.14
 websockets==13.1
-pyModeS==2.21.1
+pyModeS==3.6.0
 aiomqtt==2.5.1
 sgp4==2.27
 gtfs-realtime-bindings==3.0.0
