@@ -1,4 +1,5 @@
 import type { IngestionBucket } from './types'
+import { StackedChart, topSeries } from './StackedChart'
 
 const COLORS: Record<string, string> = {
   aircraft: '#00BFFF', vessel: '#00C853', aprs: '#B388FF', mesh_node: '#76DD00',
@@ -66,6 +67,9 @@ export function IngestByType({ buckets }: { buckets: IngestionBucket[] }) {
           last hour · {grand.toLocaleString()} total · {(grand / span).toFixed(0)}/min
         </span>
       </h2>
+      <StackedChart title="Observations written per 5 minutes" unit=" obs" axis={['60 min ago', '30 min ago', 'now']}
+        barLabel={(k, n) => (k === n - 1 ? 'last 5 min' : `${(n - 1 - k) * 5}–${(n - k) * 5} min ago`)}
+        series={topSeries(rows.map((r) => ({ name: r.type.replace(/_/g, ' '), color: color(r.type), values: r.chunks })), 8)} />
       <div className="border border-white/10 bg-black/30 overflow-x-auto">
         <table className="w-full text-left text-[12px]">
           <thead className="text-[11px] uppercase tracking-widest text-on-surface-variant">

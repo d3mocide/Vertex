@@ -1,4 +1,5 @@
 import type { EntityActivityData, EntityActivityEntry } from './types'
+import { StackedChart, hourLabel, topSeries } from './StackedChart'
 
 function HourlyBars({ values }: { values: number[] }) {
   const max = Math.max(...values, 1)
@@ -105,6 +106,8 @@ export function EntityActivity({ data }: { data: EntityActivityData | null }) {
           Map entities
           <span className="ml-2 normal-case tracking-normal font-normal">active = seen in the last {data.active_window_min} min</span>
         </h2>
+        <StackedChart title="Distinct entities seen per hour" barLabel={hourLabel} axis={['24 h ago', '12 h ago', 'now']}
+          series={topSeries(entities.map((t) => ({ name: pretty(t), color: '', values: t.hourly })))} />
         <Table rows={entities} activeWindow={data.active_window_min} />
         <p className="mt-2 text-[11px] text-on-surface-variant">
           Dormant entities are known from earlier but not seen in 24 hours; the registry keeps them.
