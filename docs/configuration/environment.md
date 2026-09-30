@@ -74,12 +74,20 @@ These settings control aircraft ingest strategy and enrichment behavior.
 | `ADSB_BEAST_STALE_THRESHOLD_SECONDS` | Seconds before a BEAST-sourced entity is considered stale |
 | `ADSB_BEAST_HTTP_FALLBACK` | Keeps HTTP polling active while BEAST is enabled |
 | `ADSB_PUBLISH_ONLY_CHANGES` | Reduces aircraft publish noise by emitting only changed updates |
-| `ADSB_OPENSKY_SUPPLEMENT` | Enables OpenSky as a supplemental data source |
-| `ADSB_OPENSKY_INTERVAL` | OpenSky poll interval in seconds |
-| `ADSB_OPENSKY_STALE_THRESHOLD` | Minutes before an OpenSky-sourced entity is considered stale |
+| `ADSB_OPENSKY_SUPPLEMENT` | Enables OpenSky as a gap-filler: it only supplies aircraft the local receiver and community feeds missed |
+| `ADSB_OPENSKY_INTERVAL` | OpenSky poll interval in seconds (default `120`; one poll costs 1 credit for a typical region) |
+| `ADSB_OPENSKY_STALE_THRESHOLD` | Seconds an aircraft must be unseen locally before OpenSky may update it |
 | `ADSB_OPENSKY_RECORD_OBSERVATIONS` | Persists OpenSky observations to history |
 | `ADSB_OPENSKY_CLIENT_ID` | OpenSky OAuth2 API client id (optional; without it polling is anonymous, 400 credits/day, floored at 220s) |
 | `ADSB_OPENSKY_CLIENT_SECRET` | OpenSky OAuth2 API client secret |
+| `ADSB_COMMUNITY_SUPPLEMENT` | Enables the airplanes.live / adsb.fi community feeds (default on): fresh positions plus registration, type and owner |
+| `ADSB_COMMUNITY_INTERVAL` | Community poll interval in seconds (default `15`; both services allow 1 request/second) |
+| `ADSB_COMMUNITY_RADIUS_NM` | Query radius around `REGION_LAT`/`REGION_LON` in nautical miles (default `75`) |
+| `ADSB_COMMUNITY_URLS` | Comma-separated endpoint templates, tried in order (`{lat}` `{lon}` `{radius}` are filled in) |
+| `ADSB_POSITION_STALE_SECONDS` | Seconds since the last resolved BEAST position before a track is flagged stale |
+| `ADSB_DEAD_RECKON_MAX_SECONDS` | Longest a stale position is projected forward along its last velocity (`0` disables) |
+
+OpenSky accepts OAuth2 API clients only (username/password no longer works). Without a client, polling is anonymous (400 credits/day) and is floored at 220 s automatically. Source priority for every aircraft is local BEAST, then community, then OpenSky, and an older position never overwrites a newer one.
 | `ADSB_HISTORY_MODE` | Observation storage mode: `record` or `live_only` |
 | `ADSB_ENRICHMENT_CACHE_DIR` | Directory for enrichment reference data |
 | `ADSB_AIRCRAFT_DB_PATH` | Aircraft metadata CSV path |
@@ -182,6 +190,65 @@ Use a strong random value for `AUTH_SECRET_KEY` before enabling authentication.
 | `CORS_ALLOW_CREDENTIALS` | Whether to allow credentialed cross-origin requests |
 | `TLS_CERT_PATH` | Path to TLS certificate (used with the `tls` Compose profile) |
 | `TLS_KEY_PATH` | Path to TLS private key |
+
+## Transit (TriMet)
+
+| Variable | Purpose |
+|----------|---------|
+| `TRIMET_GTFS_ENABLED` | Enables MAX, WES and Streetcar real-time positions |
+| `TRIMET_APP_ID` | Free TriMet developer AppID |
+| `TRIMET_ROUTE_TYPES` | GTFS route types to show (default `0,1,2`: tram, subway, rail) |
+| `TRIMET_POLL_INTERVAL` | Seconds between polls |
+| `TRIMET_GTFS_STATIC_URL`, `TRIMET_GTFS_RT_URL` | Endpoint overrides (rarely needed) |
+
+## Radio (P25) Audio and Incidents
+
+| Variable | Purpose |
+|----------|---------|
+| `P25_AUDIO_ENABLED` | Records per-call audio segments |
+| `P25_AUDIO_WS_URL` | OP25 audio websocket(s), e.g. `ws://host:9000`; comma-separate several receivers in `multi_rx` channel order. Lossless and without the Icecast delay |
+| `P25_AUDIO_DIR` | Where recordings are stored |
+| `P25_AUDIO_RETENTION_DAYS` | Days of audio kept |
+| `P25_AUDIO_DELAY_SECONDS` | Delay applied to live playback |
+| `RADIO_INCIDENTS_WINDOW_HOURS` | Hours of transcripts mined for structured radio incidents |
+| `GEOCODER_URL` | Self-hosted Nominatim (see `infra/nominatim/README.md`); blank disables geocoding of incident addresses |
+| `GEOCODER_STATE` | State of the imported Nominatim extract |
+
+## Briefing (AI Summary) Tuning
+
+In addition to the settings above:
+
+| Variable | Purpose |
+|----------|---------|
+| `SUMMARY_INTERVAL_MINUTES` | How often the briefing regenerates |
+| `SUMMARY_WINDOW_HOURS` | Time span the briefing covers |
+| `SUMMARY_MIN_REGEN_S` | Minimum seconds between UI-triggered refreshes and retries |
+| `SUMMARY_BASELINE_DAYS` | Days of history used as the "normal" baseline |
+| `SUMMARY_HISTORY_LEN` | Previous briefings kept for "changes since last briefing" |
+| `SUMMARY_CONTEXT_MAX_CHARS` | Character budget for the data context (about 4 characters per token); the model's context window must fit this plus instructions and the answer |
+| `SUMMARY_LLM_TIMEOUT_S` | Request timeout |
+| `SUMMARY_LLM_TEMPERATURE`, `SUMMARY_LLM_REASONING_EFFORT` | Optional sampling controls (blank = provider default) |
+| `SUMMARY_LLM_EXTRA_BODY` | Raw JSON merged into the request body for server-specific options |
+| `REGION_TIMEZONE` | IANA timezone for local times in the briefing |
+
+## Optional Integrations and Misc
+
+| Variable | Purpose |
+|----------|---------|
+| `MQTT_ENABLED`, `MQTT_PORT` | Built-in Mosquitto broker for IoT sensors (rtl_433, Meshtastic, AIS-catcher) |
+| `MQTT_<SOURCE>_USERNAME` / `_PASSWORD` | Credentials for an authenticated MQTT source, named after the source in `sources.yml` (e.g. `MQTT_REMOTE_BROKER_USERNAME`) |
+| `ACARS_ENABLED` | Enables the ACARS decoder feed |
+| `FLASHALERT_ENABLED`, `FLASHALERT_URL` | FlashAlert feed fallback / URL override |
+| `TVFR_ENABLED`, `TVFR_RSS_URL` | TVF&R feed fallback / URL override |
+| `FIRMS_MAP_KEY` | Free NASA FIRMS key that enables satellite fire hotspots |
+| `NWS_CLIMATE_STATION` | Station id for daily climate reports (CF6), e.g. `PDX` |
+| `NIFC_PERIMETER_MAX_AGE_DAYS` | Fire perimeters not updated within this many days are not fetched |
+| `MESH_BBOX_FILTER`, `MESH_BBOX_PAD_DEG` | Drop MeshCore nodes advertised outside the configured region (plus padding in degrees) |
+| `VITE_MESH_NODE_STALE_HOURS` | Hours since a mesh node's last advert before it shows as stale (keep above one 24-48 h advert cycle) |
+| `COT_ENTITY_TYPES` | Entity types emitted over CoT (comma-separated, empty = all) |
+| `ADVISORY_RADIUS_KM` | "Nearby" radius for the advisory bar and sidebar |
+| `BOUNDARY_ZIP_LOOKUP_ENABLED` | Geofence ZIP boundaries come from US Census TIGERweb (sends the ZIP to census.gov); `false` keeps lookups local |
+| `ALLOW_PRIVATE_IPS` | SSRF guard switch: outbound requests from the weather, alerts, transit and similar pollers (and admin probes) are refused when they resolve to loopback/LAN addresses unless this is `true`. Leave `false` unless a feed you configured lives on a private address |
 
 ## Recommended Editing Order
 

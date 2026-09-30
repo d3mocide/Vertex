@@ -9,7 +9,8 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&family=Roboto+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
-<script src="https://cdn.jsdelivr.net/npm/marked@12/marked.min.js"></script>
+<!-- marked 12.0.2 (vendored so the docs work offline / on a private network) -->
+<script src="assets/marked.min.js"></script>
 
 <style>
 /* ── Design tokens ───────────────────────────────────────────────────────── */
@@ -291,638 +292,38 @@ html, body {
 </div>
 
 <script>
-// ── Document catalogue ──────────────────────────────────────────────────────
-const SECTIONS = ['Guides', 'Product', 'System Design', 'Configuration']
+// Pages are loaded from the Markdown files in this directory, so the docs stay in one place.
+// Add a page by adding a line here (path is relative to this file).
+const SECTIONS = ['Guides', 'Product', 'System Design', 'Configuration', 'Design Notes']
 
 const DOCS = [
-  {
-    id: 'getting-started',
-    title: 'Getting Started',
-    section: 'Guides',
-    content: `# Getting Started
-
-This guide covers the shortest path to a working local Vertex deployment.
-
-## Prerequisites
-
-- Docker Desktop or Docker Engine with Compose support
-- An x86_64 or ARM64 host
-- A writable checkout of this repository
-
-Optional but common:
-
-- Local ADS-B source such as Ultrafeeder or tar1090
-- Local AIS source such as AIS-catcher
-- Local OP25 endpoint for P25 metadata and audio
-
-## First Run
-
-1. Copy the environment template.
-2. Copy the example source configuration.
-3. Fill in any API keys or local endpoint URLs you plan to use.
-4. Start the stack.
-
-\`\`\`bash
-cp .env.example .env
-cp config/sources.example.yml config/sources.yml
-docker compose up -d
-\`\`\`
-
-Open \`http://localhost\` after the containers are healthy.
-
-## Minimum Setup Checklist
-
-Vertex will boot without every optional integration being configured, but a useful deployment usually needs at least:
-
-- Regional coordinates and bounding box in \`.env\`
-- One or more enabled feeds in \`config/sources.yml\`
-- \`ODOT_API_KEY\` if you want TripCheck traffic data
-- \`AIRNOW_API_KEY\` if you want AQI data
-- \`AISSTREAM_API_KEY\` only when you are using AISstream instead of a local AIS feed
-
-## Local-First Configuration Model
-
-Vertex has two main configuration surfaces:
-
-- \`.env\` for infrastructure, region, feature toggles, and API credentials
-- \`config/sources.yml\` for editable source definitions such as radio streams, news feeds, alert feeds, and local poller endpoints
-
-The source file is hot-reloaded by the poller and can also be updated through the UI for user-managed sources.
-
-## Typical Bring-Up Flow
-
-### 1. Set the region
-
-Update the region center, region name, and bounding box in \`.env\` so feeds are filtered for your area.
-
-### 2. Add source endpoints
-
-Edit \`config/sources.yml\` to point Vertex at your local or preferred remote sources.
-
-Examples:
-
-- ADS-B JSON feed from tar1090 or Ultrafeeder
-- AIS WebSocket from AIS-catcher
-- OP25 endpoint and audio stream
-- Local or regional RSS feeds for alerts and news
-
-### 3. Start services
-
-\`\`\`bash
-docker compose up -d
-docker compose logs -f backend
-docker compose logs -f poller
-\`\`\`
-
-### 4. Verify the UI
-
-Check that:
-
-- the map loads
-- entities appear for enabled feeds
-- side panels populate with weather, traffic, alerts, or radio content
-- live updates continue through the WebSocket connection
-
-## Development Validation
-
-\`\`\`bash
-cd frontend && npx tsc --noEmit
-docker compose config --quiet
-python3 -m py_compile backend/main.py poller/main.py
-\`\`\`
-`
-  },
-  {
-    id: 'features-overview',
-    title: 'Feature Overview',
-    section: 'Product',
-    content: `# Feature Overview
-
-This page summarizes the major capability areas currently implemented in Vertex.
-
-## Situational Map
-
-The map is the primary operating surface.
-
-- live aircraft, vessel, APRS, wildfire, and mesh node rendering
-- track and trail visualization for moving entities
-- fire perimeter polygon overlay (NIFC/WFIGS)
-- NOAA GOES satellite imagery tiles (IR and visible, via nowCOAST WMS)
-- seismic event markers rendered as a Deck.gl scatter layer
-- smoke and radar overlays for environmental context
-- region-aware filtering using configured bounding boxes
-- KML and GeoJSON custom layer import
-- searchable entity detail with enrichment fields where available
-
-## Transportation and Mobility
-
-### Aircraft
-
-- Local ADS-B JSON ingest from tar1090 / Ultrafeeder
-- BEAST TCP transport for live decoder integration with CPR decode and trail smoothing
-- OpenSky supplemental polling (optional, configurable interval)
-- aircraft metadata enrichment, route context, airport and navaid references
-- squawk emergency highlighting (7500, 7600, 7700) with color-coded alerts
-- observation history persistence for trails, playback, and analysis
-
-### Marine
-
-- AISstream.io cloud fallback or local AIS WebSocket ingest (AIS-catcher)
-- vessel normalization with navigational status color coding
-- live map rendering with vessel detail panel
-
-### Amateur and Community RF
-
-- APRS-IS ingest for radio and community station tracking
-- MeshCore endpoint support for mesh node awareness and battery/SNR display
-- TinyGS satellite ground station integration (optional)
-
-## Weather and Environment
-
-- NWS observations and weather alerts with zone-based filtering
-- Aviation weather: METAR and TAF with flight category color coding
-- Aviation hazards: PIREPs, SIGMETs, and AIRMETs
-- NWS text products: AFD, HWO, LSR via the National Weather Wire Service feed
-- Personal Weather Stations via Wunderground API
-- AirNow AQI integration
-- NOAA GOES satellite imagery tiles (IR / visible toggle in Settings)
-- wildfire ingest with local versus regional relevance handling
-- NIFC fire perimeter polygons (WFIGS GeoJSON, refreshed every 30 minutes)
-- smoke overlay support and environment panel wildfire status
-- stream gauge stage and discharge (cfs) from USGS
-- seismic event ingestion with depth display and live event panel updates
-- GDACS global disaster alerts via GeoRSS with distance-based severity gating
-
-## Traffic and Infrastructure
-
-- ODOT TripCheck incidents
-- traffic camera feeds with health monitoring
-- traffic flow corridor monitoring
-- region-scoped incident filtering and incident detail rendering
-
-## Alerts and Community Context
-
-- FlashAlert and emergency RSS feeds
-- local and regional news feeds
-- GDACS disaster alerts
-- system event history
-- AI-generated situation summaries when \`SUMMARY_LLM_MODEL\` is configured
-
-## Radio and Audio
-
-- live tactical audio streams from configurable sources
-- P25 metadata ingest for channel and call activity context
-- talkgroup management UI for name, priority, and scan list configuration
-
-## Geofencing and Automation
-
-- polygon and circle geofences with dwell-based triggering
-- event history for entry and exit conditions
-- outbound alert rules and webhook dispatching
-- Cursor-on-Target (CoT) UDP multicast output for TAK / ATAK integration
-- optional CoT receive mode for ingesting external CoT feeds
-
-## TAK / Cursor-on-Target
-
-- CoT emitter sends entity positions as CoT UDP multicast on a configurable address and port
-- TAK Server TCP output supported (\`COT_TAKSERVER_HOST\`)
-- CoT receive mode allows ingest of external CoT position reports
-
-## SitRep and Export
-
-- Markdown SitRep export covering a configurable time window
-- exports the live event timeline, active alerts, and entity summary
-
-## AI Anomaly Detection
-
-- optional background anomaly detection on ingested telemetry
-- sigma-threshold based alerting with configurable window and sensitivity
-- enabled via \`ANOMALY_ENABLED\`, tuned with \`ANOMALY_WINDOW_MINUTES\` and \`ANOMALY_SIGMA_THRESHOLD\`
-
-## Replay and Playback
-
-- historical entity playback via \`/observations/replay\`
-- absolute date and time range mode with a custom date picker
-- playback timeline with event markers
-
-## Offline and Monitoring Profiles
-
-- \`--profile offline\` starts tileserver-gl for local raster tile serving
-- \`--profile monitoring\` adds Grafana and Prometheus
-
-## Admin and Security
-
-- optional JWT authentication with configurable token lifetime
-- viewer role for read-only access
-- admin metrics dashboard: per-poller ingestion rates, error counts, signal quality, entity freshness, squawk counters, P25 talkgroup activity, mesh battery distribution, and data completeness scorecard
-- runtime-editable source definitions via the UI
-- rate limiting and Prometheus metrics endpoint
-`
-  },
-  {
-    id: 'map-key',
-    title: 'Map Key',
-    section: 'Product',
-    content: `# Map Key
-
-How map symbols render in Vertex by zoom level.
-
-## Zoom Buckets
-
-- **Far**: zoom < 6
-- **Mid**: zoom 6–8
-- **Close**: zoom ≥ 9
-
-## Entity Layer (ADS-B, AIS, APRS, Hazard)
-
-### Icon behavior by zoom
-
-| Type | Far | Mid | Close |
-|------|-----|-----|-------|
-| ADS-B (air) | dot | aircraft icon | aircraft icon |
-| AIS (sea) | dot | vessel icon | vessel icon |
-| APRS (ground) | dot | dot | aprs icon |
-| Hazard/Fire | dot | dot | fire icon |
-
-### Icon sizes
-
-- **Far**: 8 px (all types)
-- **Mid**: ADS-B/AIS default 32 px, selected 40 px; APRS/Hazard 10 px
-- **Close**: ADS-B/AIS/Hazard default 32 px, selected 40 px; APRS default 24 px, selected 30 px
-
-### Colors
-
-- **APRS**: rgba(179, 136, 255, 230) — atlas violet
-- **ADS-B / AIS**: altitude/speed gradient from colorUtils, or mission tag color if set
-
-### Labels
-
-- APRS labels visible at zoom ≥ 10 — color: rgba(179, 136, 255, 220)
-
-## Lightning Layer
-
-- Far: dot (8 px) | Mid: ring (18 px) | Close: lightning icon (18 px)
-- Color: rgb(255, 233, 77), alpha fades with strike age over 30 seconds
-
-## Stream Gauge Layer
-
-- Far: dot (7 px) | Mid: ring (10 px) | Close: stream icon (18 px)
-- Stage colors: normal → cyan | elevated → yellow | minor flood → orange | moderate flood → red | major flood → dark red
-
-## Mesh Node Layer
-
-- Far: dot (8 px) | Mid: ring (12 px) | Close: mesh icon (20 px)
-- Active: rgba(255, 143, 0, 240) | Stale: rgba(136, 136, 136, 200)
-
-## Camera Layer
-
-- Far: dot (8 px) | Mid: ring (12 px) | Close: camera icon 22 px / selected 28 px
-- Default: rgba(255, 184, 0, 200) | Selected: rgba(255, 184, 0, 255)
-
-## Fire Perimeter Layer (NIFC)
-
-- Filled polygon overlay — semi-transparent orange-red fill, solid stroke
-- Toggled via Settings | Refreshed every ~30 minutes from WFIGS GeoJSON
-
-## GOES Satellite Overlay
-
-- Raster WMS tiles via NOAA nowCOAST
-- IR and visible modes — toggled via Settings
-- Rendered behind entity layers
-
-## Seismic Events
-
-- Deck.gl ScatterplotLayer — point size scales with magnitude, intensity with recency
-`
-  },
-  {
-    id: 'architecture-overview',
-    title: 'Architecture Overview',
-    section: 'System Design',
-    content: `# Architecture Overview
-
-Vertex is a local-first situational awareness stack built around five cooperating services.
-
-## Service Layout
-
-| Service | Purpose | Entry Point |
-|---------|---------|-------------|
-| \`db\` | PostgreSQL 16 + PostGIS | \`db/init/\` |
-| \`redis\` | Hot state cache and pub/sub | \`infra/redis/redis.conf\` |
-| \`backend\` | FastAPI REST + WebSocket API | \`backend/main.py\` |
-| \`poller\` | 14 async ingestion workers | \`poller/main.py\` |
-| \`frontend\` | React / Deck.gl / MapLibre, Nginx-served | \`frontend/src/main.tsx\` |
-
-## Core Data Flow
-
-\`\`\`
-external APIs and local sensors
-        -> poller (14 async workers)
-        -> PostgreSQL + PostGIS
-        -> Redis pub/sub
-        -> backend WebSocket and REST
-        -> frontend store and map layers
-\`\`\`
-
-## Poller Coverage (14 Workers)
-
-| Poller | Source |
-|--------|--------|
-| ADS-B | BEAST / tar1090 JSON / OpenSky |
-| AIS | AIS-catcher WebSocket / AISstream.io |
-| APRS | APRS-IS |
-| Weather | NWS, METAR/TAF, PIREPs, NWWS, AirNow, Wunderground, GOES |
-| Traffic | ODOT TripCheck incidents, cameras, flow |
-| Fire | USGS fire points + NIFC perimeters |
-| News | RSS / Atom |
-| Alerts | FlashAlert, NWS CAP, county RSS |
-| P25 | OP25 metadata |
-| MeshCore | MeshCore WebSocket bridge |
-| Seismic | USGS earthquake feed |
-| GDACS | Global Disaster Alert GeoRSS |
-| AI Summary | LiteLLM situational summary |
-| Anomaly Detection | Sigma-threshold telemetry anomaly alerting |
-
-TinyGS ingestion is available as an optional worker via \`TINYGS_ENABLED\`.
-
-## Configuration Boundaries
-
-- \`.env\` — infrastructure, region geometry, credentials, feature flags
-- \`config/sources.yml\` — user-editable feed and source endpoints
-
-## Persistence Model
-
-**PostgreSQL** — entities, observations, events, geofences, source and alert rule records
-
-**Redis** — live entity fan-out, hot feed cache, inter-service pub/sub
-
-## Optional Compose Profiles
-
-| Profile | Adds |
-|---------|------|
-| \`monitoring\` | Grafana + Prometheus |
-| \`offline\` | tileserver-gl for local map tiles |
-
-## Operational Notes
-
-- The frontend build is strict TypeScript — type errors fail the Docker build.
-- The poller and backend use async I/O throughout.
-- Docker Compose is the intended orchestration path.
-`
-  },
-  {
-    id: 'env-configuration',
-    title: 'Environment Configuration',
-    section: 'Configuration',
-    content: `# Environment Configuration
-
-Copy \`.env.example\` to \`.env\` before starting.
-
-\`\`\`bash
-cp .env.example .env
-\`\`\`
-
-## Core Infrastructure
-
-| Variable | Purpose |
-|----------|---------|
-| \`POSTGRES_DB\` | Database name |
-| \`POSTGRES_USER\` | Database username |
-| \`POSTGRES_PASSWORD\` | Database password — change before shared deployment |
-| \`REDIS_URL\` | Redis connection URL |
-| \`FRONTEND_PORT\` | Host port for the frontend (default: 80) |
-| \`LOG_LEVEL\` | Log verbosity: DEBUG, INFO, WARNING, ERROR |
-
-## Region and Bounding Box
-
-| Variable | Purpose |
-|----------|---------|
-| \`REGION_LAT\` / \`REGION_LON\` | Map center coordinates |
-| \`REGION_NAME\` | Region label shown in the app |
-| \`BBOX_MIN/MAX_LAT\` | Southern / Northern bounding edge |
-| \`BBOX_MIN/MAX_LON\` | Western / Eastern bounding edge |
-
-When relocating, update the region center, bounding box, and weather zone settings together.
-
-## Weather and Data Feeds
-
-| Variable | Purpose |
-|----------|---------|
-| \`NWS_STATION_PRIMARY\` | Primary NWS station (e.g. KHIO) |
-| \`NWS_STATION_SECONDARY\` | Fallback station |
-| \`NWS_ZONE\` | NWS zone code |
-| \`NWS_OFFICE\` | NWS forecast office for text products (e.g. PQR) |
-| \`NWS_ALERT_ZONES\` | Comma-separated alert zones |
-| \`ODOT_API_KEY\` | ODOT TripCheck (traffic) |
-| \`AIRNOW_API_KEY\` | AirNow AQI |
-| \`AISSTREAM_API_KEY\` | Cloud AIS fallback |
-| \`WUNDERGROUND_API_KEY\` | Wunderground Personal Weather Station |
-| \`WUNDERGROUND_STATION_ID\` | Specific PWS station to poll |
-
-## Wildfire and APRS
-
-| Variable | Purpose |
-|----------|---------|
-| \`FIRE_ALERT_RADIUS_KM\` | Local wildfire alert radius |
-| \`FIRE_ALERT_RECENT_HOURS\` | Max age for local fire alert retention |
-| \`FIRE_REGIONAL_RADIUS_KM\` | Regional wildfire awareness radius |
-| \`FIRE_REGIONAL_RECENT_HOURS\` | Max age for regional retention |
-| \`APRS_CALLSIGN\` / \`APRS_PASSCODE\` | APRS-IS login (default passcode -1 = receive only) |
-| \`APRS_FILTER_RADIUS_KM\` | APRS ingestion radius |
-
-## ADS-B Controls
-
-| Variable | Purpose |
-|----------|---------|
-| \`ADSB_ENABLE_BEAST\` | Enable BEAST TCP ingest |
-| \`ADSB_BEAST_HOST\` / \`ADSB_BEAST_PORT\` | BEAST endpoint |
-| \`ADSB_OPENSKY_SUPPLEMENT\` | Enable OpenSky supplemental polling |
-| \`ADSB_OPENSKY_INTERVAL\` | OpenSky poll interval in seconds |
-| \`ADSB_HISTORY_MODE\` | \`record\` (trails + history) or \`live_only\` |
-| \`ADSB_PUBLISH_ONLY_CHANGES\` | Reduce publish noise |
-
-## CoT / TAK Output
-
-| Variable | Purpose |
-|----------|---------|
-| \`COT_ENABLED\` | Enable CoT UDP multicast (default: false) |
-| \`COT_MULTICAST_ADDR\` | Multicast group (standard: 239.2.3.1) |
-| \`COT_MULTICAST_PORT\` | UDP port (standard: 6969) |
-| \`COT_STALE_SECONDS\` | CoT stale timeout |
-| \`COT_TAKSERVER_HOST\` | TAK Server TCP host (optional) |
-| \`COT_TAKSERVER_PORT\` | TAK Server TCP port (typically 8087) |
-| \`COT_RECEIVE_ENABLED\` | Enable CoT receive mode |
-| \`COT_RECEIVE_HOST\` / \`COT_RECEIVE_PORT\` | CoT receiver bind address |
-
-## AI and Anomaly Detection
-
-| Variable | Purpose |
-|----------|---------|
-| \`SUMMARY_LLM_MODEL\` | LiteLLM model ID — leave blank to disable |
-| \`SUMMARY_LLM_API_KEY\` | API key |
-| \`SUMMARY_LLM_API_BASE\` | Custom base URL for self-hosted backends |
-| \`ANOMALY_ENABLED\` | Enable anomaly detection (default: true) |
-| \`ANOMALY_WINDOW_MINUTES\` | Rolling baseline window (default: 60) |
-| \`ANOMALY_SIGMA_THRESHOLD\` | Alert sensitivity (default: 2.5) |
-
-## Authentication
-
-| Variable | Purpose |
-|----------|---------|
-| \`AUTH_ENABLED\` | Enable login |
-| \`AUTH_SECRET_KEY\` | JWT signing secret — use a strong random value |
-| \`AUTH_TOKEN_EXPIRE_HOURS\` | Token lifetime in hours |
-
-## TinyGS
-
-Set \`TINYGS_ENABLED=true\` when a local TinyGS station is operational.
-
-## Recommended Editing Order
-
-1. Set database and Redis values if different from Compose defaults.
-2. Update the region center and bounding box.
-3. Fill in required feed API keys.
-4. Enable optional features: CoT, auth, anomaly detection.
-5. Pair with feed definitions in \`config/sources.yml\`.
-`
-  },
-  {
-    id: 'sources-configuration',
-    title: 'Source Configuration',
-    section: 'Configuration',
-    content: `# Source Configuration
-
-\`config/sources.yml\` defines operator-managed feeds and local source endpoints.
-
-\`\`\`bash
-cp config/sources.example.yml config/sources.yml
-\`\`\`
-
-## Why This File Exists
-
-Use it for:
-
-- radio streams, RSS and alert feeds
-- local network endpoints for sensor or decoder services
-- default weather alert zones
-- region bounding box definitions
-
-Do **not** use it for API keys or database URLs — those belong in \`.env\`.
-
-## Top-Level Sections
-
-| Section | Purpose |
-|---------|---------|
-| \`radio_streams\` | Audio feeds for the tactical audio panel |
-| \`news_feeds\` | RSS or Atom feeds shown in the news panel |
-| \`alert_feeds\` | High-priority emergency feeds |
-| \`poller_sources\` | Local or remote machine endpoints for ingestion workers |
-| \`alert_zones\` | Default NWS alert zone configuration |
-| \`regions\` | One or more region BBOX definitions |
-
-## Region Bounding Boxes
-
-\`regions\` is the first-choice geographic scope definition. Compatible pollers iterate each enabled region; if absent, they fall back to \`.env\` BBOX values.
-
-\`\`\`yaml
-regions:
-  - id: "home"
-    name: "Tualatin Valley"
-    bbox:
-      min_lat: 44.8
-      max_lat: 45.9
-      min_lon: -123.5
-      max_lon: -121.8
-    enabled: true
-\`\`\`
-
-## Poller Source Types
-
-Supported \`type\` values under \`poller_sources\`:
-
-- \`adsb\` — tar1090 or readsb \`aircraft.json\` endpoint
-- \`ais\` — AIS-catcher WebSocket
-- \`p25\` — OP25 metadata endpoint
-- \`meshcore\` — MeshCore bridge WebSocket
-- \`fire\` — open wildfire feed endpoint
-- \`aprs\` — APRS-IS host and port or \`tcp://\` URI
-
-## Behavior Notes
-
-- The poller hot-reloads this file in roughly **five seconds**.
-- UI-created sources are persisted here with \`source: user\`.
-- Hand-authored entries should use \`source: config\`.
-
-## Alert Zones
-
-\`\`\`yaml
-alert_zones:
-  nws_zones:
-    - "ORZ006"
-    - "ORZ005"
-  source: config
-\`\`\`
-
-Zone codes should match the region configured in \`.env\`.
-`
-  },
-  {
-    id: 'poller-filtering',
-    title: 'Poller Filtering Rules',
-    section: 'Configuration',
-    content: `# Poller Filtering and Distance Rules
-
-How each poller decides what data is in-scope for your deployment.
-
-## Geographic Scope Precedence
-
-1. \`regions\` entries in \`config/sources.yml\` — preferred, supports multi-region
-2. \`.env\` BBOX fallback (\`BBOX_MIN_LAT\`, \`BBOX_MAX_LAT\`, \`BBOX_MIN_LON\`, \`BBOX_MAX_LON\`)
-3. Region center (\`REGION_LAT\`, \`REGION_LON\`) for distance-based gating
-
-## Per-Poller Filtering Matrix
-
-| Poller | Filter method | Config knobs |
-|--------|--------------|--------------|
-| ADS-B | OpenSky: BBOX query. BEAST: source-local, priority arbitration. | \`BBOX_*\`, \`ADSB_*\` |
-| AIS | AISstream: BoundingBoxes. Local AIS-catcher: unfiltered in poller. | \`BBOX_*\`, \`AISSTREAM_API_KEY\` |
-| Weather | METAR/TAF/PIREP: BBOX query. AirNow: centerpoint. NWWS/PWS: station IDs. | \`NWS_OFFICE\`, \`WUNDERGROUND_*\` |
-| Fire | BBOX pre-filter; local radius then regional radius + age limits. | \`FIRE_*\` |
-| NIFC Perimeters | Fetches all North American perimeters — no client-side filter. | — |
-| Lightning | BBOX ± 5 degree pad. | \`BBOX_*\` |
-| Stream Gauge | USGS bBox parameter. | \`BBOX_*\` |
-| Traffic | BBOX clip; cameras ranked by distance; flow by corridor name. | \`TRAFFIC_FLOW_CORRIDORS\` |
-| Seismic | Distance tiers from center control magnitude acceptance. | \`REGION_LAT/LON\` |
-| APRS | APRS-IS centerpoint radius filter. | \`APRS_FILTER_RADIUS_KM\` |
-| Alerts | NWS CAP: zone codes; non-NWS: source-defined. | \`NWS_ALERT_ZONES\` |
-| GDACS | Distance-gated from center, scaled by alert severity. | \`REGION_LAT/LON\` |
-| News / P25 / MeshCore / TinyGS | No geographic filter. | Feed URLs |
-
-## Troubleshooting Empty Feeds
-
-1. Compare \`regions\` in \`sources.yml\` with \`.env\` \`BBOX_*\` values.
-2. Check poller logs for upstream API failures.
-3. For METAR/TAF, first update can take up to 15 minutes.
-4. For GDACS, low-severity events have tight distance gates; only elevated-severity alerts appear at long range.
-5. Confirm source mode — local vs cloud fallback changes filter behavior.
-`
-  }
+  { id: "getting-started", title: "Getting Started", section: "Guides", path: "getting-started.md" },
+  { id: "features-overview", title: "Feature Overview", section: "Product", path: "features/overview.md" },
+  { id: "map-key", title: "Map Key", section: "Product", path: "map-key.md" },
+  { id: "architecture-overview", title: "Architecture Overview", section: "System Design", path: "architecture/overview.md" },
+  { id: "env-configuration", title: "Environment Configuration", section: "Configuration", path: "configuration/environment.md" },
+  { id: "sources-configuration", title: "Source Configuration", section: "Configuration", path: "configuration/sources.md" },
+  { id: "poller-filtering", title: "Poller Filtering Rules", section: "Configuration", path: "configuration/poller-filtering.md" },
+  { id: "beast-ultrafeeder-research", title: "BEAST & Ultrafeeder Research", section: "Design Notes", path: "notes/beast-ultrafeeder-research.md" },
+  { id: "beast-update-implimentation-tracker", title: "BEAST Implementation Tracker", section: "Design Notes", path: "notes/beast-update-implimentation-tracker.md" },
+  { id: "beast-ingress-rendering-gap-analysis-2026-04-30", title: "BEAST Ingress Rendering Gap Analysis", section: "Design Notes", path: "notes/beast-ingress-rendering-gap-analysis-2026-04-30.md" },
+  { id: "map-layer-architecture-current-state-2026-05-05", title: "Map Layer Architecture", section: "Design Notes", path: "notes/map-layer-architecture-current-state-2026-05-05.md" },
+  { id: "mesh-networking-integration-audit-2026-05-10", title: "Mesh Networking Audit", section: "Design Notes", path: "notes/mesh-networking-integration-audit-2026-05-10.md" },
+  { id: "aprs-meshcore-feature-plan-2026-05-15", title: "APRS & MeshCore Plan", section: "Design Notes", path: "notes/aprs-meshcore-feature-plan-2026-05-15.md" }
 ]
 
-// ── Render ──────────────────────────────────────────────────────────────────
-let activeId = DOCS[0].id
+let activeId = null
 
 function buildSidebar() {
   const sidebar = document.getElementById('sidebar')
+  sidebar.innerHTML = ''
   SECTIONS.forEach(section => {
     const pages = DOCS.filter(d => d.section === section)
     if (!pages.length) return
-
     const label = document.createElement('div')
     label.className = 'nav-section-label'
     label.textContent = section
     sidebar.appendChild(label)
-
     pages.forEach(doc => {
       const btn = document.createElement('button')
       btn.className = 'nav-item' + (doc.id === activeId ? ' active' : '')
@@ -934,33 +335,54 @@ function buildSidebar() {
   })
 }
 
-function navigate(id) {
-  activeId = id
+function resolve(path, base) {
+  return new URL(path, new URL(base, location.href)).pathname
+}
+
+// Point relative images at the right place and turn links between docs into in-app navigation.
+function fixLinks(root, doc) {
+  const docUrl = new URL(doc.path, location.href)
+  root.querySelectorAll('img[src]').forEach(img => {
+    const src = img.getAttribute('src')
+    if (!/^(https?:|data:|\/)/.test(src)) img.setAttribute('src', new URL(src, docUrl).href)
+  })
+  root.querySelectorAll('a[href]').forEach(a => {
+    const href = a.getAttribute('href')
+    if (/^(https?:|mailto:|#)/.test(href)) { if (/^https?:/.test(href)) a.target = '_blank'; return }
+    const [file, hash] = href.split('#')
+    const target = DOCS.find(d => resolve(d.path, location.href) === resolve(file, docUrl.href))
+    if (target) {
+      a.setAttribute('href', '#' + target.id)
+      a.addEventListener('click', e => { e.preventDefault(); navigate(target.id) })
+    }
+  })
+}
+
+async function navigate(id) {
   const doc = DOCS.find(d => d.id === id)
   if (!doc) return
-
-  // Update content
-  document.getElementById('content').innerHTML = marked.parse(doc.content)
-
-  // Update nav state
+  activeId = id
   document.querySelectorAll('.nav-item').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.id === id)
   })
-
-  // Scroll to top
-  document.getElementById('content').scrollTop = 0
-
-  // Update URL hash for bookmarking
+  const content = document.getElementById('content')
+  try {
+    const res = await fetch(doc.path, { cache: 'no-cache' })
+    if (!res.ok) throw new Error(res.status + ' ' + res.statusText)
+    content.innerHTML = marked.parse(await res.text())
+    fixLinks(content, doc)
+  } catch (err) {
+    content.innerHTML = '<p>Could not load <code>' + doc.path + '</code> (' + err.message +
+      '). Serve this folder over HTTP — opening the file directly will not work.</p>'
+  }
+  content.scrollTop = 0
   history.replaceState(null, '', '#' + id)
 }
 
 function init() {
   buildSidebar()
-
-  // Respect URL hash on load
   const hash = location.hash.slice(1)
-  const target = hash && DOCS.find(d => d.id === hash) ? hash : DOCS[0].id
-  navigate(target)
+  navigate(hash && DOCS.find(d => d.id === hash) ? hash : DOCS[0].id)
 }
 
 document.addEventListener('DOMContentLoaded', init)

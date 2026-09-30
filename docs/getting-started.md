@@ -52,7 +52,9 @@ The source file is hot-reloaded by the poller and can also be updated through th
 
 ### 1. Set the region
 
-Update the region center, region name, and bounding box in `.env` so feeds are filtered for your area.
+Update the region center (`REGION_LAT`, `REGION_LON`), region name, and bounding box in `.env` so feeds are filtered for your area.
+
+The map center and range ring are baked into the frontend at build time, so after changing region values rebuild it: `docker compose build frontend && docker compose up -d`. Restart the `poller` and `backend` as well.
 
 ### 2. Add source endpoints
 
@@ -60,7 +62,8 @@ Edit `config/sources.yml` to point Vertex at your local or preferred remote sour
 
 Examples:
 
-- ADS-B JSON feed from tar1090 or Ultrafeeder
+- a local BEAST receiver (`ADSB_BEAST_HOST`/port) and, optionally, tar1090 or Ultrafeeder JSON as a standby
+- an OpenSky API client (`ADSB_OPENSKY_CLIENT_ID` / `_SECRET`) if you want the OpenSky gap-filler beyond anonymous limits
 - AIS WebSocket from AIS-catcher
 - OP25 endpoint and audio stream
 - Local or regional RSS feeds for alerts and news
@@ -73,9 +76,15 @@ docker compose logs -f backend
 docker compose logs -f poller
 ```
 
-### 4. Verify the UI
+### 4. Create the first account
+
+On first visit Vertex asks you to create the administrator account. Later users and API keys are managed from the admin screens.
+
+### 5. Verify the UI
 
 Check that:
+
+- you can sign in with the account you created
 
 - the map loads
 - entities appear for enabled feeds

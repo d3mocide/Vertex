@@ -2111,3 +2111,7 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 - Scrubbed absolute machine paths and a LAN IP from `TASK_LOG.md`, `.claude/` commands and hook, and the research notes; the SessionStart hook now derives the repo root instead of hardcoding it.
 - Refreshed stale docs (`CLAUDE.md` container/poller counts, feature overview for aircraft feeds, roles, infrastructure and radio).
 - Added `.dockerignore` files, `SECURITY.md`, `CONTRIBUTING.md`, issue/PR templates and Dependabot config; renamed `db/init/10_mqtt_sources.sql` to `11_` to remove the duplicate `10_` prefix.
+
+## 2026-09-29 — Documentation site (docs/index.html) now reads the Markdown files
+- `docs/index.html` no longer embeds copies of the docs: it fetches the `.md` files listed in its `DOCS` catalogue, so the Markdown is the single source of truth. Marked 12.0.2 is vendored in `docs/assets/` so the site works offline. Serve `docs/` over HTTP (file:// will not work).
+- Brought the docs current: environment reference (46 missing settings, OpenSky OAuth2, community feeds), architecture (seven services, aircraft source merging), getting started (rebuild after changing region, first-account setup), feature overview.
