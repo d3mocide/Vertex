@@ -30,7 +30,7 @@ RUN mkdir -p /data \
 
 RUN groupadd --gid 1000 vertex \
     && useradd --uid 1000 --gid vertex --create-home vertex \
-    && mkdir -p /data/audio /config \
+    && mkdir -p /data/audio /data/cache /config \
     && chown -R vertex:vertex /app /data /config
 
 COPY --chown=vertex:vertex requirements.lock .

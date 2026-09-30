@@ -253,7 +253,7 @@ class Settings(BaseSettings):
     # record: persist every observation row (current behavior)
     # live_only: keep live entity updates, skip observation inserts
     adsb_history_mode: str = "record"
-    adsb_enrichment_cache_dir: str = "/data"
+    adsb_enrichment_cache_dir: str = "/data/cache"
     adsb_aircraft_db_path: str = "/data/aircraft_db.csv.gz"
     adsb_airports_db_path: str = "/data/airports.csv"
     adsb_airlines_db_path: str = "/data/airlines.dat"

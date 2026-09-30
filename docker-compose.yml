@@ -192,6 +192,7 @@ services:
       - ./poller:/app:ro
       - ./config:/config:ro  # read-only: config watcher detects changes via mtime
       - p25_audio:/data/audio
+      - poller_cache:/data/cache       # METAR / flight-route caches (root fs is read-only)
 
   frontend:
     init: true
@@ -297,3 +298,4 @@ volumes:
   mosquitto_data:  # MQTT broker persistence (retained messages, subscriptions)
   p25_audio:       # P25 call recordings; shared with transcription service
   whisper_models:  # Whisper model weights cache; avoids re-downloading on container restart
+  poller_cache:    # Enrichment caches (METAR, flight routes); survives restarts
