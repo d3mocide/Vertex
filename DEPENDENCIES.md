@@ -82,6 +82,9 @@ operator's live production test.
   password-hashing migration.
 - React 19: requires React, ReactDOM, types, and application behavior to move
   together. ReactDOM remains on the React 18 peer line.
+- Tailwind CSS 4: moves the PostCSS plugin to `@tailwindcss/postcss` and requires
+  a coordinated configuration and stylesheet migration. A direct version bump
+  fails the production build.
 - `pyModeS` 3: replaces the v2 decoder API used by the BEAST ingest path. The
   current v2-only tests are intentionally required and would otherwise be skipped.
 - Node build-runtime majors: remain on the digest-pinned Node 24 LTS line until a

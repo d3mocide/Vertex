@@ -74,6 +74,9 @@ jobs:
       - name: TypeScript type check
         run: npx tsc --noEmit
 
+      - name: Frontend production build
+        run: npm run build
+
   dependency-audit:
     name: Dependency vulnerability audit
     runs-on: ubuntu-latest

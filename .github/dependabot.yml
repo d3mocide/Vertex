@@ -20,6 +20,10 @@ updates:
         update-types: ["version-update:semver-major"]
       - dependency-name: "@types/react-dom"
         update-types: ["version-update:semver-major"]
+      # Tailwind 4 moves the PostCSS plugin to @tailwindcss/postcss and needs
+      # a coordinated configuration and stylesheet migration.
+      - dependency-name: tailwindcss
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: pip
     directories:

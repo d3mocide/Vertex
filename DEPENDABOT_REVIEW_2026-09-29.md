@@ -91,3 +91,13 @@ After the consolidated commit reached `main`, Dependabot applied the new groupin
 | #168 | poller websockets 17.1 | Incorporated | The poller image, WebSocket call sites, and all 357 poller tests pass with the regenerated lock. |
 
 This follow-up also found that Dependabot edits the direct `requirements.txt` manifests but not the `requirements.lock` files installed by CI and production images. `scripts/check_python_locks.py` is now part of the dependency-audit job, so a dependency PR cannot receive a green audit while leaving the production lock stale.
+
+Dependabot then opened three frontend follow-ups as its update queue continued:
+
+| PR | Request | Disposition | Evidence |
+|---|---|---|---|
+| #169 | Autoprefixer 10.6.1 | Incorporated | npm audit, strict TypeScript, and the production/PWA build pass. |
+| #170 | Tailwind CSS 4.3.3 | Rejected | The production build fails because Tailwind 4 moves its PostCSS plugin to `@tailwindcss/postcss`; this requires a coordinated configuration and stylesheet migration. |
+| #171 | TypeScript 7.0.2 | Incorporated | Strict type-checking and the complete production/PWA build pass with zero npm vulnerabilities. |
+
+The prior CI job only ran `tsc --noEmit`, which would not detect the Tailwind/PostCSS failure. It now also runs `npm run build` for every push and pull request. Tailwind major updates are deferred in Dependabot until that migration is planned.
