@@ -6,7 +6,7 @@ import { useTrailHydration } from './hooks/useTrailHydration'
 import { usePreferences } from './hooks/usePreferences'
 import { useMeshHistory } from './hooks/useMeshHistory'
 import { LoginPage } from './components/LoginPage'
-import { isLoggedIn } from './auth'
+import { isLoggedIn, getUserRole } from './auth'
 import { API_BASE } from './config'
 
 import { AlertStatusBar }    from './components/layout/AlertStatusBar'
@@ -35,6 +35,8 @@ import { AnnotationController } from './components/panels/AnnotationController'
 import { InstallPrompt } from './components/InstallPrompt'
 import { DevInsetInspector } from './components/DevInsetInspector'
 import { loadRegion } from './region'
+import { fetchSetupStatus, type SetupStatus } from './setup'
+import { SetupWizard } from './components/SetupWizard'
 
 // ── Authenticated dashboard ────────────────────────────────────────────────────
 function Dashboard() {
@@ -188,12 +190,15 @@ export default function App() {
   const [authed, setAuthed]               = useState(false)
   const [setupRequired, setSetupRequired] = useState(false)
   const [regionReady, setRegionReady]   = useState(false)
+  const [authEnabled, setAuthEnabled]     = useState(true)
+  const [setup, setSetup]                 = useState<SetupStatus | null>(null)
 
   useEffect(() => {
     fetch(`${API_BASE}/auth/status`)
       .then(r => r.json())
       .then(({ auth_enabled, setup_required }: { auth_enabled: boolean; setup_required: boolean }) => {
         setSetupRequired(setup_required)
+        setAuthEnabled(auth_enabled)
         setAuthed(!auth_enabled || (!setup_required && isLoggedIn()))
         setAuthChecked(true)
       })
@@ -206,7 +211,11 @@ export default function App() {
   // Once signed in, learn the operator's region (map center, name) before the dashboard mounts.
   useEffect(() => {
     if (!authed) return
-    void loadRegion().finally(() => setRegionReady(true))
+    // The region and the first-run status are needed before the dashboard can be shown.
+    void Promise.all([loadRegion(), fetchSetupStatus().catch(() => null)]).then(([, status]) => {
+      setSetup(status)
+      setRegionReady(true)
+    })
   }, [authed])
 
   const splash = (
@@ -244,5 +253,18 @@ export default function App() {
   if (!authChecked) return splash
   if (!authed) return <LoginPage onLogin={() => setAuthed(true)} setupRequired={setupRequired} />
   if (!regionReady) return splash
+  // Fresh install: nothing chooses a region yet. Admins run the wizard; anyone else waits for them.
+  if (setup?.needs_setup) {
+    const isAdmin = !authEnabled || getUserRole() === 'admin'
+    if (isAdmin) return <SetupWizard firstRun onClose={() => undefined} />
+    return (
+      <div className="w-full h-full bg-onyx-black flex items-center justify-center p-6">
+        <div className="hud-panel p-6 max-w-md text-[13px] text-on-surface-variant space-y-2">
+          <div className="label-caps text-amber-gold">Setup not finished</div>
+          <p>Vertex has not been set up for a location yet. Ask an administrator to sign in and finish setup, then reload this page.</p>
+        </div>
+      </div>
+    )
+  }
   return <Dashboard />
 }
