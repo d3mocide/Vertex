@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useCivicStore, SystemEvent } from '../../store'
-import { API_BASE, REGION_NAME } from '../../config'
+import { API_BASE, regionInfo } from '../../config'
 import { authHeaders, clearToken } from '../../auth'
 import { firePanelEntityFromEntity, type FirePanelEntity, type FireRelevance } from './environment/FireStatusCard'
 import { FireSmokeCard } from './environment/FireSmokeCard'
@@ -161,7 +161,7 @@ export function EnvironmentPanel() {
       <PageHeader
         icon="eco"
         title="Environment"
-        subtitle={<span className="flex items-center gap-2">{REGION_NAME} <FeedAge feedKey="weather:current" prefix="Updated" className="text-[11px]" /></span>}
+        subtitle={<span className="flex items-center gap-2">{regionInfo.name} <FeedAge feedKey="weather:current" prefix="Updated" className="text-[11px]" /></span>}
       />
 
       <div className="flex-1 overflow-y-auto min-h-0 pb-24">

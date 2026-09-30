@@ -24,14 +24,21 @@ export const PRESERVE_DRAWING_BUFFER = (import.meta.env.VITE_PRESERVE_DRAWING_BU
 
 
 
-// Region label shown in page headers (REGION_NAME in .env)
-export const REGION_NAME = (import.meta.env.VITE_REGION_NAME as string | undefined)?.trim() || 'Tualatin Valley'
+// The operator's region. These are only fallbacks: at startup App loads the real region from the
+// backend (GET /config/region, see region.ts), which reads REGION_LAT/REGION_LON from the
+// environment or the region chosen in the app. No rebuild is needed to change it.
+//
+// DEFAULT_CENTER is [lon, lat] and is updated in place, so every module that imported it sees the
+// runtime value (the app does not render until the region has loaded).
+export const REGION_FALLBACK = { name: 'Tualatin Valley', lon: -122.7635, lat: 45.3842 }
+export const DEFAULT_CENTER: [number, number] = [REGION_FALLBACK.lon, REGION_FALLBACK.lat]
+export const regionInfo: { name: string } = { name: REGION_FALLBACK.name }
 
-// Default view: Tualatin, OR
-export const DEFAULT_CENTER: [number, number] = [
-  Number(import.meta.env.VITE_REGION_LON ?? -122.7635),
-  Number(import.meta.env.VITE_REGION_LAT ?? 45.3842),
-]
+export function applyRegion(name: string, lat: number, lon: number): void {
+  DEFAULT_CENTER[0] = lon
+  DEFAULT_CENTER[1] = lat
+  regionInfo.name = name
+}
 export const DEFAULT_ZOOM = 10
 
 // Audio stream — stream URL is sourced from the radio_streams DB table.

@@ -34,6 +34,7 @@ import { FlightLogPanel }      from './components/panels/FlightLogPanel'
 import { AnnotationController } from './components/panels/AnnotationController'
 import { InstallPrompt } from './components/InstallPrompt'
 import { DevInsetInspector } from './components/DevInsetInspector'
+import { loadRegion } from './region'
 
 // ── Authenticated dashboard ────────────────────────────────────────────────────
 function Dashboard() {
@@ -186,6 +187,7 @@ export default function App() {
   const [authChecked, setAuthChecked]     = useState(false)
   const [authed, setAuthed]               = useState(false)
   const [setupRequired, setSetupRequired] = useState(false)
+  const [regionReady, setRegionReady]   = useState(false)
 
   useEffect(() => {
     fetch(`${API_BASE}/auth/status`)
@@ -201,7 +203,13 @@ export default function App() {
       })
   }, [])
 
-  if (!authChecked) return (
+  // Once signed in, learn the operator's region (map center, name) before the dashboard mounts.
+  useEffect(() => {
+    if (!authed) return
+    void loadRegion().finally(() => setRegionReady(true))
+  }, [authed])
+
+  const splash = (
     <div className="w-full h-full bg-onyx-black flex flex-col items-center justify-center gap-6">
       {/* Scope mark — static corner brackets, rotating diamond, pulsing amber center */}
       <svg width="64" height="64" viewBox="0 0 32 32" aria-hidden="true" className="text-white">
@@ -233,6 +241,8 @@ export default function App() {
       </div>
     </div>
   )
+  if (!authChecked) return splash
   if (!authed) return <LoginPage onLogin={() => setAuthed(true)} setupRequired={setupRequired} />
+  if (!regionReady) return splash
   return <Dashboard />
 }
