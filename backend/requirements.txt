@@ -9,7 +9,7 @@ redis[hiredis]==8.1.0
 pydantic==2.9.2
 pydantic-settings==2.15.0
 httpx==0.28.1
-python-dateutil==2.9.0
+python-dateutil==2.9.0.post0
 prometheus-fastapi-instrumentator==8.1.0
 PyJWT==2.15.1
 passlib[bcrypt]==1.7.4
