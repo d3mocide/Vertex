@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import time
 import warnings
 from config import settings
 
@@ -40,7 +41,7 @@ from config_loader import load_sources_config
 from config_sync import sync_sources_to_db
 from config_watcher import watch_config
 from region_sync import apply_or_wait
-from db import init_db, close_db, get_pool, purge_observations
+from db import init_db, close_db, get_pool, purge_observations, next_purge_delay, last_purge_ts
 
 logging.basicConfig(
     level=settings.log_level,
@@ -109,15 +110,15 @@ async def _malloc_trim_loop(interval_s: int = 300):
 
 
 async def _purge_loop():
-    """Run the observation purge once per day, with an initial 1-hour delay so it
-    doesn't hammer the DB immediately after a restart."""
-    await asyncio.sleep(3600)
+    """Purge old observations daily. Scheduled from when the purge last actually ran (recorded in Redis), so
+    restarts do not postpone it; a short settle delay after a start keeps it off the DB while pollers spin up."""
     while True:
+        await asyncio.sleep(next_purge_delay(await last_purge_ts(), time.time()))
         try:
             await purge_observations()
         except Exception as exc:
             logger.warning("Observation purge failed: %s", exc)
-        await asyncio.sleep(86400)
+            await asyncio.sleep(3600)   # retry in an hour rather than hammering a failing DB
 
 
 async def main():

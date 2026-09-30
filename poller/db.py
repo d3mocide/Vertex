@@ -9,6 +9,29 @@ from sanitize import sanitize_payload, sanitize_text
 
 logger = logging.getLogger(__name__)
 
+PURGE_STATE_KEY = "metrics:last_purge"   # {ts, deleted, acars_deleted, retention_days}; read by the admin Storage view
+PURGE_INTERVAL_S = 86400
+PURGE_SETTLE_S = 300                      # after a start, let the pollers settle before the first purge
+
+
+def next_purge_delay(last_purge_ts: float | None, now: float, interval: float = PURGE_INTERVAL_S,
+                     settle: float = PURGE_SETTLE_S) -> float:
+    """Seconds until the next purge is due. Based on when it last actually ran, so restarts neither push it back
+    (the old fixed 1 h + 24 h sleeps meant a poller restarted every few hours never purged) nor run it twice."""
+    if last_purge_ts is None:
+        return settle
+    return max(settle, last_purge_ts + interval - now)
+
+
+async def last_purge_ts() -> float | None:
+    try:
+        from bus import get_bus
+        raw = await (await get_bus()).get(PURGE_STATE_KEY)
+        return float(json.loads(raw)["ts"]) if raw else None
+    except Exception as exc:
+        logger.warning("[db] could not read last purge time: %s", exc)
+        return None
+
 _pool: asyncpg.Pool | None = None
 
 # Throttle observation INSERT rows — one row per entity per N seconds is sufficient
@@ -240,6 +263,17 @@ async def write_entity_observation(entity: dict, record_observation: bool = True
             await check_geofences(entity, conn)
 
 
+async def _record_purge(deleted: int, acars_deleted: int, retention_days: int) -> None:
+    """Remember when the purge last ran (the admin Storage view reads this, and so does the scheduler)."""
+    try:
+        from bus import get_bus
+        r = await get_bus()
+        await r.set(PURGE_STATE_KEY, json.dumps({
+            "ts": time.time(), "deleted": deleted, "acars_deleted": acars_deleted, "retention_days": retention_days}))
+    except Exception as exc:
+        logger.warning("[db] could not record purge time: %s", exc)
+
+
 async def purge_observations() -> int:
     """Delete observations older than the configured retention window.
 
@@ -270,6 +304,7 @@ async def purge_observations() -> int:
         )
     deleted = int(result.split()[-1])
     acars_deleted = int(acars_result.split()[-1])
+    await _record_purge(deleted, acars_deleted, retention_days)
     logger.info(
         "[db] purged %d old observations, %d old ACARS messages (retention: %d days)",
         deleted, acars_deleted, retention_days,

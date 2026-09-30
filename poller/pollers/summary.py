@@ -245,7 +245,10 @@ class AISummaryPoller(BasePoller):
             logger.info("[summary] scheduled refresh (%.0f min since last)", elapsed / 60)
 
         self._last_attempt = time.time()
-        await self._generate(r)
+        # A briefing takes minutes to generate. Without this the poller sent no heartbeat for the whole run and
+        # the admin health views reported it as stopped.
+        async with self.streaming():
+            await self._generate(r)
 
     async def _previous(self, r) -> dict | None:
         raw = await r.lindex(_HISTORY_KEY, 0)
