@@ -4,7 +4,7 @@ Last updated: 2026-04-30
 
 ## Purpose
 
-This document tracks what has actually been implemented from the BEAST/Ultrafeeder research plan, what was only partially implemented, what was fixed during runtime testing, and what still remains before the codebase matches the target architecture described in [research/beast-ultrafeeder-research.md](c:/Projects/Vertex/research/beast-ultrafeeder-research.md).
+This document tracks what has actually been implemented from the BEAST/Ultrafeeder research plan, what was only partially implemented, what was fixed during runtime testing, and what still remains before the codebase matches the target architecture described in [research/beast-ultrafeeder-research.md](research/beast-ultrafeeder-research.md).
 
 ## Executive Summary
 
@@ -26,10 +26,10 @@ Approximate completion:
 ### 1. BEAST TCP Ingest Foundation
 
 Implemented files:
-- [poller/pollers/adsb.py](c:/Projects/Vertex/poller/pollers/adsb.py)
-- [poller/normalizers/beast_decoder.py](c:/Projects/Vertex/poller/normalizers/beast_decoder.py)
-- [poller/config.py](c:/Projects/Vertex/poller/config.py)
-- [poller/requirements.txt](c:/Projects/Vertex/poller/requirements.txt)
+- [poller/pollers/adsb.py](poller/pollers/adsb.py)
+- [poller/normalizers/beast_decoder.py](poller/normalizers/beast_decoder.py)
+- [poller/config.py](poller/config.py)
+- [poller/requirements.txt](poller/requirements.txt)
 
 Implemented behavior:
 - BEAST TCP connection support
@@ -51,11 +51,11 @@ Implemented behavior:
 ### 2. Snapshot Transport Path
 
 Implemented files:
-- [poller/bus.py](c:/Projects/Vertex/poller/bus.py)
-- [backend/redis_bus.py](c:/Projects/Vertex/backend/redis_bus.py)
-- [backend/routers/ws.py](c:/Projects/Vertex/backend/routers/ws.py)
-- [backend/routers/aircraft.py](c:/Projects/Vertex/backend/routers/aircraft.py)
-- [backend/main.py](c:/Projects/Vertex/backend/main.py)
+- [poller/bus.py](poller/bus.py)
+- [backend/redis_bus.py](backend/redis_bus.py)
+- [backend/routers/ws.py](backend/routers/ws.py)
+- [backend/routers/aircraft.py](backend/routers/aircraft.py)
+- [backend/main.py](backend/main.py)
 
 Implemented behavior:
 - poller writes aircraft snapshot payload to Redis
@@ -67,8 +67,8 @@ Implemented behavior:
 ### 3. Frontend BEAST Snapshot Support
 
 Implemented files:
-- [frontend/src/hooks/useWebSocket.ts](c:/Projects/Vertex/frontend/src/hooks/useWebSocket.ts)
-- [frontend/src/store.ts](c:/Projects/Vertex/frontend/src/store.ts)
+- [frontend/src/hooks/useWebSocket.ts](frontend/src/hooks/useWebSocket.ts)
+- [frontend/src/store.ts](frontend/src/store.ts)
 
 Implemented behavior:
 - frontend handles `aircraft_snapshot`
@@ -79,10 +79,10 @@ Implemented behavior:
 ### 4. Basic Enrichment Clients and Cache Layer
 
 Implemented files:
-- [poller/enrichment/cache.py](c:/Projects/Vertex/poller/enrichment/cache.py)
-- [poller/enrichment/adsbdb.py](c:/Projects/Vertex/poller/enrichment/adsbdb.py)
-- [poller/enrichment/metar.py](c:/Projects/Vertex/poller/enrichment/metar.py)
-- [poller/pollers/adsb.py](c:/Projects/Vertex/poller/pollers/adsb.py)
+- [poller/enrichment/cache.py](poller/enrichment/cache.py)
+- [poller/enrichment/adsbdb.py](poller/enrichment/adsbdb.py)
+- [poller/enrichment/metar.py](poller/enrichment/metar.py)
+- [poller/pollers/adsb.py](poller/pollers/adsb.py)
 
 Implemented behavior:
 - in-memory TTL cache entries
@@ -113,10 +113,10 @@ Implemented behavior:
 ### 5. Persistence/Churn Controls
 
 Implemented files:
-- [poller/db.py](c:/Projects/Vertex/poller/db.py)
-- [poller/bus.py](c:/Projects/Vertex/poller/bus.py)
-- [.env.example](c:/Projects/Vertex/.env.example)
-- [poller/config.py](c:/Projects/Vertex/poller/config.py)
+- [poller/db.py](poller/db.py)
+- [poller/bus.py](poller/bus.py)
+- [.env.example](.env.example)
+- [poller/config.py](poller/config.py)
 
 Implemented behavior:
 - `ADSB_HISTORY_MODE=live_only` skips observation inserts while preserving live entity updates and geofence checks
@@ -130,7 +130,7 @@ Problem:
 - BEAST mode could still fall through into HTTP/OpenSky polling when fallback was disabled.
 
 Fix:
-- [poller/pollers/adsb.py](c:/Projects/Vertex/poller/pollers/adsb.py) now returns early in BEAST-only mode when `ADSB_BEAST_HTTP_FALLBACK=false`.
+- [poller/pollers/adsb.py](poller/pollers/adsb.py) now returns early in BEAST-only mode when `ADSB_BEAST_HTTP_FALLBACK=false`.
 
 Result:
 - `ADSB_ENABLE_BEAST=true`
@@ -144,8 +144,8 @@ Problem:
 - The frontend handled `aircraft_snapshot` by calling `setEntities(...)`, which replaced the full entity and track maps every second.
 
 Fix:
-- Added `setAircraftSnapshot(...)` in [frontend/src/store.ts](c:/Projects/Vertex/frontend/src/store.ts)
-- Updated [frontend/src/hooks/useWebSocket.ts](c:/Projects/Vertex/frontend/src/hooks/useWebSocket.ts) to use the aircraft-specific merge action
+- Added `setAircraftSnapshot(...)` in [frontend/src/store.ts](frontend/src/store.ts)
+- Updated [frontend/src/hooks/useWebSocket.ts](frontend/src/hooks/useWebSocket.ts) to use the aircraft-specific merge action
 
 Result:
 - aircraft trails continue accumulating under BEAST snapshots
@@ -156,8 +156,8 @@ Problem:
 - METAR upstream occasionally returned malformed or non-JSON responses, causing repeated `Expecting value` warnings.
 
 Fixes:
-- [poller/enrichment/cache.py](c:/Projects/Vertex/poller/enrichment/cache.py) now negative-caches failed fetches
-- [poller/enrichment/metar.py](c:/Projects/Vertex/poller/enrichment/metar.py) now handles non-JSON responses gracefully and logs clearer warnings
+- [poller/enrichment/cache.py](poller/enrichment/cache.py) now negative-caches failed fetches
+- [poller/enrichment/metar.py](poller/enrichment/metar.py) now handles non-JSON responses gracefully and logs clearer warnings
 
 Result:
 - reduced retry and log spam behavior

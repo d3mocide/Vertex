@@ -1,6 +1,6 @@
 You are about to make a frontend change on the Vertex project. Before writing any code, review the design system rules below and apply them to every decision.
 
-The canonical source of truth is `/home/user/Vertex/vertex-design-system.html`. This skill is a fast-reference summary — consult the HTML file for full component specs and animation details.
+The canonical source of truth is `docs/design/vertex-design-system.html`. This skill is a fast-reference summary — consult the HTML file for full component specs and animation details.
 
 ---
 

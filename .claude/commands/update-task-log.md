@@ -1,7 +1,7 @@
 Append a new entry to TASK_LOG.md describing the work just completed in this session.
 
 Steps:
-1. Read the current contents of `/home/user/Vertex/TASK_LOG.md`.
+1. Read the current contents of `TASK_LOG.md`.
 2. Determine today's date.
 3. Write a new entry at the top of the log (below the header, above existing entries) using this format:
 

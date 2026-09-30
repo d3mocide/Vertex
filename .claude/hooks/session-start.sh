@@ -6,7 +6,7 @@ if [ "${CLAUDE_CODE_REMOTE:-}" != "true" ]; then
   exit 0
 fi
 
-PROJECT="${CLAUDE_PROJECT_DIR:-/home/user/Vertex}"
+PROJECT="${CLAUDE_PROJECT_DIR:-$(cd "$(dirname "$0")/../.." && pwd)}"
 VENV="/opt/vertex-venv"
 
 echo "[session-start] Installing frontend npm dependencies..."

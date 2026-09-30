@@ -24,9 +24,12 @@ Vertex currently covers several movement and mobility domains.
 
 ### Aircraft
 
-- Local ADS-B JSON ingest from tar1090 / Ultrafeeder
-- BEAST TCP transport for live decoder integration with CPR decode and trail smoothing
-- OpenSky supplemental polling (optional, configurable interval)
+- BEAST TCP transport from a local receiver: CPR decode, trail smoothing, dead-reckoning through short signal gaps
+- local tar1090 / Ultrafeeder JSON as a standby that is polled only while BEAST is silent
+- community feeds (airplanes.live, adsb.fi) as the main supplement beyond receiver range: sub-second positions plus registration, type and owner
+- OpenSky (OAuth2 API client) as a gap-filler for aircraft the other sources miss; anonymous use is rate-limited automatically
+- one live position per aircraft: local beats community beats OpenSky, and an older fix never overwrites a newer one
+- aircraft roles (air ambulance, rescue, police, fire, military, news, government) from registration and owner data, shown as a map glow, a *Notable* filter on the flight log, and events
 - aircraft metadata enrichment, route context, airport and navaid references
 - squawk emergency highlighting (7500, 7600, 7700) with color-coded alerts
 - observation history persistence for trails, playback, and analysis
@@ -60,12 +63,15 @@ Environmental coverage includes:
 - stream gauge stage and discharge (cfs) from USGS
 - seismic event ingestion with depth display and live event panel updates
 - GDACS global disaster alerts via GeoRSS with distance-based severity gating
+- lightning strikes, NASA FIRMS hotspots (requires `FIRMS_MAP_KEY`), ODF fire-danger levels, road-weather stations and nearby NWS stations
 
 ## Traffic and Infrastructure
 
 Traffic and roadway awareness includes:
 
-- ODOT TripCheck incidents
+- ODOT TripCheck incidents, with road closures triaged by scope and ramps folded under their parent closure
+- corridor status for the major freeways, plus variable message signs
+- power-outage areas (Oregon ODIN) with weather and lightning context
 - traffic camera feeds with health monitoring
 - traffic flow corridor monitoring
 - region-scoped incident filtering and incident detail rendering
@@ -85,6 +91,8 @@ Vertex merges multiple civic awareness feeds:
 The radio feature set includes:
 
 - live tactical audio streams from configurable sources
+- P25 calls recorded from a local OP25 decoder, transcribed by the `transcription` service, and grouped into dispatch incidents
+- in-browser live listening with per-device talkgroup filters
 - P25 metadata ingest for channel and call activity context
 - talkgroup management UI for name, priority, and scan list configuration
 - configurable remote stream URLs managed through source configuration

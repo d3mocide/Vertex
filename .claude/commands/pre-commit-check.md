@@ -4,17 +4,17 @@ Run the following checks in order and report the result of each:
 
 **1. TypeScript type check** (frontend Docker build will fail if this fails)
 ```
-cd /home/user/Vertex/frontend && npx tsc --noEmit
+cd frontend && npx tsc --noEmit
 ```
 
 **2. Docker Compose config validation** (catches YAML syntax errors and invalid references)
 ```
-cd /home/user/Vertex && docker compose config --quiet
+docker compose config --quiet
 ```
 
 **3. Python syntax check on staged files** (catches syntax errors in modified Python files)
 ```
-cd /home/user/Vertex && git diff --cached --name-only | grep '\.py$' | xargs -r python3 -m py_compile
+git diff --cached --name-only | grep '\.py$' | xargs -r python3 -m py_compile
 ```
 If there are no staged Python files, skip this step and note that.
 

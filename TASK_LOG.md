@@ -123,22 +123,22 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 ## 2026-06-15 — Enhanced Mesh Companion Connectivity & Streamlined Tab Layout
 
 - **Mesh Companion Status Sync**:
-  - Modified [meshcore.py](file:///d:/Projects/Vertex/poller/pollers/meshcore.py) to publish the active companion node's name to the Redis `mesh:status` feed and broadcast it over WebSocket updates on SSE connection/disconnection.
+  - Modified [meshcore.py](poller/pollers/meshcore.py) to publish the active companion node's name to the Redis `mesh:status` feed and broadcast it over WebSocket updates on SSE connection/disconnection.
   - Ensured companion name is updated and passed to health statistics publication.
 - **Streamlined Tab Layout**:
-  - Removed redundant section title headers (`<h3>` elements) from all active tabs (Mesh Chat, Mesh Network, and P25 Call Log) in [CommsPanel.tsx](file:///d:/Projects/Vertex/frontend/src/components/panels/CommsPanel.tsx) to maximize space efficiency.
+  - Removed redundant section title headers (`<h3>` elements) from all active tabs (Mesh Chat, Mesh Network, and P25 Call Log) in [CommsPanel.tsx](frontend/src/components/panels/CommsPanel.tsx) to maximize space efficiency.
 - **Robust Message Posting**:
-  - Modified the `/mesh/messages` POST proxy endpoint in [mesh.py](file:///d:/Projects/Vertex/backend/routers/mesh.py) to catch JSON decode exceptions when handling successful (status 200) responses from pyMC-Repeater, preventing unexpected 500 errors if the repeater responds with non-JSON text.
+  - Modified the `/mesh/messages` POST proxy endpoint in [mesh.py](backend/routers/mesh.py) to catch JSON decode exceptions when handling successful (status 200) responses from pyMC-Repeater, preventing unexpected 500 errors if the repeater responds with non-JSON text.
 - **Mesh Node Mapping Fix**:
-  - Updated [meshcore.py](file:///d:/Projects/Vertex/poller/pollers/meshcore.py) to extract neighboring mesh nodes directly from the `neighbors` mapping returned by the pyMC-Repeater `/api/stats` endpoint, and published them as canonical `mesh_node` entities to ensure they appear on the map.
-  - Modified the normalizer in [mesh_node.py](file:///d:/Projects/Vertex/poller/normalizers/mesh_node.py) to support the `latitude` and `longitude` coordinate fields returned by the pyMC-Repeater neighbors API (which previously ignored them in favor of `lat` and `lon`).
+  - Updated [meshcore.py](poller/pollers/meshcore.py) to extract neighboring mesh nodes directly from the `neighbors` mapping returned by the pyMC-Repeater `/api/stats` endpoint, and published them as canonical `mesh_node` entities to ensure they appear on the map.
+  - Modified the normalizer in [mesh_node.py](poller/normalizers/mesh_node.py) to support the `latitude` and `longitude` coordinate fields returned by the pyMC-Repeater neighbors API (which previously ignored them in favor of `lat` and `lon`).
 - **Validation**:
   - Verified TypeScript compilation successfully with 0 errors.
   - Validated Docker compose config and restarted the containers.
 
 ## 2026-06-15 — Redesigned Comms Panel Chat Interface
 
-- **Redesigned Chat Input UI** ([CommsPanel.tsx](file:///d:/Projects/Vertex/frontend/src/components/panels/CommsPanel.tsx)):
+- **Redesigned Chat Input UI** ([CommsPanel.tsx](frontend/src/components/panels/CommsPanel.tsx)):
     - Replaced the stacked full-width inputs with a premium unified layout incorporating Google Material Symbols (`search` for filters, `chat_bubble` for sending messages) absolute-positioned inside the text boxes.
     - Added high-fidelity focus indicator borders with custom shadow-glow transitions (`focus:border-amber-gold/50 focus:shadow-[0_0_8px_rgba(255,184,0,0.15)]`).
     - Added an active companion status badge (`Transmitting via NodeName`) powered by real-time `meshStatus` updates to surface the active sender node's identity.
@@ -148,7 +148,7 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 
 ## 2026-06-15 — Supported Custom Companion Node Selection in MeshCore
 
-- **Parsed URL Query Parameters** ([meshcore.py](file:///d:/Projects/Vertex/poller/pollers/meshcore.py), [sources.example.yml](file:///d:/Projects/Vertex/config/sources.example.yml)):
+- **Parsed URL Query Parameters** ([meshcore.py](poller/pollers/meshcore.py), [sources.example.yml](config/sources.example.yml)):
     - Updated URL source parsing (`_parse_source`) to check for a `companion` query parameter (e.g. `?companion=MyNodeName`).
     - Configured the SSE loop to use the specified companion parameter directly, bypassing the default auto-discovery step (which picks the first companion in `/api/companion/index`).
     - Documented this parameter usage in `config/sources.example.yml`.
@@ -158,9 +158,9 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 
 ## 2026-06-15 — Interactive Mesh Messaging (Send Chat Messages)
 
-- **Implemented Backend Proxy Route** ([mesh.py](file:///d:/Projects/Vertex/backend/routers/mesh.py)):
+- **Implemented Backend Proxy Route** ([mesh.py](backend/routers/mesh.py)):
     - Added a `POST /mesh/messages` endpoint that fetches the active `meshcore` source URL and API key from the database, and uses `httpx.AsyncClient` to post messages directly to the repeater's `/api/room_post_message` endpoint.
-- **Implemented Frontend UI Input** ([CommsPanel.tsx](file:///d:/Projects/Vertex/frontend/src/components/panels/CommsPanel.tsx)):
+- **Implemented Frontend UI Input** ([CommsPanel.tsx](frontend/src/components/panels/CommsPanel.tsx)):
     - Integrated a premium chat input box and a "Send" button inside the **Mesh Chat** tab, positioned directly below the message filter bar.
     - Tied the form submission to send messages back to the active room server, clearing input upon success.
 - **Validation**:
@@ -171,8 +171,8 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 ## 2026-06-15 — Fixed Diagnostics Probe 401 for Sanitized URLs (pyMC-Repeater API Key)
 
 - **Resolved Probe Target Lookup for Sanitized URLs**:
-    - [admin_debug.py](file:///d:/Projects/Vertex/backend/routers/admin_debug.py): Updated `RemoteFeedProbeRequest` schema to accept a `source_id` field, and updated `_resolve_source` helper to resolve by ID when present. This guarantees the probe can lookup the original, unsanitized URL containing credentials/API keys from the database, preventing it from falling back to an ad-hoc sanitised URL and causing a 401 Unauthorized.
-    - [AdminDebug.tsx](file:///d:/Projects/Vertex/frontend/src/admin/AdminDebug.tsx): Updated the probe POST request body to include `source_id: source.id`.
+    - [admin_debug.py](backend/routers/admin_debug.py): Updated `RemoteFeedProbeRequest` schema to accept a `source_id` field, and updated `_resolve_source` helper to resolve by ID when present. This guarantees the probe can lookup the original, unsanitized URL containing credentials/API keys from the database, preventing it from falling back to an ad-hoc sanitised URL and causing a 401 Unauthorized.
+    - [AdminDebug.tsx](frontend/src/admin/AdminDebug.tsx): Updated the probe POST request body to include `source_id: source.id`.
 - **Validation**:
     - Ran TypeScript type checks successfully via `npx tsc --noEmit`.
     - Rebuilt and restarted the `backend` container.
@@ -337,7 +337,7 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
     - [.env](.env): Set `ALLOW_PRIVATE_IPS=true` to allow correct local routing to BEAST receiver, ACARS gateway, and local services. Updated [.env.example](.env.example) to document the new option.
 - **Validation**:
     - Confirmed unit tests in `backend/tests/test_ssrf_fix.py` pass cleanly inside Docker.
-    - Verified poller logs successfully establish connections to `192.168.10.20` for BEAST and ACARS feeds.
+    - Verified poller logs successfully establish connections to `<sdr-host>` for BEAST and ACARS feeds.
 
 ## 2026-06-12 — Optimized ADSB Ingestion & Database writes
 
@@ -442,9 +442,9 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 ## 2026-05-20 — Live Map Render Target Dropouts & Gaps Resolution (Zustand Caching & OpenSky Cadence)
 
 - **Zustand Aircraft Snapshot Caching & Merge Logic**:
-  - Refactored `setAircraftSnapshot()` in [store.ts](file:///c:/Projects/Vertex/frontend/src/store.ts) to preserve existing aircraft entities (both local BEAST and OpenSky) that are absent from the incoming snapshot, as long as they are not stale based on their source-specific thresholds. This solves the issue of high-frequency local ADSB targets disappearing or stuttering between transient 5-second snapshot updates.
+  - Refactored `setAircraftSnapshot()` in [store.ts](frontend/src/store.ts) to preserve existing aircraft entities (both local BEAST and OpenSky) that are absent from the incoming snapshot, as long as they are not stale based on their source-specific thresholds. This solves the issue of high-frequency local ADSB targets disappearing or stuttering between transient 5-second snapshot updates.
 - **Source-Specific Aircraft Staleness Limit**:
-  - Refactored `purgeStaleEntities()` in [store.ts](file:///c:/Projects/Vertex/frontend/src/store.ts) to apply a custom 10-minute (`600_000` ms) threshold specifically for `opensky` aircraft to match their 4-minute polling interval.
+  - Refactored `purgeStaleEntities()` in [store.ts](frontend/src/store.ts) to apply a custom 10-minute (`600_000` ms) threshold specifically for `opensky` aircraft to match their 4-minute polling interval.
   - Kept the standard 2-minute (`120_000` ms) limit for local aircraft and fallback configurations. This completely resolves the OpenSky target populate-clear-repopulate loop.
 - **Validation**:
   - Successfully verified the complete frontend typescript compiles with zero errors (`npx tsc --noEmit`).
@@ -453,11 +453,11 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 ## 2026-05-20 — CoT Timestamp Split Refactoring (OpenSky & BEAST Feed Stability)
 
 - **Cursor-on-Target Time Semantics Separation**:
-  - Refactored `_build_cot()` inside [cot_emitter.py](file:///c:/Projects/Vertex/poller/pollers/cot_emitter.py) to separate data-point sensor measurements from message validity windows.
+  - Refactored `_build_cot()` inside [cot_emitter.py](poller/pollers/cot_emitter.py) to separate data-point sensor measurements from message validity windows.
   - Set the XML `time` attribute to use the sensor's `last_seen` timestamp (`event_time`), ensuring proper chronological sorting inside WinTAK/ATAK and resolving track jumping/rubberbanding.
   - Anchored XML `start` and `stale` attributes to the emitter execution time (`now` and `now + cot_stale_seconds`), ensuring slower-polling OpenSky targets do not immediately timeout on the TAK map, and high-frequency BEAST targets do not drop due to minor network latency or clock skew.
 - **Robust Unit Testing**:
-  - Updated `test_build_cot_timestamps` in [test_cot_emitter.py](file:///c:/Projects/Vertex/poller/tests/test_cot_emitter.py) to use `unittest.mock.patch` for mocking system time (`datetime`), verifying precise CoT XML generation without system-clock dependency.
+  - Updated `test_build_cot_timestamps` in [test_cot_emitter.py](poller/tests/test_cot_emitter.py) to use `unittest.mock.patch` for mocking system time (`datetime`), verifying precise CoT XML generation without system-clock dependency.
 - **Validation**:
   - Verified 100% of python poller/backend tests pass (88/88 passing tests).
   - Verified syntax of modified python scripts with `py_compile`.
@@ -482,13 +482,13 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 ## 2026-05-19 — OpenSky Unit Normalization & Mesh Node Staleness Clock Correction
 
 - **Telemetry Unit Normalization**:
-  - Implemented automatic metric-to-aviation unit conversions in the OpenSky normalizer (`normalize_opensky` inside [aircraft.py](file:///c:/Projects/Vertex/poller/normalizers/aircraft.py)).
+  - Implemented automatic metric-to-aviation unit conversions in the OpenSky normalizer (`normalize_opensky` inside [aircraft.py](poller/normalizers/aircraft.py)).
   - Corrected raw meters (`state[7]`) to standard altitude in feet (`meters / 0.3048`).
   - Corrected raw m/s (`state[9]`) to standard ground speed in knots (`m_s / 0.514444`).
   - Corrected raw m/s (`state[11]`) to standard vertical rate in feet per minute (`m_s / 0.3048 * 60`).
-  - Added unit conversion test coverage `test_units_normalized` inside [test_adsb_normalization.py](file:///c:/Projects/Vertex/poller/tests/test_adsb_normalization.py).
+  - Added unit conversion test coverage `test_units_normalized` inside [test_adsb_normalization.py](poller/tests/test_adsb_normalization.py).
 - **Mesh Node Staleness Clock Alignment**:
-  - Corrected a timing domain mismatch in the frontend's MapOverlay rendering loop ([MapOverlay.tsx](file:///c:/Projects/Vertex/frontend/src/components/MapOverlay.tsx)) where page-uptime timestamp (`now` from `performance.now()`) was passed to `buildMeshNodeLayers()`.
+  - Corrected a timing domain mismatch in the frontend's MapOverlay rendering loop ([MapOverlay.tsx](frontend/src/components/MapOverlay.tsx)) where page-uptime timestamp (`now` from `performance.now()`) was passed to `buildMeshNodeLayers()`.
   - Replaced it with the correct epoch Unix millisecond timestamp (`nowMs` from `Date.now()`), allowing accurate comparisons with the `last_seen` timestamp parsed from the database. Mesh nodes now correctly fade to gray as stale when they have not checked in for >10 minutes.
 - **Validation**:
   - Successfully verified all 84 python backend/poller tests pass.
@@ -502,16 +502,16 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
     - **Eliminated Jitter & Out-of-Order Latency**: Replaced real-time timestamping with sensor-provided `last_seen` timestamps. This allows ATAK to recognize chronologically correct sequences and auto-discard older delayed packets (e.g. OpenSky supplement sweeps) without rubberbanding the track backward.
     - **Corrected Aircraft Altitude & HAE Scaling**: Implemented accurate conversions for aircraft metrics by reading standard `altitude` (in feet) and converting to HAE meters (`float(alt_ft) * 0.3048`) for CoT point datagrams. Non-aircraft sources fallback correctly to `altitude_m` or metric values.
     - **Corrected Velocity & Speed Scaling**: Implemented knots-to-meters/second speed conversion (`float(speed_kts) * 0.514444`) for aircraft and vessel entities to comply with the standard `track.speed` metric.
-    - **Unit Test Coverage**: Added comprehensive test cases in [test_cot_emitter.py](file:///c:/Projects/Vertex/poller/tests/test_cot_emitter.py) verifying UID resolution, altitude scaling, speed conversions, and timestamping calculations.
+    - **Unit Test Coverage**: Added comprehensive test cases in [test_cot_emitter.py](poller/tests/test_cot_emitter.py) verifying UID resolution, altitude scaling, speed conversions, and timestamping calculations.
 
 ## 2026-05-17 — Split-Scroll Layout Refactoring & Padding Fixes
 
 - **Global Filter & Icon System Overhaul**:
-    - **Interactive Toggles & Active Indicators**: Redesigned all 11 quick-filter buttons inside [Sidebar.tsx](file:///home/zbrain/Projects/Vertex/frontend/src/components/layout/Sidebar.tsx) (in both collapsed and expanded sidebar views) to **toggle** their respective map layers on and off independently, preserving the states of other active layers (exactly like settings panel checkboxes). Added gorgeous active-state styling: buttons are at full `opacity-100` when the corresponding map layer is enabled, and transition to a subtle `opacity-40` when toggled off.
-    - **Interactive 2-Column Grid**: Upgraded the static multi-row entity count spans in the expanded sidebar ([Sidebar.tsx](file:///home/zbrain/Projects/Vertex/frontend/src/components/layout/Sidebar.tsx)) into a premium, interactive **2-column grid of buttons** (with Cameras spanning the bottom row).
+    - **Interactive Toggles & Active Indicators**: Redesigned all 11 quick-filter buttons inside [Sidebar.tsx](frontend/src/components/layout/Sidebar.tsx) (in both collapsed and expanded sidebar views) to **toggle** their respective map layers on and off independently, preserving the states of other active layers (exactly like settings panel checkboxes). Added gorgeous active-state styling: buttons are at full `opacity-100` when the corresponding map layer is enabled, and transition to a subtle `opacity-40` when toggled off.
+    - **Interactive 2-Column Grid**: Upgraded the static multi-row entity count spans in the expanded sidebar ([Sidebar.tsx](frontend/src/components/layout/Sidebar.tsx)) into a premium, interactive **2-column grid of buttons** (with Cameras spanning the bottom row).
     - **Surfaced Train Layer**: Integrated the missing **Trains** data feed (`directions_railway` icon) into both the collapsed sidebar count list and the expanded 2-column interactive grid, adding full-fidelity train count tracking.
     - **TinyGS Station Icon Fix**: Replaced the confusing deprecated `'satellite'` icon (which rendered as a photo/landscape frame) with a clean, high-fidelity dish antenna icon (`'settings_input_antenna'`) in the search panel, detail card, and sidebar.
-    - **Unified Vessel, Mesh & Gauge Icons**: Standardized all Vessel icons to `'sailing'`, Mesh node icons to `'hub'`, and Stream Gauge icons to `'waves'` across all components ([Sidebar.tsx](file:///home/zbrain/Projects/Vertex/frontend/src/components/layout/Sidebar.tsx), [SettingsPanel.tsx](file:///home/zbrain/Projects/Vertex/frontend/src/components/layout/SettingsPanel.tsx), [CommsPanel.tsx](file:///home/zbrain/Projects/Vertex/frontend/src/components/panels/CommsPanel.tsx), [MeshFleetPanel.tsx](file:///home/zbrain/Projects/Vertex/frontend/src/components/panels/MeshFleetPanel.tsx), and [EntitySearchPanel.tsx](file:///home/zbrain/Projects/Vertex/frontend/src/components/panels/EntitySearchPanel.tsx)).
+    - **Unified Vessel, Mesh & Gauge Icons**: Standardized all Vessel icons to `'sailing'`, Mesh node icons to `'hub'`, and Stream Gauge icons to `'waves'` across all components ([Sidebar.tsx](frontend/src/components/layout/Sidebar.tsx), [SettingsPanel.tsx](frontend/src/components/layout/SettingsPanel.tsx), [CommsPanel.tsx](frontend/src/components/panels/CommsPanel.tsx), [MeshFleetPanel.tsx](frontend/src/components/panels/MeshFleetPanel.tsx), and [EntitySearchPanel.tsx](frontend/src/components/panels/EntitySearchPanel.tsx)).
 - **Tabbed Activity & Operation Center (Right Panel Overhaul)**:
     - Designed and implemented a tactical, high-fidelity horizontal **Tab Switcher** for the Comms Page's Right Panel to house **Mesh Chat**, **Mesh Fleet**, and **P25 Radio Log** as independent full-height workspaces.
     - Repositioned the **Recent P25 Activity log** from the Left Panel into its own dedicated **P25 Radio Log tab** on the right, expanding the telemetry capacity from 8 to **30 events** for a rich command-history feed.
@@ -523,7 +523,7 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 - **OP25 & APRS Spectral Health Monitors**:
     - Standardized all cards in the **Spectral Health** dashboard to share the identical premium dark card layout (`border-white/10 bg-white/5` with smooth `hover:bg-white/10` transition states), successfully replacing the high-contrast gold highlight style on the **Local Station** card to achieve cohesive visual integration.
     - Updated all card header icons (**OP25 Trunked Link**, **APRS Gateway**, **Mesh Monitor**, and **P2P Link**) to consistently use `text-amber-gold` to solidify a cohesive branding and tactical interface aesthetic.
-    - Integrated first-class **OP25 Trunked Link** and **APRS Gateway** monitors into the [SpectralMonitor](file:///home/zbrain/Projects/Vertex/frontend/src/components/panels/CommsPanel.tsx) section.
+    - Integrated first-class **OP25 Trunked Link** and **APRS Gateway** monitors into the [SpectralMonitor](frontend/src/components/panels/CommsPanel.tsx) section.
     - Designed a dynamic **OP25 Receiver Link card** that monitors live WebSocket state updates (`radio` store state). When active, it displays:
         - Connection status with pulse animations and glow indicators.
         - The exact active tuning frequency in MHz (e.g. `852.1250 MHz`).
@@ -534,7 +534,7 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
         - Total decoded station count.
         - The callsign and formatted age (`formatAge`) of the most recently heard station.
 - **2-Column Tactical Card Grid Layout, Filters & Sorting Toolbar**:
-    - Refactored [MeshFleetPanel.tsx](file:///home/zbrain/Projects/Vertex/frontend/src/components/panels/MeshFleetPanel.tsx) to replace the plain single-column table layout with a modern, high-density, **2-column grid layout** (`grid grid-cols-1 md:grid-cols-2 gap-2.5`).
+    - Refactored [MeshFleetPanel.tsx](frontend/src/components/panels/MeshFleetPanel.tsx) to replace the plain single-column table layout with a modern, high-density, **2-column grid layout** (`grid grid-cols-1 md:grid-cols-2 gap-2.5`).
     - Implemented a premium, responsive **tactical filter and sorting toolbar** at the top of the panel:
         - **Type Filters**: Toggle between **All**, **Repeaters**, **Clients**, and **Rooms** to isolate specific categories of mesh hardware or destinations instantly. Restructures pagination and resets view to page 1 on switch.
         - **Sort Options**: Switch between **Last Heard** (Default; dynamic check-in sequence) and **Nearest** (proximity search relative to configured operations center).
@@ -543,20 +543,20 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
     - Sourced and surfaced the calculated geo-distance data (`explore` distance in KM) next to each node, adding a highly valuable spatial awareness metric to the panel.
     - Updated `PAGE_SIZE` to `16` to guarantee a perfectly balanced double-row grid under all pagination states.
 - **Mesh Nodes Stale-Purging Fix**:
-    - Identified a client-side purging bug where `purgeStaleEntities` in [store.ts](file:///home/zbrain/Projects/Vertex/frontend/src/store.ts) was aggressively purging mesh nodes seen more than 1 hour ago (`STALE_MS.mesh_node = 3_600_000`).
+    - Identified a client-side purging bug where `purgeStaleEntities` in [store.ts](frontend/src/store.ts) was aggressively purging mesh nodes seen more than 1 hour ago (`STALE_MS.mesh_node = 3_600_000`).
     - This mismatch caused the list of 101 mesh nodes (some seen up to 125 hours ago, representing semi-permanent infrastructure) to load on initial WebSocket connection snapshot and then snap back/disappear 10 seconds later, leaving only 12 active nodes and hiding the pagination footer.
     - Fixed by increasing `STALE_MS.mesh_node` from 1 hour to 7 days (`604_800_000` ms) to align with the backend's persistent nature for mesh infrastructure, ensuring the entire fleet of 101 nodes and the page layout remain persistent and stable.
 - **UI Layout & Density**:
-    - Relocated [MeshFleetPanel.tsx](file:///home/zbrain/Projects/Vertex/frontend/src/components/panels/MeshFleetPanel.tsx) (the Mesh Nodes panel) from the Left Column tabbed interface to the Right Column directly below the Network Messaging chat interface in [CommsPanel.tsx](file:///home/zbrain/Projects/Vertex/frontend/src/components/panels/CommsPanel.tsx).
+    - Relocated [MeshFleetPanel.tsx](frontend/src/components/panels/MeshFleetPanel.tsx) (the Mesh Nodes panel) from the Left Column tabbed interface to the Right Column directly below the Network Messaging chat interface in [CommsPanel.tsx](frontend/src/components/panels/CommsPanel.tsx).
     - Refactored the Left Column to solely focus on Spectral Health, eliminating the tabs, simplifying the header actions, and removing the unused `healthTab` state.
-    - Updated the Right Column to have a smooth scroll wrapper (`lg:overflow-y-auto custom-scrollbar`) on desktop with a height of `lg:h-full` and padding-bottom `pb-28 lg:pb-36` to ensure both the chat interface and the Mesh Network Nodes list are visible, perfectly scrollable, and clear the [TacticalAudio](file:///home/zbrain/Projects/Vertex/frontend/src/components/panels/TacticalAudio.tsx) player bar.
+    - Updated the Right Column to have a smooth scroll wrapper (`lg:overflow-y-auto custom-scrollbar`) on desktop with a height of `lg:h-full` and padding-bottom `pb-28 lg:pb-36` to ensure both the chat interface and the Mesh Network Nodes list are visible, perfectly scrollable, and clear the [TacticalAudio](frontend/src/components/panels/TacticalAudio.tsx) player bar.
     - Fixed the Chat container's height to a stable `h-[450px] lg:h-[500px]` to maintain independent messaging scrolls inside the larger scrolling pane.
-    - Refactored [CommsPanel.tsx](file:///home/zbrain/Projects/Vertex/frontend/src/components/panels/CommsPanel.tsx) to use the split-scrolling pane architecture inspired by the Flight Log dashboard.
+    - Refactored [CommsPanel.tsx](frontend/src/components/panels/CommsPanel.tsx) to use the split-scrolling pane architecture inspired by the Flight Log dashboard.
     - Set the Left Column (RF & Signal monitors) to be independently scrollable on desktop (`lg:overflow-y-auto lg:h-full`) with a fixed width of `420px`.
     - Made the Right Column (Mesh Chat Box) dynamically expand to fill the full viewport height (`flex-1 lg:h-full`) and set a responsive `min-h-[450px]` on mobile to prevent collapsing.
     - Eliminated the nested scrollbar UX anti-pattern on desktop by removing the hardcoded `800px` height restriction on the chat container.
-    - Applied the `pb-28 lg:pb-36` bottom padding standard to both columns to ensure content clears the absolute-positioned [TacticalAudio](file:///home/zbrain/Projects/Vertex/frontend/src/components/panels/TacticalAudio.tsx) playbar.
-    - Increased bottom scroll padding on the Selected Aircraft Info Panel in [FlightLogPanel.tsx](file:///home/zbrain/Projects/Vertex/frontend/src/components/panels/FlightLogPanel.tsx) (`pb-28 lg:pb-36` instead of `pb-24`) to ensure bottom-most contents (such as ACARS messages) remain fully readable and unobstructed by the playbar.
+    - Applied the `pb-28 lg:pb-36` bottom padding standard to both columns to ensure content clears the absolute-positioned [TacticalAudio](frontend/src/components/panels/TacticalAudio.tsx) playbar.
+    - Increased bottom scroll padding on the Selected Aircraft Info Panel in [FlightLogPanel.tsx](frontend/src/components/panels/FlightLogPanel.tsx) (`pb-28 lg:pb-36` instead of `pb-24`) to ensure bottom-most contents (such as ACARS messages) remain fully readable and unobstructed by the playbar.
 
 ## 2026-05-16 — Tactical Dashboard Unification & Fire Perimeter Reliability
 
@@ -709,7 +709,7 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 
 ## 2026-05-14 — Fixed live radio stream playback via proxy endpoint
 
-- Root cause: TacticalAudio component was attempting to play external stream URLs directly (e.g., `http://192.168.10.20:8000/op25`). Browsers cannot reach private network IPs, and direct playback fails due to CORS and network isolation.
+- Root cause: TacticalAudio component was attempting to play external stream URLs directly (e.g., `http://<sdr-host>:8000/op25`). Browsers cannot reach private network IPs, and direct playback fails due to CORS and network isolation.
 - Solution: Created backend stream proxy endpoint `/api/v1/radio/proxy/{stream_id}` that:
     - Fetches the external stream URL server-side via `httpx.AsyncClient`
     - Proxies the audio stream back to the browser as `StreamingResponse`
@@ -797,7 +797,7 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 - Validation:
     - `cd frontend && npm install && npx tsc --noEmit` ✓
     - `docker compose config --quiet` ✓
-    - `c:/Projects/Vertex/.venv/Scripts/python.exe -m py_compile backend/routers/admin_debug.py` ✓
+    - `.venv/Scripts/python.exe -m py_compile backend/routers/admin_debug.py` ✓
 
 ## 2026-05-11 — Documented poller distance/BBOX filtering and clarified METAR empty-state messaging
 
@@ -1836,7 +1836,7 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 
 ## 2026-04-28 — Documented BEAST implementation tracker
 
-- Added [research/beast-update-implimentation-tracker.md](c:/Projects/Vertex/research/beast-update-implimentation-tracker.md) to capture the current BEAST/Ultrafeeder refactor status against the research plan.
+- Added [research/beast-update-implimentation-tracker.md](research/beast-update-implimentation-tracker.md) to capture the current BEAST/Ultrafeeder refactor status against the research plan.
 - Documented implemented features, partial gaps, runtime fixes, validation status, config flags, and recommended next steps so future work can resume from a single tracker file.
 
 ## 2026-04-28 — Restored aircraft trails in BEAST snapshot mode
@@ -2104,3 +2104,10 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 - **Ameriflight was flagged air ambulance**: my callsign table guessed `AMF` = air medical; AMF is Ameriflight, a cargo carrier. The guessed prefixes (AMF, LFN, LIFE, CGN) are gone — only prefixes checked against real data remain (REH = REACH Air Medical per hexdb.io, RCH/PAT military, TANKER/RESCUE/DUSTOFF). Found by dry-running the classifier over every local aircraft (16k hexes): the N###LF marking now applies only to rotorcraft (a private Van's RV-7 wore N13LF), and owner lists ("… HARTFORD FIRE INSURANCE CO") skip lenders/insurers; fire keywords need "fire department/service/aviation/fighting", not any "FIRE". 5 wrong `special_aircraft` events deleted.
 - **Owner/operator for every aircraft on first sight**: the local tar1090 DB (`aircraft_db.csv.gz`) has a registered-owner column (and a flags byte) the loader ignored; `AircraftDb.lookup_owner/lookup_flags` now expose them, and `identity.operator` is filled from it when adsbdb has nothing. (~8.2k of the 9.6k aircraft seen locally have an owner.)
 - **External plane feed**: OpenSky returned 429 with `x-rate-limit-retry-after-seconds` ≈ 36 000 (daily credits gone, even with the configured account), so only the local BEAST receiver showed. New **community supplement** (`adsb_community_*`): airplanes.live, falling back to adsb.fi, every 15 s, no daily quota, and it carries registration/type/owner (source `community`, dimmed like OpenSky on the map). OpenSky now honours `Retry-After` instead of guessing/hammering. Frontend treats `community` like `opensky` (`isSupplementSource`). Aircraft on the map went from ~13 to ~43 immediately.
+
+## 2026-09-29 — Repository cleanup and agent-rule consolidation
+- Folded `Agents.md` into `CLAUDE.md` (one source of truth); `AGENTS.md` is now a short pointer so other agents find the rules. Added a **Privacy & Repository Hygiene** section: never commit working-directory paths, usernames, LAN IPs, real coordinates, or secrets.
+- Removed bot/agent noise (`.jules/`, `research/archive/`); kept the current research notes under `docs/notes/` and moved the design-system and icon-atlas pages to `docs/design/`.
+- Scrubbed absolute machine paths and a LAN IP from `TASK_LOG.md`, `.claude/` commands and hook, and the research notes; the SessionStart hook now derives the repo root instead of hardcoding it.
+- Refreshed stale docs (`CLAUDE.md` container/poller counts, feature overview for aircraft feeds, roles, infrastructure and radio).
+- Added `.dockerignore` files, `SECURITY.md`, `CONTRIBUTING.md`, issue/PR templates and Dependabot config; renamed `db/init/10_mqtt_sources.sql` to `11_` to remove the duplicate `10_` prefix.
