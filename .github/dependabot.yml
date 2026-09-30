@@ -39,6 +39,10 @@ updates:
       # Passlib 1.7.4. Revisit with a coordinated password-hashing migration.
       - dependency-name: bcrypt
         update-types: ["version-update:semver-major"]
+      # Vertex's BEAST decoder intentionally uses the pyModeS 2.x API. The
+      # 3.x API is incompatible and causes the decoder coverage to be skipped.
+      - dependency-name: pymodes
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: docker
     directory: /frontend

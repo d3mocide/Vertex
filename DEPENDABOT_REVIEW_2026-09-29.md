@@ -77,3 +77,17 @@ Security-update PRs remain independent from routine grouped version updates so u
 - Base, MQTT, TLS, and development Compose rendering: passed.
 
 The poller suite still reports two P25 recorder tasks pending at event-loop teardown after all assertions pass; this remains documented test-cleanup debt unrelated to these dependency versions.
+
+## Post-push reconciliation (2026-09-30)
+
+After the consolidated commit reached `main`, Dependabot applied the new grouping policy and opened five replacement PRs. Their dispositions are:
+
+| PR | Request | Disposition | Evidence |
+|---|---|---|---|
+| #164 | Grouped routine Python updates | Incorporated | Production locks were regenerated; backend and poller suites, all service image builds, transcription imports, and all three vulnerability audits pass. |
+| #165 | backend python-dateutil 2.9.0.post0 | Incorporated | Included in the regenerated backend lock and full backend suite. |
+| #166 | poller python-dateutil 2.9.0.post0 | Incorporated | Included in the regenerated poller lock and full poller suite. |
+| #167 | pyModeS 3.6.0 | Rejected | Vertex requires the pyModeS 2.x decoder API. The PR's green poller run skipped the v2-only decoder tests, so it did not establish compatibility. Major pyModeS updates are now ignored pending a deliberate decoder migration. |
+| #168 | poller websockets 17.1 | Incorporated | The poller image, WebSocket call sites, and all 357 poller tests pass with the regenerated lock. |
+
+This follow-up also found that Dependabot edits the direct `requirements.txt` manifests but not the `requirements.lock` files installed by CI and production images. `scripts/check_python_locks.py` is now part of the dependency-audit job, so a dependency PR cannot receive a green audit while leaving the production lock stale.
