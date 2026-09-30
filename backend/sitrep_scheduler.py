@@ -18,7 +18,7 @@ from sqlalchemy import select
 from db.models import AlertRule
 from db.session import async_session_factory
 from redis_bus import get_redis
-from security import validate_webhook_url_async
+from security import send_pinned_http_request, validate_webhook_url_async
 
 logger = logging.getLogger(__name__)
 
@@ -63,13 +63,15 @@ async def _generate_and_deliver(rule: AlertRule) -> None:
         headers = cfg.get("headers") if isinstance(cfg.get("headers"), dict) else {}
         try:
             async with httpx.AsyncClient(timeout=30) as client:
-                resp = await client.post(
+                resp = await send_pinned_http_request(
+                    client,
+                    "POST",
                     delivery_url,
                     content=md_text.encode(),
                     headers={"Content-Type": "text/markdown", **headers},
                 )
                 resp.raise_for_status()
-            logger.info("[sitrep_sched] delivered rule=%s to %s", rule.id, delivery_url)
+            logger.info("[sitrep_sched] delivered rule=%s", rule.id)
         except Exception as exc:
             logger.warning("[sitrep_sched] delivery failed rule=%s: %s", rule.id, exc)
     else:

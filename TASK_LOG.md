@@ -2166,3 +2166,19 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 - **Summary poller** now heartbeats while generating a briefing (`streaming()`), fixing a false "stopped checking in" during every generation.
 - **Region page** in the admin console (moved out of the map's Settings panel): current region and its source, region packs with key status, which regional data sources are active and why not, and the setup wizard behind "Change region". The first-run gate on the main app is unchanged. **Alerts** page lists rules first with the form behind "+ Add rule"; **Debug** board gained a live poller-health column.
 - Findings, not changed: mesh nodes and stream gauges write a full observation every poll even when nothing moved, roughly a third of daily observation volume (roadmap O10).
+
+## 2026-09-29 — Full security remediation and upstream region integration
+
+- Completed a whole-application security review and remediated the identified authentication/session, authorization, secret-redaction, SSRF, request/GeoJSON/WebSocket limits, browser cache/header, dependency, container, network-default, and supply-chain findings. The durable evidence and operator migration checklist are in `SECURITY_REVIEW_2026-09-29.md`.
+- Replaced browser-stored/query-string bearer tokens with revocable HttpOnly cookie sessions; authentication-disabled deployments are now viewer-only, and setup/admin/debug/configuration writes require current server-side authorization.
+- Added DNS-pinned outbound request handling with redirect revalidation and an exact private-host allowlist; moved MeshCore credentials to `MESHCORE_API_KEY`; redacted credentials from client responses and logs.
+- Made PostgreSQL/Redis secrets mandatory, made MQTT opt-in/authenticated/loopback-only, pinned container images/actions/datasets, moved application images to non-root/read-only/capability-dropped execution, and regenerated exact dependency locks.
+- Fast-forwarded to upstream `b65ee0d` and resolved the `App.tsx` and `poller/config.py` conflicts while retaining runtime region/setup behavior. The Git remote now uses HTTPS.
+- Verified: backend 248 passed/3 skipped; poller 357 passed; frontend production build passed; npm and all three Python lock audits found no known vulnerabilities; all application images built; base/MQTT/TLS/development Compose configurations parsed. Remaining manual gates are documented in the review.
+
+## 2026-09-29 — Dependabot backlog consolidated and validated
+
+- Reviewed all 25 open Dependabot PRs (#139–#163). Seven were already covered, fifteen valid requests were incorporated into the audited manifests/locks/action pins, and three majors were rejected: Node 26 (stay on digest-pinned Node 24 LTS), bcrypt 5 (Passlib and >72-byte password incompatibility), and the incomplete React 19 update (ReactDOM remained 18). Full disposition and evidence: `DEPENDABOT_REVIEW_2026-09-29.md`.
+- Aligned shared Python dependencies across services: asyncpg 0.31.0, Redis 8.1.0, and pydantic-settings 2.15.0; accepted HTTPX 0.28.1, LiteLLM 1.102.1, aiomqtt 2.5.1, feedparser 6.0.14, and sgp4 2.27. Regenerated all Python 3.12 locks.
+- Upgraded checkout/setup-python/setup-node to validated v7 releases pinned by immutable commit SHA. Reworked Dependabot configuration to group routine updates across Python directories/ecosystems and explicitly defer coordinated major migrations, reducing future one-package PR floods.
+- Verification remained green: backend 248 passed/3 skipped; poller 357 passed; authenticated Redis integration passed from all Python images; LiteLLM/poller API smokes passed; all Python locks and npm audit report no known vulnerabilities.

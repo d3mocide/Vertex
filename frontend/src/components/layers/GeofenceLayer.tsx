@@ -1,5 +1,5 @@
 import { useEffect, useCallback } from 'react'
-import maplibregl from 'maplibre-gl'
+import * as maplibregl from 'maplibre-gl'
 import { useCivicStore } from '../../store'
 import { API_BASE } from '../../config'
 import { authHeaders } from '../../auth'

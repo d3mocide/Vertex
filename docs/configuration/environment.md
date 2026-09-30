@@ -15,7 +15,8 @@ cp .env.example .env
 | `POSTGRES_DB` | PostgreSQL database name | Used by the Compose database container |
 | `POSTGRES_USER` | PostgreSQL username | Used during database initialization |
 | `POSTGRES_PASSWORD` | PostgreSQL password | Change from the example value before shared deployment |
-| `REDIS_URL` | Redis connection URL | Consumed by backend and poller |
+| `REDIS_PASSWORD` | Required Redis password | Compose injects it into each service URL |
+| `REDIS_URL` | Redis connection URL | Normally supplied by Compose; include authentication for direct runs |
 | `FRONTEND_PORT` | Host port for the frontend container | Defaults to `80` |
 | `LOG_LEVEL` | Application log verbosity | Typical values: `DEBUG`, `INFO`, `WARNING`, `ERROR` |
 
@@ -179,11 +180,14 @@ Runs in the `transcription` container. Transcribes P25 call recordings either lo
 
 | Variable | Purpose |
 |----------|---------|
-| `AUTH_ENABLED` | Enables application login |
-| `AUTH_SECRET_KEY` | JWT signing secret |
-| `AUTH_TOKEN_EXPIRE_HOURS` | Token lifetime in hours |
+| `AUTH_ENABLED` | Enables login and all configuration writes; when `false`, the API is viewer-only |
+| `AUTH_SECRET_KEY` | JWT signing secret (at least 32 characters) |
+| `AUTH_TOKEN_EXPIRE_HOURS` | Session lifetime in hours |
+| `AUTH_COOKIE_SECURE` | Send the HttpOnly session cookie only over HTTPS; the TLS overlay enables this |
+| `ALLOWED_HOSTS` | JSON Host-header allowlist; add the LAN IP or DNS name used to reach Vertex |
+| `TRUSTED_PROXIES` | JSON CIDR list allowed to supply client-IP forwarding headers |
 
-Use a strong random value for `AUTH_SECRET_KEY` before enabling authentication.
+Use a strong random value for `AUTH_SECRET_KEY` before enabling authentication. Tokens are held in an HttpOnly SameSite cookie, and role changes or password resets revoke existing sessions. Leave authentication disabled only for a deliberately read-only viewer deployment.
 
 ## CORS and TLS
 
@@ -191,7 +195,7 @@ Use a strong random value for `AUTH_SECRET_KEY` before enabling authentication.
 |----------|---------|
 | `CORS_ORIGINS` | JSON array of allowed origins for CORS | Example: `["http://localhost:3000"]` |
 | `CORS_ALLOW_CREDENTIALS` | Whether to allow credentialed cross-origin requests |
-| `TLS_CERT_PATH` | Path to TLS certificate (used with the `tls` Compose profile) |
+| `TLS_CERT_PATH` | Path to TLS certificate (used with the TLS Compose overlay) |
 | `TLS_KEY_PATH` | Path to TLS private key |
 
 ## Transit (TriMet)
@@ -238,7 +242,8 @@ In addition to the settings above:
 
 | Variable | Purpose |
 |----------|---------|
-| `MQTT_ENABLED`, `MQTT_PORT` | Built-in Mosquitto broker for IoT sensors (rtl_433, Meshtastic, AIS-catcher) |
+| `MQTT_ENABLED`, `MQTT_PORT` | MQTT ingestion settings; the bundled broker starts only with `--profile mqtt` |
+| `MQTT_BIND_ADDRESS`, `MQTT_USERNAME`, `MQTT_PASSWORD` | Bundled broker bind address and required credentials; loopback-only by default |
 | `MQTT_<SOURCE>_USERNAME` / `_PASSWORD` | Credentials for an authenticated MQTT source, named after the source in `sources.yml` (e.g. `MQTT_REMOTE_BROKER_USERNAME`) |
 | `ACARS_ENABLED` | Enables the ACARS decoder feed |
 | `FLASHALERT_ENABLED`, `FLASHALERT_URL` | FlashAlert feed fallback / URL override |
@@ -251,14 +256,15 @@ In addition to the settings above:
 | `COT_ENTITY_TYPES` | Entity types emitted over CoT (comma-separated, empty = all) |
 | `ADVISORY_RADIUS_KM` | "Nearby" radius for the advisory bar and sidebar |
 | `BOUNDARY_ZIP_LOOKUP_ENABLED` | Geofence ZIP boundaries come from US Census TIGERweb (sends the ZIP to census.gov); `false` keeps lookups local |
-| `ALLOW_PRIVATE_IPS` | SSRF guard switch: outbound requests from the weather, alerts, transit and similar pollers (and admin probes) are refused when they resolve to loopback/LAN addresses unless this is `true`. Leave `false` unless a feed you configured lives on a private address |
+| `PRIVATE_HOST_ALLOWLIST` | JSON list of exact hostnames or IPs intentionally allowed to resolve to private ranges. Prefer the smallest possible list |
+| `ALLOW_PRIVATE_IPS` | Deprecated and ignored; retained only so older environment files fail closed |
 
 ## Recommended Editing Order
 
-1. Set database and Redis values if your deployment differs from Compose defaults.
+1. Set unique database and Redis passwords (both are required by Compose).
 2. Update the region center and bounding box.
 3. Fill in required feed API keys.
-4. Enable optional analytics or auth features.
+4. Enable authentication before using setup or any configuration write.
 5. Pair the `.env` changes with matching feed definitions in `config/sources.yml`.
 
 For source definitions, continue with [Source Configuration](sources.md).

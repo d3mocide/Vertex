@@ -3,28 +3,37 @@ from datetime import datetime, timezone
 from typing import Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, model_validator
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from db.models import Annotation
 from deps import get_db
 from redis_bus import get_redis
+from geo_validation import validate_geojson_limits
 
 router = APIRouter(prefix="/annotations", tags=["annotations"])
 
 
 class AnnotationCreate(BaseModel):
     annotation_type: Literal["marker", "line", "polygon"]
-    label: Optional[str] = None
-    color: str = "#FFB800"
+    label: Optional[str] = Field(default=None, max_length=256)
+    color: str = Field(default="#FFB800", pattern=r"^#[0-9A-Fa-f]{6}$")
     geojson: dict
     expires_at: Optional[datetime] = None
 
+    @model_validator(mode="after")
+    def validate_geometry(self):
+        validate_geojson_limits(self.geojson)
+        expected = {"marker": {"Point"}, "line": {"LineString", "MultiLineString"}, "polygon": {"Polygon", "MultiPolygon"}}
+        if self.geojson.get("type") not in expected[self.annotation_type]:
+            raise ValueError(f"Geometry type does not match annotation_type={self.annotation_type}")
+        return self
+
 
 class AnnotationUpdate(BaseModel):
-    label: Optional[str] = None
-    color: Optional[str] = None
+    label: Optional[str] = Field(default=None, max_length=256)
+    color: Optional[str] = Field(default=None, pattern=r"^#[0-9A-Fa-f]{6}$")
     expires_at: Optional[datetime] = None
     clear_expiry: bool = False  # set true to make permanent
 

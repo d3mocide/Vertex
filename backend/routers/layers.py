@@ -1,4 +1,3 @@
-import json
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -8,6 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from deps import get_db
+from geo_validation import validate_geojson_limits
 from db.models import CustomLayer
 
 router = APIRouter(prefix="/layers", tags=["layers"])
@@ -22,9 +22,7 @@ class LayerCreate(BaseModel):
     @field_validator("geojson")
     @classmethod
     def validate_geojson_size(cls, v: dict) -> dict:
-        if len(json.dumps(v)) > 5 * 1024 * 1024:
-            raise ValueError("GeoJSON payload exceeds 5 MB limit")
-        return v
+        return validate_geojson_limits(v)
 
 
 class LayerUpdate(BaseModel):

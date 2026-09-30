@@ -3,7 +3,7 @@ import math
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from geoalchemy2.shape import from_shape, to_shape
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from shapely.geometry import MultiPolygon, Polygon, mapping, shape
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,21 +11,22 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from boundaries import BoundaryLookupError, search_boundaries
 from deps import get_db
 from db.models import Geofence
+from geo_validation import validate_geojson_limits
 
 router = APIRouter(prefix="/geofences", tags=["geofences"])
 
 
 class GeofencePayload(BaseModel):
-    name: str
-    description: Optional[str] = None
-    zone_type: str = "alert"
+    name: str = Field(min_length=1, max_length=128)
+    description: Optional[str] = Field(default=None, max_length=1024)
+    zone_type: str = Field(default="alert", min_length=1, max_length=32)
     active: bool = True
     geofence_shape: Literal["polygon", "circle"] = "polygon"
-    dwell_seconds: int = 0
+    dwell_seconds: int = Field(default=0, ge=0, le=604800)
     geojson_polygon: Optional[dict] = None
-    center_lat: Optional[float] = None
-    center_lon: Optional[float] = None
-    radius_m: Optional[float] = None
+    center_lat: Optional[float] = Field(default=None, ge=-90, le=90)
+    center_lon: Optional[float] = Field(default=None, ge=-180, le=180)
+    radius_m: Optional[float] = Field(default=None, gt=0, le=100_000)
 
 
 class GeofenceResponse(BaseModel):
@@ -59,10 +60,17 @@ def _to_response(fence: Geofence) -> GeofenceResponse:
 
 
 def _parse_polygon(geojson: dict) -> Polygon | MultiPolygon:
-    poly = shape(geojson)
+    try:
+        validate_geojson_limits(geojson)
+        poly = shape(geojson)
+    except (TypeError, ValueError) as exc:
+        raise HTTPException(400, f"Invalid polygon geometry: {exc}") from exc
     # MultiPolygon: city limits with detached parcels (e.g. Portland, Lake Oswego).
     if not isinstance(poly, (Polygon, MultiPolygon)):
         raise HTTPException(400, "Geometry must be a Polygon or MultiPolygon")
+    min_lon, min_lat, max_lon, max_lat = poly.bounds
+    if min_lon < -180 or max_lon > 180 or min_lat < -90 or max_lat > 90:
+        raise HTTPException(400, "Geometry coordinates are outside WGS84 bounds")
     if not poly.is_valid:
         poly = poly.buffer(0)  # attempt repair
     if not poly.is_valid:

@@ -1,5 +1,7 @@
 import asyncio
 import json
+import math
+from urllib.parse import urlparse
 from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
 from sqlalchemy import select
 from auth_middleware import _hash_api_key
@@ -17,21 +19,33 @@ _WS_UNAUTHORIZED = 4401
 
 
 async def _ws_authorized(ws: WebSocket) -> bool:
-    """The HTTP auth middleware never sees websocket requests, so every
-    websocket route checks here. Browsers pass their JWT as ?token=; other
-    clients may send X-API-Key."""
+    """Authenticate WebSockets without placing credentials in the URL."""
     if not settings.auth_enabled:
         return True
+
+    origin = ws.headers.get("origin", "")
+    if origin:
+        parsed = urlparse(origin)
+        origin_host = parsed.netloc.lower()
+        request_host = ws.headers.get("host", "").lower()
+        if origin_host != request_host and origin.rstrip("/") not in settings.cors_origins:
+            return False
+
     api_key = ws.headers.get("x-api-key", "")
     if api_key:
         async with async_session_factory() as db:
             user_id = await db.scalar(select(User.id).where(User.api_key_hash == _hash_api_key(api_key)))
         return user_id is not None
+
+    token = ws.cookies.get("vertex_session", "")
     try:
-        decode_token(ws.query_params.get("token", ""))
+        payload = decode_token(token)
     except HTTPException:
         return False
-    return True
+    username = str(payload.get("sub") or "")
+    async with async_session_factory() as db:
+        user = await db.scalar(select(User).where(User.username == username))
+    return bool(user and int(payload.get("ver", -1)) == (user.token_version or 0))
 
 
 def _entity_passes_filter(
@@ -130,6 +144,9 @@ async def websocket_endpoint(ws: WebSocket):
                 try:
                     while True:
                         text = await ws.receive_text()
+                        if len(text) > 16 * 1024:
+                            await ws.close(code=1009)
+                            return
                         try:
                             msg = json.loads(text)
                         except (json.JSONDecodeError, TypeError, ValueError):
@@ -147,7 +164,9 @@ async def websocket_endpoint(ws: WebSocket):
                                 if (
                                     isinstance(new_bbox, list)
                                     and len(new_bbox) == 4
-                                    and all(isinstance(v, (int, float)) for v in new_bbox)
+                                    and all(isinstance(v, (int, float)) and math.isfinite(v) for v in new_bbox)
+                                    and -180 <= new_bbox[0] <= new_bbox[2] <= 180
+                                    and -90 <= new_bbox[1] <= new_bbox[3] <= 90
                                 ):
                                     pass  # valid
                                 else:
@@ -157,8 +176,8 @@ async def websocket_endpoint(ws: WebSocket):
                             if new_entity_types is not None:
                                 if (
                                     isinstance(new_entity_types, list)
-                                    and len(new_entity_types) > 0
-                                    and all(isinstance(t, str) for t in new_entity_types)
+                                    and 0 < len(new_entity_types) <= 32
+                                    and all(isinstance(t, str) and len(t) <= 64 for t in new_entity_types)
                                 ):
                                     pass  # valid
                                 else:

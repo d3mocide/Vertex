@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from db.models import AlertRule
 from deps import get_db
 from security import validate_webhook_url_async
+from redaction import redact_mapping
 
 router = APIRouter(prefix="/alertrules", tags=["alertrules"])
 
@@ -71,7 +72,15 @@ class AlertRuleResponse(BaseModel):
 async def list_alert_rules(db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(AlertRule).order_by(AlertRule.id))
     rows = result.scalars().all()
-    return [AlertRuleResponse.model_validate(r, from_attributes=True) for r in rows]
+    return [
+        AlertRuleResponse(
+            **{
+                **AlertRuleResponse.model_validate(r, from_attributes=True).model_dump(),
+                "action_config": redact_mapping(r.action_config or {}),
+            }
+        )
+        for r in rows
+    ]
 
 
 @router.post("", response_model=AlertRuleResponse, status_code=201)
@@ -99,7 +108,8 @@ async def create_alert_rule(body: AlertRuleCreate, db: AsyncSession = Depends(ge
     db.add(rule)
     await db.commit()
     await db.refresh(rule)
-    return AlertRuleResponse.model_validate(rule, from_attributes=True)
+    response = AlertRuleResponse.model_validate(rule, from_attributes=True)
+    return response.model_copy(update={"action_config": redact_mapping(rule.action_config or {})})
 
 
 @router.patch("/{rule_id}", response_model=AlertRuleResponse)
@@ -122,7 +132,8 @@ async def update_alert_rule(rule_id: int, body: AlertRuleUpdate, db: AsyncSessio
     rule.updated_at = datetime.now(timezone.utc)
     await db.commit()
     await db.refresh(rule)
-    return AlertRuleResponse.model_validate(rule, from_attributes=True)
+    response = AlertRuleResponse.model_validate(rule, from_attributes=True)
+    return response.model_copy(update={"action_config": redact_mapping(rule.action_config or {})})
 
 
 @router.delete("/{rule_id}", status_code=204)

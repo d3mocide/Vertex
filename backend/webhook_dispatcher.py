@@ -8,7 +8,7 @@ from sqlalchemy import select
 from db.models import AlertRule
 from db.session import async_session_factory
 from redis_bus import subscribe_updates, get_redis
-from security import validate_webhook_url_async
+from security import send_pinned_http_request, validate_webhook_url_async
 
 logger = logging.getLogger(__name__)
 
@@ -117,7 +117,9 @@ async def _dispatch_webhook(rule: AlertRule, event: dict) -> None:
 
     try:
         async with httpx.AsyncClient(timeout=timeout) as client:
-            resp = await client.post(url, json=payload, headers=headers)
+            resp = await send_pinned_http_request(
+                client, "POST", url, json=payload, headers=headers
+            )
             resp.raise_for_status()
         logger.info("[webhook] delivered rule=%s event=%s", rule.id, event.get("event_id"))
     except Exception as exc:

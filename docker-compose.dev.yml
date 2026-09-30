@@ -11,7 +11,7 @@ services:
       context: ./frontend
       target: build
     # Override the nginx image entrypoint with the Vite dev server
-    command: npm run dev -- --host 0.0.0.0 --port 80
+    command: npm run dev -- --host 0.0.0.0 --port 8080
     environment:
       VITE_RADAR_LAYER: ${VITE_RADAR_LAYER:-RTX-N0B-0}
       VITE_OBSERVATION_RANGE_KM: ${VITE_OBSERVATION_RANGE_KM:-50}

@@ -64,7 +64,7 @@ One compose file, seven containers.
 |-----------|------|-------------|
 | `db` | PostgreSQL 16 + PostGIS 3.4 | `db/` init scripts |
 | `redis` | State cache + pub/sub event bus | Stock image |
-| `mosquitto` | MQTT broker for IoT sensors (rtl_433, Meshtastic) | Stock image |
+| `mosquitto` | Opt-in, authenticated MQTT broker for IoT sensors (rtl_433, Meshtastic) | Digest-pinned stock image |
 | `backend` | FastAPI REST + WebSocket API | `backend/main.py` |
 | `poller` | Async pollers for every data source | `poller/main.py` |
 | `transcription` | Speech-to-text for recorded radio calls | `transcription/` |

@@ -22,6 +22,8 @@ from normalizers.beast_decoder import BeastAircraftDecoder
 from normalizers.aircraft import normalize_opensky, normalize_tar1090
 from normalizers.beast_math import haversine_km as _haversine_km
 from .base import BasePoller
+from redaction import redact_url
+from security import validate_safe_url
 
 logger = logging.getLogger(__name__)
 
@@ -92,10 +94,16 @@ class AdsbPoller(BasePoller):
             rows = await get_pool().fetch(
                 "SELECT url FROM poller_sources WHERE type = 'adsb' AND enabled = TRUE"
             )
-            next_urls = [row["url"] for row in rows]
+            next_urls = []
+            for row in rows:
+                try:
+                    await validate_safe_url(row["url"], allowed_schemes={"http", "https"})
+                    next_urls.append(row["url"])
+                except ValueError as exc:
+                    logger.warning("[adsb] blocked unsafe source %s: %s", redact_url(row["url"]), exc)
             if next_urls != self._source_urls:
                 self._source_urls = next_urls
-                logger.info("[adsb] sources updated: %s", self._source_urls)
+                logger.info("[adsb] %d source(s) updated", len(self._source_urls))
         except Exception as exc:
             logger.warning("[adsb] failed to refresh sources from DB: %s", exc)
 

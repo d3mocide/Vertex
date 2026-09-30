@@ -1,0 +1,108 @@
+# Vertex Security Review and Remediation
+
+**Review date:** 2026-09-29
+**Integrated upstream commit:** `b65ee0d`
+**Scope:** backend, poller, frontend, WebSocket and service-worker behavior, container and Compose configuration, CI, dependency manifests and locks, source configuration, database initialization, and operator documentation.
+
+## Outcome
+
+The review found authentication/session, secret-handling, SSRF, network exposure, dependency, input-boundary, browser-cache, and supply-chain weaknesses. The code and configuration findings identified in this pass have been remediated. No known unresolved code finding remains from this review.
+
+This is not a claim that a deployed Vertex installation is penetration-tested. Live TLS, browser workflows, real feed endpoints, secret rotation, upgrade migration, and operating-system package CVEs still require the deployment checks listed below.
+
+## Remediated findings
+
+| ID | Severity | Finding | Resolution |
+|---|---|---|---|
+| AUTH-01 | Critical | Disabling authentication also disabled authorization, leaving mutating configuration routes writable. | Authentication-disabled mode is now deliberately viewer-only. Writes, setup, admin, debug, source, and alert-rule administration require an authenticated admin session. |
+| AUTH-02 | High | JWT role claims remained authoritative until expiry, so role/password changes did not revoke sessions. | Tokens now carry a user token version and unique ID. Every protected request resolves the current user and token version from the database; password and role changes revoke existing sessions. |
+| AUTH-03 | High | Browser tokens were persisted in web storage and accepted in a WebSocket query parameter, increasing exposure through script access, URLs, logs, and history. | Sessions use an HttpOnly, SameSite=Strict cookie. The frontend keeps only non-secret display state in session storage. WebSockets authenticate from the cookie and reject cross-origin handshakes. |
+| AUTH-04 | High | First-admin setup could race and create more than one initial administrator. | Setup is serialized with a database advisory lock and rechecks account state inside the lock. Authentication endpoints are rate-limited. |
+| AUTH-05 | Medium | Cookie-authenticated state changes lacked an explicit cross-site request check. | Mutating cookie-authenticated requests require the custom Vertex client header. SameSite cookies and a strict origin allowlist provide additional layers. |
+| PATH-01 | High | Authorization decisions depended on request-path handling that could diverge behind proxies or unusual ASGI paths. | Middleware now uses the canonical ASGI path and exact/prefix route sets. Forwarded client IPs are trusted only from configured proxy networks and must parse as IP addresses. |
+| SSRF-01 | High | Outbound webhook, sitrep, radio, MeshCore, and admin-debug connections could be redirected or DNS-rebound to private services. | Outbound HTTP resolves and pins a validated public address for each hop, and revalidates redirects. WebSocket and TCP debug probes resolve and connect to the validated address. Private destinations require an exact `PRIVATE_HOST_ALLOWLIST` entry. |
+| SECRET-01 | High | Credentials embedded in source URLs, query strings, API output, and exception text could be exposed. | Recursive response redaction and URL/text redaction are applied to source, radio, admin, action, and poller paths. MeshCore credentials moved to `MESHCORE_API_KEY`; credential-bearing MeshCore URLs are rejected. Generic client errors replace upstream exception detail where appropriate. |
+| INFRA-01 | High | Database/Redis placeholders, unauthenticated Redis, and an always-on unauthenticated MQTT broker created unsafe default deployments. | PostgreSQL and Redis secrets are mandatory; Redis requires authentication. MQTT is opt-in, authenticated, and loopback-bound by default. Frontend and tiles are loopback-bound by default. |
+| DEP-01 | High | Dependency manifests included outdated or vulnerable packages and an end-of-life Node build line. | Direct and transitive Python locks were regenerated, including current `anyio` and `idna`; npm dependencies were updated and exactly pinned; Node 24 is used for builds. Live `pip-audit` and `npm audit` report no known vulnerabilities. |
+| INPUT-01 | High | Large/unbounded bodies, WebSocket messages, and complex or non-finite GeoJSON could exhaust resources or bypass geographic assumptions. | Request-body, WebSocket-message, collection-size, coordinate-count, nesting-depth, finite-number, and geographic-bound limits are enforced. Nginx and application limits agree at 1 MiB. |
+| BROWSER-01 | Medium | The service worker could retain authenticated API responses, and browser security headers were incomplete. | All API traffic is network-only and the legacy API cache is deleted. CSP, frame, MIME, referrer, and permissions policies are set; geolocation is allowed only for the same origin for region setup. |
+| ADMIN-01 | Medium | Debug and AI-reasoning surfaces could reveal operational detail without sufficiently narrow authorization. | Debug routes and reasoning output are admin-only; errors and URLs are redacted. Direct `/admin` navigation validates the server session before rendering. |
+| WS-01 | Medium | WebSocket sessions lacked strict origin, size, rate, and current-user checks. | The WebSocket endpoint validates cookie session version and role against the database, enforces origin and message limits, and bounds client activity. |
+| SUPPLY-01 | Medium | Container tags, CI actions, and downloaded datasets were mutable supply-chain inputs. | Runtime/build images and GitHub Actions are digest/SHA pinned. Dataset downloads use immutable commits and checksums. Dependency manifests use exact versions. |
+| CONTAINER-01 | Medium | Application containers ran with broader filesystem and process privileges than required. | Backend, poller, transcription, and frontend images run as non-root. Compose uses read-only roots, drops all capabilities, enables no-new-privileges, and grants only bounded tmpfs/volume writes. |
+
+## Authentication and authorization model
+
+- `AUTH_ENABLED=true` activates login, setup, and all configuration writes.
+- The session is an HttpOnly SameSite cookie. Set `AUTH_COOKIE_SECURE=true` when TLS is in use; the TLS overlay does this.
+- Viewer, operator, and admin permissions are checked from current database state rather than trusting a stale role claim.
+- With authentication disabled, public read access remains available but the application is viewer-only.
+- Map-library proxy exceptions are GET/HEAD/OPTIONS-only and limited to named tile prefixes.
+- Setup and region-pack administration are admin-only when authentication is enabled.
+
+## Outbound connection policy
+
+User-configurable outbound destinations are blocked when they resolve to loopback, link-local, multicast, reserved, or private address space. An operator may permit a required LAN feed with the smallest possible exact `PRIVATE_HOST_ALLOWLIST`. Redirects are checked again and HTTP connections are pinned to the validated address to close DNS rebinding between validation and connection.
+
+The allowlist is a security boundary. Do not use broad CIDR ranges or restore the deprecated global private-IP switch.
+
+## Dependency and supply-chain state
+
+The follow-up review of Dependabot PRs #139–#163 is recorded in `DEPENDABOT_REVIEW_2026-09-29.md`; compatible requests were consolidated and incompatible majors were explicitly deferred.
+
+- Frontend dependencies and development dependencies are exact versions in `frontend/package.json` and `frontend/package-lock.json`.
+- Backend, poller, and transcription have fully resolved lock files.
+- Python build/runtime base: digest-pinned Python 3.12 slim.
+- Frontend build base: digest-pinned Node 24 Alpine.
+- Frontend runtime: digest-pinned unprivileged Nginx.
+- PostgreSQL/PostGIS, Redis, Mosquitto, and tileserver images are digest-pinned.
+- CI actions are pinned to full commit SHAs.
+- Build-time aviation datasets are pinned to upstream commits and verified by SHA-256.
+
+## Verification evidence
+
+| Gate | Result |
+|---|---|
+| Backend tests in freshly built image | 248 passed, 3 skipped, 4 deprecation warnings |
+| Poller tests in freshly built image | 357 passed, 1 deprecation warning |
+| Frontend strict TypeScript and production build | Passed |
+| npm advisory scan | 0 vulnerabilities |
+| Backend lock advisory scan | No known vulnerabilities |
+| Poller lock advisory scan | No known vulnerabilities |
+| Transcription lock advisory scan | No known vulnerabilities |
+| Container builds | Backend, poller, frontend, and transcription passed |
+| Compose parsing | Base, MQTT profile, TLS overlay, and development overlay passed |
+| Python syntax and patch whitespace | Passed |
+| Runtime image users | Backend/poller/transcription use `vertex`; frontend uses unprivileged UID 101 |
+| Secret-pattern review | No committed credential found; documented placeholders and variable names were reviewed |
+
+The poller suite exits successfully but reports two P25 recorder tasks still pending during test-loop teardown. This is test cleanup debt, not a failed functional assertion, and should be fixed separately so future asynchronous leaks remain visible.
+
+## Deployment migration checklist
+
+1. Back up the database and `.env` before deploying.
+2. Generate distinct long random values for `POSTGRES_PASSWORD`, `REDIS_PASSWORD`, and `AUTH_SECRET_KEY` (at least 32 characters for the authentication secret). Keep `REDIS_URL` consistent if it is set explicitly.
+3. Set `AUTH_ENABLED=true` for an operator deployment. Use the TLS overlay and secure cookies for any access beyond a trusted loopback-only environment.
+4. Set `ALLOWED_HOSTS` to the exact DNS names or addresses used to reach Vertex, and limit `CORS_ORIGINS` to the frontend origins in use.
+5. Configure `TRUSTED_PROXY_CIDRS` only when a known reverse proxy supplies forwarding headers.
+6. Put required LAN data-source hosts in `PRIVATE_HOST_ALLOWLIST` one by one. Do not add a whole subnet for convenience.
+7. Move any MeshCore URL credential into `MESHCORE_API_KEY`, remove it from stored URLs, and restart the poller after changing it.
+8. Start the bundled broker only with the `mqtt` profile and set `MQTT_USERNAME` plus `MQTT_PASSWORD`; keep its bind address loopback-only unless LAN sensors require it.
+9. Rebuild all four application images and recreate services. Existing browser bearer tokens are no longer used; users must sign in again.
+10. Rotate any secret that may previously have appeared in a URL, browser storage, reverse-proxy log, source export, or application log.
+11. Exercise login/logout, initial setup, region selection, role change, password reset, source editing, WebSocket reconnect, radio streaming, and each configured private feed in the deployed environment.
+
+## Gates not closed by this review
+
+- No local container/OS CVE scanner such as Trivy or Grype was available. Language-package audits are clean, but base-image operating-system packages need a dedicated image scan in CI or the deployment environment.
+- The final integrated security build has not received a full interactive browser pass against a live multi-service stack.
+- TLS certificate ownership/permissions and reverse-proxy behavior require validation with the operator's actual certificates and network topology.
+- Database upgrade and first-run setup need a rehearsal against a backup or disposable copy of the operator database.
+- Real ADS-B/AIS/P25/MeshCore/MQTT and regional feeds, hardware access, and long-running behavior were not exercised.
+- The three skipped backend tests should be run in CI with repository docs and region fixtures mounted at their expected paths.
+
+## Upstream integration
+
+The local security work was preserved, `main` was fast-forwarded to upstream `b65ee0d`, and the security changes were reapplied. Conflicts in `frontend/src/App.tsx` and `poller/config.py` were resolved by retaining both the new runtime region/setup behavior and the hardened session/private-host controls. Follow-up compatibility changes preserve the admin region wizard, same-origin geolocation, region mounts, and the development frontend port.
+
+The work remains uncommitted and unpushed for review.

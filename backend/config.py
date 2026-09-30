@@ -3,7 +3,7 @@ from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
-    database_url: str = "postgresql+asyncpg://vertex:vertex@localhost:5432/vertex"
+    database_url: str = "postgresql+asyncpg://vertex@localhost:5432/vertex"
     redis_url: str = "redis://localhost:6379"
     log_level: str = "INFO"
 
@@ -17,6 +17,8 @@ class Settings(BaseSettings):
     region_timezone: str = "America/Los_Angeles"
     # Only used to tell the capabilities endpoint whether the ODOT provider is configured.
     odot_api_key: str = ""
+    # Shared with the poller; never embed this credential in a stored source URL.
+    meshcore_api_key: str = ""
 
     # Self-hosted Nominatim used for city/county boundary lookup in the
     # geofence UI (same variables as the poller). Blank disables city lookup.
@@ -29,7 +31,10 @@ class Settings(BaseSettings):
     # Authentication (disabled by default — set AUTH_ENABLED=true to activate)
     auth_enabled: bool = False
     auth_secret_key: str = ""       # generate: openssl rand -hex 32
-    auth_token_expire_hours: int = 24
+    auth_token_expire_hours: int = 8
+    auth_cookie_secure: bool = False
+    allowed_hosts: list[str] = ["localhost", "127.0.0.1", "[::1]"]
+    trusted_proxies: list[str] = ["127.0.0.1/32", "::1/128", "172.16.0.0/12"]
 
     cors_origins: list[str] = ["http://localhost:3000", "http://localhost"]
 
@@ -42,14 +47,30 @@ class Settings(BaseSettings):
             return [x.strip() for x in v.split(",") if x.strip()]
         return v
 
+    @field_validator("allowed_hosts", "trusted_proxies", mode="before")
+    @classmethod
+    def parse_allowed_hosts(cls, v):
+        if isinstance(v, str):
+            return [x.strip() for x in v.split(",") if x.strip()]
+        return v
+
     p25_audio_dir: str = "/data/audio"
-    allow_private_ips: bool = False
+    # Exact hostnames/IPs allowed to resolve to private ranges for intentional LAN integrations.
+    private_host_allowlist: list[str] = []
+    allow_private_ips: bool = False  # deprecated; retained only for config compatibility
 
     @model_validator(mode="after")
     def _check_secret(self):
         if self.auth_enabled and len(self.auth_secret_key) < 32:
             raise ValueError("AUTH_SECRET_KEY must be ≥32 chars when AUTH_ENABLED=true")
         return self
+
+    @field_validator("private_host_allowlist", mode="before")
+    @classmethod
+    def parse_private_host_allowlist(cls, v):
+        if isinstance(v, str):
+            return [x.strip().lower().rstrip(".") for x in v.split(",") if x.strip()]
+        return v
 
     class Config:
         env_file = ".env"

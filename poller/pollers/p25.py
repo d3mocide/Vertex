@@ -22,6 +22,8 @@ import httpx
 from bus import set_feed, get_bus
 from sanitize import sanitize_payload
 from .base import BasePoller
+from redaction import redact_url
+from security import validate_safe_url
 
 
 logger = logging.getLogger(__name__)
@@ -62,7 +64,13 @@ class P25Poller(BasePoller):
         )
         self._op25_url = row["url"] if row else None
         if self._op25_url:
-            logger.info("[p25] using OP25 at %s", self._op25_url)
+            try:
+                await validate_safe_url(self._op25_url, allowed_schemes={"http", "https"})
+            except ValueError as exc:
+                logger.warning("[p25] blocked unsafe source %s: %s", redact_url(self._op25_url), exc)
+                self._op25_url = None
+        if self._op25_url:
+            logger.info("[p25] using OP25 at %s", redact_url(self._op25_url))
         else:
             logger.warning("[p25] no P25 source configured — poller inactive")
         await self._refresh_priorities()

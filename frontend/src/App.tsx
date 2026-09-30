@@ -6,7 +6,7 @@ import { useTrailHydration } from './hooks/useTrailHydration'
 import { usePreferences } from './hooks/usePreferences'
 import { useMeshHistory } from './hooks/useMeshHistory'
 import { LoginPage } from './components/LoginPage'
-import { isLoggedIn, getUserRole } from './auth'
+import { getUserRole, setSession } from './auth'
 import { API_BASE } from './config'
 
 import { AlertStatusBar }    from './components/layout/AlertStatusBar'
@@ -196,10 +196,19 @@ export default function App() {
   useEffect(() => {
     fetch(`${API_BASE}/auth/status`)
       .then(r => r.json())
-      .then(({ auth_enabled, setup_required }: { auth_enabled: boolean; setup_required: boolean }) => {
+      .then(async ({ auth_enabled, setup_required }: { auth_enabled: boolean; setup_required: boolean }) => {
         setSetupRequired(setup_required)
         setAuthEnabled(auth_enabled)
-        setAuthed(!auth_enabled || (!setup_required && isLoggedIn()))
+        if (!auth_enabled) {
+          setAuthed(true)
+        } else if (!setup_required) {
+          const me = await fetch(`${API_BASE}/auth/me`)
+          if (me.ok) {
+            const profile = await me.json() as { username: string; role: 'admin' | 'viewer' }
+            setSession(profile)
+            setAuthed(true)
+          }
+        }
         setAuthChecked(true)
       })
       .catch(() => {
@@ -255,13 +264,13 @@ export default function App() {
   if (!regionReady) return splash
   // Fresh install: nothing chooses a region yet. Admins run the wizard; anyone else waits for them.
   if (setup?.needs_setup) {
-    const isAdmin = !authEnabled || getUserRole() === 'admin'
+    const isAdmin = authEnabled && getUserRole() === 'admin'
     if (isAdmin) return <SetupWizard firstRun onClose={() => undefined} />
     return (
       <div className="w-full h-full bg-onyx-black flex items-center justify-center p-6">
         <div className="hud-panel p-6 max-w-md text-[13px] text-on-surface-variant space-y-2">
           <div className="label-caps text-amber-gold">Setup not finished</div>
-          <p>Vertex has not been set up for a location yet. Ask an administrator to sign in and finish setup, then reload this page.</p>
+          <p>Vertex has not been set up for a location yet. Enable authentication and ask an administrator to sign in and finish setup, then reload this page.</p>
         </div>
       </div>
     )

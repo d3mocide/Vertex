@@ -50,6 +50,8 @@ The source file is hot-reloaded by the poller and can also be updated through th
 
 ## Typical Bring-Up Flow
 
+Before using the setup wizard or any configuration screen, set `AUTH_ENABLED=true`, generate `AUTH_SECRET_KEY` with `openssl rand -hex 32`, and restart the backend. With authentication disabled Vertex is intentionally viewer-only and rejects all writes. Compose also requires unique `POSTGRES_PASSWORD` and `REDIS_PASSWORD` values.
+
 ### 1. Set the region
 
 Update the region center (`REGION_LAT`, `REGION_LON`), region name, and bounding box in `.env` so feeds are filtered for your area.
@@ -80,7 +82,7 @@ docker compose logs -f poller
 
 ### 4. Create the first account
 
-On first visit Vertex asks you to create the administrator account. Later users and API keys are managed from the admin screens.
+When `AUTH_ENABLED=true`, the first visit asks you to create the administrator account. Later users and API keys are managed from the admin screens. When authentication is disabled, Vertex remains a read-only viewer and the setup wizard cannot save changes.
 
 ### 5. Verify the UI
 

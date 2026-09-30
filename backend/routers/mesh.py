@@ -9,9 +9,10 @@ from sqlalchemy import text
 from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from config import settings
 from deps import get_db
 from redis_bus import get_redis
-from security import validate_safe_url_async
+from security import send_pinned_http_request, validate_safe_url_async
 
 router = APIRouter(tags=["mesh"])
 logger = logging.getLogger(__name__)
@@ -204,9 +205,11 @@ async def send_mesh_message(
     import httpx
 
     parsed = urlparse(url_str)
-    api_key = parsed.username
-    netloc = parsed.hostname + (f":{parsed.port}" if parsed.port else "")
-    base_url = urlunparse(parsed._replace(netloc=netloc)).rstrip("/")
+    if parsed.username:
+        raise HTTPException(status_code=400, detail="MeshCore credentials must use MESHCORE_API_KEY, not the URL")
+    api_key = settings.meshcore_api_key or None
+    netloc = (parsed.hostname or "") + (f":{parsed.port}" if parsed.port else "")
+    base_url = urlunparse(parsed._replace(netloc=netloc, query="", fragment="")).rstrip("/")
 
     try:
         await validate_safe_url_async(base_url, allowed_schemes={"http", "https"})
@@ -229,7 +232,9 @@ async def send_mesh_message(
 
     async with httpx.AsyncClient(headers=headers, timeout=10) as client:
         try:
-            resp = await client.post(f"{base_url}/api/room_post_message", json=payload)
+            resp = await send_pinned_http_request(
+                client, "POST", f"{base_url}/api/room_post_message", json=payload
+            )
             if resp.status_code != 200:
                 detail = resp.json().get("error") if resp.headers.get("content-type") == "application/json" else resp.text
                 raise HTTPException(
@@ -241,8 +246,5 @@ async def send_mesh_message(
             except Exception:
                 return {"status": "ok", "detail": resp.text}
         except httpx.RequestError as exc:
-            raise HTTPException(
-                status_code=502,
-                detail=f"Failed to connect to pyMC-Repeater: {exc}"
-            )
+            raise HTTPException(status_code=502, detail="Failed to connect to pyMC-Repeater") from exc
 

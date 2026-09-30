@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useCivicPick } from '../../store'
 import { notificationPermission, requestNotificationPermission } from '../../notifications'
-import { getUserRole, clearToken } from '../../auth'
+import { getUserRole, logout } from '../../auth'
 import { ToggleRow } from './SettingsPrimitives'
 import { useContractAvailable } from '../../hooks/useCapabilities'
 
@@ -110,7 +110,7 @@ export function SettingsPanel() {
             <h2 className="label-caps mb-3">Account</h2>
             <div className="space-y-3">
               <button
-                onClick={() => { clearToken(); window.location.reload() }}
+                onClick={() => { void logout().then(() => window.location.reload()) }}
                 className="flex items-center gap-2 w-full py-2 px-3 border border-red-emergency/30 text-red-emergency/80 hover:bg-red-emergency/10 transition-colors text-[11px] font-bold uppercase tracking-widest"
               >
                 <span className="ms text-[16px] leading-none">logout</span>

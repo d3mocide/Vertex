@@ -89,10 +89,9 @@ poller_sources:
   - type: meshcore # MeshCore — pyMC-Repeater base URL
     name: "pyMC-Repeater" #   https://github.com/pyMC-dev/pyMC_Repeater
     url: "http://192.168.1.x:8000"
-    # Embed an API key as the URL username if auth is enabled:
-    #   http://MY_API_KEY@192.168.1.x:8000
+    # Keep authentication in MESHCORE_API_KEY in .env; never embed it in this URL.
     # Add a companion parameter if you want to lock the connection to a specific companion identity:
-    #   http://MY_API_KEY@192.168.1.x:8000?companion=MyCompanionNode
+    #   http://192.168.1.x:8000?companion=MyCompanionNode
     # Pin the repeater's own position with lat/lon parameters — used when the
     # repeater API doesn't report GPS. The station then appears on the map as
     # a mesh_node entity and anchors its packet-derived link lines:
@@ -124,9 +123,9 @@ poller_sources:
 
 # ---------------------------------------------------------------------------
 # MQTT sources — IoT and hardware devices that publish to the local broker.
-# The Mosquitto broker starts automatically as part of the Vertex stack.
-# Hardware devices should be configured to publish to this Pi's LAN IP on
-# port 1883 (or the MQTT_PORT you set in .env).
+# The Mosquitto broker is opt-in: docker compose --profile mqtt up -d.
+# Set MQTT_USERNAME/MQTT_PASSWORD and deliberately bind MQTT_BIND_ADDRESS to
+# a LAN interface before configuring hardware to publish to port 1883.
 #
 # broker: "mosquitto"   — internal Docker service name (use for all local hardware)
 #         "192.168.1.x" — LAN device running its own broker (e.g., Frigate on another Pi)
@@ -136,8 +135,8 @@ poller_sources:
 #   meshtastic  — Meshtastic node JSON MQTT uplink (configure node MQTT server to Pi LAN IP)
 #   ais         — AIS-catcher MQTT output (alternative to WebSocket poller_source)
 #
-# auth_enabled: false for local Mosquitto (no credentials needed)
-#               true for external brokers — set MQTT_{UPPER_SNAKE_NAME}_USERNAME/PASSWORD in .env
+# auth_enabled: true for the bundled broker and authenticated external brokers.
+# Set MQTT_{UPPER_SNAKE_NAME}_USERNAME/PASSWORD in .env for each source.
 # ---------------------------------------------------------------------------
 mqtt_sources:
   - name: "RTL_433 Sensors"
@@ -146,7 +145,7 @@ mqtt_sources:
     port: 1883
     topic: "rtl_433/#"
     qos: 0
-    auth_enabled: false
+    auth_enabled: true
     enabled: false
     source: config
 
@@ -156,7 +155,7 @@ mqtt_sources:
     port: 1883
     topic: "msh/#"
     qos: 0
-    auth_enabled: false
+    auth_enabled: true
     enabled: false
     source: config
 
@@ -166,7 +165,7 @@ mqtt_sources:
     port: 1883
     topic: "ais/#"
     qos: 0
-    auth_enabled: false
+    auth_enabled: true
     enabled: false
     source: config
 

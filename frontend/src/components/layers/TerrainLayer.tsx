@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import maplibregl from 'maplibre-gl'
+import * as maplibregl from 'maplibre-gl'
 import { useCivicStore } from '../../store'
 
 interface Props { map: maplibregl.Map }

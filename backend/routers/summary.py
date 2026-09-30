@@ -1,5 +1,5 @@
 import json
-from fastapi import APIRouter, Query, Response
+from fastapi import APIRouter, HTTPException, Query, Request, Response
 from redis_bus import get_redis
 
 router = APIRouter(prefix="/summary", tags=["summary"])
@@ -26,10 +26,13 @@ async def get_summary():
 
 @router.get("/history")
 async def get_summary_history(
+    request: Request,
     limit: int = Query(24, ge=1, le=100),
     include_reasoning: bool = Query(False),
 ):
-    """Past briefings, newest first. Reasoning traces are omitted unless requested."""
+    """Past briefings, newest first. Reasoning traces are admin-only."""
+    if include_reasoning and getattr(request.state, "role", "viewer") != "admin":
+        raise HTTPException(403, "Admin role required for reasoning traces")
     rows = await get_redis().lrange(_HISTORY_KEY, 0, limit - 1)
     history = []
     for raw in rows:

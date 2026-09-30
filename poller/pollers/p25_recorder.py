@@ -38,6 +38,8 @@ from bus import get_bus
 from config import settings
 from db import get_pool
 from .base import BasePoller
+from redaction import redact_text, redact_url
+from security import validate_safe_url
 
 logger = logging.getLogger(__name__)
 
@@ -87,7 +89,13 @@ class P25AudioRecorder(BasePoller):
             )
             self._stream_url = row["url"] if row else None
             if self._stream_url:
-                logger.info("[p25_rec] will record from %s", self._stream_url)
+                try:
+                    await validate_safe_url(self._stream_url, allowed_schemes={"http", "https"})
+                except ValueError as exc:
+                    logger.warning("[p25_rec] blocked unsafe stream %s: %s", redact_url(self._stream_url), exc)
+                    self._stream_url = None
+            if self._stream_url:
+                logger.info("[p25_rec] will record from %s", redact_url(self._stream_url))
             else:
                 logger.info("[p25_rec] no enabled radio stream — recording inactive")
         except Exception as exc:
@@ -108,11 +116,17 @@ class P25AudioRecorder(BasePoller):
         cleanup_task = asyncio.create_task(self._cleanup_loop())
         # One websocket per OP25 receiver (comma-separated), in multi_rx channel
         # order: with two receivers on one system, OP25 follows two calls at once.
-        ws_urls = [u.strip() for u in settings.p25_audio_ws_url.split(",") if u.strip()]
+        ws_urls = []
+        for candidate in (u.strip() for u in settings.p25_audio_ws_url.split(",") if u.strip()):
+            try:
+                await validate_safe_url(candidate, allowed_schemes={"ws", "wss"})
+                ws_urls.append(candidate)
+            except ValueError as exc:
+                logger.warning("[p25_rec] blocked unsafe websocket %s: %s", redact_url(candidate), exc)
         ws_mode = bool(ws_urls)
         ws_tasks = [asyncio.create_task(self._ws_loop(url, ch)) for ch, url in enumerate(ws_urls)]
         for ch, url in enumerate(ws_urls):
-            logger.info("[p25_rec] recording OP25 receiver %d from websocket %s", ch, url)
+            logger.info("[p25_rec] recording OP25 receiver %d from websocket %s", ch, redact_url(url))
 
         try:
             async for message in pubsub.listen():
@@ -308,7 +322,7 @@ class P25AudioRecorder(BasePoller):
             except asyncio.CancelledError:
                 raise
             except Exception as exc:
-                logger.warning("[p25_rec] websocket error: %s — reconnecting in %.0fs", exc, backoff)
+                logger.warning("[p25_rec] websocket error: %s — reconnecting in %.0fs", redact_text(exc), backoff)
                 await self._heartbeat("error", str(exc)[:256])
             await asyncio.sleep(backoff)
             backoff = min(backoff * 2, 60.0)

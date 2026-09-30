@@ -21,12 +21,18 @@ from pollers.meshcore import (
 
 
 class TestParseSourceSelfPin:
-    def test_lat_lon_query_params(self):
-        src = _parse_source("http://KEY@192.168.1.10:8000?lat=45.38&lon=-122.76")
+    def test_lat_lon_query_params(self, monkeypatch):
+        monkeypatch.setattr("pollers.meshcore.settings.meshcore_api_key", "")
+        src = _parse_source("http://192.168.1.10:8000?lat=45.38&lon=-122.76")
         assert src["base_url"] == "http://192.168.1.10:8000"
-        assert src["api_key"] == "KEY"
+        assert src["api_key"] is None
         assert src["self_lat"] == 45.38
         assert src["self_lon"] == -122.76
+
+    def test_url_credentials_rejected(self):
+        import pytest
+        with pytest.raises(ValueError, match="MESHCORE_API_KEY"):
+            _parse_source("http://KEY@192.168.1.10:8000")
 
     def test_no_pin_defaults_none(self):
         src = _parse_source("http://192.168.1.10:8000")

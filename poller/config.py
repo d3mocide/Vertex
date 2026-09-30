@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from pydantic_settings import BaseSettings
 from typing import Optional
 
@@ -50,7 +50,7 @@ def load_regions(settings: Optional["Settings"] = None) -> list[RegionConfig]:
 
 class Settings(BaseSettings):
     redis_url: str = "redis://localhost:6379"
-    database_url: str = "postgresql+asyncpg://vertex:vertex@localhost:5432/vertex"
+    database_url: str = "postgresql+asyncpg://vertex@localhost:5432/vertex"
     log_level: str = "INFO"
     # Optional integrations; enable when an ACARS decoder / MQTT broker source exists.
     acars_enabled: bool = False
@@ -111,6 +111,9 @@ class Settings(BaseSettings):
     fire_regional_recent_hours: int = 72   # 3 days — only recently updated (active) fires
     # NIFC perimeters older than this (by last update) are not fetched.
     nifc_perimeter_max_age_days: int = 30
+
+    # MeshCore API key is kept out of source URLs, API responses, and logs.
+    meshcore_api_key: str = ""
 
     # AI situational summary — any OpenAI-compatible /chat/completions endpoint
     # (LocalAI, llama.cpp, vLLM, Ollama, LM Studio, OpenAI). SUMMARY_LLM_API_BASE
@@ -199,7 +202,9 @@ class Settings(BaseSettings):
     # Kept here so existing .env files do not cause a validation error.
     adsb_beast_http_fallback: bool = True
     adsb_publish_only_changes: bool = True
-    allow_private_ips: bool = False
+    # Exact hostnames/IPs allowed to resolve to private ranges for intentional LAN integrations.
+    private_host_allowlist: list[str] = []
+    allow_private_ips: bool = False  # deprecated; retained only for config compatibility
     # On a fresh install with no region chosen, wait for the setup wizard before polling anything.
     setup_gate: bool = True
 
@@ -308,6 +313,13 @@ class Settings(BaseSettings):
     # climate station id (Portland = PDX).
     nws_office: str = "PQR"
     nws_climate_station: str = "PDX"
+
+    @field_validator("private_host_allowlist", mode="before")
+    @classmethod
+    def parse_private_host_allowlist(cls, v):
+        if isinstance(v, str):
+            return [x.strip().lower().rstrip(".") for x in v.split(",") if x.strip()]
+        return v
 
     class Config:
         env_file = ".env"

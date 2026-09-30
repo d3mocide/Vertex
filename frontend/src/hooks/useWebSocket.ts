@@ -3,7 +3,7 @@ import { WS_URL, API_BASE } from '../config'
 import { useCivicStore, useCivicPick } from '../store'
 import type { Entity, EntityTypeFilter, RadioIncidentFeed, AdvisoryFeed } from '../storeTypes'
 import { isSupplementSource } from '../storeTypes'
-import { wsTokenParam, authHeaders } from '../auth'
+import { authHeaders } from '../auth'
 import { initNotifications, maybeNotify, notifyMeshMessage } from '../notifications'
 import { parseSummary } from '../summaryUtils'
 
@@ -155,7 +155,7 @@ export function useWebSocket() {
 
     const connect = () => {
       if (cancelled) return
-      const ws = new WebSocket(WS_URL + wsTokenParam())
+      const ws = new WebSocket(WS_URL)
       wsRef.current = ws
 
       ws.onopen  = () => {

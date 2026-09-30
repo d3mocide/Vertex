@@ -5,12 +5,14 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
+from starlette.middleware.trustedhost import TrustedHostMiddleware
 from prometheus_fastapi_instrumentator import Instrumentator
 
 from auth_middleware import AuthMiddleware
 from config import settings
 from db.session import init_db
 from rate_limit import RateLimitMiddleware
+from request_limits import RequestSizeLimitMiddleware
 from redis_bus import init_redis, close_redis
 from routers import entities, observations, events, weather, alerts, news, traffic, health, ws, radio, utilities, summary, auth, geofences, sources, aircraft, admin, admin_debug, alertrules, sitrep, layers, entity_tags, annotations, config_regions, mesh, acars, rail, capabilities, region, setup
 from metrics_collector import run_metrics_collector
@@ -48,6 +50,8 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Vertex API", version="0.1.0", lifespan=lifespan)
 
+app.add_middleware(TrustedHostMiddleware, allowed_hosts=settings.allowed_hosts)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
@@ -59,7 +63,8 @@ app.add_middleware(
 Instrumentator().instrument(app).expose(app)
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 app.add_middleware(AuthMiddleware)
-app.add_middleware(RateLimitMiddleware, calls=600, period=60)
+app.add_middleware(RequestSizeLimitMiddleware, max_bytes=1024 * 1024)
+app.add_middleware(RateLimitMiddleware, calls=600, period=60, trusted_proxies=settings.trusted_proxies)
 
 app.include_router(health.router)
 # Also under /api/v1 so the UI (API_BASE) can reach /health/feeds.

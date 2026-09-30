@@ -1,10 +1,10 @@
 import hashlib
 
-from jose import JWTError, jwt
+import jwt
 from sqlalchemy import select
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
-from starlette.responses import JSONResponse, Response
+from starlette.responses import JSONResponse
 
 from config import settings
 from db.models import User
@@ -18,86 +18,98 @@ _PUBLIC_PREFIXES = (
     "/api/v1/weather/radar/wms",
     "/api/v1/weather/alerts/wms",
     "/api/v1/weather/lightning/wms",
-    "/api/v1/radio/proxy",  # Stream proxy — accesses private network streams
 )
 _MUTATING_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
-_SAFE_METHODS = frozenset({"GET", "HEAD"})
-_AUTH_PUBLIC_PATHS = frozenset({"/api/v1/auth/login", "/api/v1/auth/token", "/api/v1/auth/setup", "/api/v1/auth/status"})
+_AUTH_PUBLIC_PATHS = frozenset({
+    "/api/v1/auth/login",
+    "/api/v1/auth/token",
+    "/api/v1/auth/setup",
+    "/api/v1/auth/status",
+})
 _AUTH_WRITE_EXEMPT = frozenset({"/api/v1/auth/token", "/api/v1/auth/setup"})
-
-
-def _allow_query_token_fallback(path: str, method: str) -> bool:
-    """Permit URL token auth only for browser-playable P25 recording files."""
-    return (
-        method in _SAFE_METHODS
-        and path.startswith("/api/v1/radio/recordings/")
-        and path.endswith("/file")
-    )
+_ADMIN_ONLY_PATHS = frozenset({"/api/v1/summary/debug", "/api/v1/setup/packs"})
+_ADMIN_ONLY_PREFIXES = ("/api/v1/admin", "/api/v1/sources", "/api/v1/alertrules")
+_SESSION_COOKIE = "vertex_session"
 
 
 def _hash_api_key(key: str) -> str:
     return hashlib.sha256(key.encode()).hexdigest()
 
 
-class AuthMiddleware(BaseHTTPMiddleware):
-    # BaseHTTPMiddleware only runs for HTTP requests: websocket routes do their
-    # own check (routers/ws.py _ws_authorized).
-    async def dispatch(self, request: Request, call_next):
-        if not settings.auth_enabled:
-            return await call_next(request)
+def _admin_only(path: str) -> bool:
+    return path in _ADMIN_ONLY_PATHS or path.startswith(_ADMIN_ONLY_PREFIXES)
 
-        path = request.url.path
-        # Use tuple directly with startswith for C-level performance instead of generator overhead
+
+class AuthMiddleware(BaseHTTPMiddleware):
+    """Authenticate HTTP requests and enforce the viewer/admin boundary.
+
+    WebSocket routes perform the equivalent database-backed check in routers/ws.py.
+    """
+
+    async def dispatch(self, request: Request, call_next):
+        # Use the canonical ASGI routing path. Building this decision from
+        # request.url.path is vulnerable to Host-header URL confusion.
+        path = str(request.scope.get("path") or "")
         if (
             path in _PUBLIC_PATHS
             or path in _AUTH_PUBLIC_PATHS
-            or path.startswith(_PUBLIC_PREFIXES)
+            or (request.method in {"GET", "HEAD", "OPTIONS"} and path.startswith(_PUBLIC_PREFIXES))
         ):
             return await call_next(request)
 
-        is_ws = request.scope.get("type") == "websocket"
-
-        # ── X-API-Key authentication ──────────────────────────────────────────
-        api_key = request.headers.get("X-API-Key", "")
-        if api_key and not is_ws:
-            key_hash = _hash_api_key(api_key)
-            async with async_session_factory() as db:
-                user = await db.scalar(select(User).where(User.api_key_hash == key_hash))
-            if not user:
-                return JSONResponse({"detail": "Invalid API key"}, status_code=401)
-            if request.method in _MUTATING_METHODS and path not in _AUTH_WRITE_EXEMPT:
-                if user.role != "admin":
-                    return JSONResponse({"detail": "Admin role required"}, status_code=403)
+        # Unauthenticated deployments are intentionally read-only. This keeps
+        # the simple local viewer mode without exposing configuration or relays.
+        if not settings.auth_enabled:
+            if _admin_only(path):
+                return JSONResponse({"detail": "Authentication must be enabled for admin endpoints"}, status_code=403)
+            if request.method in _MUTATING_METHODS:
+                return JSONResponse(
+                    {"detail": "Authentication must be enabled for write operations"},
+                    status_code=403,
+                )
+            request.state.user = "local"
+            request.state.role = "viewer"
             return await call_next(request)
 
-        # ── JWT authentication ────────────────────────────────────────────────
-        if is_ws:
-            token = request.query_params.get("token", "")
+        api_key = request.headers.get("X-API-Key", "")
+        if api_key:
+            async with async_session_factory() as db:
+                user = await db.scalar(select(User).where(User.api_key_hash == _hash_api_key(api_key)))
+            if not user:
+                return JSONResponse({"detail": "Invalid API key"}, status_code=401)
+            cookie_auth = False
         else:
             header = request.headers.get("Authorization", "")
             token = header[7:].strip() if header.startswith("Bearer ") else ""
-            if not token and _allow_query_token_fallback(path, request.method):
-                token = request.query_params.get("token", "")
+            cookie_auth = not token
+            if not token:
+                token = request.cookies.get(_SESSION_COOKIE, "")
+            if not token:
+                return JSONResponse({"detail": "Not authenticated"}, status_code=401)
+            try:
+                payload = jwt.decode(token, settings.auth_secret_key, algorithms=[_ALGORITHM])
+            except jwt.InvalidTokenError:
+                return JSONResponse({"detail": "Invalid or expired token"}, status_code=401)
 
-        if not token:
-            return Response(status_code=401) if is_ws else JSONResponse(
-                {"detail": "Not authenticated"}, status_code=401
-            )
+            username = str(payload.get("sub") or "")
+            async with async_session_factory() as db:
+                user = await db.scalar(select(User).where(User.username == username))
+            if not user or int(payload.get("ver", -1)) != (user.token_version or 0):
+                return JSONResponse({"detail": "Session has been revoked"}, status_code=401)
 
-        try:
-            payload = jwt.decode(token, settings.auth_secret_key, algorithms=[_ALGORITHM])
-        except JWTError:
-            return Response(status_code=401) if is_ws else JSONResponse(
-                {"detail": "Invalid or expired token"}, status_code=401
-            )
+        request.state.user = user.username
+        request.state.role = user.role
 
-        if (
-            not is_ws
-            and request.method in _MUTATING_METHODS
-            and path not in _AUTH_WRITE_EXEMPT
-        ):
-            role = payload.get("role") or "viewer"
-            if role != "admin":
+        if _admin_only(path) and user.role != "admin":
+            return JSONResponse({"detail": "Admin role required"}, status_code=403)
+
+        if request.method in _MUTATING_METHODS and path not in _AUTH_WRITE_EXEMPT:
+            if user.role != "admin":
                 return JSONResponse({"detail": "Admin role required"}, status_code=403)
+            # Bearer tokens/API keys are not ambient browser credentials. For
+            # the HttpOnly cookie, require a non-simple header so cross-site
+            # forms cannot perform authenticated mutations.
+            if cookie_auth and request.headers.get("X-Vertex-Request") != "1":
+                return JSONResponse({"detail": "CSRF check failed"}, status_code=403)
 
         return await call_next(request)

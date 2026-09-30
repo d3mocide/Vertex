@@ -8,6 +8,7 @@ entries seeded from the YAML file carry source='config'.
 
 from datetime import datetime, timezone
 from typing import Literal
+from urllib.parse import urlsplit
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -18,6 +19,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from config_writer import add_entry, add_alert_zone, remove_entry, remove_alert_zone, update_entry, add_mqtt_entry, remove_mqtt_entry, update_mqtt_entry
 from deps import get_db
 from db.models import AlertZoneConfig, MqttSource, NewsFeed, PollerSource
+from redaction import redact_url
+from security import validate_safe_url_async
 
 router = APIRouter(prefix="/sources", tags=["sources"])
 
@@ -45,7 +48,7 @@ class PollerSourceResponse(BaseModel):
 def _ps_response(ps: PollerSource) -> PollerSourceResponse:
     return PollerSourceResponse(
         id=ps.id, type=ps.type, name=ps.name,
-        url=ps.url, enabled=ps.enabled, source=ps.source,
+        url=redact_url(ps.url) or "", enabled=ps.enabled, source=ps.source,
     )
 
 
@@ -57,6 +60,12 @@ async def list_poller_sources(db: AsyncSession = Depends(get_db)):
 
 @router.post("/pollers", response_model=PollerSourceResponse, status_code=201)
 async def create_poller_source(body: PollerSourceCreate, db: AsyncSession = Depends(get_db)):
+    if body.type == "meshcore" and urlsplit(body.url).username:
+        raise HTTPException(400, "MeshCore credentials must use MESHCORE_API_KEY, not the URL")
+    try:
+        await validate_safe_url_async(body.url)
+    except ValueError as exc:
+        raise HTTPException(400, f"Unsafe source URL: {exc}") from exc
     ps = PollerSource(
         type=body.type, name=body.name, url=body.url, enabled=body.enabled,
         source="user",
@@ -121,7 +130,7 @@ class NewsFeedResponse(BaseModel):
 
 def _nf_response(nf: NewsFeed) -> NewsFeedResponse:
     return NewsFeedResponse(
-        id=nf.id, name=nf.name, url=nf.url,
+        id=nf.id, name=nf.name, url=redact_url(nf.url),
         format=nf.format, enabled=nf.enabled, source=nf.source,
     )
 
@@ -134,6 +143,11 @@ async def list_news_feeds(db: AsyncSession = Depends(get_db)):
 
 @router.post("/feeds", response_model=NewsFeedResponse, status_code=201)
 async def create_news_feed(body: NewsFeedCreate, db: AsyncSession = Depends(get_db)):
+    if body.url:
+        try:
+            await validate_safe_url_async(body.url, allowed_schemes={"http", "https"})
+        except ValueError as exc:
+            raise HTTPException(400, f"Unsafe feed URL: {exc}") from exc
     nf = NewsFeed(
         name=body.name, url=body.url, format=body.format, enabled=body.enabled,
         source="user",

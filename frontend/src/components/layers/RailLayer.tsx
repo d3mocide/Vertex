@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import maplibregl from 'maplibre-gl'
+import * as maplibregl from 'maplibre-gl'
 import { fetchRailGeoJSON } from '../../layers/railData'
 import { useCivicStore } from '../../store'
 

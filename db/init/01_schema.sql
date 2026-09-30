@@ -136,5 +136,7 @@ CREATE TABLE IF NOT EXISTS users (
     password_hash VARCHAR(256) NOT NULL,
     role          VARCHAR(32)  NOT NULL DEFAULT 'viewer',
     created_at    TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
-    last_login    TIMESTAMPTZ
+    last_login    TIMESTAMPTZ,
+    api_key_hash  VARCHAR(128) UNIQUE,
+    token_version INTEGER      NOT NULL DEFAULT 0
 );

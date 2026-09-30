@@ -28,7 +28,7 @@ async def validate_safe_host(hostname: str) -> None:
         raise ValueError("No hostname provided")
     try:
         ip = ipaddress.ip_address(hostname)
-        _reject_private_ip(ip)
+        _reject_private_ip(ip, hostname)
     except ValueError as exc:
         if "non-public address" in str(exc):
             raise
@@ -40,12 +40,16 @@ async def validate_safe_host(hostname: str) -> None:
             raise ValueError(f"Cannot resolve hostname: {dns_exc}") from dns_exc
         for info in infos:
             addr = info[4][0]
-            _reject_private_ip(ipaddress.ip_address(addr))
+            _reject_private_ip(ipaddress.ip_address(addr), hostname)
 
 
-def _reject_private_ip(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> None:
+def _reject_private_ip(
+    ip: ipaddress.IPv4Address | ipaddress.IPv6Address,
+    hostname: str = "",
+) -> None:
     from config import settings
-    if settings.allow_private_ips:
+    normalized = hostname.lower().rstrip(".")
+    if normalized in set(getattr(settings, "private_host_allowlist", [])):
         return
     if ip.is_loopback or ip.is_private or ip.is_link_local or ip.is_reserved or ip.is_unspecified:
         raise ValueError(f"URL resolves to a non-public address: {ip}")

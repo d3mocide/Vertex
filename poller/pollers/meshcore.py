@@ -7,8 +7,7 @@ endpoint when a companion identity is configured on the repeater.
 
 Configure poller_sources with type=meshcore and the repeater base URL:
   http://192.168.1.x:8000
-Embed an API key as the URL username to authenticate:
-  http://MY_API_KEY@192.168.1.x:8000
+Set MESHCORE_API_KEY in the environment to authenticate; never put it in the URL.
 
 See: https://github.com/pyMC-dev/pyMC_Repeater
 """
@@ -28,6 +27,8 @@ from config import settings
 from normalizers.mesh_node import normalize_pymc_repeater_advert, snr_to_quality
 from sanitize import sanitize_payload
 from .base import BasePoller
+from redaction import redact_text, redact_url
+from security import validate_safe_url
 
 logger = logging.getLogger(__name__)
 
@@ -75,7 +76,14 @@ class MeshCorePoller(BasePoller):
         rows = await get_pool().fetch(
             "SELECT url FROM poller_sources WHERE type = 'meshcore' AND enabled = TRUE"
         )
-        self._sources = [_parse_source(row["url"]) for row in rows]
+        self._sources = []
+        for row in rows:
+            try:
+                source = _parse_source(row["url"])
+                await validate_safe_url(source["base_url"], allowed_schemes={"http", "https"})
+                self._sources.append(source)
+            except ValueError as exc:
+                logger.warning("[meshcore] blocked unsafe source %s: %s", redact_url(row["url"]), exc)
         if self._sources:
             logger.info("[meshcore] %d pyMC-Repeater source(s)", len(self._sources))
         else:
@@ -102,7 +110,7 @@ class MeshCorePoller(BasePoller):
         if companions:
             logger.info(
                 "[meshcore] %d companion(s) at %s: %s",
-                len(companions), src["base_url"], ", ".join(companions),
+                len(companions), redact_url(src["base_url"]), ", ".join(companions),
             )
             sse_tasks = [
                 asyncio.create_task(self._sse_loop(src, c)) for c in companions
@@ -110,7 +118,7 @@ class MeshCorePoller(BasePoller):
         else:
             logger.info(
                 "[meshcore] no companions found at %s — running poll-only mode",
-                src["base_url"],
+                redact_url(src["base_url"]),
             )
             sse_tasks = []
 
@@ -125,7 +133,7 @@ class MeshCorePoller(BasePoller):
                 await self._poll_once(src)
                 await self._heartbeat("ok")
             except Exception as exc:
-                logger.error("[meshcore] poll error %s: %s", src["base_url"], exc)
+                logger.error("[meshcore] poll error %s: %s", redact_url(src["base_url"]), redact_text(exc))
                 await self._heartbeat("error", str(exc)[:256])
             await asyncio.sleep(_POLL_INTERVAL)
 
@@ -204,11 +212,12 @@ class MeshCorePoller(BasePoller):
                             logger.warning(
                                 "[meshcore] SSE %s returned %d", sse_url, resp.status_code
                             )
-                            if resp.status_code in (401, 403) and await _reload_api_key(src):
-                                # The key was changed in sources.yml: use it now
-                                # instead of 401-ing until the poller restarts.
-                                headers = _api_headers(src.get("api_key"))
-                                logger.info("[meshcore] picked up a new API key for %s", base_url)
+                            if resp.status_code in (401, 403):
+                                logger.warning(
+                                    "[meshcore] authentication failed for %s; "
+                                    "MESHCORE_API_KEY changes require a poller restart",
+                                    redact_url(base_url),
+                                )
                         else:
                             logger.info("[meshcore] SSE connected: %s", sse_url)
                             status_payload = {
@@ -323,7 +332,7 @@ def _parse_source(url: str) -> dict:
                          repeater API does not report its GPS location)
     """
     parsed = urlparse(url)
-    api_key = None
+    api_key = settings.meshcore_api_key or None
     companion = None
     self_lat = self_lon = None
     if parsed.query:
@@ -338,11 +347,8 @@ def _parse_source(url: str) -> dict:
                 self_lat = self_lon = None
 
     if parsed.username:
-        api_key = parsed.username
-        netloc = parsed.hostname + (f":{parsed.port}" if parsed.port else "")
-        url = urlunparse(parsed._replace(netloc=netloc, query=""))
-    else:
-        url = urlunparse(parsed._replace(query=""))
+        raise ValueError("MeshCore credentials must use MESHCORE_API_KEY, not the URL")
+    url = urlunparse(parsed._replace(query=""))
     return {
         "base_url": url.rstrip("/"),
         "api_key": api_key,
@@ -403,22 +409,6 @@ def companion_params(companion_name: str) -> dict[str, str]:
     companion — another identity with different channels.
     """
     return {"companion_name": companion_name}
-
-
-async def _reload_api_key(src: dict) -> bool:
-    """Re-read this source's API key from poller_sources; True if it changed."""
-    try:
-        from db import get_pool
-        rows = await get_pool().fetch(
-            "SELECT url FROM poller_sources WHERE type = 'meshcore' AND enabled = TRUE")
-    except Exception:
-        return False
-    for row in rows:
-        fresh = _parse_source(row["url"])
-        if fresh["base_url"] == src["base_url"] and fresh["api_key"] != src.get("api_key"):
-            src["api_key"] = fresh["api_key"]
-            return True
-    return False
 
 
 def _api_headers(api_key: str | None) -> dict[str, str]:

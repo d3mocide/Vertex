@@ -46,6 +46,7 @@ async def init_db():
         "ALTER TABLE annotations ADD COLUMN IF NOT EXISTS tak_uid VARCHAR(128)",
         "CREATE INDEX IF NOT EXISTS ix_annotations_tak_uid ON annotations (tak_uid) WHERE tak_uid IS NOT NULL",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS api_key_hash VARCHAR(128)",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS token_version INTEGER NOT NULL DEFAULT 0",
         "CREATE UNIQUE INDEX IF NOT EXISTS ix_users_api_key_hash ON users (api_key_hash) WHERE api_key_hash IS NOT NULL",
         "ALTER TABLE alert_rules ADD COLUMN IF NOT EXISTS cooldown_seconds INTEGER",
         "ALTER TABLE alert_rules ADD COLUMN IF NOT EXISTS max_per_hour INTEGER",

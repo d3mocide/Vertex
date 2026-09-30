@@ -49,7 +49,8 @@ for _mod in [
 _mock_settings = MagicMock()
 _mock_settings.auth_enabled = False
 _mock_settings.auth_secret_key = "test-secret-key-at-least-32-chars!!"
-_mock_settings.auth_token_expire_hours = 24
+_mock_settings.auth_token_expire_hours = 8
+_mock_settings.auth_cookie_secure = False
 _mock_settings.log_level = "DEBUG"
 
 _mock_config = MagicMock()
@@ -59,8 +60,8 @@ sys.modules["config"] = _mock_config
 # Import deps for real to get the actual get_db function (used as override key)
 import deps as _deps  # noqa: E402
 
-# Now safe to import jose directly (not mocked)
-from jose import jwt  # noqa: E402
+# PyJWT is the runtime JWT implementation.
+import jwt  # noqa: E402
 
 # Late import of the router and its helpers after stubs are in place
 from routers.auth import (  # noqa: E402
@@ -240,6 +241,8 @@ class TestSetupEndpoint(unittest.IsolatedAsyncioTestCase):
         _mock_settings.auth_enabled = True
         mock_db = AsyncMock()
         mock_db.add = MagicMock()
+        mock_db.execute = AsyncMock()
+        mock_db.scalar = AsyncMock(return_value=0)
         mock_db.commit = AsyncMock()
         _, client = _make_app(mock_db)
 
@@ -248,12 +251,29 @@ class TestSetupEndpoint(unittest.IsolatedAsyncioTestCase):
         data = resp.json()
         self.assertIn("access_token", data)
         self.assertEqual(data["token_type"], "bearer")
+        self.assertIn("vertex_session=", resp.headers.get("set-cookie", ""))
+        self.assertIn("HttpOnly", resp.headers.get("set-cookie", ""))
         _mock_settings.auth_enabled = False
 
-    async def test_setup_conflict_returns_409(self):
+    async def test_setup_conflict_returns_409_when_any_user_exists(self):
+        _mock_settings.auth_enabled = True
+        mock_db = AsyncMock()
+        mock_db.execute = AsyncMock()
+        mock_db.scalar = AsyncMock(return_value=1)
+        mock_db.rollback = AsyncMock()
+        _, client = _make_app(mock_db)
+
+        resp = client.post("/auth/setup", json={"username": "another_admin", "password": "validpassword1"})
+        self.assertEqual(resp.status_code, 409)
+        mock_db.add.assert_not_called()
+        _mock_settings.auth_enabled = False
+
+    async def test_setup_insert_race_returns_409(self):
         _mock_settings.auth_enabled = True
         from sqlalchemy.exc import IntegrityError
         mock_db = AsyncMock()
+        mock_db.execute = AsyncMock()
+        mock_db.scalar = AsyncMock(return_value=0)
         mock_db.add = MagicMock()
         mock_db.commit = AsyncMock(side_effect=IntegrityError(None, None, None))
         mock_db.rollback = AsyncMock()
@@ -284,6 +304,7 @@ class TestLoginEndpoint(unittest.IsolatedAsyncioTestCase):
         mock_user.password_hash = hashed
         mock_user.role = "admin"
         mock_user.last_login = None
+        mock_user.token_version = 0
 
         mock_db = AsyncMock()
         mock_db.scalar = AsyncMock(return_value=mock_user)
@@ -306,6 +327,7 @@ class TestLoginEndpoint(unittest.IsolatedAsyncioTestCase):
         mock_user.username = "admin"
         mock_user.password_hash = hashed
         mock_user.role = "admin"
+        mock_user.token_version = 0
 
         mock_db = AsyncMock()
         mock_db.scalar = AsyncMock(return_value=mock_user)
@@ -327,7 +349,7 @@ class TestLoginEndpoint(unittest.IsolatedAsyncioTestCase):
 
 
 class TestMeEndpoint(unittest.IsolatedAsyncioTestCase):
-    async def test_auth_disabled_returns_local_admin(self):
+    async def test_auth_disabled_returns_local_viewer(self):
         _mock_settings.auth_enabled = False
         mock_db = AsyncMock()
         _, client = _make_app(mock_db)
@@ -336,7 +358,7 @@ class TestMeEndpoint(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(resp.status_code, 200)
         data = resp.json()
         self.assertEqual(data["username"], "local")
-        self.assertEqual(data["role"], "admin")
+        self.assertEqual(data["role"], "viewer")
 
     async def test_valid_token_returns_user_info(self):
         _mock_settings.auth_enabled = True

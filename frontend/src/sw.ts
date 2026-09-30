@@ -1,7 +1,7 @@
 import { clientsClaim } from 'workbox-core'
 import { precacheAndRoute, cleanupOutdatedCaches } from 'workbox-precaching'
 import { registerRoute } from 'workbox-routing'
-import { CacheFirst, NetworkFirst, NetworkOnly, StaleWhileRevalidate } from 'workbox-strategies'
+import { CacheFirst, NetworkOnly, StaleWhileRevalidate } from 'workbox-strategies'
 import { ExpirationPlugin } from 'workbox-expiration'
 
 declare let self: ServiceWorkerGlobalScope
@@ -12,6 +12,11 @@ self.skipWaiting()
 // Precache all build assets (injected by vite-plugin-pwa at build time)
 cleanupOutdatedCaches()
 precacheAndRoute(self.__WB_MANIFEST)
+
+// Remove the legacy shared API cache created by older service-worker builds.
+self.addEventListener('activate', (event) => {
+  event.waitUntil(caches.delete('api-responses'))
+})
 
 // Cache map tiles — CacheFirst with 7-day expiry
 registerRoute(
@@ -33,13 +38,10 @@ registerRoute(
   new NetworkOnly()
 )
 
-// API responses — NetworkFirst (fresh data when online, cached when offline)
+// Authenticated API data must never be shared through a user-agnostic cache.
 registerRoute(
   ({ url }) => url.pathname.startsWith('/api/'),
-  new NetworkFirst({
-    cacheName: 'api-responses',
-    plugins: [new ExpirationPlugin({ maxEntries: 100, maxAgeSeconds: 60 })],
-  })
+  new NetworkOnly()
 )
 
 // Static assets — StaleWhileRevalidate

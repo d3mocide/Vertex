@@ -6,6 +6,8 @@ from config import settings, load_regions
 from bus import publish_entity
 from normalizers.vessel import normalize_aisstream, normalize_ais_catcher
 from .base import BasePoller
+from redaction import redact_text, redact_url
+from security import validate_safe_url
 
 logger = logging.getLogger(__name__)
 
@@ -27,9 +29,15 @@ class AisPoller(BasePoller):
         rows = await get_pool().fetch(
             "SELECT url FROM poller_sources WHERE type = 'ais' AND enabled = TRUE"
         )
-        self._local_urls = [row["url"] for row in rows]
+        self._local_urls = []
+        for row in rows:
+            try:
+                await validate_safe_url(row["url"], allowed_schemes={"ws", "wss"})
+                self._local_urls.append(row["url"])
+            except ValueError as exc:
+                logger.warning("[ais] blocked unsafe source %s: %s", redact_url(row["url"]), exc)
         if self._local_urls:
-            logger.info("[ais] %d local source(s): %s", len(self._local_urls), self._local_urls)
+            logger.info("[ais] %d local source(s) configured", len(self._local_urls))
         elif settings.aisstream_api_key:
             logger.info("[ais] no local sources — will use AISstream.io fallback")
         else:
@@ -48,7 +56,7 @@ class AisPoller(BasePoller):
             logger.warning("[ais] no AIS source configured — poller inactive")
 
     async def _run_ais_catcher(self, url: str):
-        logger.info("[ais] connecting to local AIS-catcher at %s", url)
+        logger.info("[ais] connecting to local AIS-catcher at %s", redact_url(url))
         while True:
             try:
                 async with websockets.connect(url) as ws, self.streaming():
@@ -57,7 +65,7 @@ class AisPoller(BasePoller):
                         if entity:
                             await publish_entity(entity)
             except Exception as exc:
-                logger.error("[ais] ais-catcher error (%s): %s — retrying in %ds", url, exc, _RETRY_DELAY)
+                logger.error("[ais] ais-catcher error (%s): %s — retrying in %ds", redact_url(url), redact_text(exc), _RETRY_DELAY)
                 await self._heartbeat("error", str(exc)[:256])
                 await asyncio.sleep(_RETRY_DELAY)
 

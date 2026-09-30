@@ -2,7 +2,7 @@ services:
 
   # ── Persistence ─────────────────────────────────
   db:
-    image: postgis/postgis:16-3.4-alpine
+    image: postgis/postgis:16-3.4-alpine@sha256:681931a625df344215e9b8998bf34daf146b6a395ceacee4439eb9c85869239f
     restart: unless-stopped
     deploy:
       resources:
@@ -15,7 +15,7 @@ services:
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-vertex}
       POSTGRES_USER: ${POSTGRES_USER:-vertex}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-vertex}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
     volumes:
       - db_data:/var/lib/postgresql/data
       - ./db/init:/docker-entrypoint-initdb.d:ro
@@ -28,7 +28,7 @@ services:
       - internal
 
   redis:
-    image: redis:7-alpine
+    image: redis:7-alpine@sha256:858f009f9709ce576febc734aa78b8f6d624b82571f9ddb6bda4377c833b3499
     restart: unless-stopped
     deploy:
       resources:
@@ -38,12 +38,15 @@ services:
         reservations:
           memory: 64m
           cpus: '0.1'
-    command: redis-server /etc/redis/redis.conf
+    command: >-
+      sh -ec 'exec redis-server /etc/redis/redis.conf --requirepass "$$REDIS_PASSWORD"'
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?Set REDIS_PASSWORD in .env}
     volumes:
       - redis_data:/data
       - ./infra/redis/redis.conf:/etc/redis/redis.conf:ro
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD-SHELL", "REDISCLI_AUTH=$$REDIS_PASSWORD redis-cli ping"]
       interval: 10s
       timeout: 3s
       retries: 5
@@ -52,7 +55,8 @@ services:
 
   # ── MQTT Broker ──────────────────────────────────
   mosquitto:
-    image: eclipse-mosquitto:2
+    image: eclipse-mosquitto:2@sha256:38c0da4f2ef84284d47b3b3eeea1cb3bdeabe81ee10caf0cd5c5ff61ee3ea408
+    profiles: ["mqtt"]
     restart: unless-stopped
     deploy:
       resources:
@@ -66,9 +70,15 @@ services:
       - ./infra/mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
       - mosquitto_data:/mosquitto/data
     ports:
-      - "${MQTT_PORT:-1883}:1883"
+      - "${MQTT_BIND_ADDRESS:-127.0.0.1}:${MQTT_PORT:-1883}:1883"
+    environment:
+      MQTT_USERNAME: ${MQTT_USERNAME:-}
+      MQTT_PASSWORD: ${MQTT_PASSWORD:-}
+    command: >-
+      sh -ec ': "$${MQTT_USERNAME:?Set MQTT_USERNAME}"; : "$${MQTT_PASSWORD:?Set MQTT_PASSWORD}"; mosquitto_passwd -b -c /tmp/mosquitto.passwd "$$MQTT_USERNAME" "$$MQTT_PASSWORD"
+      && exec mosquitto -c /mosquitto/config/mosquitto.conf'
     healthcheck:
-      test: ["CMD-SHELL", "mosquitto_pub -h 127.0.0.1 -p 1883 -t 'health/check' -m 'ok' -q 0"]
+      test: ["CMD-SHELL", "mosquitto_pub -h 127.0.0.1 -p 1883 -u $$MQTT_USERNAME -P $$MQTT_PASSWORD -t 'health/check' -m 'ok' -q 0"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -77,6 +87,12 @@ services:
 
   # ── Application ──────────────────────────────────
   backend:
+    init: true
+    read_only: true
+    cap_drop: ["ALL"]
+    security_opt: ["no-new-privileges:true"]
+    tmpfs:
+      - /tmp:size=64m,noexec,nosuid,nodev
     build:
       context: ./backend
     restart: unless-stopped
@@ -100,8 +116,8 @@ services:
         hard: 65536
     env_file: ${VERTEX_ENV_FILE:-.env}
     environment:
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-vertex}:${POSTGRES_PASSWORD:-vertex}@db:5432/${POSTGRES_DB:-vertex}
-      REDIS_URL: redis://redis:6379
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-vertex}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@db:5432/${POSTGRES_DB:-vertex}
+      REDIS_URL: redis://:${REDIS_PASSWORD:?Set REDIS_PASSWORD in .env}@redis:6379
     depends_on:
       db:
         condition: service_healthy
@@ -122,13 +138,19 @@ services:
       - p25_audio:/data/audio
 
   poller:
+    init: true
+    read_only: true
+    cap_drop: ["ALL"]
+    security_opt: ["no-new-privileges:true"]
+    tmpfs:
+      - /tmp:size=64m,noexec,nosuid,nodev
     build:
       context: ./poller
       args:
-        AIRCRAFT_DB_URL: ${AIRCRAFT_DB_URL:-https://raw.githubusercontent.com/wiedehopf/tar1090-db/refs/heads/csv/aircraft.csv.gz}
-        AIRPORTS_DB_URL: ${AIRPORTS_DB_URL:-https://davidmegginson.github.io/ourairports-data/airports.csv}
-        AIRLINES_DB_URL: ${AIRLINES_DB_URL:-https://raw.githubusercontent.com/jpatokal/openflights/master/data/airlines.dat}
-        NAVAIDS_DB_URL: ${NAVAIDS_DB_URL:-https://davidmegginson.github.io/ourairports-data/navaids.csv}
+        AIRCRAFT_DB_URL: ${AIRCRAFT_DB_URL:-https://raw.githubusercontent.com/wiedehopf/tar1090-db/655afe27950658a4124d15d75766538b1ae9ea3b/aircraft.csv.gz}
+        AIRPORTS_DB_URL: ${AIRPORTS_DB_URL:-https://raw.githubusercontent.com/davidmegginson/ourairports-data/f31ef57d6e9b67764b3c2ec2336a10bcaa4e28b6/airports.csv}
+        AIRLINES_DB_URL: ${AIRLINES_DB_URL:-https://raw.githubusercontent.com/jpatokal/openflights/7d1a611e070295dba776d6afb86e57d0d1aa1cef/data/airlines.dat}
+        NAVAIDS_DB_URL: ${NAVAIDS_DB_URL:-https://raw.githubusercontent.com/davidmegginson/ourairports-data/f31ef57d6e9b67764b3c2ec2336a10bcaa4e28b6/navaids.csv}
         DATA_CACHEBUST: ${DATA_CACHEBUST:-static}
     restart: unless-stopped
     deploy:
@@ -145,8 +167,8 @@ services:
         hard: 65536
     env_file: ${VERTEX_ENV_FILE:-.env}
     environment:
-      REDIS_URL: redis://redis:6379
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-vertex}:${POSTGRES_PASSWORD:-vertex}@db:5432/${POSTGRES_DB:-vertex}
+      REDIS_URL: redis://:${REDIS_PASSWORD:?Set REDIS_PASSWORD in .env}@redis:6379
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-vertex}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@db:5432/${POSTGRES_DB:-vertex}
       # Cap glibc malloc arenas: with many threads, each arena retains freed
       # memory. (The poller also trims its heap every 5 minutes; see main.py.)
       MALLOC_ARENA_MAX: "2"
@@ -157,6 +179,7 @@ services:
         condition: service_healthy
       mosquitto:
         condition: service_healthy
+        required: false
     # Public resolvers: the host's DHCP-provided DNS was unreadable at container start once, leaving
     # these containers with no external name resolution (AIS/OpenSky/etc. all failed). Service names
     # (redis, db) still resolve through Docker's embedded resolver.
@@ -171,6 +194,12 @@ services:
       - p25_audio:/data/audio
 
   frontend:
+    init: true
+    read_only: true
+    cap_drop: ["ALL"]
+    security_opt: ["no-new-privileges:true"]
+    tmpfs:
+      - /tmp:size=64m,noexec,nosuid,nodev
     build:
       context: ./frontend
       args:
@@ -190,7 +219,7 @@ services:
           memory: 128m
           cpus: '0.1'
     ports:
-      - "${FRONTEND_PORT:-80}:80"
+      - "${FRONTEND_BIND_ADDRESS:-127.0.0.1}:${FRONTEND_PORT:-80}:8080"
     depends_on:
       backend:
         condition: service_healthy
@@ -199,6 +228,12 @@ services:
 
   # ── Whisper P25 Transcription ───────────────────────
   transcription:
+    init: true
+    read_only: true
+    cap_drop: ["ALL"]
+    security_opt: ["no-new-privileges:true"]
+    tmpfs:
+      - /tmp:size=64m,noexec,nosuid,nodev
     build:
       context: ./transcription
     restart: unless-stopped
@@ -214,8 +249,8 @@ services:
           cpus: '0.5'
     env_file: ${VERTEX_ENV_FILE:-.env}
     environment:
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-vertex}:${POSTGRES_PASSWORD:-vertex}@db:5432/${POSTGRES_DB:-vertex}
-      REDIS_URL: redis://redis:6379
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-vertex}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@db:5432/${POSTGRES_DB:-vertex}
+      REDIS_URL: redis://:${REDIS_PASSWORD:?Set REDIS_PASSWORD in .env}@redis:6379
     depends_on:
       db:
         condition: service_healthy
@@ -223,7 +258,7 @@ services:
         condition: service_healthy
     volumes:
       - p25_audio:/data/audio          # shared audio dir for P25 call recordings
-      - whisper_models:/root/.cache    # persist downloaded model weights across restarts
+      - whisper_models:/models    # persist downloaded model weights across restarts
     networks:
       - internal
 
@@ -233,7 +268,7 @@ services:
   # Set VITE_TILE_URL=http://localhost:8080/styles/basic-preview/style.json
   # in .env to point the frontend at this server.
   tileserver:
-    image: maptiler/tileserver-gl:latest
+    image: maptiler/tileserver-gl:v5.3.1@sha256:99841aa659ba7d49168a19dfc56ae37af79b6d9f52d46d16ba42cddc8c088771
     profiles: ["offline"]
     restart: unless-stopped
     deploy:
@@ -244,7 +279,7 @@ services:
     volumes:
       - ./tiles:/data:ro
     ports:
-      - "${TILESERVER_PORT:-8080}:8080"
+      - "${TILESERVER_BIND_ADDRESS:-127.0.0.1}:${TILESERVER_PORT:-8080}:8080"
     command: ["--config", "/data/config.json"]
     networks:
       - internal

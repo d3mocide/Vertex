@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import maplibregl from 'maplibre-gl'
+import * as maplibregl from 'maplibre-gl'
 import { useCivicPick } from '../../store'
 import type { RadioIncident, RadioIncidentCategory } from '../../storeTypes'
 import { MAP_STYLE, DEFAULT_CENTER } from '../../config'

@@ -12,7 +12,6 @@
  *   "J" | JSON {"ev": "label", ch, tgid, tag} | {"ev": "end", ch}
  */
 import { WS_URL } from '../config'
-import { wsTokenParam } from '../auth'
 import { Upsampler } from './upsample'
 
 const RATE = 8000
@@ -143,7 +142,7 @@ export class P25LivePlayer {
   // ── connection ────────────────────────────────────────────────────────────
 
   private connect() {
-    const ws = new WebSocket(`${WS_URL}/radio${wsTokenParam()}`)
+    const ws = new WebSocket(`${WS_URL}/radio`)
     ws.binaryType = 'arraybuffer'
     ws.onopen = () => { this.connected = true; this.emit() }
     ws.onmessage = (e) => { if (e.data instanceof ArrayBuffer) this.onMessage(e.data) }

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { createPortal } from 'react-dom'
-import maplibregl from 'maplibre-gl'
+import * as maplibregl from 'maplibre-gl'
 import { useCivicStore } from '../../store'
 import type { AnnotationItem } from '../../storeTypes'
 import { API_BASE } from '../../config'

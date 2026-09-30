@@ -18,7 +18,8 @@ from deps import get_db
 from db.session import async_session_factory
 from db.models import Event, RadioStream, Talkgroup, P25Recording
 from redis_bus import get_redis
-from security import validate_safe_url
+from security import send_pinned_http_request, validate_safe_url_async
+from redaction import redact_url
 
 router = APIRouter(prefix="/radio", tags=["radio"])
 
@@ -47,7 +48,7 @@ def _to_response(stream: RadioStream) -> RadioStreamResponse:
     return RadioStreamResponse(
         id=stream.id,
         name=stream.name,
-        url=stream.url,
+        url=redact_url(stream.url) or "",
         format=stream.format,
         enabled=stream.enabled,
         source=stream.source,
@@ -68,6 +69,10 @@ async def list_streams(db: AsyncSession = Depends(get_db)):
 @router.post("/streams", response_model=RadioStreamResponse, status_code=201)
 async def create_stream(body: RadioStreamCreate, db: AsyncSession = Depends(get_db)):
     """Add a new stream. Persisted to sources.yml (source=user) and DB."""
+    try:
+        await validate_safe_url_async(body.url, allowed_schemes={"http", "https"})
+    except ValueError as exc:
+        raise HTTPException(400, f"Unsafe stream URL: {exc}") from exc
     stream = RadioStream(
         name=body.name,
         url=body.url,
@@ -398,31 +403,17 @@ async def proxy_stream(
     if not stream or not stream.enabled:
         raise HTTPException(404, "Stream not found or disabled")
 
-    # Validate URL against SSRF
-    try:
-        validate_safe_url(stream.url)
-    except ValueError as e:
-        raise HTTPException(400, f"Invalid or unsafe stream URL: {str(e)}")
-
-    async def _validate_request_url(request: httpx.Request):
-        try:
-            loop = asyncio.get_running_loop()
-            await loop.run_in_executor(None, validate_safe_url, str(request.url))
-        except ValueError as e:
-            # We raise a RequestError here so httpx catches it instead of crashing.
-            raise httpx.RequestError(f"SSRF validation failed: {e}", request=request)
-
     client = httpx.AsyncClient(
         timeout=httpx.Timeout(connect=10.0, read=None, write=10.0, pool=10.0),
-        follow_redirects=True,
-        event_hooks={'request': [_validate_request_url]},
+        follow_redirects=False,
     )
     try:
-        req = client.build_request("GET", stream.url)
-        resp = await client.send(req, stream=True)
-    except httpx.RequestError as e:
+        resp = await send_pinned_http_request(
+            client, "GET", stream.url, max_redirects=3, stream=True
+        )
+    except httpx.RequestError:
         await client.aclose()
-        raise HTTPException(503, f"Stream unavailable: {str(e)}")
+        raise HTTPException(503, "Stream unavailable")
 
     if resp.status_code != 200:
         await resp.aclose()

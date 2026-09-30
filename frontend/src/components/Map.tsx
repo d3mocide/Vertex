@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
-import maplibregl from 'maplibre-gl'
+import * as maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { MAP_STYLE, DEFAULT_CENTER, DEFAULT_ZOOM, PRESERVE_DRAWING_BUFFER } from '../config'
 import { RadarLayer }           from './layers/RadarLayer'
@@ -114,8 +114,10 @@ export function Map() {
       center:    DEFAULT_CENTER,
       zoom:      DEFAULT_ZOOM,
       attributionControl: false,
-      antialias: true,
-      preserveDrawingBuffer: PRESERVE_DRAWING_BUFFER,
+      canvasContextAttributes: {
+        antialias: true,
+        preserveDrawingBuffer: PRESERVE_DRAWING_BUFFER,
+      },
     })
 
     // Static region-center marker so operators can quickly orient to the

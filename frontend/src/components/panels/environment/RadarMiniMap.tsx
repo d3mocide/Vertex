@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import maplibregl from 'maplibre-gl'
+import * as maplibregl from 'maplibre-gl'
 import { useCivicStore } from '../../../store'
 import { RADAR_LAYER, MAP_STYLE, DEFAULT_CENTER } from '../../../config'
 import { RadarLayer } from '../../layers/RadarLayer'

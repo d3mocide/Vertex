@@ -34,6 +34,8 @@ from bus import get_bus
 from db import write_acars_message, get_pool
 from sanitize import sanitize_payload, sanitize_text
 from .base import BasePoller
+from redaction import redact_text, redact_url
+from security import validate_safe_url
 
 logger = logging.getLogger(__name__)
 
@@ -69,9 +71,16 @@ class AcarsPoller(BasePoller):
         rows = await get_pool().fetch(
             "SELECT url FROM poller_sources WHERE type = 'acars' AND enabled = TRUE"
         )
-        self._urls = [r["url"].rstrip("/") for r in rows]
+        self._urls = []
+        for row in rows:
+            candidate = row["url"].rstrip("/")
+            try:
+                await validate_safe_url(candidate, allowed_schemes={"http", "https"})
+                self._urls.append(candidate)
+            except ValueError as exc:
+                logger.warning("[acars] blocked unsafe source %s: %s", redact_url(candidate), exc)
         if self._urls:
-            logger.info("[acars] %d ACARSHub source(s): %s", len(self._urls), self._urls)
+            logger.info("[acars] %d ACARSHub source(s) configured", len(self._urls))
         else:
             logger.warning("[acars] no ACARS source configured — poller inactive")
 
@@ -82,14 +91,14 @@ class AcarsPoller(BasePoller):
         # Start any missing tasks
         alive = {t.get_name() for t in self._listener_tasks if not t.done()}
         for base_url in self._urls:
-            task_name = f"acars-listener:{base_url}"
+            task_name = f"acars-listener:{hash(base_url)}"
             if task_name not in alive:
                 t = asyncio.create_task(
                     self._listen_forever(base_url),
                     name=task_name,
                 )
                 self._listener_tasks.append(t)
-                logger.info("[acars] started listener task for %s", base_url)
+                logger.info("[acars] started listener task for %s", redact_url(base_url))
 
     # ── Per-source WebSocket listener ─────────────────────────────────────────
 
@@ -103,7 +112,7 @@ class AcarsPoller(BasePoller):
             except Exception as exc:
                 logger.warning(
                     "[acars] %s session error: %s — reconnecting in %ds",
-                    base_url, exc, _RECONNECT_DELAY,
+                    redact_url(base_url), redact_text(exc), _RECONNECT_DELAY,
                 )
             await asyncio.sleep(_RECONNECT_DELAY)
 
@@ -112,7 +121,7 @@ class AcarsPoller(BasePoller):
         ws_url = base_url.replace("http://", "ws://").replace("https://", "wss://")
         uri    = f"{ws_url}/socket.io/?EIO=4&transport=websocket"
 
-        logger.debug("[acars] connecting to %s", uri)
+        logger.debug("[acars] connecting to %s", redact_url(uri))
         async with websockets.connect(
             uri,
             open_timeout=_CONNECT_TIMEOUT,
@@ -137,7 +146,7 @@ class AcarsPoller(BasePoller):
             conn_ack = await asyncio.wait_for(ws.recv(), timeout=_CONNECT_TIMEOUT)
             if "/main" not in conn_ack:
                 raise ValueError(f"Did not receive /main namespace ack: {conn_ack[:80]}")
-            logger.info("[acars] connected to %s /main", base_url)
+            logger.info("[acars] connected to %s /main", redact_url(base_url))
 
             # ── Request message history (first page) ─────────────────────────
             # Subsequent pages are requested after database_search_results
@@ -242,7 +251,7 @@ class AcarsPoller(BasePoller):
                 new_count += 1
 
         if new_count:
-            logger.debug("[acars] %s [%s] → %d new live message(s)", base_url, event_name, new_count)
+            logger.debug("[acars] %s [%s] → %d new live message(s)", redact_url(base_url), event_name, new_count)
 
     async def _handle_search_results(self, ws, base_url: str, data: dict):
         """Handle database_search_results (historical batch), auto-paginating."""
@@ -262,7 +271,7 @@ class AcarsPoller(BasePoller):
             if msg_id > max_id:
                 max_id = msg_id
         if new_count:
-            logger.info("[acars] %s synced %d historical message(s)", base_url, new_count)
+            logger.info("[acars] %s synced %d historical message(s)", redact_url(base_url), new_count)
         # If we got a full page, there may be more — request next page
         if len(messages) >= _SEARCH_PAGE_SIZE and max_id > 0:
             await self._request_search_page(ws, max_id)

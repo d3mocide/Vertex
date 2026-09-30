@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import maplibregl from 'maplibre-gl'
+import * as maplibregl from 'maplibre-gl'
 import { MAP_STYLE } from '../config'
 import {
   fetchPacks, fetchSetupStatus, resolveLocation, saveRegion, SetupError,

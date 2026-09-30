@@ -2,9 +2,9 @@ import hashlib
 import secrets
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.security import OAuth2PasswordRequestForm
-from jose import jwt
+import jwt
 from passlib.context import CryptContext
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
@@ -19,6 +19,7 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 _pwd = CryptContext(schemes=["bcrypt"], deprecated="auto")
 _ALGORITHM = "HS256"
+_SESSION_COOKIE = "vertex_session"
 
 
 # ── Schemas ───────────────────────────────────────────────────────────────────
@@ -72,9 +73,32 @@ class ResetPasswordRequest(BaseModel):
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
-def _make_token(username: str, role: str) -> str:
+def _make_token(username: str, role: str, token_version: int = 0) -> str:
     exp = datetime.now(timezone.utc) + timedelta(hours=settings.auth_token_expire_hours)
-    return jwt.encode({"sub": username, "role": role, "exp": exp}, settings.auth_secret_key, algorithm=_ALGORITHM)
+    return jwt.encode(
+        {
+            "sub": username,
+            "role": role,
+            "ver": token_version,
+            "iat": datetime.now(timezone.utc),
+            "exp": exp,
+            "jti": secrets.token_hex(16),
+        },
+        settings.auth_secret_key,
+        algorithm=_ALGORITHM,
+    )
+
+
+def _set_session_cookie(response: Response, token: str) -> None:
+    response.set_cookie(
+        _SESSION_COOKIE,
+        token,
+        max_age=settings.auth_token_expire_hours * 3600,
+        httponly=True,
+        secure=settings.auth_cookie_secure,
+        samesite="strict",
+        path="/",
+    )
 
 
 def _hash_api_key(key: str) -> str:
@@ -87,6 +111,8 @@ async def _user_count(db: AsyncSession) -> int:
 
 def _decode_admin(request: Request) -> dict:
     """Decode JWT and assert admin role; raises HTTPException on failure."""
+    if getattr(request.state, "role", None) == "admin":
+        return {"sub": getattr(request.state, "user", ""), "role": "admin"}
     header = request.headers.get("Authorization", "")
     token = header[7:].strip() if header.startswith("Bearer ") else ""
     try:
@@ -108,11 +134,18 @@ async def auth_status(db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/setup", response_model=Token, status_code=status.HTTP_201_CREATED)
-async def setup(body: SetupRequest, db: AsyncSession = Depends(get_db)):
+async def setup(body: SetupRequest, response: Response, db: AsyncSession = Depends(get_db)):
     """Create the first admin account. Returns a JWT so the caller is immediately logged in.
     Responds 409 once any user exists — setup cannot be repeated."""
     if not settings.auth_enabled:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+
+    # Serialize first-user setup across backend workers. A count followed by an
+    # insert is otherwise racy when two different usernames arrive together.
+    await db.execute(select(func.pg_advisory_xact_lock(0x56455254)))
+    if await _user_count(db):
+        await db.rollback()
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Setup already complete")
 
     user = User(
         username=body.username,
@@ -126,11 +159,13 @@ async def setup(body: SetupRequest, db: AsyncSession = Depends(get_db)):
     except IntegrityError:
         await db.rollback()
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Setup already complete")
-    return Token(access_token=_make_token(body.username, "admin"))
+    token = _make_token(body.username, "admin", user.token_version or 0)
+    _set_session_cookie(response, token)
+    return Token(access_token=token)
 
 
 @router.post("/token", response_model=Token)
-async def login(form: OAuth2PasswordRequestForm = Depends(), db: AsyncSession = Depends(get_db)):
+async def login(response: Response, form: OAuth2PasswordRequestForm = Depends(), db: AsyncSession = Depends(get_db)):
     if not settings.auth_enabled:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
 
@@ -146,22 +181,40 @@ async def login(form: OAuth2PasswordRequestForm = Depends(), db: AsyncSession = 
 
     user.last_login = datetime.now(timezone.utc)
     await db.commit()
-    return Token(access_token=_make_token(user.username, user.role))
+    token = _make_token(user.username, user.role, user.token_version or 0)
+    _set_session_cookie(response, token)
+    return Token(access_token=token)
+
+
+@router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
+async def logout(response: Response):
+    response.delete_cookie(
+        _SESSION_COOKIE,
+        path="/",
+        httponly=True,
+        secure=settings.auth_cookie_secure,
+        samesite="strict",
+    )
 
 
 @router.get("/me", response_model=UserInfo)
 async def me(request: Request, db: AsyncSession = Depends(get_db)):
     """Return the username and role of the currently authenticated user."""
     if not settings.auth_enabled:
-        return UserInfo(username="local", role="admin")
-    header = request.headers.get("Authorization", "")
-    token = header[7:].strip() if header.startswith("Bearer ") else ""
-    try:
-        payload = jwt.decode(token, settings.auth_secret_key, algorithms=[_ALGORITHM])
-    except Exception:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
-    username = payload.get("sub", "")
-    role = payload.get("role") or "viewer"
+        return UserInfo(username="local", role="viewer")
+    username = getattr(request.state, "user", "")
+    role = getattr(request.state, "role", "viewer")
+    if not username:
+        header = request.headers.get("Authorization", "")
+        token = header[7:].strip() if header.startswith("Bearer ") else request.cookies.get(_SESSION_COOKIE, "")
+        if not token:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
+        try:
+            payload = jwt.decode(token, settings.auth_secret_key, algorithms=[_ALGORITHM])
+        except jwt.InvalidTokenError as exc:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token") from exc
+        username = str(payload.get("sub") or "")
+        role = "admin" if payload.get("role") == "admin" else "viewer"
     return UserInfo(username=username, role=role)
 
 
@@ -217,6 +270,7 @@ async def update_user_role(user_id: int, body: UpdateRoleRequest, request: Reque
     if user.username == caller.get("sub", ""):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Cannot change your own role")
     user.role = body.role
+    user.token_version = (user.token_version or 0) + 1
     await db.commit()
     return UserDetail(
         id=user.id,
@@ -316,6 +370,7 @@ async def reset_user_password(user_id: int, body: ResetPasswordRequest, request:
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     user.password_hash = _pwd.hash(body.password)
+    user.token_version = (user.token_version or 0) + 1
     await db.commit()
 
 
@@ -327,14 +382,10 @@ def _get_username(request: Request) -> str:
     """Extract the authenticated username from the request JWT."""
     if not settings.auth_enabled:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
-    token = request.headers.get("Authorization", "").removeprefix("Bearer ").strip()
-    if not token:
+    username = getattr(request.state, "user", "")
+    if not username:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)
-    try:
-        payload = jwt.decode(token, settings.auth_secret_key, algorithms=[_ALGORITHM])
-        return str(payload["sub"])
-    except Exception:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)
+    return str(username)
 
 
 @router.get("/preferences")

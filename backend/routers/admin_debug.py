@@ -12,8 +12,10 @@ from pydantic import BaseModel, Field
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from config import settings
 from deps import get_db
-from security import validate_safe_host_async, validate_safe_url_async
+from redaction import redact_text, redact_url
+from security import resolve_safe_ip, send_pinned_http_request, validate_safe_url_async
 
 router = APIRouter(prefix="/admin/debug", tags=["admin"])
 
@@ -57,11 +59,7 @@ def _auth_headers(auth: tuple | None) -> dict[str, str]:
 
 
 def _sanitize_url(url: str) -> str:
-    parsed = urlparse(url)
-    if parsed.username:
-        netloc = parsed.hostname + (f":{parsed.port}" if parsed.port else "")
-        return urlunparse(parsed._replace(netloc=netloc))
-    return url
+    return redact_url(url) or ""
 
 
 async def _resolve_source(
@@ -146,9 +144,10 @@ async def _http_get_check(
 ) -> tuple[dict, object | None]:
     t0 = time.perf_counter()
     try:
-        await validate_safe_url_async(url, allowed_schemes={"http", "https"})
-        async with httpx.AsyncClient(auth=auth, headers=extra_headers or {}, timeout=timeout) as client:
-            resp = await client.get(url)
+        async with httpx.AsyncClient(timeout=timeout, follow_redirects=False) as client:
+            resp = await send_pinned_http_request(
+                client, "GET", url, max_redirects=3, auth=auth, headers=extra_headers or {},
+            )
         latency_ms = round((time.perf_counter() - t0) * 1000, 1)
         payload = None
         summary = ""
@@ -175,16 +174,17 @@ async def _http_get_check(
             "status_code": None,
             "latency_ms": latency_ms,
             "summary": "",
-            "error": str(exc),
+            "error": redact_text(exc),
         }, None
 
 
 async def _http_post_check(url: str, body: object, auth: Optional[httpx.BasicAuth] = None, timeout: float = 10.0) -> tuple[dict, object | None]:
     t0 = time.perf_counter()
     try:
-        await validate_safe_url_async(url, allowed_schemes={"http", "https"})
-        async with httpx.AsyncClient(auth=auth, timeout=timeout) as client:
-            resp = await client.post(url, json=body)
+        async with httpx.AsyncClient(timeout=timeout, follow_redirects=False) as client:
+            resp = await send_pinned_http_request(
+                client, "POST", url, max_redirects=3, auth=auth, json=body,
+            )
         latency_ms = round((time.perf_counter() - t0) * 1000, 1)
         payload = None
         summary = ""
@@ -211,7 +211,7 @@ async def _http_post_check(url: str, body: object, auth: Optional[httpx.BasicAut
             "status_code": None,
             "latency_ms": latency_ms,
             "summary": "",
-            "error": str(exc),
+            "error": redact_text(exc),
         }, None
 
 
@@ -222,12 +222,20 @@ async def _probe_ws(ws_url: str, duration_seconds: int, headers: Optional[dict[s
     ws_connected = False
 
     try:
-        await validate_safe_url_async(ws_url, allowed_schemes={"ws", "wss"})
+        parsed = urlparse(ws_url)
+        if parsed.scheme not in {"ws", "wss"} or not parsed.hostname:
+            raise ValueError("WebSocket URL must include a safe ws or wss hostname")
+        port = parsed.port or (443 if parsed.scheme == "wss" else 80)
+        ip = await resolve_safe_ip(parsed.hostname, port)
         async with websockets.connect(
             ws_url,
-            extra_headers=headers or {},
+            host=ip,
+            port=port,
+            proxy=None,
+            additional_headers=headers or {},
             ping_interval=20,
             ping_timeout=20,
+            max_size=1024 * 1024,
             open_timeout=10,
             close_timeout=5,
         ) as ws:
@@ -256,7 +264,7 @@ async def _probe_ws(ws_url: str, duration_seconds: int, headers: Optional[dict[s
                 if event_type not in event_samples and len(event_samples) < 12:
                     event_samples.append(event_type)
     except Exception as exc:
-        ws_error = str(exc)
+        ws_error = redact_text(exc)
 
     return {
         "connected": ws_connected,
@@ -285,8 +293,8 @@ async def _probe_aprs_tcp(url: str) -> dict:
     reader = None
     writer = None
     try:
-        await validate_safe_host_async(host)
-        reader, writer = await asyncio.wait_for(asyncio.open_connection(host, port), timeout=8)
+        ip = await resolve_safe_ip(host, port)
+        reader, writer = await asyncio.wait_for(asyncio.open_connection(ip, port), timeout=8)
         # Standard receive-only APRS-IS login for diagnostics.
         writer.write(b"user N0CALL pass -1 vers VertexDebug 1.0\n")
         await writer.drain()
@@ -306,7 +314,7 @@ async def _probe_aprs_tcp(url: str) -> dict:
             "status_code": None,
             "latency_ms": latency_ms,
             "summary": "",
-            "error": str(exc),
+            "error": redact_text(exc),
         }
     finally:
         if writer:
@@ -362,10 +370,10 @@ async def probe_remote_feed(body: RemoteFeedProbeRequest, db: AsyncSession = Dep
     recommendations: list[str] = []
 
     if body.source_type == "meshcore":
-        # pyMC-Repeater uses X-API-Key auth (URL username = API key)
+        # pyMC-Repeater uses the environment-backed X-API-Key.
         pymc_headers = {}
-        if auth:
-            pymc_headers["X-API-Key"] = auth[0]
+        if settings.meshcore_api_key:
+            pymc_headers["X-API-Key"] = settings.meshcore_api_key
 
         for name, path, summarize in (
             ("stats", "/api/stats", _summarize_stats),
@@ -400,7 +408,7 @@ async def probe_remote_feed(body: RemoteFeedProbeRequest, db: AsyncSession = Dep
         if stats_check and not stats_check.get("ok"):
             recommendations.append("Could not reach /api/stats — verify the repeater URL and that pyMC-Repeater is running.")
         if adverts_check and adverts_check.get("status_code") == 401:
-            recommendations.append("/api/adverts_by_contact_type returned 401; embed the API key in the source URL as http://API_KEY@host:port.")
+            recommendations.append("/api/adverts_by_contact_type returned 401; set MESHCORE_API_KEY in .env and restart the backend.")
         if storage["total_messages"] == 0:
             recommendations.append("No persisted mesh messages found; messages arrive via SSE only when a companion identity is configured on the repeater.")
 

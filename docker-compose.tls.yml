@@ -13,10 +13,14 @@
 # Set TLS_CERT_PATH / TLS_KEY_PATH in .env if your cert files live elsewhere.
 
 services:
+  backend:
+    environment:
+      AUTH_COOKIE_SECURE: "true"
+
   frontend:
     ports:
-      - "${FRONTEND_PORT:-80}:80"
-      - "443:443"
+      - "${FRONTEND_BIND_ADDRESS:-127.0.0.1}:${FRONTEND_PORT:-80}:8080"
+      - "${FRONTEND_BIND_ADDRESS:-127.0.0.1}:${HTTPS_PORT:-443}:8443"
     volumes:
       - ./frontend/nginx-tls.conf:/etc/nginx/conf.d/default.conf:ro
       - ${TLS_CERT_PATH:-./certs/cert.pem}:/etc/nginx/certs/cert.pem:ro

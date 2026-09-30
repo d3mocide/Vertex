@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import maplibregl from 'maplibre-gl'
+import * as maplibregl from 'maplibre-gl'
 import type { Region } from '../../hooks/useRegions'
 
 interface Props {

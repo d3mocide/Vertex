@@ -7,6 +7,7 @@ import httpx
 from bus import publish_entity
 from config import settings
 from .base import BasePoller
+from redaction import redact_text, redact_url
 
 logger = logging.getLogger(__name__)
 
@@ -164,7 +165,7 @@ class FirePoller(BasePoller):
             try:
                 await self._poll_source(url)
             except Exception as exc:
-                logger.warning("[fire] source failed (%s): %s", url, exc)
+                logger.warning("[fire] source failed (%s): %s", redact_url(url), redact_text(exc))
 
     async def _poll_source(self, url: str):
         async with httpx.AsyncClient(timeout=20) as client:

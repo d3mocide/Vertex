@@ -11,18 +11,36 @@ import '@fontsource/roboto-mono/500.css'
 import '@fontsource/roboto-mono/700.css'
 import 'material-symbols/outlined.css'
 import './index.css'
-import { getUserRole } from './auth'
+import { setSession } from './auth'
+import { API_BASE } from './config'
 
 const isAdmin = window.location.pathname.startsWith('/admin')
 
-if (isAdmin && getUserRole() !== 'admin') {
-  window.location.replace('/')
+function AdminGate() {
+  const [allowed, setAllowed] = React.useState(false)
+  const [checked, setChecked] = React.useState(false)
+
+  React.useEffect(() => {
+    void fetch(API_BASE + "/auth/me")
+      .then(async (response) => {
+        if (!response.ok) throw new Error("Not authenticated")
+        const profile = await response.json() as { username: string; role: "admin" | "viewer" }
+        if (profile.role !== "admin") throw new Error("Admin role required")
+        setSession(profile)
+        setAllowed(true)
+      })
+      .catch(() => window.location.replace("/"))
+      .finally(() => setChecked(true))
+  }, [])
+
+  if (!checked) return React.createElement("div", { className: "w-full h-full bg-onyx-black", "aria-label": "Checking administrator session" })
+  return allowed ? React.createElement(AdminApp) : null
 }
 
 const root = ReactDOM.createRoot(document.getElementById('root')!)
 root.render(
   <React.StrictMode>
-    {isAdmin ? <AdminApp /> : <App />}
+    {isAdmin ? <AdminGate /> : <App />}
   </React.StrictMode>
 )
 
