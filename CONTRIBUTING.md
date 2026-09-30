@@ -28,6 +28,10 @@ CI runs the same checks. Add or update tests for behaviour you change, and add a
 - Pin new dependencies to exact versions and audit them (`npm audit`, `pip-audit`).
 - Full agent/contributor rules, including map-layer and design-system rules, are in [`CLAUDE.md`](CLAUDE.md).
 
+## Region packs
+
+Local data sources (traffic, outages, and so on) live in region packs under `regions/`. Copy `regions/_template/`, describe your sources in `pack.yml`, and run `make pack-check`. The format and the plan for declarative providers are in `docs/architecture/region-packs.md`.
+
 ## Keep it private
 
 Never commit secrets, personal paths (`/home/<you>/…`), hostnames, LAN IPs, or real home/receiver coordinates, and check screenshots before including them. Details are in the *Privacy & Repository Hygiene* section of `CLAUDE.md`.

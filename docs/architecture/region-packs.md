@@ -182,34 +182,42 @@ GET /api/v1/capabilities
 
 This works before any packs exist: a non-Oregon user immediately gets a clean app instead of blank Oregon pages.
 
-## Location-driven setup
+## Setup wizard (implemented)
 
-Replace "edit `.env` and rebuild" with a first-run setup step:
+Region is chosen **once, in a setup wizard**, not through a live-reloading setting. The wizard is driven by the packs installed under `regions/`:
 
-1. **Location.** The user searches for a place or clicks the map (or enters coordinates).
-2. **Resolve.** The backend derives what it can. For US locations the NWS `points` endpoint gives the forecast office, forecast and county zone IDs, and timezone. Vertex adds a default radius for the bounding box (adjustable), the nearest airports and METAR stations, and the state.
-3. **Suggest a pack** by matching the location against each pack's `covers`. Show what the pack provides and which free API keys it wants.
-4. **Confirm.** The user reviews the bbox, zones, and enabled providers, and pastes any keys.
-5. **Apply.** Region settings are stored in the database and hot-reloaded. Environment variables still override, so existing deployments keep working unchanged.
+1. **Location.** Click the map, use the device location, or type coordinates. Coordinates stay on the operator's server.
+2. **Region.** For US locations `POST /api/v1/config/region/resolve` asks the NWS `points` API for the forecast office, forecast/county/fire zones, timezone and a name; the operator can edit all of it. Outside the US the lookup fails politely and the operator fills the details in.
+3. **Region pack.** `GET /api/v1/setup/packs` lists installed packs, with those covering the location first (by bounding box or US state). Invalid packs are shown greyed with the reason. "Core feeds only" is always offered and is the default when nothing covers the location.
+4. **Keys.** The chosen pack's `requires_keys` are listed with `found`/`missing` status. Keys are never entered in the app: the operator adds them to `.env`, and features that need a missing key stay off (capabilities reports `not_configured`).
+5. **Review and save.** `PUT /api/v1/config/region` stores the region, timezone, NWS identifiers and chosen pack.
 
-Storing the region at runtime removes the frontend rebuild and is the prerequisite for everything else here.
+It runs automatically on first sign-in when nothing has chosen a region (admins see the wizard; other users see a "setup not finished" message), and admins can reopen it from Settings, Region setup.
 
-## Runtime region (phase 1, implemented)
+**No live reload.** The poller reads the region once, at startup:
 
-- **Endpoints:** `GET /api/v1/config/region` returns the region in force (name, center, bounding box, timezone, optional NWS identifiers), its `source` (`env`, `database` or `default`), and whether it is `locked` by the environment. `PUT` (admin) stores a region; it answers `409` and names the variables to remove when `REGION_LAT`/`REGION_LON` are set. `POST /api/v1/config/region/resolve` turns a latitude and longitude into a suggested name, NWS office, forecast/county/fire zones, timezone and a default bounding box (US only) without saving anything. (`/config/regions`, plural, is the older list of monitoring regions from `sources.yml`.)
+- On a fresh install (no `REGION_LAT`/`REGION_LON`, nothing saved) the poller **waits** at the gate until the wizard saves a region, so it never fills the database with data for the wrong place. It proceeds by itself the moment the region is saved. `SETUP_GATE=false` skips the wait and uses the built-in defaults.
+- Changing the region later means running the wizard again and restarting the poller. The setup screen reports `restart_required` by comparing the region the poller applied (published to Redis at startup) with the one stored.
+- Environment variables still win: with `REGION_LAT`/`REGION_LON` set the region is pinned, the wizard warns about it, and saving is refused with a `409`.
+
+**Packs and capabilities.** A chosen pack narrows which contracts are active: contracts the pack does not provide report `none` with reason `not_in_pack`; "core feeds only" reports `no_pack`; an install with no pack (older installs, and installs configured through the environment) keeps every built-in provider. The pollers themselves still all run for now; stopping the ones a pack does not use arrives with the provider registry (phase 2).
+
+**Not yet applied by the wizard:** a pack's news and alert feeds, NWS alert zones (stored in `alert_zone_configs`/`sources.yml`) and the climate station (`NWS_CLIMATE_STATION`). They are the next additions to the setup flow.
+
+## Runtime region (implemented)
+
+- **Endpoints:** `GET /api/v1/config/region` returns the region in force (name, center, bounding box, timezone, NWS identifiers, pack), its `source` (`env`, `database` or `default`), and whether it is `locked` by the environment. `PUT` (admin) stores a region and answers `409` naming the variables to remove when `REGION_LAT`/`REGION_LON` are set. `GET /api/v1/setup/status` reports `needs_setup`, the poller's state (`waiting`, `applied`, `env`, `default`) and `restart_required`. (`/config/regions`, plural, is the older list of monitoring regions from `sources.yml`.)
 - **Storage:** the `app_settings` table, created automatically on existing installs.
 - **Precedence:** environment, then database, then defaults, so existing deployments are unchanged.
 - **Backend:** reads the region from the database on each request, so both uvicorn workers agree the moment it is saved; `/capabilities` follows it.
-- **Poller:** applies the stored region before any poller is built, checks for changes every 30 seconds, and restarts itself when it changes (pollers read the region in many places, so a restart is simpler and safer than hot-swapping). Docker brings it back.
 - **Frontend:** loads the region after sign-in, before the dashboard mounts, and falls back to built-in defaults if the backend is unreachable. The build-time `VITE_REGION_*` arguments are gone.
-- **Not yet covered:** alert zones (stored in `alert_zone_configs`/`sources.yml`) and the climate station (`NWS_CLIMATE_STATION`) are still configured separately; the setup wizard (phase 4) will derive them from the resolver output.
 
 ## Contributing a pack
 
 1. Copy `regions/_template/` to `regions/<your-area>/`.
-2. Fill in `pack.yml`; prefer declarative providers.
+2. Fill in `pack.yml`. Only `builtin` providers are supported so far; declarative kinds (`gtfs_rt`, `arcgis_featureserver`, ...) come next.
 3. Record real responses from each upstream into `fixtures/` (strip anything personal).
-4. Run the pack check: `make pack-check PACK=<your-area>`. It validates the manifest against the schema, runs each provider against the fixtures, validates the output against the contract schemas, and rejects secrets, private addresses and personal coordinates.
+4. Run the pack check: `make pack-check` (or `python3 backend/packs.py regions`). Today it validates every manifest — required fields, known contract ids, supported provider kinds, key names — and rejects private addresses, personal paths and e-mail addresses. Replaying recorded upstream responses against the contract schemas arrives with declarative providers.
 5. Open a pull request. CI runs the same check for every pack.
 
 A pack README lists each source, its license or terms of use, whether a key is needed, update cadence and known gaps. Maintainers are listed so questions have an owner; a pack with no active maintainer can be marked unmaintained rather than deleted.
@@ -232,7 +240,7 @@ Packs can run code in the poller, which has network access. Mitigations:
 | 1 | Region moves to runtime config (backend endpoint, DB-backed, env override); frontend stops using build args; NWS-based region resolver — **done** (see below) | none; no more frontend rebuild for a location change |
 | 2 | Provider interface and registry; Oregon code moved into `regions/oregon/` behind it; `OregonStatus` replaced by the generic outage contract | none, verified by fixture tests |
 | 3 | Declarative providers (`gtfs_rt`, `arcgis_featureserver`, `rss`/`cap`, `wzdx`, `json_rest`); pack loader; `make pack-check`; CI | none |
-| 4 | Setup wizard and pack suggestion; a second pack from a different kind of region to prove the abstraction | new setup flow |
+| 4 | Setup wizard and pack suggestion — **wizard done**; a second pack from a different kind of region to prove the abstraction is still to do | new setup flow |
 | 5 | Pack authoring guide, `_template` pack, contribution docs | docs only |
 
 The order matters: phase 0 and 1 help every non-Oregon user immediately and de-risk the rest, and phase 2 must not change Oregon behavior.
@@ -244,6 +252,7 @@ Settled 2026-09-29:
 1. **Packs live in the repository** under `regions/`, with an optional mounted directory for private packs (unpublished local sources). A repository per pack remains possible later.
 2. **Declarative providers first; Python providers are allowed after review.** Most packs should need only a manifest; a Python provider gets closer review because it runs inside the poller.
 3. **Order of work: phases 0 and 1 first** (capabilities and runtime region config), because they help every non-Oregon user immediately and do not change Oregon behavior.
+4. **Region is chosen once, in a setup wizard driven by the installed packs; no live reload** (added 2026-09-29). The poller waits for the wizard on a fresh install and reads the region only at startup; changing it later means re-running the wizard and restarting the poller.
 
 ## Open questions
 

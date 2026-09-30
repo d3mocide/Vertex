@@ -58,6 +58,7 @@ frontend/
 db/               PostgreSQL init SQL scripts
 config/           sources.yml — canonical config for radio streams, news feeds, pollers, alert zones
 infra/            Redis config
+regions/          Region packs (pack.yml manifests) offered by the setup wizard; `_template/` to copy
 docs/notes/       Architecture notes and deep-dives
 docs/design/      Design-system and icon-atlas reference pages
 ```
@@ -150,6 +151,7 @@ Base path: `/api/v1/`
 | `/radio` | P25 stream metadata |
 | `/utilities` | Geofence CRUD |
 | `/capabilities` | Which regional data contracts have a provider here (drives what the UI shows) |
+| `/setup/status`, `/setup/packs` | Setup wizard: whether setup is needed and whether the poller needs a restart; installed region packs (covering the given location first) with key status |
 | `/config/region` | The operator's region: `GET` reports it and where it came from, `PUT` (admin) saves it in the database unless `.env` pins it, `POST /resolve` suggests NWS office, zones, timezone and name for a location |
 | `/ws` | WebSocket event stream |
 

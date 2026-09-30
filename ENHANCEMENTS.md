@@ -20,10 +20,13 @@ Goal: someone anywhere in the US can give Vertex their location and get the equi
 | R6 | Move Oregon code into `regions/oregon/` behind the interface | `[ ]` | ODOT TripCheck, ODIN outages, ODF fire danger, TriMet, Portland corridors. Must not change behavior; fixture tests |
 | R7 | Generalize the outage contract | `[ ]` | Replace `OregonStatus` (`pge_affected`, `pacificorp_affected`) with a per-utility list |
 | R8 | Declarative providers: `gtfs_rt`, `arcgis_featureserver`, `rss`/`cap`, `wzdx`, `json_rest` | `[ ]` | Most packs should need no Python |
-| R9 | Pack loader, `make pack-check`, CI validation | `[ ]` | Manifest schema, fixture replay, contract validation, secret/private-address/coordinate rejection |
-| R10 | First-run setup wizard with pack suggestion | `[ ]` | Location, resolve, suggest pack, confirm, apply |
+| R9 | Pack loader, `make pack-check`, CI validation | `[~]` | Done: manifest v1, loader/validator (`backend/packs.py`), `make pack-check`, private-address/path/e-mail rejection, tests (run in CI with the backend suite). To do: fixture replay against contract schemas once providers are declarative |
+| R10 | First-run setup wizard with pack suggestion | `[x]` | Location (map, device location or coordinates), region details from the NWS resolver, pack choice (covering packs first, or core feeds only), key status, review and save. Runs on first sign-in and from Settings. The poller waits at a gate (`SETUP_GATE`) on a fresh install; no live reload — a later change needs a poller restart, which the screen reports |
 | R11 | A second pack from a different kind of region | `[ ]` | Proves the abstraction; ideally contributed by someone who lives there |
-| R12 | Pack authoring guide and `_template` pack | `[ ]` | Plus a CONTRIBUTING section |
+| R12 | Pack authoring guide and `_template` pack | `[~]` | `regions/_template/`, an Oregon pack, and a CONTRIBUTING section are in. To do: a step-by-step authoring guide once declarative providers exist |
+| R15 | Apply a pack's news and alert feeds during setup | `[ ]` | Pack `feeds` are specified but the wizard does not seed `sources.yml`/the database with them yet |
+| R16 | Derive alert zones and the climate station in the wizard | `[ ]` | NWS alert zones (`alert_zone_configs`) and `NWS_CLIMATE_STATION` are still configured separately |
+| R17 | Stop pollers a pack does not use | `[ ]` | A chosen pack already narrows capabilities and the UI, but every built-in poller still runs. Comes with the provider registry (R5, R6) |
 | R13 | Per-pack terminology (radio units, street conventions, agency names) | `[-]` | Depends on how generic the radio incident extractor can be made |
 | R14 | Non-US baseline (ADS-B, AIS, national weather service) | `[-]` | Out of scope for v1 |
 

@@ -56,7 +56,7 @@ Update the region center (`REGION_LAT`, `REGION_LON`), region name, and bounding
 
 The frontend learns the region from the backend when it loads, so no rebuild is needed. After changing region values in `.env`, restart the backend and poller (`docker compose up -d --force-recreate backend poller`) and reload the page.
 
-Leave `REGION_LAT` and `REGION_LON` out of `.env` if you would rather choose the region in the app: a region saved there is stored in the database, the backend uses it immediately, and the poller restarts itself to apply it. Values set in `.env` always win and lock the region (the app then refuses to change it and says which variables to remove).
+Leave `REGION_LAT` and `REGION_LON` out of `.env` if you would rather choose the region in the app. On first sign-in Vertex opens a **setup wizard**: pick your location, confirm the region, choose from the installed region packs (or core feeds only), and see which API keys the pack wants. Until you finish, the poller waits rather than collecting data for the wrong place (set `SETUP_GATE=false` to skip the wait and use the built-in defaults). To change the region later, run the wizard again from Settings, Region setup, then restart the poller (`docker compose restart poller`); the screen tells you when that is needed. Values set in `.env` always win and pin the region (the wizard then warns and refuses to save).
 
 ### 2. Add source endpoints
 
