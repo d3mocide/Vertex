@@ -7,7 +7,10 @@ its next check. See docs/architecture/region-packs.md.
 """
 from __future__ import annotations
 
+import hashlib
+import json
 import math
+import re
 from zoneinfo import ZoneInfo
 
 REGION_KEY = "region"
@@ -18,6 +21,15 @@ _ENV_LOCK_FIELDS = ("region_lat", "region_lon")
 
 class RegionError(ValueError):
     """The submitted region is not valid."""
+
+
+NO_PACK = "none"   # the operator chose core feeds only
+_PACK_ID = re.compile(r"^[a-z][a-z0-9-]{1,31}$")
+
+
+def signature(stored: dict) -> str:
+    """Stable fingerprint of a stored region. Must match poller/region_sync.signature."""
+    return hashlib.sha1(json.dumps(stored, sort_keys=True).encode()).hexdigest()[:16]
 
 
 def bbox_from_radius(lat: float, lon: float, radius_km: float) -> dict:
@@ -53,14 +65,16 @@ def effective(settings, stored: dict | None, updated_at: str | None = None) -> d
         name = r.get("name") or settings.region_name
         timezone = r.get("timezone") or settings.region_timezone
         nws = r.get("nws")
+        pack = r.get("pack")
     else:
         center = [settings.region_lat, settings.region_lon]
         bbox = {"min_lat": settings.bbox_min_lat, "max_lat": settings.bbox_max_lat,
                 "min_lon": settings.bbox_min_lon, "max_lon": settings.bbox_max_lon}
         name, timezone, nws = settings.region_name, settings.region_timezone, None
+        pack = None
 
     return {
-        "name": name, "center": center, "bbox": bbox, "timezone": timezone, "nws": nws,
+        "name": name, "center": center, "bbox": bbox, "timezone": timezone, "nws": nws, "pack": pack,
         "source": source,
         "locked": bool(locked_by), "locked_by": locked_by,
         "configured": source != "default",
@@ -107,6 +121,11 @@ def normalize(payload: dict) -> dict:
         bbox = bbox_from_radius(lat, lon, radius)
 
     out = {"name": name, "lat": lat, "lon": lon, "bbox": bbox, "timezone": timezone}
+    pack = payload.get("pack")
+    if pack is not None:
+        if not isinstance(pack, str) or not (pack == NO_PACK or _PACK_ID.match(pack)):
+            raise RegionError("pack must be a pack id, or \"none\" for core feeds only")
+        out["pack"] = pack
     nws = payload.get("nws")
     if isinstance(nws, dict):
         out["nws"] = {k: str(nws[k]) for k in ("office", "forecast_zone", "county_zone", "fire_zone") if nws.get(k)}

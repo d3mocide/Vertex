@@ -51,10 +51,21 @@ def _inside(bbox: tuple[float, float, float, float], lat: float, lon: float) -> 
     return min_lat <= lat <= max_lat and min_lon <= lon <= max_lon
 
 
-def resolve(contract: Contract, settings, feed_ages: dict[str, float], center: tuple[float, float] | None = None) -> dict:
+def resolve(contract: Contract, settings, feed_ages: dict[str, float], center: tuple[float, float] | None = None,
+            pack: dict | str | None = None) -> dict:
     """Status of one contract: ok, stale, down, pending (enabled, no data yet) or none (no provider applies)."""
     out = {"title": contract.title, "providers": [], "status": "none", "reason": None, "updated_age_s": None}
     lat, lon = center if center else (settings.region_lat, settings.region_lon)
+
+    # A region pack decides which providers are in play. No pack chosen (older installs, and installs
+    # configured through the environment) keeps every built-in provider available.
+    if pack == "none":
+        out["reason"] = "no_pack"
+        return out
+    if isinstance(pack, dict):
+        if not any(contract.id in p["provides"] for p in pack["providers"]):
+            out["reason"] = "not_in_pack"
+            return out
 
     if contract.covers_bbox and not _inside(contract.covers_bbox, lat, lon):
         out["reason"] = "outside_coverage"
@@ -81,7 +92,7 @@ def resolve(contract: Contract, settings, feed_ages: dict[str, float], center: t
     return out
 
 
-def build(settings, feed_ages: dict[str, float], region: dict | None = None) -> dict:
+def build(settings, feed_ages: dict[str, float], region: dict | None = None, packs: dict[str, dict] | None = None) -> dict:
     """The capabilities document. `region` is the effective region (region_config.effective);
     without it the region comes straight from settings."""
     if region is None:
@@ -93,8 +104,11 @@ def build(settings, feed_ages: dict[str, float], region: dict | None = None) -> 
             "timezone": settings.region_timezone,
         }
     center = (region["center"][0], region["center"][1])
+    pack_id = region.get("pack")
+    # "none" = core feeds only; a known pack narrows providers to its own; anything else is legacy.
+    pack = pack_id if pack_id == "none" else (packs or {}).get(pack_id) if pack_id else None
     return {
         "region": {k: region[k] for k in ("name", "center", "bbox", "timezone")},
-        "pack": None,  # region packs are not implemented yet; providers are built in
-        "contracts": {c.id: resolve(c, settings, feed_ages, center) for c in CONTRACTS},
+        "pack": pack_id,
+        "contracts": {c.id: resolve(c, settings, feed_ages, center, pack) for c in CONTRACTS},
     }

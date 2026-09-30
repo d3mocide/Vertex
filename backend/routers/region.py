@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 import httpx
 
 import nws_resolver
+import pack_registry
 import region_config
 from config import settings
 from db.models import AppSetting
@@ -21,6 +22,7 @@ class RegionIn(BaseModel):
     bbox: dict | None = None
     timezone: str
     nws: dict | None = None
+    pack: str | None = None   # an installed pack id, or "none" for core feeds only
 
 
 class ResolveIn(BaseModel):
@@ -28,12 +30,18 @@ class ResolveIn(BaseModel):
     lon: float = Field(ge=-180, le=180)
 
 
-async def load_effective(db: AsyncSession) -> dict:
-    """The region in force now: environment, else the database, else built-in defaults."""
+async def load_stored(db: AsyncSession) -> tuple[dict | None, str | None]:
+    """The region saved in the database and when, or (None, None)."""
     # populate_existing: after a commit the session's copy is expired; re-read instead of lazy-loading.
     row = await db.get(AppSetting, region_config.REGION_KEY, populate_existing=True)
-    stored = row.value if row else None
-    updated = row.updated_at.isoformat() if row and row.updated_at else None
+    if not row:
+        return None, None
+    return row.value, (row.updated_at.isoformat() if row.updated_at else None)
+
+
+async def load_effective(db: AsyncSession) -> dict:
+    """The region in force now: environment, else the database, else built-in defaults."""
+    stored, updated = await load_stored(db)
     return region_config.effective(settings, stored, updated)
 
 
@@ -57,6 +65,9 @@ async def set_region(body: RegionIn, db: AsyncSession = Depends(get_db)):
         stored = region_config.normalize(body.model_dump(exclude_none=True))
     except region_config.RegionError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+    pack = stored.get("pack")
+    if pack and pack != region_config.NO_PACK and pack not in pack_registry.valid_by_id():
+        raise HTTPException(status_code=422, detail=f"pack {pack!r} is not installed (or is invalid)")
     row = await db.get(AppSetting, region_config.REGION_KEY)
     if row:
         row.value = stored

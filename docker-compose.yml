@@ -118,6 +118,7 @@ services:
     volumes:
       - ./backend:/app:ro
       - ./config:/config  # read-write: write-back API persists UI changes to sources.yml
+      - ./regions:/regions:ro  # region packs offered by the setup wizard
       - p25_audio:/data/audio
 
   poller:
