@@ -5,6 +5,20 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 
 ---
 
+## 2026-09-30 — Live deploy of the security hardening; ffmpeg core-dump disk fill fixed
+
+- **Incident**: the host disk hit 100% and Postgres crash-looped on checkpoint writes. Cause: `ffmpeg` in the transcription container aborted (`Assertion best_input >= 0 failed`, ffmpeg 7.1 `ffmpeg_filter.c`) on ~1 in 8 clips and wrote a ~170 MB core each time — 219 cores, 15 GB. Transcription itself kept working because `_preprocess` falls back to the raw file.
+- **Root cause**: `loudnorm` placed after `silenceremove` (the old `areverse` double-trim aborts too). `_CLEAN_FILTER` in [main.py](transcription/main.py) is now highpass/lowpass → `loudnorm` → single-pass `silenceremove`; 0 aborts on all 221 previously-crashing clips and 300 random clips. Long mid-call pauses are now shortened to 0.3 s.
+- **Guard**: `ulimits: core: 0` on the transcription service in [docker-compose.yml](docker-compose.yml).
+- **Hardening rollout gaps found on a live (pre-existing volumes) upgrade**: `p25_audio` and `whisper_models` volumes were root-owned so the non-root poller could not save P25 recordings — one-time `chown -R 1000:1000` on both volumes is required when upgrading. The poller wrote its METAR/flight-route caches to the read-only root; added a `poller_cache` volume at `/data/cache` ([poller/Dockerfile](poller/Dockerfile), [poller/config.py](poller/config.py)). An old `ADSB_ENRICHMENT_CACHE_DIR=/data` in `.env` overrides the default and must be changed.
+- **Migration**: `.env` gained `REDIS_PASSWORD`, `ALLOWED_HOSTS`, `PRIVATE_HOST_ALLOWLIST`, `FRONTEND_BIND_ADDRESS`, `MESHCORE_API_KEY` (token moved out of the source URL). The old pre-hardening MQTT broker was stopped; it is now opt-in via the `mqtt` profile.
+- **Verified**: anonymous requests 401, bad `Host` rejected, cookie login works (HttpOnly), cookie POST without the client header 403, region-pack and capabilities endpoints respond, no permission/read-only errors in poller logs.
+- **Browser pass (Playwright, cookie login) found three frontend regressions from the hardening/dependency refresh, all fixed**: (1) the new `script-src 'self'` CSP blocked the two inline scripts in `index.html` (iOS PWA viewport shim, loader hide) — moved to [ios-shim.js](frontend/public/ios-shim.js) and [loader.js](frontend/public/loader.js); (2) maplibre-gl 4.7 → 6.11 needs `maplibre-gl-worker.mjs` and `maplibre-gl-shared.mjs` beside the bundle — emitted by a small plugin in [vite.config.ts](frontend/vite.config.ts), and nginx serves `.mjs` as `text/javascript` (not in its default MIME table); (3) `connect-src` lacked `data:`, which deck.gl's `fetch(data:…)` icon atlases need. Also nginx `/health` now sends `Host $host` (the backend host allowlist was rejecting `backend:8000`, silently breaking the system-health indicator). Note: nginx resolves `backend` once at start — after recreating only the backend, restart the frontend or `/api` returns 502.
+- **Dev server caveat**: the worker-emitting plugin is build-only (`apply: 'build'`); `npm run dev` with maplibre 6 is untested.
+- **TAK server** added to `PRIVATE_HOST_ALLOWLIST`; the guard passes and the connection is refused by the host itself (nothing listening on the TAK port).
+- **Open**: browser pass done for map/login/WS/admin; radio audio playback not exercised. Previously listed: CoT/TAK server is blocked by the private-host guard until added to `PRIVATE_HOST_ALLOWLIST`; `AUTH_TOKEN_EXPIRE_HOURS=720` in `.env` (default is now 8); browser/WebSocket/radio-audio pass not yet done.
+
+
 ## 2026-09-26 — UI/UX overhaul: shared page shell, mobile chrome, page-by-page restructure
 
 - **Method**: Playwright crawl of every page at 390px and 1440px measuring text under 11px, sub-32px tap targets, horizontal overflow and scroll depth, plus screenshots; re-run after each phase.
