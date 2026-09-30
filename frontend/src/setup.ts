@@ -8,6 +8,7 @@ export interface SetupStatus {
   locked: boolean
   locked_by: string[]
   pack: string | null
+  packs: string[] | null
   poller: { state: string; region: string | null }
   restart_required: boolean
 }
@@ -22,6 +23,7 @@ export interface PackInfo {
   covers?: { states: string[]; bbox: number[] | null }
   provides?: { id: string; title: string }[]
   keys?: PackKey[]
+  feeds?: { news: { name: string; url: string; format: string }[]; alerts: { name: string; url: string; format: string }[] }
   valid: boolean
   error: string | null
   suggested: boolean
@@ -46,7 +48,7 @@ export interface RegionDraft {
   radius_km: number
   timezone: string
   nws?: Record<string, string>
-  pack: string            // an installed pack id, or 'none' for core feeds only
+  packs: string[]         // one or more installed packs; [] for core feeds only
 }
 
 export class SetupError extends Error {}
@@ -66,10 +68,11 @@ async function call<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const fetchSetupStatus = () => call<SetupStatus>('/setup/status')
 
-export function fetchPacks(lat?: number, lon?: number, state?: string | null) {
+export function fetchPacks(lat?: number, lon?: number, state?: string | null, radiusKm = 60) {
   const q = new URLSearchParams()
   if (lat !== undefined && lon !== undefined) { q.set('lat', String(lat)); q.set('lon', String(lon)) }
   if (state) q.set('state', state)
+  q.set('radius_km', String(radiusKm))
   return call<PackInfo[]>(`/setup/packs${q.size ? `?${q}` : ''}`)
 }
 
@@ -78,3 +81,6 @@ export const resolveLocation = (lat: number, lon: number) =>
 
 export const saveRegion = (draft: RegionDraft) =>
   call<unknown>('/config/region', { method: 'PUT', body: JSON.stringify(draft) })
+
+export const savePacks = (packs: string[]) =>
+  call<unknown>('/config/region/packs', { method: 'PUT', body: JSON.stringify({ packs }) })

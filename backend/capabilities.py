@@ -93,22 +93,43 @@ def resolve(contract: Contract, settings, feed_ages: dict[str, float], center: t
 
 
 def build(settings, feed_ages: dict[str, float], region: dict | None = None, packs: dict[str, dict] | None = None) -> dict:
-    """The capabilities document. `region` is the effective region (region_config.effective);
-    without it the region comes straight from settings."""
+    """Combine selected providers per contract, retaining each provider's health."""
+    from provider_catalog import PROVIDERS, provider_plan, selected_ids
     if region is None:
-        region = {
-            "name": settings.region_name,
-            "center": [settings.region_lat, settings.region_lon],
-            "bbox": {"min_lat": settings.bbox_min_lat, "max_lat": settings.bbox_max_lat,
-                     "min_lon": settings.bbox_min_lon, "max_lon": settings.bbox_max_lon},
-            "timezone": settings.region_timezone,
-        }
-    center = (region["center"][0], region["center"][1])
-    pack_id = region.get("pack")
-    # "none" = core feeds only; a known pack narrows providers to its own; anything else is legacy.
-    pack = pack_id if pack_id == "none" else (packs or {}).get(pack_id) if pack_id else None
-    return {
-        "region": {k: region[k] for k in ("name", "center", "bbox", "timezone")},
-        "pack": pack_id,
-        "contracts": {c.id: resolve(c, settings, feed_ages, center, pack) for c in CONTRACTS},
-    }
+        region = {"name": settings.region_name, "center": [settings.region_lat, settings.region_lon],
+                  "bbox": {k: getattr(settings, "bbox_" + k) for k in ("min_lat", "max_lat", "min_lon", "max_lon")},
+                  "timezone": settings.region_timezone}
+    bbox = region.get("bbox") or {k: getattr(settings, "bbox_" + k) for k in ("min_lat", "max_lat", "min_lon", "max_lon")}
+    ids = selected_ids(region)
+    plan, errors = provider_plan(ids, packs or {}, settings, bbox)
+    contracts = {}
+    for contract in CONTRACTS:
+        details = {}
+        relevant = [p for p in plan.values() if contract.id in p["contracts"]]
+        for provider in relevant:
+            pid = provider["id"]
+            if provider["reason"]:
+                details[pid] = {"status": "none", "reason": provider["reason"], "requires": provider["requires"], "updated_age_s": None}
+                continue
+            feeds = PROVIDERS[pid]["contracts"][contract.id]
+            ages = [feed_ages[f"provider:{pid}:{f}"] for f in feeds if f"provider:{pid}:{f}" in feed_ages]
+            # Legacy installations have not published provider-specific metadata yet.
+            if ids is None and not ages:
+                ages = [feed_ages[f] for f in feeds if f in feed_ages]
+            age = min(ages) if ages else None
+            status = "pending" if age is None else "down" if contract.max_age_s and age > contract.max_age_s * DOWN_FACTOR else "stale" if contract.max_age_s and age > contract.max_age_s else "ok"
+            details[pid] = {"status": status, "reason": None, "requires": None, "updated_age_s": round(age) if age is not None else None}
+        active = [pid for pid, detail in details.items() if detail["status"] != "none"]
+        reason = None
+        if not active:
+            reason = "no_pack" if ids == [] else "invalid_pack" if errors and not relevant else next((p["reason"] for p in relevant if p["reason"]), "not_in_pack")
+        statuses = [details[pid]["status"] for pid in active]
+        status = next((s for s in ("ok", "stale", "pending", "down") if s in statuses), "none")
+        ages = [details[pid]["updated_age_s"] for pid in active if details[pid]["updated_age_s"] is not None]
+        result = {"title": contract.title, "providers": active, "status": status, "reason": reason,
+                  "updated_age_s": min(ages) if ages else None, "provider_statuses": details}
+        if reason == "not_configured":
+            result["requires"] = next((p["requires"] for p in relevant if p["requires"]), None)
+        contracts[contract.id] = result
+    return {"region": {k: region[k] for k in ("name", "center", "bbox", "timezone")},
+            "pack": region.get("pack"), "packs": ids, "pack_errors": errors, "contracts": contracts}

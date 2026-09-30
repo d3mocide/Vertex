@@ -18,6 +18,16 @@ requires_keys:                # keys the operator must add to .env; values never
     free: true
     unlocks: [traffic.incidents]
 
+feeds:                        # optional: added to sources.yml when the operator picks this pack
+  news:
+    - name: Example Local News
+      url: https://example.invalid/rss
+      format: rss                 # rss
+  alerts:
+    - name: County Emergency Management
+      url: https://example.invalid/alerts.rss
+      format: rss                 # rss | flashalert_xml
+
 providers:
   - id: example-provider
     kind: builtin             # only "builtin" is supported so far; declarative kinds come next

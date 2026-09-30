@@ -16,10 +16,13 @@ from datetime import datetime, timezone
 
 import httpx
 
-from bus import set_feed
+from bus import set_feed as _set_feed
 from config import settings
 from normalizers.beast_math import haversine_km
 from .base import BasePoller
+
+from functools import partial
+set_feed = partial(_set_feed, provider_id="odf-fire-danger")
 
 logger = logging.getLogger(__name__)
 

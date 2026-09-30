@@ -3,7 +3,7 @@ import { API_BASE } from '../config'
 import { authHeaders } from '../auth'
 import type { Capabilities } from '../hooks/useCapabilities'
 import type { RegionConfig } from '../region'
-import { fetchPacks, fetchSetupStatus, type PackInfo, type SetupStatus } from '../setup'
+import { fetchPacks, fetchSetupStatus, savePacks, type PackInfo, type SetupStatus } from '../setup'
 import { SetupWizard } from '../components/SetupWizard'
 import { AdminSection } from './ui'
 
@@ -18,6 +18,8 @@ const REASON_TEXT: Record<string, string> = {
   not_configured: 'needs an API key',
   no_pack: 'core feeds only — no region pack chosen',
   not_in_pack: 'not provided by the chosen pack',
+  invalid_pack: 'selected pack is missing or invalid',
+  unsupported_provider: 'provider is not supported by this build',
 }
 
 const STATUS_STYLE: Record<string, { dot: string; text: string; label: string }> = {
@@ -57,10 +59,14 @@ export default function AdminRegion() {
   const [packs, setPacks] = useState<PackInfo[]>([])
   const [caps, setCaps] = useState<Capabilities | null>(null)
   const [wizard, setWizard] = useState(false)
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     const r = await getJson<RegionConfig>('/config/region')
     setRegion(r)
+    if (r) setSelectedIds(r.packs ?? (r.pack === 'none' ? [] : [r.pack ?? 'oregon']))
     setStatus(await fetchSetupStatus().catch(() => null))
     setCaps(await getJson<Capabilities>('/capabilities'))
     if (r) setPacks(await fetchPacks(r.center[0], r.center[1], null).catch(() => []))
@@ -68,10 +74,17 @@ export default function AdminRegion() {
 
   useEffect(() => { void load() }, [load])
 
+  const applyPacks = async () => {
+    setSaving(true); setSaveError(null)
+    try { await savePacks(selectedIds); await load() }
+    catch (error) { setSaveError(error instanceof Error ? error.message : 'Could not save pack selection.') }
+    finally { setSaving(false) }
+  }
+
   if (!region) return <p className="text-xs text-on-surface-variant">Loading…</p>
 
-  const activePack = region.pack && region.pack !== 'none' ? packs.find((p) => p.id === region.pack) : null
-  const packLabel = region.pack === 'none' ? 'Core feeds only' : activePack ? activePack.name : region.pack ?? 'None chosen (all built-in sources active)'
+  const activeIds = region.packs ?? (region.pack === 'none' ? [] : region.pack ? [region.pack] : null)
+  const packLabel = activeIds === null ? 'Legacy built-in selection' : activeIds.length ? activeIds.map((id) => packs.find((p) => p.id === id)?.name ?? id).join(' + ') : 'Core feeds only'
   const b = region.bbox
   const contracts = caps ? Object.entries(caps.contracts) : []
 
@@ -105,7 +118,7 @@ export default function AdminRegion() {
             <Fact label="Center">{region.center[0].toFixed(4)}, {region.center[1].toFixed(4)}</Fact>
             <Fact label="Area">{b.min_lat.toFixed(2)}–{b.max_lat.toFixed(2)} N<br />{Math.abs(b.max_lon).toFixed(2)}–{Math.abs(b.min_lon).toFixed(2)} W</Fact>
             <Fact label="Timezone">{region.timezone}</Fact>
-            <Fact label="Region pack">{packLabel}</Fact>
+            <Fact label="Region packs">{packLabel}</Fact>
             {region.nws && (
               <>
                 <Fact label="Weather office">{region.nws.office ?? '—'}</Fact>
@@ -125,6 +138,7 @@ export default function AdminRegion() {
       </AdminSection>
 
       <AdminSection title="Region packs">
+        <p className="text-[12px] text-on-surface-variant mb-3">Select multiple packs for border coverage. Pack selection can be changed even when the map center is set in the environment. Changes take effect after a poller restart.</p>
         {packs.length === 0 ? (
           <p className="text-xs text-on-surface-variant">No region packs are installed.</p>
         ) : (
@@ -132,10 +146,13 @@ export default function AdminRegion() {
             {packs.map((p) => {
               const missing = (p.keys ?? []).filter((k) => !k.present)
               return (
-                <div key={p.id} className={`border p-3 space-y-2 ${p.id === region.pack ? 'border-amber-gold/50 bg-amber-gold/5' : 'border-white/10 bg-black/30'}`}>
+                <div key={p.id} className={`border p-3 space-y-2 ${selectedIds.includes(p.id) ? 'border-amber-gold/50 bg-amber-gold/5' : 'border-white/10 bg-black/30'}`}>
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                    <span className="font-bold text-on-surface">{p.name}</span>
-                    {p.id === region.pack && <span className="text-[10px] uppercase tracking-widest text-amber-gold">in use</span>}
+                    <label className="flex items-center gap-3 font-bold text-on-surface cursor-pointer">
+                      <input type="checkbox" className="accent-amber-gold" disabled={!p.valid || saving} checked={selectedIds.includes(p.id)} onChange={() => setSelectedIds((ids) => ids.includes(p.id) ? ids.filter((id) => id !== p.id) : [...ids, p.id])} />
+                      {p.name}
+                    </label>
+                    {activeIds?.includes(p.id) && <span className="text-[10px] uppercase tracking-widest text-amber-gold">selected</span>}
                     {p.suggested && <span className="text-[10px] uppercase tracking-widest text-green-ais">covers this region</span>}
                     {!p.valid && <span className="text-[10px] uppercase tracking-widest text-red-emergency">not usable</span>}
                   </div>
@@ -153,7 +170,7 @@ export default function AdminRegion() {
                           ))}
                         </div>
                       )}
-                      {p.id === region.pack && missing.length > 0 && (
+                      {selectedIds.includes(p.id) && missing.length > 0 && (
                         <div className="text-[11px] text-amber-gold">
                           Add {missing.map((k) => k.name).join(', ')} to <span className="font-mono">.env</span> and restart the backend and poller.
                         </div>
@@ -165,6 +182,11 @@ export default function AdminRegion() {
             })}
           </div>
         )}
+        <div className="flex items-center gap-3 mt-3">
+          <button className="btn-primary" disabled={saving} onClick={() => void applyPacks()}>{saving ? 'Saving…' : 'Apply selected packs'}</button>
+          <button className="btn-ghost" disabled={saving} onClick={() => setSelectedIds([])}>Core feeds only</button>
+        </div>
+        {saveError && <p className="text-xs text-red-emergency mt-2" role="alert">{saveError}</p>}
         <p className="mt-3 text-[11px] text-on-surface-variant">
           Packs live under <span className="font-mono">regions/</span>. To add one for your area, copy <span className="font-mono">regions/_template</span> and
           see <a className="text-amber-gold underline" href="https://github.com/d3mocide/Vertex/blob/main/docs/architecture/region-packs.md" target="_blank" rel="noreferrer">the region packs guide</a>.
@@ -184,12 +206,16 @@ export default function AdminRegion() {
                 <span className="text-on-surface-variant text-[11px] font-mono">
                   {c.status === 'none'
                     ? `${c.reason ? REASON_TEXT[c.reason] ?? c.reason : ''}${c.requires ? ` (${c.requires})` : ''}`
-                    : c.providers.join(', ')}
+                    : c.providers.map((pid) => `${pid}${c.provider_statuses?.[pid] ? ` (${c.provider_statuses[pid].status})` : ''}`).join(', ')}
                 </span>
+                {c.status !== 'none' && Object.entries(c.provider_statuses ?? {}).filter(([, detail]) => detail.status === 'none').map(([pid, detail]) => (
+                  <span key={pid} className="text-[11px] text-on-surface-variant">{pid}: {REASON_TEXT[detail.reason ?? ''] ?? detail.reason}{detail.requires ? ` (${detail.requires})` : ''}</span>
+                ))}
               </div>
             )
           })}
           {contracts.length === 0 && <div className="px-3 py-2 text-xs text-on-surface-variant">No regional sources are defined.</div>}
+          {Object.entries(caps?.pack_errors ?? {}).map(([id, reason]) => <div key={id} className="px-3 py-2 text-xs text-red-emergency">{id}: {REASON_TEXT[reason] ?? reason}</div>)}
         </div>
         <p className="mt-2 text-[11px] text-on-surface-variant">
           National sources (weather, alerts, aircraft, vessels, earthquakes, wildfire) work in any region and are not listed here.

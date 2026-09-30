@@ -5,6 +5,17 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 
 ---
 
+## 2026-09-30 — Resume Oregon packs: apply news and emergency feeds during setup
+
+- Completed the unfinished Oregon/template feed manifests and validation in `backend/packs.py`: RSS news, RSS/FlashAlert alerts, bounded feed lists, duplicate rejection, public-host checks and no embedded credentials.
+- `backend/config_writer.py` merges pack-owned defaults by URL and replaces complete YAML files; `backend/pack_feeds.py` reconciles database rows. Setup serializes saves across backend workers, preserves operator/disabled feeds, removes superseded pack-owned feeds and restores YAML if the database save fails. Filesystem and database saves remain separate stores; a host crash can still require reconciliation.
+- `backend/routers/setup.py` exposes feed metadata; the wizard review lists feed names. A feed fingerprint in the stored region makes feed-only changes participate in poller restart detection.
+- Backend/poller configuration loaders accept `source: pack`; poller synchronization restores these feeds after database recreation and applies edits to managed feeds. Disabled configured alert feeds no longer trigger legacy environment-feed fallback.
+- Updated pack docs, the architecture proposal and `ENHANCEMENTS.md`: R15 complete; corrected the obsolete automatic-restart description in R3; sequenced R5/R17 provider registration and selection, R7/R6 outage generalization and Oregon extraction, then declarative adapters and a second pack. R16 remains independent setup work.
+- **Validation**: backend 276 passed/1 skipped; poller 367 passed; TypeScript check and frontend production build passed; Oregon pack check, Compose validation, Python compilation and diff whitespace checks passed. Refreshed stale frontend dependencies from the existing lockfile using an isolated Node container.
+- **Live rollout**: built and deployed backend, poller and frontend. Backend and frontend-proxied health passed; anonymous setup remains 401; the installed Oregon pack reports two news/two alert feeds; all 26 pollers had recent heartbeats, including healthy traffic, outages, fire danger, news and alerts.
+- **Motivation**: continue the existing regional-package work and establish a concrete next sequence for the portability roadmap.
+
 ## 2026-09-30 — Docs housekeeping: unpublish working notes, keep relevant reviews
 
 - Removed the "Design Notes" section from the docs site and deleted five stale dated working documents (BEAST research, implementation tracker and gap analysis, the mesh endpoint audit, the APRS/MeshCore plan) — they remain in git history. Nothing else referenced them.
@@ -2204,3 +2215,47 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 - Aligned shared Python dependencies across services: asyncpg 0.31.0, Redis 8.1.0, and pydantic-settings 2.15.0; accepted HTTPX 0.28.1, LiteLLM 1.102.1, aiomqtt 2.5.1, feedparser 6.0.14, and sgp4 2.27. Regenerated all Python 3.12 locks.
 - Upgraded checkout/setup-python/setup-node to validated v7 releases pinned by immutable commit SHA. Reworked Dependabot configuration to group routine updates across Python directories/ecosystems and explicitly defer coordinated major migrations, reducing future one-package PR floods.
 - Verification remained green: backend 248 passed/3 skipped; poller 357 passed; authenticated Redis integration passed from all Python images; LiteLLM/poller API smokes passed; all Python locks and npm audit report no known vulnerabilities.
+
+## 2026-09-30 — Washington pack and concurrent regional providers
+
+- Added a keyless Washington pack using WSDOT public ArcGIS road alerts and cameras. Requests use DNS-pinned HTTPS, bounded responses, bbox filtering and pagination; independent endpoint failures preserve other data. Fixed a text-versus-bytes SNI incompatibility exposed by live fetching.
+- Shared manifest validation/provider catalog now drives backend capabilities and poller startup. ODOT, ODIN, ODF and WSDOT retain the existing poller lifecycle; selection, key requirements and monitoring-bbox coverage control startup. TriMet remains separately configured pending its contract.
+- Setup and admin Region support multiple packs, including Oregon and Washington together. Pack-only saves work with an environment-pinned center. Shared subscriptions/camera URLs deduplicate, ODOT camera bookmarks retain IDs, and provider snapshots/freshness prevent one source overwriting or masking another. Restart removes unselected snapshots without refreshing retained data's age.
+- Updated pack documentation and roadmap: registry and second pack shipped; next priorities are generic outage data, Oregon extraction, transit selection and declarative authoring. No new dependencies or database schema changes.
+- Validation: backend 295 passed/1 skipped, poller 401 passed; TypeScript, production image builds, development server, Compose validation and Python compilation passed. Public WSDOT smoke returned normalized alerts and cameras without publishing test data. Production activation and health verification recorded below after rollout.
+- Production rollout: rebuilt/recreated backend, poller and frontend; selected Oregon + Washington through the pack-only service handler while retaining the environment-pinned region. Both manifests pass validation, all 27 pollers report `ok`, local backend/frontend health checks pass, anonymous setup access remains 401, and the saved/applied selection fingerprints match. Observed combined traffic: 61 alerts and 716 cameras, including 59 shared camera URLs deduplicated across providers. Changes remain uncommitted for review.
+
+## 2026-09-30 — Keyed WSDOT traffic and Washington wildfire sources
+
+- Replaced Washington ArcGIS traffic reads with documented WSDOT Traveler API JSON endpoints. `WSDOT_API_KEY` stays server-side in the ignored environment file; setup reports presence only, capabilities require the key, AccessCode query values are redacted, and failures never log upstream URLs or fall back to ArcGIS traffic. Preserved bbox filtering, shared-camera deduplication and independent incident/camera success handling.
+- Added WA DNR current fire danger, burn restriction labels and notes through its published public GIS service. Restrictions explicitly retain DNR-protected-forestland scope. Five-level publisher labels/ranks remain intact while using existing v0 map severity colours. Fire-danger provider snapshots merge attributed polygons and nearby summaries alongside ODF instead of overwriting them.
+- Strengthened the existing shared NIFC perimeter integration with current wildfire-only data, DNS pinning, pagination, per-response/total-size limits, stable polygon deduplication and failure-preserving cache behavior. Added one national NIFC current-incident collector using IRWIN IDs, publisher times, acreage and containment; fresh name/proximity matches suppress duplicate EONET collection while EONET remains a gap source.
+- Fire & Smoke uses regional danger labels and scoped DNR restriction rows; wildfire cards display source, acreage and containment when published. Existing map layers consume the expanded contracts; no new map layer or dependency was introduced. Updated pack docs and roadmap.
+- Pre-rollout verification: backend 296 passed/1 skipped; poller full suite 431 passed; TypeScript, production builds, development startup, Compose validation and Python syntax passed. Live read-only smokes verified the supplied WSDOT code and DNR/NIFC field mappings without publishing test data. Rollout verification follows below.
+- Production rollout passed: rebuilt/recreated backend, poller and frontend with the new environment variable. Both packs validate and remain selected; fingerprints match with no pending restart. All 29 pollers report `ok`. Fresh keyed WSDOT snapshots contain 3 local alerts and 208 cameras; combined ODF/DNR danger has 68 polygons. Shared NIFC feeds contain 155 regional incident records and 56 current perimeter polygons. Backend/frontend health passes, anonymous setup stays 401, and setup reports key presence without returning the credential. Changes remain uncommitted.
+
+## 2026-09-30 — Scope NWS map alerts to the monitoring region
+
+- The NWS overlay used national NOAA raster tiles with no geographic mask. Added a server-enforced GeoServer EWKT clip using the effective monitoring bbox (environment > saved region > defaults), retaining cross-border coverage. The overlay keeps tile coordinates/projection while forcing its data layer, PNG format and region mask; upstream error documents become transparent tiles.
+- Runtime frontend region config now retains the monitoring bbox and the raster source uses it as tile bounds, avoiding requests outside the area. Raster/weather tiles remain MapLibre per the map architecture rules. The display footprint follows regional monitoring bounds rather than the much wider fire-context radius; alert-feed collection is unchanged.
+- Validation: TypeScript, Python syntax and Compose checks passed; NOAA returned distinct valid clipped/unclipped PNG responses in a read-only smoke. Full backend suite, production build and rollout results follow below.
+- Production verification passed: backend suite 299 passed/1 skipped; frontend TypeScript, production build and development startup passed. Rebuilt and recreated backend/frontend; both are healthy. The live NWS API returned a valid region-clipped PNG in the browser projection, distinct from the national upstream tile (1,784 vs 22,138 bytes). Anonymous setup remains protected. Python compilation, Compose parsing and diff whitespace checks passed. Changes remain uncommitted.
+
+## 2026-09-30 — Audit Environment wildfire coverage
+
+- Read-only audit confirmed NIFC incidents and EONET fallback share monitoring-center distance/bbox and freshness rules across state borders; they are not selected or cut off by individual packs. ODF/DNR pack providers supply danger and restrictions separately.
+- Live settings retain local incidents within the bbox or 150 km for up to 30 days, and regional incidents within 1,200 km for up to 72 hours. Environment sorts nearest first and displays three local/four regional rows. Both Oregon and Washington incidents are present; the nearest visible rows at inspection were Oregon incidents.
+- Identified presentation caveats: cards omit state, and ALERT/WATCH reflect distance classification rather than verified threat; upstream active candidates may include fully contained fires. No runtime changes made.
+
+## 2026-09-30 — Clarify wildfire card state, proximity and containment
+
+- Environment fire rows now display publisher state abbreviations (or state unreported), NEARBY/REGIONAL proximity labels instead of ALERT/WATCH, explicit unreported containment and update time, and existing acreage/source details. Nearby incidents use caution styling rather than emergency red.
+- Moved publisher-reported 100% contained incidents into an expandable section with muted proximity styling. They no longer occupy the primary local/regional row slots or nearby incident count; retained reports remain accessible and do not imply extinguishment. Shared collection and geographic cutoffs are unchanged.
+- Validation: TypeScript and production build passed; development server reached ready. Rendered card smoke passed for Oregon/Washington, missing state, and missing/zero/full containment. Compose parsing and whitespace checks passed. Rebuilt/recreated frontend and verified healthy live endpoint. Changes remain uncommitted.
+
+## 2026-09-30 — Review and commit the regional enhancement
+
+- Reviewed the combined pack-owned feeds, multi-pack registry, keyed WSDOT adapter, WA DNR danger/restrictions, shared NIFC integration, regional NWS clipping and wildfire presentation changes. Updated in-app Help and the shipped roadmap entry to match the live behavior.
+- Final regression suites: backend 299 passed/1 skipped; poller 431 passed. Both Oregon and Washington manifests validate. Mandatory dependency installation/TypeScript and Compose checks passed; final frontend build, staged Python compilation and repository hygiene checks accompany this commit. Live services were already verified healthy during rollout.
+- Secret-value scan excluded one pre-existing example placeholder and found no real credentials in changed/new files. Private-path scan only matched the manifest validator’s rejection expression; no operator paths or locations were added.
+- Remaining enhancements are separate scope: stale-provider UI visibility, location-derived NWS zones/stations, generic outages/Oregon extraction, transit selection, declarative adapters, and additional Washington outage/road-weather mappings.

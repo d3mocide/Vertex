@@ -8,6 +8,7 @@ export interface RegionConfig {
   timezone: string
   nws: Record<string, string> | null
   pack: string | null
+  packs: string[] | null
   source: 'env' | 'database' | 'default'
   locked: boolean                     // pinned by REGION_LAT / REGION_LON in the environment
   locked_by: string[]
@@ -26,7 +27,7 @@ export async function loadRegion(timeoutMs = 4000): Promise<RegionConfig | null>
     const res = await fetch(`${API_BASE}/config/region`, { headers: authHeaders(), signal: ctrl.signal })
     if (!res.ok) return null
     const region = (await res.json()) as RegionConfig
-    applyRegion(region.name, region.center[0], region.center[1])
+    applyRegion(region.name, region.center[0], region.center[1], region.bbox)
     return region
   } catch {
     return null

@@ -4,7 +4,8 @@ from datetime import datetime, timezone
 
 import httpx
 
-from bus import publish_entity
+from bus import publish_entity, get_bus
+import json
 from config import settings
 from .base import BasePoller
 from redaction import redact_text, redact_url
@@ -177,6 +178,21 @@ class FirePoller(BasePoller):
         if not isinstance(events, list):
             return
 
+        # NIFC is authoritative where a fresh named incident exists; EONET supplies gaps.
+        redis = await get_bus()
+        raw = await redis.get("feed:fire:nifc_incidents")
+        ts = await redis.hget("feed:meta", "fire:nifc_incidents")
+        authoritative = []
+        if raw and ts:
+            try:
+                age = (datetime.now(timezone.utc) - datetime.fromisoformat(ts)).total_seconds()
+                if age < 1800:
+                    authoritative = json.loads(raw)
+            except (ValueError, TypeError):
+                pass
+        def name_key(value):
+            return str(value).split(',')[0].upper().replace(" WILDFIRE", "").replace(" FIRE", "").strip()
+
         count = 0
         dropped = 0
         for ev in events:
@@ -189,6 +205,9 @@ class FirePoller(BasePoller):
             if not lon_lat:
                 continue
             lon, lat = lon_lat
+            if any(name_key(row.get("name")) == name_key(title)
+                   and _distance_km(lat, lon, row["lat"], row["lon"]) <= 10 for row in authoritative):
+                continue
             event_ts = _latest_event_ts(ev)
             relevance, distance_km = _classify_relevance(lat, lon, event_ts)
             if relevance is None:

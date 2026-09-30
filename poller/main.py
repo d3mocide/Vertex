@@ -11,8 +11,6 @@ from pollers.ais import AisPoller
 from pollers.weather import WeatherPoller
 from pollers.alerts import AlertPoller
 from pollers.news import NewsPoller
-from pollers.traffic import TrafficPoller
-from pollers.utilities import UtilityPoller
 from pollers.p25 import P25Poller
 from pollers.meshcore import MeshCorePoller
 from pollers.summary import AISummaryPoller
@@ -20,7 +18,6 @@ from pollers.radio_incident_poller import RadioIncidentPoller
 from pollers.seismic import SeismicPoller
 from pollers.fire import FirePoller
 from pollers.firms import FirmsPoller
-from pollers.odf_fire_danger import OdfFireDangerPoller
 from pollers.aprs import AprsPoller
 from pollers.acars import AcarsPoller
 from pollers.cot_emitter import CotEmitter
@@ -33,6 +30,7 @@ from pollers.lightning import LightningPoller
 from pollers.streamgauge import StreamGaugePoller
 from pollers.gdacs import GdacsPoller
 from pollers.nifc import NifcPoller
+from pollers.nifc_incidents import NifcIncidentsPoller
 from pollers.gtfs_rt import GtfsRtPoller
 from pollers.amtrak import AmtrakPoller
 from pollers.rail_infrastructure import RailInfrastructurePoller
@@ -41,6 +39,7 @@ from config_loader import load_sources_config
 from config_sync import sync_sources_to_db
 from config_watcher import watch_config
 from region_sync import apply_or_wait
+from providers import start_providers
 from db import init_db, close_db, get_pool, purge_observations, next_purge_delay, last_purge_ts
 
 logging.basicConfig(
@@ -146,8 +145,6 @@ async def main():
         WeatherPoller(),
         AlertPoller(),
         NewsPoller(),
-        TrafficPoller(),
-        UtilityPoller(),
         P25Poller(),
         MeshCorePoller(),
         AISummaryPoller(),
@@ -155,7 +152,6 @@ async def main():
         SeismicPoller(),
         FirePoller(),
         FirmsPoller(),
-        OdfFireDangerPoller(),
         AprsPoller(),
         CotEmitter(),
         CotReceiver(),
@@ -166,10 +162,12 @@ async def main():
         StreamGaugePoller(),
         GdacsPoller(),
         NifcPoller(),
+        NifcIncidentsPoller(),
         GtfsRtPoller(),
         AmtrakPoller(),
         RailInfrastructurePoller(),
     ]
+    pollers.extend(await start_providers(get_pool(), settings, await get_bus()))
 
     # Optional integrations — off unless a source exists (they only logged
     # "not configured" and held a task open otherwise).

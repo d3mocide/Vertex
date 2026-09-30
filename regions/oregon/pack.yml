@@ -20,6 +20,23 @@ requires_keys:
 defaults:
   geocoder_state: Oregon
 
+# Local news and emergency feeds added to sources.yml when the operator picks this pack.
+feeds:
+  news:
+    - name: KOIN 6 News
+      url: https://www.koin.com/feed
+      format: rss
+    - name: OPB News
+      url: https://www.opb.org/arc/outboundfeeds/rss/?outputType=xml
+      format: rss
+  alerts:
+    - name: FlashAlert Emergency Newswire
+      url: http://www.flashalertnewswire.net/IIN/reportsX/flashnews_xml_emergency.php
+      format: flashalert_xml
+    - name: TVF&R Emergency Alerts
+      url: https://www.tvfr.com/RSSFeed.aspx?ModID=63&CID=Emergency-Alert-3
+      format: rss
+
 providers:
   - id: odot-tripcheck
     kind: builtin

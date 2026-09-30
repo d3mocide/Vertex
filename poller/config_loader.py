@@ -21,7 +21,7 @@ class NewsFeedEntry(BaseModel):
     url: str | None = None
     format: str = "rss"
     enabled: bool = True
-    source: Literal["config", "user"] = "config"
+    source: Literal["config", "user", "pack"] = "config"
 
 
 class PollerSourceEntry(BaseModel):
@@ -49,7 +49,7 @@ class AlertFeedEntry(BaseModel):
     url: str
     format: str = "rss"
     enabled: bool = True
-    source: Literal["config", "user"] = "config"
+    source: Literal["config", "user", "pack"] = "config"
 
 
 class AlertZonesConfig(BaseModel):

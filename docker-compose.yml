@@ -190,6 +190,7 @@ services:
       - internal
     volumes:
       - ./poller:/app:ro
+      - ./regions:/regions:ro  # reviewed provider registry and installed packs
       - ./config:/config:ro  # read-only: config watcher detects changes via mtime
       - p25_audio:/data/audio
       - poller_cache:/data/cache       # METAR / flight-route caches (root fs is read-only)

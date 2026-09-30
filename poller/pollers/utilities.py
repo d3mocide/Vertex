@@ -6,9 +6,12 @@ import time
 import httpx
 from config import settings
 from security import validate_request_url
-from bus import get_bus, set_feed
+from bus import get_bus, set_feed as _set_feed
 from normalizers.beast_math import haversine_km
 from .base import BasePoller
+
+from functools import partial
+set_feed = partial(_set_feed, provider_id="oregon-odin")
 
 logger = logging.getLogger(__name__)
 

@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     region_timezone: str = "America/Los_Angeles"
     # Only used to tell the capabilities endpoint whether the ODOT provider is configured.
     odot_api_key: str = ""
+    wsdot_api_key: str = ""       # WSDOT Traveler API access code; never expose its value
     # Shared with the poller; never embed this credential in a stored source URL.
     meshcore_api_key: str = ""
 

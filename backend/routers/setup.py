@@ -15,6 +15,9 @@ from capabilities import CONTRACTS
 from deps import get_db
 from redis_bus import get_redis
 from routers.region import load_effective, load_stored
+from pack_selection import load_selection
+from provider_catalog import selection_signature
+from provider_catalog import intersects
 
 router = APIRouter(prefix="/setup", tags=["setup"])
 _TITLES = {c.id: c.title for c in CONTRACTS}
@@ -36,17 +39,21 @@ async def setup_status(db: AsyncSession = Depends(get_db)):
     eff = await load_effective(db)
     stored, _ = await load_stored(db)
     poller = await _poller_state()
+    selection = await load_selection(db)
     state = poller.get("state") or "unknown"
     restart_required = bool(
         eff["source"] == "database" and stored and state == "applied"
         and poller.get("signature") != region_config.signature(stored)
     )
+    if selection is not None and state in {"applied", "env", "default"}:
+        restart_required = restart_required or poller.get("packs_signature") != selection_signature(selection)
     return {
         "needs_setup": eff["source"] == "default",
         "source": eff["source"],
         "locked": eff["locked"],
         "locked_by": eff["locked_by"],
         "pack": eff["pack"],
+        "packs": eff["packs"],
         "poller": {"state": state, "region": poller.get("name") or None},
         "restart_required": restart_required,
     }
@@ -57,6 +64,7 @@ async def list_packs(
     lat: float | None = Query(None, ge=-90, le=90),
     lon: float | None = Query(None, ge=-180, le=180),
     state: str | None = Query(None, min_length=2, max_length=2),
+    radius_km: float = Query(60, ge=5, le=500),
 ):
     """Installed region packs, the ones covering a location first. Reports which keys each needs and
     whether they are already present in the environment (never their values)."""
@@ -65,11 +73,15 @@ async def list_packs(
         if not p["valid"]:
             out.append({**p, "suggested": False})
             continue
-        suggested = lat is not None and lon is not None and packs.covers_point(p, lat, lon, state)
+        suggested = False
+        if lat is not None and lon is not None:
+            bbox = region_config.bbox_from_radius(lat, lon, radius_km)
+            suggested = (intersects(p["covers"]["bbox"], bbox) if p["covers"].get("bbox") else packs.covers_point(p, lat, lon, state))
         out.append({
             **{k: p[k] for k in ("id", "name", "description", "maintainers", "covers", "valid", "error")},
             "provides": [{"id": c, "title": _TITLES.get(c, c)} for c in p["provides"]],
             "keys": packs.key_status(p, os.environ),
+            "feeds": p.get("feeds", {"news": [], "alerts": []}),
             "suggested": suggested,
         })
     out.sort(key=lambda p: (not p.get("suggested"), not p.get("valid"), p["name"].lower()))

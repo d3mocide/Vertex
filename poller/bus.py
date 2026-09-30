@@ -106,7 +106,7 @@ async def publish_entity(
 FEED_META_KEY = "feed:meta"
 
 
-async def set_feed(key: str, data, broadcast: bool = True):
+async def set_feed(key: str, data, broadcast: bool = True, *, provider_id: str | None = None, refresh_age: bool = True):
     """Store a feed snapshot in Redis and, unless broadcast=False, push it to
     WebSocket clients. Large feeds the UI fetches on demand over REST should
     not be broadcast."""
@@ -115,10 +115,19 @@ async def set_feed(key: str, data, broadcast: bool = True):
     data = sanitize_payload(data)
     payload = json.dumps(data)
     ts = datetime.now(timezone.utc).isoformat()
+    if provider_id:
+        from provider_feeds import publish
+        async def combined(feed, values):
+            await set_feed(feed, values, broadcast=broadcast)
+        await publish(r, key, data, provider_id, ts, combined)
+        return
     await r.set(f"feed:{key}", payload)
     # When each feed last produced data — lets the UI show real ages and flag
     # stale sources instead of hard-coded "Just now" / "Data live" labels.
-    await r.hset(FEED_META_KEY, key, ts)
+    if refresh_age:
+        await r.hset(FEED_META_KEY, key, ts)
+    else:
+        ts = await r.hget(FEED_META_KEY, key) or ts
     if not broadcast:
         return
     # Radio active state gets its own typed message so the frontend can react immediately

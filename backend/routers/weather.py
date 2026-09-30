@@ -8,7 +8,9 @@ from fastapi import APIRouter, Depends, Query, Request, Response
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from db.models import WeatherObservation
+from db.models import WeatherObservation, AppSetting
+from config import settings
+import region_config
 from deps import get_db
 from redis_bus import get_redis
 
@@ -112,10 +114,31 @@ async def proxy_radar_wms(request: Request):
     return await _proxy_wms(GEOSERVER_WMS_URL, request.query_params)
 
 
+def alerts_clip(bbox):
+    """GeoServer EWKT explicitly uses longitude/latitude regardless of tile projection."""
+    west, south, east, north = (float(bbox[k]) for k in ("min_lon", "min_lat", "max_lon", "max_lat"))
+    return f"SRID=4326;POLYGON(({west} {south},{east} {south},{east} {north},{west} {north},{west} {south}))"
+
+
 @router.get("/alerts/wms")
-async def proxy_alerts_wms(request: Request):
-    """Proxy NOAA nowCOAST Watches/Warnings/Advisories overlay."""
-    return await _proxy_wms(GEOSERVER_WMS_URL, request.query_params)
+async def proxy_alerts_wms(request: Request, db: AsyncSession = Depends(get_db)):
+    """Proxy NOAA alerts clipped to the effective monitoring bounds."""
+    stored = None
+    if not region_config.env_locked_by(settings):
+        row = await db.get(AppSetting, region_config.REGION_KEY)
+        stored = row.value if row else None
+    bbox = region_config.effective(settings, stored)["bbox"]
+    params = {key.lower(): value for key, value in request.query_params.items()}
+    params.update({
+        "service": "WMS", "request": "GetMap",
+        "layers": "alerts:watches_warnings_advisories",
+        "format": "image/png", "transparent": "true", "styles": "",
+        "clip": alerts_clip(bbox),
+    })
+    result = await _proxy_wms(GEOSERVER_WMS_URL, params)
+    if result.headers.get("content-type", "").split(";")[0] != "image/png":
+        return Response(content=TRANSPARENT_PNG, media_type="image/png")
+    return result
 
 
 @router.get("/lightning/wms")
@@ -144,7 +167,7 @@ async def get_fire_hotspots():
 
 @router.get("/fire/danger")
 async def get_fire_danger():
-    """ODF fire danger by protection zone (GeoJSON) plus the zones nearest the region."""
+    """Regional fire danger and publisher-scoped burn restrictions by protection zone (GeoJSON) plus the zones nearest the region."""
     return await _feed_or("feed:fire:danger", {"type": "FeatureCollection", "features": [], "home": None, "nearby": []})
 
 

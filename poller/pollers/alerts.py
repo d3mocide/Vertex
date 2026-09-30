@@ -116,10 +116,10 @@ class AlertPoller(BasePoller):
 
         # ── Alert feeds (FlashAlert, agency RSS, etc.) ───────────────────────
         feed_rows = await get_pool().fetch(
-            "SELECT name, url, format FROM alert_feed_configs WHERE enabled = TRUE"
+            "SELECT name, url, format, enabled FROM alert_feed_configs"
         )
         if feed_rows:
-            self._alert_feeds = [dict(r) for r in feed_rows]
+            self._alert_feeds = [dict(r) for r in feed_rows if r["enabled"]]
             logger.info("[alerts] %d alert feed(s) loaded from DB", len(self._alert_feeds))
         else:
             # Fall back to env vars for deployments that haven't migrated yet.

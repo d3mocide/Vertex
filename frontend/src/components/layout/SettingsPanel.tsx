@@ -155,7 +155,7 @@ export function SettingsPanel() {
 
               {/* Hazards & Environmental */}
               <ToggleRow label="Fire Perimeters" icon="local_fire_department" checked={firePerimetersVisible} onChange={setFirePerimetersVisible} />
-              {hasFireDanger && <ToggleRow label="Fire Danger (ODF)" icon="whatshot" checked={fireDangerVisible} onChange={setFireDangerVisible} />}
+              {hasFireDanger && <ToggleRow label="Fire Danger" icon="whatshot" checked={fireDangerVisible} onChange={setFireDangerVisible} />}
               <ToggleRow label="Stream Gauges" icon="water" checked={gaugesVisible} onChange={setGaugesVisible} />
               {hasOutages && <ToggleRow label="Power Outages" icon="power_off" checked={outagesVisible} onChange={setOutagesVisible} />}
 

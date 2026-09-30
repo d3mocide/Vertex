@@ -9,9 +9,10 @@ export interface ContractCapability {
   title: string
   providers: string[]
   status: ContractStatus
-  reason: 'outside_coverage' | 'not_configured' | null
+  reason: 'outside_coverage' | 'not_configured' | 'not_in_pack' | 'no_pack' | 'invalid_pack' | 'unsupported_provider' | null
   requires?: string
   updated_age_s: number | null
+  provider_statuses?: Record<string, { status: ContractStatus; reason: string | null; updated_age_s: number | null; requires: string | null }>
 }
 
 export interface Capabilities {
@@ -22,6 +23,8 @@ export interface Capabilities {
     timezone: string
   }
   pack: string | null
+  packs: string[] | null
+  pack_errors?: Record<string, string>
   contracts: Record<string, ContractCapability>
 }
 

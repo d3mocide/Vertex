@@ -143,5 +143,6 @@ def test_capabilities_uses_the_effective_region_for_coverage():
     out = cap.build(_settings(), {}, denver)
     assert out["region"]["name"] == "Denver, CO"
     assert out["contracts"]["outages.areas"]["reason"] == "outside_coverage"
-    portland = rc.effective(_settings(), {**STORED, "lat": 45.5, "lon": -122.7})
+    portland = rc.effective(_settings(), {**STORED, "lat": 45.5, "lon": -122.7,
+        "bbox": {"min_lat": 45, "max_lat": 46, "min_lon": -123, "max_lon": -122}})
     assert cap.build(_settings(), {}, portland)["contracts"]["outages.areas"]["status"] == "pending"

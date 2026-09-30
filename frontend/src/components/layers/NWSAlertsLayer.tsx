@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import * as maplibregl from 'maplibre-gl'
 import { useCivicStore } from '../../store'
-import { API_BASE } from '../../config'
+import { API_BASE, regionInfo } from '../../config'
 
 interface Props {
   map: maplibregl.Map
@@ -33,6 +33,7 @@ export function NWSAlertsLayer({ map, visible }: Props) {
           type: 'raster',
           tiles: [url],
           tileSize: 256,
+          ...(regionInfo.bbox ? { bounds: [regionInfo.bbox.min_lon, regionInfo.bbox.min_lat, regionInfo.bbox.max_lon, regionInfo.bbox.max_lat] as [number, number, number, number] } : {}),
           attribution: 'NWS',
         })
         map.addLayer({

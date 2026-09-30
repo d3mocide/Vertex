@@ -6,19 +6,20 @@ import httpx
 
 from bus import set_feed, get_bus
 from config import settings
+from arcgis import query_features
 from .base import BasePoller
 
 logger = logging.getLogger(__name__)
 
-# NIFC WFIGS Interagency Perimeters (Year-to-Date active and recent fires)
+# NIFC WFIGS current interagency perimeters, shared across regional packs.
 _NIFC_BASE = (
     "https://services3.arcgis.com/T4QMspbfLg3qTGWY/arcgis/rest/services"
-    "/WFIGS_Interagency_Perimeters_YearToDate/FeatureServer/0/query"
+    "/WFIGS_Interagency_Perimeters_Current/FeatureServer/0/query"
 )
 _HEADERS = {"User-Agent": "Vertex/1.0 (Situational Awareness Dashboard)"}
 
 # Fields to request from ArcGIS REST API
-_FIELDS = "poly_IncidentName,poly_GISAcres,poly_DateCurrent,attr_PercentContained,attr_POOState,attr_POOProtectingAgency"
+_FIELDS = "OBJECTID,poly_IRWINID,poly_IncidentName,poly_GISAcres,poly_DateCurrent,attr_PercentContained,attr_POOState,attr_POOProtectingAgency"
 
 # Server-side geometry reduction: ~1 m coordinate precision and ~50 m
 # vertex simplification — invisible at regional zoom, ~10x smaller payload.
@@ -74,13 +75,14 @@ class NifcPoller(BasePoller):
         bbox = _build_bbox()
         since = datetime.now(timezone.utc) - timedelta(days=settings.nifc_perimeter_max_age_days)
         spatial_params = {
-            # Year-to-date holds thousands of long-out perimeters; keep recent ones.
-            "where": f"poly_DateCurrent >= TIMESTAMP '{since:%Y-%m-%d %H:%M:%S}'",
+            # Retain the operator-configured age limit within the current perimeter view.
+            "where": f"attr_IncidentTypeCategory = 'WF' AND poly_DateCurrent >= TIMESTAMP '{since:%Y-%m-%d %H:%M:%S}'",
             "geometry": bbox,
             "geometryType": "esriGeometryEnvelope",
             "spatialRel": "esriSpatialRelIntersects",
             "outFields": _FIELDS,
             "f": "geojson",
+            "inSR": "4326",
             "outSR": "4326",
             "resultRecordCount": 2000,
             **_SIMPLIFY,
@@ -109,14 +111,7 @@ class NifcPoller(BasePoller):
         features: list[dict] = []
         try:
             async with httpx.AsyncClient(timeout=40, headers=_HEADERS) as client:
-                r1 = await client.get(_NIFC_BASE, params=spatial_params)
-                r1.raise_for_status()
-                data1 = r1.json()
-                # ArcGIS returns HTTP 200 with an "error" object on bad queries —
-                # treat that as a fetch failure, not a confirmed-empty result.
-                if isinstance(data1, dict) and data1.get("error"):
-                    raise RuntimeError(f"ArcGIS error: {data1['error'].get('message', data1['error'])}")
-                f1 = data1.get("features") or []
+                f1 = await query_features(client, _NIFC_BASE, spatial_params)
                 features.extend(f1)
                 logger.debug("[nifc] spatial sync returned %d features", len(f1))
 
@@ -124,27 +119,22 @@ class NifcPoller(BasePoller):
                 if fire_names:
                     names_str = ",".join([f"""'{n.replace("'", "''")}'""" for n in fire_names])
                     name_params = {
-                        "where": f"UPPER(poly_IncidentName) IN ({names_str})",
+                        "where": spatial_params["where"] + f" AND UPPER(poly_IncidentName) IN ({names_str})",
                         "outFields": _FIELDS,
                         "f": "geojson",
                         "outSR": "4326",
                         **_SIMPLIFY,
                     }
-                    r2 = await client.get(_NIFC_BASE, params=name_params)
-                    if r2.status_code == 200:
-                        data2 = r2.json()
-                        f2 = data2.get("features") or []
-                        features.extend(f2)
-                        logger.debug("[nifc] name sync returned %d features", len(f2))
-        except Exception as exc:
-            logger.warning("[nifc] fetch failed: %s", exc)
-            if not features: return
+                    features.extend(await query_features(client, _NIFC_BASE, name_params))
+        except (httpx.HTTPError, ValueError) as exc:
+            logger.warning("[nifc] fetch failed (%s)", type(exc).__name__)
+            raise RuntimeError("NIFC perimeter fetch failed") from None
 
         if not features:
             # Successful query with zero results is a confirmed negative — write an
             # empty collection so consumers (AI summary) can distinguish "no
             # perimeters" from "feed never synced".
-            logger.info("[nifc] zero perimeters returned from ArcGIS (spatial bbox: %s)", bbox)
+            logger.info("[nifc] zero current perimeters returned")
             await set_feed("fire:perimeters", {"type": "FeatureCollection", "features": []}, broadcast=False)
             return
 
@@ -154,7 +144,7 @@ class NifcPoller(BasePoller):
         unique_features = []
         for f in features:
             props = f.get("properties") or {}
-            fid = f"{props.get('poly_IncidentName')}:{props.get('poly_GISAcres')}"
+            fid = props.get("OBJECTID") or json.dumps(f.get("geometry"), sort_keys=True)
             if fid in seen_ids: continue
             seen_ids.add(fid)
             unique_features.append(f)
@@ -179,6 +169,8 @@ class NifcPoller(BasePoller):
                 "geometry": geom,
                 "properties": {
                     "name": name,
+                    "irwin_id": props.get("poly_IRWINID"),
+                    "attribution": "NIFC / WFIGS",
                     "acres": round(acres, 1) if isinstance(acres, (int, float)) else None,
                     "contained_pct": contained,
                     "state": state,

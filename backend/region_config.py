@@ -27,6 +27,14 @@ NO_PACK = "none"   # the operator chose core feeds only
 _PACK_ID = re.compile(r"^[a-z][a-z0-9-]{1,31}$")
 
 
+def normalize_packs(value):
+    if not isinstance(value, list) or len(value) > 8:
+        raise RegionError("packs must be a list of at most 8 installed pack ids")
+    if any(not isinstance(p, str) or p == NO_PACK or not _PACK_ID.fullmatch(p) for p in value):
+        raise RegionError("packs must contain pack ids; use an empty list for core feeds only")
+    return list(dict.fromkeys(value))
+
+
 def signature(stored: dict) -> str:
     """Stable fingerprint of a stored region. Must match poller/region_sync.signature."""
     return hashlib.sha1(json.dumps(stored, sort_keys=True).encode()).hexdigest()[:16]
@@ -66,15 +74,18 @@ def effective(settings, stored: dict | None, updated_at: str | None = None) -> d
         timezone = r.get("timezone") or settings.region_timezone
         nws = r.get("nws")
         pack = r.get("pack")
+        packs = r.get("packs", [] if pack == NO_PACK else [pack] if pack else None)
     else:
         center = [settings.region_lat, settings.region_lon]
         bbox = {"min_lat": settings.bbox_min_lat, "max_lat": settings.bbox_max_lat,
                 "min_lon": settings.bbox_min_lon, "max_lon": settings.bbox_max_lon}
         name, timezone, nws = settings.region_name, settings.region_timezone, None
         pack = None
+        packs = None
 
     return {
         "name": name, "center": center, "bbox": bbox, "timezone": timezone, "nws": nws, "pack": pack,
+        "packs": packs,
         "source": source,
         "locked": bool(locked_by), "locked_by": locked_by,
         "configured": source != "default",
@@ -126,6 +137,12 @@ def normalize(payload: dict) -> dict:
         if not isinstance(pack, str) or not (pack == NO_PACK or _PACK_ID.match(pack)):
             raise RegionError("pack must be a pack id, or \"none\" for core feeds only")
         out["pack"] = pack
+    if "packs" in payload:
+        ids = normalize_packs(payload["packs"])
+        if pack is not None and pack != (ids[0] if ids else NO_PACK):
+            raise RegionError("pack and packs disagree")
+        out["packs"] = ids
+        out["pack"] = ids[0] if ids else NO_PACK
     nws = payload.get("nws")
     if isinstance(nws, dict):
         out["nws"] = {k: str(nws[k]) for k in ("office", "forecast_zone", "county_zone", "fire_zone") if nws.get(k)}

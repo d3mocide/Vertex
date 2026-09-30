@@ -22,7 +22,6 @@ const STEPS: { id: Exclude<Step, 'done'>; label: string }[] = [
   { id: 'keys', label: 'Keys' },
   { id: 'review', label: 'Review' },
 ]
-const NO_PACK = 'none'
 const US_CENTER: [number, number] = [-98.5, 39.5]
 
 const input = 'w-full bg-surface-container-highest/50 border border-white/10 px-3 py-2 font-mono text-[13px] text-on-surface focus:outline-none focus:border-amber-gold'
@@ -88,13 +87,22 @@ export function SetupWizard({ firstRun, onClose }: { firstRun: boolean; onClose:
   const [radius, setRadius] = useState('60')
   const [timezone, setTimezone] = useState('')
   const [packs, setPacks] = useState<PackInfo[]>([])
-  const [packId, setPackId] = useState<string>('')
+  const [packIds, setPackIds] = useState<string[]>([])
+  const [packSelectionLoaded, setPackSelectionLoaded] = useState(false)
   const [savedStatus, setSavedStatus] = useState<SetupStatus | null>(null)
 
   const lat = latText.trim() === '' || Number.isNaN(Number(latText)) ? null : Number(latText)
   const lon = lonText.trim() === '' || Number.isNaN(Number(lonText)) ? null : Number(lonText)
   const validPoint = lat !== null && lon !== null && Math.abs(lat) <= 90 && Math.abs(lon) <= 180
-  const pack = packs.find((p) => p.id === packId) ?? null
+  const selectedPacks = packs.filter((p) => packIds.includes(p.id))
+  const pack = selectedPacks.length ? {
+    name: selectedPacks.map((p) => p.name).join(' + '),
+    keys: [...new Map(selectedPacks.flatMap((p) => p.keys ?? []).map((k) => [k.name, k])).values()],
+    feeds: {
+      news: [...new Map(selectedPacks.flatMap((p) => p.feeds?.news ?? []).map((f) => [f.url, f])).values()],
+      alerts: [...new Map(selectedPacks.flatMap((p) => p.feeds?.alerts ?? []).map((f) => [f.url, f])).values()],
+    },
+  } : null
 
   useEffect(() => { void fetchSetupStatus().then(setStatus).catch(() => undefined) }, [])
 
@@ -139,13 +147,16 @@ export function SetupWizard({ firstRun, onClose }: { firstRun: boolean; onClose:
     if (!timezone.trim()) throw new SetupError('Enter an IANA timezone such as America/Denver.')
     const r = Number(radius)
     if (!(r >= 5 && r <= 500)) throw new SetupError('Radius must be between 5 and 500 km.')
-    const list = await fetchPacks(lat!, lon!, resolved?.state)
+    const list = await fetchPacks(lat!, lon!, resolved?.state, Number(radius))
     setPacks(list)
-    setPackId((cur) => cur || list.find((p) => p.suggested && p.valid)?.id || NO_PACK)
+    if (!packSelectionLoaded) {
+      setPackIds(list.filter((p) => p.suggested && p.valid).map((p) => p.id))
+      setPackSelectionLoaded(true)
+    }
     setStep('pack')
   })
 
-  const recheckKeys = () => run(async () => { setPacks(await fetchPacks(lat!, lon!, resolved?.state)) })
+  const recheckKeys = () => run(async () => { setPacks(await fetchPacks(lat!, lon!, resolved?.state, Number(radius))) })
 
   const save = () => run(async () => {
     await saveRegion({
@@ -154,7 +165,7 @@ export function SetupWizard({ firstRun, onClose }: { firstRun: boolean; onClose:
         office: resolved.office, forecast_zone: resolved.forecast_zone,
         county_zone: resolved.county_zone, fire_zone: resolved.fire_zone,
       }).filter(([, v]) => v)) as Record<string, string> : undefined,
-      pack: packId || NO_PACK,
+      packs: packIds,
     })
     setSavedStatus(await fetchSetupStatus())
     setStep('done')
@@ -238,16 +249,16 @@ export function SetupWizard({ firstRun, onClose }: { firstRun: boolean; onClose:
         {step === 'pack' && (
           <section className="space-y-3">
             <p className="text-[13px] text-on-surface-variant">
-              Region packs add local data: road conditions, outages, and similar. Weather, aircraft, vessels, earthquakes and other national feeds work everywhere.
+              Select one or more packs for your monitored area. Border regions can use Oregon and Washington together. Packs add road conditions, outages, and similar local data. Weather, aircraft, vessels, earthquakes and other national feeds work everywhere.
             </p>
             {packs.map((p) => (
-              <label key={p.id} className={`hud-panel p-4 block cursor-pointer ${!p.valid ? 'opacity-50 cursor-not-allowed' : packId === p.id ? 'border border-amber-gold' : ''}`}>
+              <label key={p.id} className={`hud-panel p-4 block cursor-pointer ${!p.valid ? 'opacity-50 cursor-not-allowed' : packIds.includes(p.id) ? 'border border-amber-gold' : ''}`}>
                 <div className="flex items-start gap-3">
-                  <input type="radio" name="pack" className="mt-1 accent-amber-gold" disabled={!p.valid} checked={packId === p.id} onChange={() => setPackId(p.id)} />
+                  <input type="checkbox" className="mt-1 accent-amber-gold" disabled={!p.valid} checked={packIds.includes(p.id)} onChange={() => setPackIds((ids) => ids.includes(p.id) ? ids.filter((id) => id !== p.id) : [...ids, p.id])} />
                   <div className="min-w-0 space-y-1">
                     <div className="font-bold text-on-surface">
                       {p.name}
-                      {p.suggested && <span className="ml-2 font-mono text-[10px] uppercase tracking-widest text-green-ais">covers your location</span>}
+                      {p.suggested && <span className="ml-2 font-mono text-[10px] uppercase tracking-widest text-green-ais">covers your monitored area</span>}
                     </div>
                     {p.valid ? (
                       <>
@@ -259,9 +270,9 @@ export function SetupWizard({ firstRun, onClose }: { firstRun: boolean; onClose:
                 </div>
               </label>
             ))}
-            <label className={`hud-panel p-4 block cursor-pointer ${packId === NO_PACK ? 'border border-amber-gold' : ''}`}>
+            <label className={`hud-panel p-4 block cursor-pointer ${packIds.length === 0 ? 'border border-amber-gold' : ''}`}>
               <div className="flex items-start gap-3">
-                <input type="radio" name="pack" className="mt-1 accent-amber-gold" checked={packId === NO_PACK} onChange={() => setPackId(NO_PACK)} />
+                <input type="checkbox" className="mt-1 accent-amber-gold" checked={packIds.length === 0} onChange={() => setPackIds([])} />
                 <div>
                   <div className="font-bold text-on-surface">Core feeds only</div>
                   <div className="text-[12px] text-on-surface-variant">No regional pack. Local road, camera and outage cards stay hidden. You can add a pack later.</div>
@@ -280,7 +291,7 @@ export function SetupWizard({ firstRun, onClose }: { firstRun: boolean; onClose:
             {pack && pack.keys?.length ? (
               <>
                 <p className="text-[13px] text-on-surface-variant">
-                  The {pack.name} pack uses these API keys. Keys are never stored in the app: add each one to your <code className="font-mono">.env</code> file and restart the backend and poller.
+                  The {pack.name} selection uses these API keys. Keys are never stored in the app: add each one to your <code className="font-mono">.env</code> file and restart the backend and poller.
                 </p>
                 <ul className="space-y-2">
                   {pack.keys.map((k) => (
@@ -310,8 +321,11 @@ export function SetupWizard({ firstRun, onClose }: { firstRun: boolean; onClose:
               <dt className="label-caps">Radius</dt><dd className="font-mono text-on-surface">{radius} km</dd>
               <dt className="label-caps">Timezone</dt><dd className="font-mono text-on-surface">{timezone}</dd>
               <dt className="label-caps">Weather office</dt><dd className="font-mono text-on-surface">{resolved?.office ?? '—'}</dd>
-              <dt className="label-caps">Region pack</dt><dd className="text-on-surface">{pack ? pack.name : 'Core feeds only'}</dd>
+              <dt className="label-caps">Region packs</dt><dd className="text-on-surface">{pack ? pack.name : 'Core feeds only'}</dd>
+              {!!pack?.feeds?.news.length && <><dt className="label-caps">News feeds</dt><dd className="text-on-surface">{pack.feeds.news.map((f) => f.name).join(', ')}</dd></>}
+              {!!pack?.feeds?.alerts.length && <><dt className="label-caps">Emergency feeds</dt><dd className="text-on-surface">{pack.feeds.alerts.map((f) => f.name).join(', ')}</dd></>}
             </dl>
+            {pack && <p className="text-[12px] text-on-surface-variant">Pack feeds are defaults. Existing feeds and disabled settings are kept. Changing packs removes only the previous pack's feeds.</p>}
             {nav('keys', save, 'Save and finish')}
           </section>
         )}

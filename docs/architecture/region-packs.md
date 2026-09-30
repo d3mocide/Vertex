@@ -200,9 +200,20 @@ It runs automatically on first sign-in when nothing has chosen a region (admins 
 - Changing the region later means running the wizard again and restarting the poller. The setup screen reports `restart_required` by comparing the region the poller applied (published to Redis at startup) with the one stored.
 - Environment variables still win: with `REGION_LAT`/`REGION_LON` set the region is pinned, the wizard warns about it, and saving is refused with a `409`.
 
-**Packs and capabilities.** A chosen pack narrows which contracts are active: contracts the pack does not provide report `none` with reason `not_in_pack`; "core feeds only" reports `no_pack`; an install with no pack (older installs, and installs configured through the environment) keeps every built-in provider. The pollers themselves still all run for now; stopping the ones a pack does not use arrives with the provider registry (phase 2).
+**Packs and capabilities.** A chosen pack narrows which contracts are active: contracts the pack does not provide report `none` with reason `not_in_pack`; "core feeds only" reports `no_pack`; an install with no pack (older installs, and installs configured through the environment) keeps every built-in provider. The shared registry now starts only selected, configured, covering ODOT, ODIN, ODF and WSDOT adapters. TriMet remains independently environment-configured pending a transit contract.
 
-**Not yet applied by the wizard:** a pack's news and alert feeds, NWS alert zones (stored in `alert_zone_configs`/`sources.yml`) and the climate station (`NWS_CLIMATE_STATION`). They are the next additions to the setup flow.
+**Pack news and alert feeds (implemented):** saving an explicit pack choice merges its `feeds.news`
+and `feeds.alerts` into `sources.yml` and reconciles the database rows with `source: pack`. Existing
+operator entries win by URL, including disabled feeds. Repeated saves are idempotent; changing packs
+or selecting core feeds only removes superseded pack-owned feeds. YAML is written as a complete-file
+replacement and restored if the setup database save fails. Region setup saves are serialized across
+backend workers. The filesystem and database remain separate stores: a host crash during the save
+can still require reconciling configuration. The poller's configuration sync restores pack feeds
+after a database recreation. A feed fingerprint participates in restart detection, so feed-only
+changes also prompt for a poller restart. The review step lists the pack's feed names.
+
+**Not yet applied by the wizard:** NWS alert zones (stored in `alert_zone_configs`/`sources.yml`) and
+the climate station (`NWS_CLIMATE_STATION`). They remain R16 in the roadmap.
 
 ## Runtime region (implemented)
 
@@ -262,3 +273,42 @@ Settled 2026-09-29:
 - **Outside the US.** What is the minimum contract set that makes a non-US install useful (ADS-B, AIS, weather from a national service), and what replaces NWS-specific setup?
 - **Licensing.** Some upstream data has terms that restrict redistribution or require attribution. The `attribution` field covers display; do packs also need a declared license?
 - **Versioning.** How do contract versions and pack schema versions evolve without breaking old packs?
+
+## Implemented multi-pack runtime (2026-09-30)
+
+Setup and the admin Region page accept multiple packs (up to eight), including Oregon and Washington
+at once. `PUT /api/v1/config/region/packs` saves only the pack selection, so an environment-pinned
+map center can retain its location while choosing regional sources. `packs: []` explicitly selects
+core feeds only; an absent choice retains legacy Oregon provider behavior. The compatibility `pack`
+field reports the first selected pack. Selections require a poller restart, checked with a fingerprint.
+
+`regions/_shared/catalog.py` defines reviewed built-in provider IDs, contracts, key requirements and
+coverage. Backend capabilities and poller startup use the same catalog and manifest validator. Packs
+select adapters rather than executing arbitrary pack code. Coverage intersects the monitoring bbox,
+which supports cross-border areas even when the center lies outside one state's coverage.
+
+Each provider writes private Redis snapshots and source freshness metadata. A lock per contract feed
+merges active list providers into the existing public feed key. Camera URLs are deduplicated, new
+provider IDs are namespaced, and existing ODOT IDs are retained for bookmarks. Restart removes
+unselected snapshots and republishes retained data without resetting its fetch age. Capabilities
+report provider-level freshness so one working source cannot hide another source's outage.
+
+Pack news/alert defaults are unioned by URL and remain subordinate to operator configuration.
+Setup saves are serialized with a database advisory lock; YAML replacement is atomic and restored
+on a failed database save. Filesystem and database remain separate stores across a process crash.
+Washington implements keyed Traveler API road alerts/cameras and DNR fire danger/burn restrictions, not all Oregon contracts. Declarative
+adapters, generic multi-utility outage data and Oregon code extraction remain future work.
+
+### Washington sources and shared wildfire data
+
+`WSDOT_API_KEY` is a required server-side access code for `wsdot-travel`; an absent key disables that
+provider with `not_configured`. The earlier ArcGIS traffic adapter was replaced, without an automatic
+fallback. DNR uses its published public GIS service and needs no credential. `fire:danger` supports
+multiple provider FeatureCollections, with attributed features, merged nearby summaries and source
+freshness. DNR labels/ranks retain Very High separately from Extreme and restrictions retain their
+DNR-land scope. Existing Oregon danger values are preserved.
+
+National NIFC incident and perimeter collectors run once independently of selected state packs. The
+incident feed supplements the existing wildfire entities using IRWIN identity, acreage and containment;
+EONET skips fresh NIFC matches by normalized name and proximity. Public fire GIS reads enforce
+response/page bounds and fail rather than replacing cached data with a false empty result.

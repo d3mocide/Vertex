@@ -7,7 +7,7 @@ from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 _URL = re.compile(r"[a-z][a-z0-9+.-]*://[^\s]+", re.IGNORECASE)
 _SENSITIVE_KEYS = frozenset({
     "authorization", "cookie", "password", "passwd", "secret", "token",
-    "api_key", "apikey", "key", "x-api-key",
+    "api_key", "apikey", "accesscode", "key", "x-api-key",
 })
 
 

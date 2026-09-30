@@ -9,6 +9,10 @@ export type FirePanelEntity = {
   relevance: FireRelevance
   link?: string
   eventTs?: string
+  state?: string
+  provider?: string
+  acres?: number
+  containedPct?: number
 }
 
 export function firePanelEntityFromEntity(entity: Entity): FirePanelEntity | null {
@@ -31,13 +35,17 @@ export function firePanelEntityFromEntity(entity: Entity): FirePanelEntity | nul
     relevance,
     link: typeof entity.identity?.link === 'string' ? entity.identity.link : undefined,
     eventTs,
+    state: typeof entity.identity?.state === 'string' ? entity.identity.state.replace(/^US-/, '') : undefined,
+    provider: typeof entity.identity?.provider === 'string' ? entity.identity.provider : undefined,
+    acres: typeof entity.identity?.acres === 'number' ? entity.identity.acres : undefined,
+    containedPct: typeof entity.identity?.contained_pct === 'number' ? entity.identity.contained_pct : undefined,
   }
 }
 
 export function formatRelativeTime(iso: string | undefined): string {
-  if (!iso) return 'OPEN INCIDENT'
+  if (!iso) return 'UPDATE TIME UNREPORTED'
   const ts = Date.parse(iso)
-  if (Number.isNaN(ts)) return 'OPEN INCIDENT'
+  if (Number.isNaN(ts)) return 'UPDATE TIME UNREPORTED'
 
   const deltaMs = Date.now() - ts
   const hours = Math.max(0, Math.floor(deltaMs / 3_600_000))
@@ -54,13 +62,19 @@ export function renderFireRow(fire: FirePanelEntity) {
         <div className="min-w-0">
           <div className="text-[11px] lg:text-[12px] font-bold text-on-surface truncate">{fire.display_name}</div>
           <div className="mt-1 font-mono text-[11px] text-on-surface-variant uppercase tracking-widest">
-            {fire.distanceKm != null ? `${Math.round(fire.distanceKm)} KM · ` : ''}{formatRelativeTime(fire.eventTs)}
+            {fire.state ?? 'State unreported'} · {fire.distanceKm != null ? `${Math.round(fire.distanceKm)} KM · ` : ''}{formatRelativeTime(fire.eventTs)}
           </div>
         </div>
-        <span className={`font-mono text-[11px] font-bold uppercase tracking-widest ${fire.relevance === 'local' ? 'text-red-500' : 'text-amber-gold'}`}>
-          {fire.relevance === 'local' ? 'ALERT' : 'WATCH'}
+        <span className={`font-mono text-[11px] font-bold uppercase tracking-widest ${fire.containedPct === 100 ? 'text-on-surface-variant' : 'text-amber-gold'}`}>
+          {fire.relevance === 'local' ? 'NEARBY' : 'REGIONAL'}
         </span>
       </div>
+      {(
+        <div className="mt-1 font-mono text-[11px] text-on-surface-variant">
+          {[fire.provider, fire.acres != null ? `${Math.round(fire.acres).toLocaleString()} acres` : undefined,
+            fire.containedPct != null ? `${fire.containedPct}% contained` : 'Containment unreported'].filter(Boolean).join(' · ')}
+        </div>
+      )}
       {fire.link && /^https?:\/\//i.test(fire.link) && (
         <a
           href={fire.link}

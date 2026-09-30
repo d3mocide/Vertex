@@ -89,6 +89,7 @@ class Settings(BaseSettings):
     # ODOT TripCheck Data API (free key from developer.odot.state.or.us)
     odot_incidents_url: str = ""  # deprecated RSS URL, kept for backward compat
     odot_api_key: str = ""         # set to enable the new TripCheck REST API
+    wsdot_api_key: str = ""       # WSDOT Traveler API access code; never expose its value
 
     # Traffic flow corridor filter — comma-separated highway name fragments.
     # Only detector stations whose highway name contains one of these fragments

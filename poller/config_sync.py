@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 async def sync_sources_to_db(config: SourcesConfig, pool: asyncpg.Pool) -> None:
     """Sync sources.yml entries to DB.
 
-    For source='config' entries: full diff — inserts new, removes deleted.
+    For source='config' entries (and pack-owned news/alert feeds): full diff — inserts new, removes deleted.
     For source='user' entries: inserts missing only — never auto-deletes,
     since user entries are only removed via the API (which also removes them
     from the YAML). This ensures user-added sources survive a DB wipe.
@@ -84,10 +84,10 @@ async def _sync_news_feeds(
 ) -> str:
     existing = await conn.fetch("SELECT name, url, source FROM news_feeds")
     db_all_keys = {(row["url"] or row["name"]) for row in existing}
-    db_config_keys = {(row["url"] or row["name"]) for row in existing if row["source"] == "config"}
+    db_config_keys = {(row["url"] or row["name"]) for row in existing if row["source"] in {"config", "pack"}}
 
-    yaml_config_keys = {(e.url or e.name) for e in entries if e.source == "config"}
-    added = removed = 0
+    yaml_config_keys = {(e.url or e.name) for e in entries if e.source in {"config", "pack"}}
+    added = removed = updated = 0
 
     for entry in entries:
         key = entry.url or entry.name
@@ -100,19 +100,28 @@ async def _sync_news_feeds(
                 entry.name, entry.url, entry.format, entry.enabled, entry.source,
             )
             added += 1
+        elif key in db_config_keys and entry.source in {"config", "pack"}:
+            status = await conn.execute(
+                """UPDATE news_feeds SET name=$2, format=$3, enabled=$4, updated_at=NOW()
+                   WHERE url=$1 AND source=$5
+                     AND (name, format, enabled) IS DISTINCT FROM ($2, $3, $4)""",
+                entry.url, entry.name, entry.format, entry.enabled, entry.source,
+            )
+            if status.endswith(" 1"):
+                updated += 1
 
     to_remove = db_config_keys - yaml_config_keys
     for key in to_remove:
         await conn.execute(
             """
             DELETE FROM news_feeds
-            WHERE source = 'config' AND (url = $1 OR (url IS NULL AND name = $1))
+            WHERE source IN ('config', 'pack') AND (url = $1 OR (url IS NULL AND name = $1))
             """,
             key,
         )
         removed += 1
 
-    return f"+{added} -{removed}" if (added or removed) else ""
+    return f"+{added} -{removed}" + (f" ~{updated}" if updated else "") if (added or removed or updated) else ""
 
 
 async def _sync_poller_sources(
@@ -198,10 +207,10 @@ async def _sync_alert_feeds(
 ) -> str:
     existing = await conn.fetch("SELECT url, source FROM alert_feed_configs")
     db_all_urls = {row["url"] for row in existing}
-    db_config_urls = {row["url"] for row in existing if row["source"] == "config"}
+    db_config_urls = {row["url"] for row in existing if row["source"] in {"config", "pack"}}
 
-    yaml_config_urls = {e.url for e in entries if e.source == "config"}
-    added = removed = 0
+    yaml_config_urls = {e.url for e in entries if e.source in {"config", "pack"}}
+    added = removed = updated = 0
 
     for entry in entries:
         if entry.url not in db_all_urls:
@@ -213,16 +222,25 @@ async def _sync_alert_feeds(
                 entry.name, entry.url, entry.format, entry.enabled, entry.source,
             )
             added += 1
+        elif entry.url in db_config_urls and entry.source in {"config", "pack"}:
+            status = await conn.execute(
+                """UPDATE alert_feed_configs SET name=$2, format=$3, enabled=$4, updated_at=NOW()
+                   WHERE url=$1 AND source=$5
+                     AND (name, format, enabled) IS DISTINCT FROM ($2, $3, $4)""",
+                entry.url, entry.name, entry.format, entry.enabled, entry.source,
+            )
+            if status.endswith(" 1"):
+                updated += 1
 
     to_remove = db_config_urls - yaml_config_urls
     if to_remove:
         await conn.execute(
-            "DELETE FROM alert_feed_configs WHERE source = 'config' AND url = ANY($1::text[])",
+            "DELETE FROM alert_feed_configs WHERE source IN ('config', 'pack') AND url = ANY($1::text[])",
             list(to_remove),
         )
         removed += len(to_remove)
 
-    return f"+{added} -{removed}" if (added or removed) else ""
+    return f"+{added} -{removed}" + (f" ~{updated}" if updated else "") if (added or removed or updated) else ""
 
 
 async def _sync_mqtt_sources(

@@ -95,7 +95,7 @@ export function CameraModal() {
 
         <div className="p-3 border-t border-amber-gold-muted/30 bg-white/[0.02] flex items-center justify-between">
            <span className="font-mono text-[11px] text-on-surface-variant uppercase tracking-widest">
-             Source: ODOT TRIPCHECK • ID: {selectedCam.id}
+             Source: {selectedCam.attribution ?? 'ODOT TripCheck'} • ID: {selectedCam.id}
            </span>
            <button
              onClick={closeModal}

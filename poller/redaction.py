@@ -3,7 +3,7 @@
 import re
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
-_SENSITIVE_KEYS = frozenset({"authorization", "password", "secret", "token", "api_key", "apikey", "key"})
+_SENSITIVE_KEYS = frozenset({"authorization", "password", "secret", "token", "api_key", "apikey", "accesscode", "key"})
 _URL = re.compile(r"[a-z][a-z0-9+.-]*://[^\s]+", re.IGNORECASE)
 
 

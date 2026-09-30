@@ -138,7 +138,7 @@ const mapLayers = (
         Open <strong>Settings</strong> to switch layers. Two groups:
       </DocText>
       <DocGrid>
-        <DocCard icon="layers" title="Overlays" description="Radar, Infrared Satellite, Visible Satellite, NWS Alerts, Dispatch Incidents, Lightning, Lightning Density, Fire Perimeters, Fire Danger (ODF), Stream Gauges, Power Outages, Zone Monitor and 3D Terrain." />
+        <DocCard icon="layers" title="Overlays" description="Radar, Infrared Satellite, Visible Satellite, NWS Alerts, Dispatch Incidents, Lightning, Lightning Density, Fire Perimeters, Fire Danger (ODF / WA DNR), Stream Gauges, Power Outages, Zone Monitor and 3D Terrain." />
         <DocCard icon="tune" title="Entities" description="Aircraft, Vessels, Trains, Rail Tracks, Mesh Nodes, APRS, Fire Incidents, Cameras and History Trails." />
       </DocGrid>
       <DocText>
@@ -335,8 +335,8 @@ const infoPanels = (
     <DocSection title="Environment" delay={100}>
       <DocGrid>
         <DocCard icon="cloud" title="Conditions & Outlook" description="Temperature, wind, humidity and air quality, the next 24 hours, and the forecast discussion." />
-        <DocCard icon="radar" title="Radar Map" description="Tabs for radar, NOAA imagery, alerts, lightning (Bolts) and satellite." />
-        <DocCard icon="local_fire_department" title="Fire & Smoke" description="Local fires, satellite hotspots, smoke, and the state fire-danger level." />
+        <DocCard icon="radar" title="Radar Map" description="Tabs for radar, NOAA imagery, alerts, lightning (Bolts) and satellite. NWS map alerts are clipped to your monitoring bounds." />
+        <DocCard icon="local_fire_department" title="Fire & Smoke" description="Nearby and regional wildfire reports with state, source and containment. Fully contained incidents appear in an expandable section. Includes satellite hotspots, smoke, and ODF / WA DNR fire danger." />
         <DocCard icon="volcano" title="Geohazards" description="Nearby earthquakes and other geological or disaster alerts." />
       </DocGrid>
       <DocText>

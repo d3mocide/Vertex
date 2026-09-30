@@ -55,6 +55,26 @@ def test_a_good_manifest_normalizes():
     assert p["requires_keys"][0]["unlocks"] == ["traffic.incidents"]
 
 
+@pytest.mark.parametrize("feeds", [[], False, "rss", {"newz": []}, {"news": "rss"},
+    {"news": [{"name": "News", "url": "https://example.invalid", "format": []}]},
+    {"news": [{"name": "News", "url": "http://localhost/feed"}]},
+    {"news": [{"name": "News", "url": "http://[::1]/feed"}]},
+    {"news": [{"name": "News", "url": "https://user:credential@example.invalid/feed"}]},
+    {"news": [{"name": "News", "url": "https://example.invalid:bad/feed"}]},
+    {"news": [{"name": "News", "url": "https://example.invalid"}] * 2},
+    {"news": [{"name": "News", "url": "https://example.invalid"}] * 26},
+])
+def test_malformed_or_unsafe_pack_feeds_are_rejected(feeds):
+    with pytest.raises(packs.PackError):
+        _validate(_pack(feeds=feeds))
+
+
+def test_optional_pack_feeds_normalize_default_formats():
+    assert _validate(GOOD)["feeds"] == {"news": [], "alerts": []}
+    p = _validate(_pack(feeds={"news": [{"name": "News", "url": "https://example.invalid/feed"}]}))
+    assert p["feeds"]["news"][0]["format"] == "rss"
+
+
 @pytest.mark.parametrize("bad, why", [
     (_pack(schema=2), "schema"),
     (_pack(id="Bad Id"), "id must"),
@@ -196,7 +216,9 @@ def test_core_only_choice_turns_regional_contracts_off():
 
 
 def test_a_pack_only_enables_the_contracts_its_providers_provide():
-    pack = _validate(GOOD)
+    manifest = copy.deepcopy(GOOD)
+    manifest["providers"][0]["id"] = "odot-tripcheck"
+    pack = _validate(manifest)
     out = cap.build(_settings(), {}, _region("denver"), {"denver": pack})
     c = out["contracts"]
     assert c["traffic.incidents"]["status"] == "pending"           # in the pack (and the key is present)

@@ -21,7 +21,15 @@ class NewsFeedEntry(BaseModel):
     url: str | None = None
     format: str = "rss"
     enabled: bool = True
-    source: Literal["config", "user"] = "config"
+    source: Literal["config", "user", "pack"] = "config"
+
+
+class AlertFeedEntry(BaseModel):
+    name: str
+    url: str
+    format: str = "rss"
+    enabled: bool = True
+    source: Literal["config", "user", "pack"] = "config"
 
 
 class PollerSourceEntry(BaseModel):
@@ -57,6 +65,7 @@ class AlertZonesConfig(BaseModel):
 class SourcesConfig(BaseModel):
     radio_streams: list[RadioStreamEntry] = []
     news_feeds: list[NewsFeedEntry] = []
+    alert_feeds: list[AlertFeedEntry] = []
     poller_sources: list[PollerSourceEntry] = []
     alert_zones: AlertZonesConfig = AlertZonesConfig()
     mqtt_sources: list[MqttSourceEntry] = []

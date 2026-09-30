@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
-from sqlalchemy import select
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 import httpx
 
@@ -10,6 +10,7 @@ import region_config
 from config import settings
 from db.models import AppSetting
 from deps import get_db
+from pack_selection import load_selection, save_selection, validate_choice
 
 router = APIRouter(prefix="/config/region", tags=["config"])
 
@@ -23,6 +24,11 @@ class RegionIn(BaseModel):
     timezone: str
     nws: dict | None = None
     pack: str | None = None   # an installed pack id, or "none" for core feeds only
+    packs: list[str] | None = None
+
+
+class PacksIn(BaseModel):
+    packs: list[str] = Field(max_length=8)
 
 
 class ResolveIn(BaseModel):
@@ -42,7 +48,19 @@ async def load_stored(db: AsyncSession) -> tuple[dict | None, str | None]:
 async def load_effective(db: AsyncSession) -> dict:
     """The region in force now: environment, else the database, else built-in defaults."""
     stored, updated = await load_stored(db)
-    return region_config.effective(settings, stored, updated)
+    effective = region_config.effective(settings, stored, updated)
+    choice = await load_selection(db)
+    if choice is not None:
+        effective["packs"] = choice["packs"]
+        effective["pack"] = choice["packs"][0] if choice["packs"] else region_config.NO_PACK
+    return effective
+
+
+@router.put("/packs")
+async def set_packs(body: PacksIn, db: AsyncSession = Depends(get_db)):
+    """Choose regional packs without changing an environment-pinned map center. Admin only."""
+    await save_selection(db, body.packs, pack_registry.valid_by_id())
+    return await load_effective(db)
 
 
 @router.get("")
@@ -66,14 +84,26 @@ async def set_region(body: RegionIn, db: AsyncSession = Depends(get_db)):
     except region_config.RegionError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     pack = stored.get("pack")
-    if pack and pack != region_config.NO_PACK and pack not in pack_registry.valid_by_id():
+    installed = pack_registry.valid_by_id()
+    if pack and pack != region_config.NO_PACK and pack not in installed:
         raise HTTPException(status_code=422, detail=f"pack {pack!r} is not installed (or is invalid)")
-    row = await db.get(AppSetting, region_config.REGION_KEY)
-    if row:
-        row.value = stored
+    ids = stored.get("packs", [] if pack == region_config.NO_PACK else [pack] if pack else None)
+    if ids is not None:
+        validate_choice(ids, installed)
+    async def save_choice(feed_signature=None):
+        row = await db.get(AppSetting, region_config.REGION_KEY, populate_existing=True)
+        if feed_signature:
+            stored["pack_feeds_signature"] = feed_signature
+        if row:
+            row.value = stored
+        else:
+            db.add(AppSetting(key=region_config.REGION_KEY, value=stored))
+    if ids is not None:
+        await save_selection(db, ids, installed, save_choice)
     else:
-        db.add(AppSetting(key=region_config.REGION_KEY, value=stored))
-    await db.commit()
+        await db.execute(text("SELECT pg_advisory_xact_lock(hashtext('vertex:region-setup'))"))
+        await save_choice()
+        await db.commit()
     return await load_effective(db)
 
 

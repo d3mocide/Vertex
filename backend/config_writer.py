@@ -12,12 +12,54 @@ as the human-readable reference.
 import asyncio
 import os
 import pathlib
+import tempfile
+from contextlib import asynccontextmanager
+from copy import deepcopy
 
 import yaml
 
 CONFIG_PATH = pathlib.Path(os.environ.get("SOURCES_CONFIG_PATH", "/config/sources.yml"))
 
 _write_lock = asyncio.Lock()
+
+
+def merge_pack_feeds(data: dict, pack: dict | None) -> dict:
+    """Replace pack-owned defaults, keeping operator entries and retained feed settings."""
+    merged = deepcopy(data)
+    for kind, section in (("news", "news_feeds"), ("alerts", "alert_feeds")):
+        entries = merged.get(section) or []
+        if not isinstance(entries, list) or not all(isinstance(e, dict) for e in entries):
+            raise ValueError(f"{section} must be a list of feed mappings")
+        retained = [e for e in entries if e.get("source", "config") != "pack"]
+        urls = {e.get("url") for e in retained}
+        old = {e.get("url"): e for e in entries if e.get("source") == "pack"}
+        for feed in (pack or {}).get("feeds", {}).get(kind, []):
+            if feed["url"] in urls:
+                continue
+            previous = old.get(feed["url"])
+            # Explicit edits (including disabled feeds) win over manifest defaults.
+            retained.append(deepcopy(previous) if previous else {**feed, "enabled": True, "source": "pack"})
+            urls.add(feed["url"])
+        if section in merged or retained:
+            merged[section] = retained
+    return merged
+
+
+@asynccontextmanager
+async def pack_feed_config(pack: dict | None):
+    """Persist pack defaults around the setup transaction; restore YAML if saving fails."""
+    async with _write_lock:
+        original = await _read_raw()
+        merged = merge_pack_feeds(original, pack)
+        changed = merged != original
+        if changed:
+            await _write_raw(merged)
+        try:
+            yield merged
+        except BaseException:
+            if changed:
+                await _write_raw(original)
+            raise
 
 
 async def _read_raw() -> dict:
@@ -29,7 +71,25 @@ async def _read_raw() -> dict:
 
 async def _write_raw(data: dict) -> None:
     content = yaml.safe_dump(data, default_flow_style=False, sort_keys=False)
-    await asyncio.to_thread(CONFIG_PATH.write_text, content)
+    await asyncio.to_thread(_replace_raw, content)
+
+
+def _replace_raw(content: str) -> None:
+    """Replace a complete file so a failed write cannot truncate operator configuration."""
+    mode = CONFIG_PATH.stat().st_mode & 0o777 if CONFIG_PATH.exists() else 0o600
+    temporary = None
+    try:
+        with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=CONFIG_PATH.parent,
+                                         prefix=".sources-", delete=False) as file:
+            temporary = pathlib.Path(file.name)
+            file.write(content)
+            file.flush()
+            os.fsync(file.fileno())
+        temporary.chmod(mode)
+        temporary.replace(CONFIG_PATH)
+    finally:
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
 
 
 async def add_entry(section: str, entry: dict) -> None:

@@ -16,7 +16,8 @@ if _BACKEND_ROOT not in sys.path:
 import capabilities as cap
 
 PORTLAND = dict(region_lat=45.5, region_lon=-122.7)
-DENVER = dict(region_lat=39.7, region_lon=-105.0)
+DENVER = dict(region_lat=39.7, region_lon=-105.0, bbox_min_lat=39, bbox_max_lat=40,
+              bbox_min_lon=-106, bbox_max_lon=-104)
 
 
 def _settings(**kw):

@@ -41,7 +41,7 @@ const LEVEL_ICONS: Record<Level, string> = {
 const SOURCE_LABELS: Record<Advisory['source'], string> = {
   radio:      'Dispatch',
   nws:        'NWS',
-  traffic:    'ODOT',
+  traffic:    'Traffic',
   flashalert: 'FlashAlert',
   briefing:   'Briefing',
 }

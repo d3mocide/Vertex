@@ -14,21 +14,34 @@ Goal: someone anywhere in the US can give Vertex their location and get the equi
 | R0 | Design: contracts, providers, pack format, capability discovery, setup flow | `[x]` | Decisions recorded 2026-09-29: packs in-repo (plus optional private mount), declarative-first with reviewed Python providers, phases 0 and 1 first. Open questions remain at the end of the design doc |
 | R1 | Contract inventory and specs (`docs/contracts/`, JSON Schema per feed) | `[x]` | v0 specs for the seven built-in regional contracts, each schema validated against a live payload. Still to spec: transit vehicles (entity-based), news and local alerts |
 | R2 | `GET /api/v1/capabilities` and UI empty-state handling | `[x]` | Endpoint plus registry (`backend/capabilities.py`); Infrastructure page cards, Settings layer toggles and the Fire & Smoke danger chip hide when no provider applies; empty state explains why (outside coverage, or a missing key). Removed the fake placeholder cameras. Follow-ups: flag stale/down providers in the UI, gate the map layers themselves |
-| R3 | Region as runtime config (backend endpoint, DB-backed, env override) | `[x]` | `GET/PUT /api/v1/config/region`, `app_settings` table, env > database > defaults; poller applies it at startup and restarts itself on change; frontend loads it after sign-in and no longer uses build-time region args |
+| R3 | Region as runtime config (backend endpoint, DB-backed, env override) | `[x]` | `GET/PUT /api/v1/config/region`, `app_settings` table, env > database > defaults; poller applies it at startup, and later changes require an operator restart; frontend loads it after sign-in and no longer uses build-time region args |
 | R4 | NWS-based location resolver | `[~]` | `POST /api/v1/config/region/resolve` returns office, forecast/county/fire zones, timezone, name and a default bbox (US only). Still to add: nearest airports/METAR stations and the climate station, plus applying alert zones (wizard, R10) |
-| R5 | Provider interface and registry in the poller | `[ ]` | Runs on the existing `BasePoller` heartbeat, metrics and backoff |
+| R5 | Provider interface and registry in the poller | `[x]` | Shared reviewed catalog; startup selects ODOT, ODIN, ODF, WSDOT and WA DNR by pack, keys and monitoring bounds. Existing `BasePoller` lifecycle; isolated snapshots, additive traffic and per-source freshness |
 | R6 | Move Oregon code into `regions/oregon/` behind the interface | `[ ]` | ODOT TripCheck, ODIN outages, ODF fire danger, TriMet, Portland corridors. Must not change behavior; fixture tests |
 | R7 | Generalize the outage contract | `[ ]` | Replace `OregonStatus` (`pge_affected`, `pacificorp_affected`) with a per-utility list |
 | R8 | Declarative providers: `gtfs_rt`, `arcgis_featureserver`, `rss`/`cap`, `wzdx`, `json_rest` | `[ ]` | Most packs should need no Python |
 | R9 | Pack loader, `make pack-check`, CI validation | `[~]` | Done: manifest v1, loader/validator (`backend/packs.py`), `make pack-check`, private-address/path/e-mail rejection, tests (run in CI with the backend suite). To do: fixture replay against contract schemas once providers are declarative |
 | R10 | First-run setup wizard with pack suggestion | `[x]` | Location (map, device location or coordinates), region details from the NWS resolver, pack choice (covering packs first, or core feeds only), key status, review and save. Runs on first sign-in and from the admin console's Region page. The poller waits at a gate (`SETUP_GATE`) on a fresh install; no live reload — a later change needs a poller restart, which the screen reports |
-| R11 | A second pack from a different kind of region | `[ ]` | Proves the abstraction; ideally contributed by someone who lives there |
+| R11 | A second pack from a different kind of region | `[x]` | Washington uses the keyed WSDOT Traveler API for incidents/cameras and DNR fire danger/burn restrictions. Oregon and Washington can run together; shared cameras and feed subscriptions deduplicate |
 | R12 | Pack authoring guide and `_template` pack | `[~]` | `regions/_template/`, an Oregon pack, and a CONTRIBUTING section are in. To do: a step-by-step authoring guide once declarative providers exist |
-| R15 | Apply a pack's news and alert feeds during setup | `[ ]` | Pack `feeds` are specified but the wizard does not seed `sources.yml`/the database with them yet |
+| R15 | Apply a pack's news and alert feeds during setup | `[x]` | Validated RSS/FlashAlert manifests; setup seeds `sources.yml` and DB as pack-owned defaults, preserves operator/disabled feeds, deduplicates by URL, removes superseded pack feeds, and detects feed-only restart needs. Review lists feed names; poller sync restores pack rows after DB recreation |
 | R16 | Derive alert zones and the climate station in the wizard | `[ ]` | NWS alert zones (`alert_zone_configs`) and `NWS_CLIMATE_STATION` are still configured separately |
-| R17 | Stop pollers a pack does not use | `[ ]` | A chosen pack already narrows capabilities and the UI, but every built-in poller still runs. Comes with the provider registry (R5, R6) |
+| R17 | Stop pollers a pack does not use | `[~]` | Seven regional contracts now follow selected providers; disabled provider snapshots are removed on restart. Remaining: define transit contracts and bring separately configured TriMet under selection |
 | R13 | Per-pack terminology (radio units, street conventions, agency names) | `[-]` | Depends on how generic the radio incident extractor can be made |
 | R14 | Non-US baseline (ADS-B, AIS, national weather service) | `[-]` | Out of scope for v1 |
+
+### Next implementation sequence
+
+1. **R7, then R6: generic outages and Oregon extraction.** Replace named-utility fields with a
+   utility list and schema-validated fixtures, then move Oregon adapters/corridors behind the
+   established registry without changing their payloads.
+2. **Finish R17 and R1 for transit.** Define the transit contract and migrate independently configured
+   TriMet into provider selection. Keep national/core pollers independent of packs.
+3. **R8 + R9 + R12: declarative adapters and authoring.** Generalize the Washington ArcGIS experience
+   into a reviewed declarative mapping, replay fixtures against schemas and write an authoring guide.
+   Washington outages and keyed Traveler API road-weather/flow extensions need separate mappings and contracts.
+4. **R16: finish location-derived setup.** Apply NWS alert zones and derive climate/nearby stations,
+   preserving explicit environment and operator configuration.
 
 ---
 
@@ -44,7 +57,7 @@ Since the May foundations below. See `TASK_LOG.md` for detail.
 | Briefings | Hourly AI briefing with analytic prompt, 7-day baseline, quality metrics, posture rating, history | `[x]` |
 | Incidents | Incidents page built on radio-derived dispatch incidents; dispatch map layer with severity and age | `[x]` |
 | Infrastructure | Closure triage by scope and event, freeway corridor status, message signs, power outages with weather and lightning context | `[x]` |
-| Environment | Priority-ordered page, weather history, nearby NWS and road-weather stations, ODF fire danger, FIRMS hotspots, lightning, dead feeds hidden | `[x]` |
+| Environment | Regional NWS map clipping; shared NIFC/EONET wildfire reports with state, proximity and containment; contained incidents grouped separately; ODF/WA DNR danger and scoped burn restrictions; weather history, nearby stations, FIRMS and lightning | `[x]` |
 | Rail | Amtrak, TriMet GTFS-RT (MAX, WES, Streetcar), rail lines | `[x]` |
 | Replay | Time-windowed presence, thinned replay data (was: everything shown forever) | `[x]` |
 | Platform | Public DNS for pollers, `REGION_LAT`/`REGION_LON` honoured by the frontend build, `REGION_NAME` in the UI | `[x]` |

@@ -151,7 +151,7 @@ async def send_pinned_http_request(
         headers.setdefault("Host", host_header)
         request = client.build_request(method, pinned, headers=headers, **kwargs)
         if parsed.scheme == "https":
-            request.extensions["sni_hostname"] = host.encode("idna")
+            request.extensions["sni_hostname"] = host.encode("idna").decode("ascii")
         response = await client.send(request, stream=stream)
         if response.is_redirect and hop < max_redirects and response.headers.get("location"):
             await response.aclose()

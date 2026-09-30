@@ -1,0 +1,27 @@
+schema: 1
+id: washington
+name: Washington
+description: Road alerts and traffic-camera snapshots from the WSDOT Traveler API, plus DNR fire danger and burn restrictions, including southwest Washington for Columbia River border regions.
+maintainers: [d3mocide]
+covers:
+  states: [WA]
+  bbox: [-124.8, 45.5, -116.9, 49.1]
+requires_keys:
+  - name: WSDOT_API_KEY
+    where: https://www.wsdot.wa.gov/traffic/api/
+    free: true
+    unlocks: [traffic.incidents, traffic.cameras]
+defaults:
+  geocoder_state: Washington
+feeds:
+  alerts:
+    - name: FlashAlert Emergency Newswire
+      url: http://www.flashalertnewswire.net/IIN/reportsX/flashnews_xml_emergency.php
+      format: flashalert_xml
+providers:
+  - id: wsdot-travel
+    kind: builtin
+    provides: [traffic.incidents, traffic.cameras]
+  - id: wadnr-fire-danger
+    kind: builtin
+    provides: [fire.danger]

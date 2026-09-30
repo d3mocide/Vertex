@@ -32,12 +32,14 @@ export const PRESERVE_DRAWING_BUFFER = (import.meta.env.VITE_PRESERVE_DRAWING_BU
 // runtime value (the app does not render until the region has loaded).
 export const REGION_FALLBACK = { name: 'Tualatin Valley', lon: -122.7635, lat: 45.3842 }
 export const DEFAULT_CENTER: [number, number] = [REGION_FALLBACK.lon, REGION_FALLBACK.lat]
-export const regionInfo: { name: string } = { name: REGION_FALLBACK.name }
+export interface RegionBounds { min_lat: number; max_lat: number; min_lon: number; max_lon: number }
+export const regionInfo: { name: string; bbox: RegionBounds | null } = { name: REGION_FALLBACK.name, bbox: null }
 
-export function applyRegion(name: string, lat: number, lon: number): void {
+export function applyRegion(name: string, lat: number, lon: number, bbox: RegionBounds): void {
   DEFAULT_CENTER[0] = lon
   DEFAULT_CENTER[1] = lat
   regionInfo.name = name
+  regionInfo.bbox = bbox
 }
 export const DEFAULT_ZOOM = 10
 

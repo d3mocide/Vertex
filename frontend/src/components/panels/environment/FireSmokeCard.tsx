@@ -5,7 +5,7 @@ import { useContractAvailable } from '../../../hooks/useCapabilities'
 import { renderFireRow, type FirePanelEntity } from './FireStatusCard'
 
 interface Hotspot { lat: number; lon: number; ts: string; frp: number | null; confidence: 'high' | 'nominal'; dist_km: number }
-interface Zone { zone: string; danger: number; label: string; dist_km: number }
+interface Zone { zone: string; danger: number; danger_rank?: number; label: string; dist_km: number; provider_id?: string; attribution?: string; burn_ban?: string; scope?: string; notes?: string }
 interface Danger { home: Zone | null; nearby: Zone[] }
 
 // Same signal colours as the map layer: green nominal, gold caution, orange serious, red extreme.
@@ -27,7 +27,7 @@ function Chip({ label, value, tone = 'text-on-surface', hint }: { label: string;
 }
 
 /**
- * Everything fire and smoke in one card: local/regional fires, ODF danger, NASA
+ * Everything fire and smoke in one card: local/regional fires, regional danger, NASA
  * satellite hotspots and AQI. It is a row of four numbers when things are quiet;
  * lists appear only for the parts that have something to say.
  */
@@ -57,14 +57,18 @@ export function FireSmokeCard({ localFires, regionalFires, aqi, aqiLabel }: {
     return () => clearInterval(t)
   }, [])
 
-  const zones = danger ? (danger.home ? [danger.home] : danger.nearby) : []
-  const topZone = zones.length ? zones.reduce((a, b) => (b.danger > a.danger ? b : a)) : null
+  const zones = danger?.nearby ?? []
+  const topZone = zones.length ? zones.reduce((a, b) => ((b.danger_rank ?? (b.danger === 4 ? 5 : b.danger)) > (a.danger_rank ?? (a.danger === 4 ? 5 : a.danger)) ? b : a)) : null
   const nearestSpot = spots.length ? [...spots].sort((a, b) => a.dist_km - b.dist_km)[0] : null
 
   const smoke = aqi == null ? { text: '—', tone: 'text-on-surface-variant' }
     : aqi <= 50 ? { text: 'Low', tone: 'text-green-ais' }
     : aqi <= 100 ? { text: 'Watch', tone: 'text-amber-gold' }
     : { text: 'Impact', tone: 'text-red-emergency' }
+
+  const localOpen = localFires.filter((fire) => fire.containedPct !== 100)
+  const regionalOpen = regionalFires.filter((fire) => fire.containedPct !== 100)
+  const containedFires = [...localFires, ...regionalFires].filter((fire) => fire.containedPct === 100)
 
   const nothingToList = localFires.length === 0 && regionalFires.length === 0 && spots.length === 0
 
@@ -77,21 +81,31 @@ export function FireSmokeCard({ localFires, regionalFires, aqi, aqiLabel }: {
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
-        <Chip label="Local fires" value={localFires.length} tone={localFires.length ? 'text-red-emergency' : 'text-on-surface'} hint="in alert radius" />
+        <Chip label="Nearby incidents" value={localOpen.length} tone={localOpen.length ? 'text-amber-gold' : 'text-on-surface'} hint="partial or unreported containment" />
         {hasFireDanger && (
-          <Chip label="ODF danger" value={topZone ? topZone.label : '—'} tone={topZone ? DANGER_TONE[topZone.danger] : undefined}
-            hint={topZone ? (danger?.home ? `your zone ${topZone.zone}` : 'nearby zones') : undefined} />
+          <Chip label="Fire danger" value={topZone ? topZone.label : '—'} tone={topZone ? DANGER_TONE[topZone.danger] : undefined}
+            hint={topZone ? `${topZone.attribution ?? 'Regional'} · ${topZone.zone}` : undefined} />
         )}
         <Chip label="Hotspots" value={spots.length} tone={spots.length ? 'text-amber-gold' : 'text-on-surface'}
           hint={nearestSpot ? `nearest ${Math.round(nearestSpot.dist_km)} km` : 'satellite, 24 h'} />
         <Chip label="Smoke" value={smoke.text} tone={smoke.tone} hint={aqi != null ? `AQI ${aqi}` : 'no AQI'} />
       </div>
 
-      {(localFires.length > 0 || regionalFires.length > 0) && (
+      {(localOpen.length > 0 || regionalOpen.length > 0) && (
         <div className="mt-4 space-y-1.5">
-          {localFires.slice(0, 3).map(renderFireRow)}
-          {regionalFires.slice(0, 4).map(renderFireRow)}
+          {localOpen.slice(0, 3).map(renderFireRow)}
+          {regionalOpen.slice(0, 4).map(renderFireRow)}
         </div>
+      )}
+
+      {containedFires.length > 0 && (
+        <details className="mt-4 border border-outline-variant px-3 py-2">
+          <summary className="cursor-pointer font-mono text-[11px] text-on-surface-variant">
+            100% contained · {containedFires.length} reported incidents
+          </summary>
+          <p className="mt-2 text-[11px] text-on-surface-variant">Reported containment does not establish that a fire is extinguished.</p>
+          <div className="mt-2 space-y-1.5">{containedFires.map(renderFireRow)}</div>
+        </details>
       )}
 
       {spots.length > 0 && (
@@ -111,13 +125,21 @@ export function FireSmokeCard({ localFires, regionalFires, aqi, aqiLabel }: {
         </div>
       )}
 
+      {zones.filter((z) => z.provider_id === 'wadnr-fire-danger' && z.burn_ban).map((z) => (
+        <div key={`burn-${z.zone}`} className="mt-3 border border-outline-variant px-3 py-2 text-[11px] text-on-surface-variant">
+          <div className="font-mono text-on-surface">WA DNR · {z.zone}: {z.burn_ban}</div>
+          <div className="mt-1">{z.scope}</div>
+          {z.notes && <div className="mt-1">{z.notes}</div>}
+        </div>
+      ))}
+
       {zones.length > 1 && (
         <div className="mt-3 font-mono text-[11px] text-on-surface-variant leading-relaxed">
-          <span className="uppercase tracking-widest">ODF zones </span>
+          <span className="uppercase tracking-widest">Danger zones </span>
           {zones.map((z, i) => (
-            <span key={z.zone}>
+            <span key={`${z.provider_id}-${z.zone}`}>
               {i > 0 && ' · '}
-              {z.zone} <span className={DANGER_TONE[z.danger]}>{z.label}</span> {Math.round(z.dist_km)} km
+              {z.attribution ? `${z.attribution} ` : ''}{z.zone} <span className={DANGER_TONE[z.danger]}>{z.label}</span> {Math.round(z.dist_km)} km
             </span>
           ))}
         </div>

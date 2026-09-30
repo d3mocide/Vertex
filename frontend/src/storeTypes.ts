@@ -237,6 +237,9 @@ export interface RadioState {
 
 // ─── Traffic Camera ───────────────────────────────────────────────────────────
 export interface TrafficCamera {
+  provider_id?: string
+  provider_ids?: string[]
+  attribution?: string
   id:          string
   name:        string
   url:         string
