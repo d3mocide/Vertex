@@ -200,6 +200,8 @@ class Settings(BaseSettings):
     adsb_beast_http_fallback: bool = True
     adsb_publish_only_changes: bool = True
     allow_private_ips: bool = False
+    # On a fresh install with no region chosen, wait for the setup wizard before polling anything.
+    setup_gate: bool = True
 
     # Seconds since the last resolved CPR fix before a BEAST track's position
     # is flagged stale (freezes client-side extrapolation without dead reckoning).

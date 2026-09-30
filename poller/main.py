@@ -39,7 +39,7 @@ from bus import close
 from config_loader import load_sources_config
 from config_sync import sync_sources_to_db
 from config_watcher import watch_config
-from region_sync import apply_stored_region, watch_region
+from region_sync import apply_or_wait
 from db import init_db, close_db, get_pool, purge_observations
 
 logging.basicConfig(
@@ -136,8 +136,8 @@ async def main():
     config = load_sources_config()
     await sync_sources_to_db(config, get_pool())
 
-    # A region chosen in the app (unless the environment pins it) must be in place before any poller is built.
-    region_signature = await apply_stored_region(get_pool(), settings)
+    # The region (from the environment, or chosen in the setup wizard) must be settled before any poller is built.
+    await apply_or_wait(get_pool(), settings, await get_bus())
 
     pollers = [
         AdsbPoller(),
@@ -183,7 +183,6 @@ async def main():
     tasks.append(asyncio.create_task(_purge_loop()))
     tasks.append(asyncio.create_task(_malloc_trim_loop()))
     tasks.append(asyncio.create_task(watch_config(get_pool())))
-    tasks.append(asyncio.create_task(watch_region(get_pool(), settings, region_signature)))
     logger.info("Started %d pollers + purge + heap trim + config watcher", len(pollers))
     try:
         await asyncio.gather(*tasks)
