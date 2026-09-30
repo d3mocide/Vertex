@@ -1,4 +1,4 @@
-.PHONY: help build build-multiplatform setup-buildx prod dev down logs clean startup-diagnose
+.PHONY: help build build-multiplatform setup-buildx prod dev down logs clean startup-diagnose pack-check
 
 help: ## Show this help message
 	@echo "Usage: make [command]"
@@ -14,6 +14,9 @@ build: ## Build all Docker images for the host architecture
 
 build-multiplatform: setup-buildx ## Build multi-platform images (amd64 + arm64) for registry pushes
 	docker compose -f docker-compose.yml -f docker-compose.multiplatform.yml build
+
+pack-check: ## Validate the region packs under regions/ (uses the backend image; needs no running stack)
+	docker compose run --rm --no-deps -v $(CURDIR)/regions:/regions:ro backend python packs.py /regions
 
 prod: ## Start the project in Production mode (detached)
 	docker compose up -d

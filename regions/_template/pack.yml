@@ -1,0 +1,24 @@
+# Region pack template. Copy this directory to regions/<your-area>/ and edit.
+# The directory name must equal `id`. Directories starting with "_" are ignored by the setup wizard.
+#
+# Validate your pack:  python3 backend/packs.py regions   (or run the backend tests)
+schema: 1
+id: your-area                 # lowercase letters, digits, dashes
+name: Your Area
+description: One sentence on what this pack adds.
+maintainers: [your-github-handle]
+
+covers:                       # used to suggest this pack for a location (either or both)
+  states: [XX]                # two-letter US state codes
+  bbox: [-100.0, 30.0, -90.0, 40.0]   # min_lon, min_lat, max_lon, max_lat
+
+requires_keys:                # keys the operator must add to .env; values never go in a pack
+  - name: EXAMPLE_API_KEY
+    where: https://example.invalid/get-a-key
+    free: true
+    unlocks: [traffic.incidents]
+
+providers:
+  - id: example-provider
+    kind: builtin             # only "builtin" is supported so far; declarative kinds come next
+    provides: [traffic.incidents]   # contract ids from docs/contracts/

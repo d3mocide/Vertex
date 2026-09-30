@@ -1,0 +1,32 @@
+# Oregon region pack — the data Vertex was built around.
+# Providers are built into Vertex today (kind: builtin); they move behind the provider interface
+# in a later phase without changing what this file says.
+schema: 1
+id: oregon
+name: Oregon
+description: Road conditions, cameras, message signs and road weather from ODOT TripCheck, power outages from Oregon's ODIN feed, and ODF fire danger.
+maintainers: [d3mocide]
+
+covers:
+  states: [OR]
+  bbox: [-124.7, 41.9, -116.4, 46.3]   # min_lon, min_lat, max_lon, max_lat
+
+requires_keys:
+  - name: ODOT_API_KEY
+    where: https://developer.odot.state.or.us
+    free: true
+    unlocks: [traffic.incidents, traffic.cameras, traffic.signs, traffic.corridors, roadwx.stations]
+
+defaults:
+  geocoder_state: Oregon
+
+providers:
+  - id: odot-tripcheck
+    kind: builtin
+    provides: [traffic.incidents, traffic.cameras, traffic.signs, traffic.corridors, roadwx.stations]
+  - id: oregon-odin
+    kind: builtin
+    provides: [outages.areas]
+  - id: odf-fire-danger
+    kind: builtin
+    provides: [fire.danger]
