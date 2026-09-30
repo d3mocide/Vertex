@@ -59,7 +59,7 @@ db/               PostgreSQL init SQL scripts
 config/           sources.yml — canonical config for radio streams, news feeds, pollers, alert zones
 infra/            Redis config
 regions/          Region packs (pack.yml manifests) offered by the setup wizard; `_template/` to copy
-docs/notes/       Architecture notes and deep-dives
+docs/reviews/     Dated security and dependency reviews
 docs/design/      Design-system and icon-atlas reference pages
 ```
 

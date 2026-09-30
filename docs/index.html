@@ -294,24 +294,20 @@ html, body {
 <script>
 // Pages are loaded from the Markdown files in this directory, so the docs stay in one place.
 // Add a page by adding a line here (path is relative to this file).
-const SECTIONS = ['Guides', 'Product', 'System Design', 'Configuration', 'Design Notes']
+const SECTIONS = ['Guides', 'Product', 'System Design', 'Configuration']
 
 const DOCS = [
   { id: "getting-started", title: "Getting Started", section: "Guides", path: "getting-started.md" },
   { id: "features-overview", title: "Feature Overview", section: "Product", path: "features/overview.md" },
   { id: "map-key", title: "Map Key", section: "Product", path: "map-key.md" },
   { id: "architecture-overview", title: "Architecture Overview", section: "System Design", path: "architecture/overview.md" },
-  { id: "region-packs", title: "Region Packs (Proposal)", section: "System Design", path: "architecture/region-packs.md" },
+  { id: "region-packs", title: "Region Packs (Design)", section: "System Design", path: "architecture/region-packs.md" },
+  { id: "map-layers", title: "Map Layer Architecture", section: "System Design", path: "architecture/map-layers.md" },
   { id: "feed-contracts", title: "Feed Contracts", section: "System Design", path: "contracts/README.md" },
   { id: "env-configuration", title: "Environment Configuration", section: "Configuration", path: "configuration/environment.md" },
   { id: "sources-configuration", title: "Source Configuration", section: "Configuration", path: "configuration/sources.md" },
   { id: "poller-filtering", title: "Poller Filtering Rules", section: "Configuration", path: "configuration/poller-filtering.md" },
-  { id: "beast-ultrafeeder-research", title: "BEAST & Ultrafeeder Research", section: "Design Notes", path: "notes/beast-ultrafeeder-research.md" },
-  { id: "beast-update-implimentation-tracker", title: "BEAST Implementation Tracker", section: "Design Notes", path: "notes/beast-update-implimentation-tracker.md" },
-  { id: "beast-ingress-rendering-gap-analysis-2026-04-30", title: "BEAST Ingress Rendering Gap Analysis", section: "Design Notes", path: "notes/beast-ingress-rendering-gap-analysis-2026-04-30.md" },
-  { id: "map-layer-architecture-current-state-2026-05-05", title: "Map Layer Architecture", section: "Design Notes", path: "notes/map-layer-architecture-current-state-2026-05-05.md" },
-  { id: "mesh-networking-integration-audit-2026-05-10", title: "Mesh Networking Audit", section: "Design Notes", path: "notes/mesh-networking-integration-audit-2026-05-10.md" },
-  { id: "aprs-meshcore-feature-plan-2026-05-15", title: "APRS & MeshCore Plan", section: "Design Notes", path: "notes/aprs-meshcore-feature-plan-2026-05-15.md" }
+  { id: "security-review", title: "Security Review & Upgrade Checklist", section: "Configuration", path: "reviews/security-2026-09-29.md" }
 ]
 
 let activeId = null

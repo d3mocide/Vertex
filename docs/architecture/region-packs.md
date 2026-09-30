@@ -1,6 +1,6 @@
 # Region Packs and Location Portability
 
-**Status:** design proposal. Nothing in this document is implemented yet; the roadmap items are tracked in [ENHANCEMENTS.md](https://github.com/d3mocide/Vertex/blob/main/ENHANCEMENTS.md).
+**Status:** partly implemented. The pack manifest format (v1), the validating loader, the Oregon pack, the `_template` pack and the setup wizard have shipped; the remaining roadmap items are tracked in [ENHANCEMENTS.md](https://github.com/d3mocide/Vertex/blob/main/ENHANCEMENTS.md). The rest of this page is the original design, so details may differ from what was built; `regions/_template/pack.yml` is the authoritative format.
 
 ## The problem
 

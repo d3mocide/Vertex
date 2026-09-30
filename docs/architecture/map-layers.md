@@ -1,4 +1,4 @@
-# Map Layer Architecture — Current State (2026-05-05)
+# Map Layer Architecture
 
 Purpose: single source of truth for where map layers are rendered, why they live there, and what is next for migration/design work.
 
@@ -30,10 +30,9 @@ Purpose: single source of truth for where map layers are rendered, why they live
 3. Stream gauges: `frontend/src/layers/buildStreamGaugeLayer.ts`
 4. Lightning strikes: `frontend/src/layers/buildLightningLayer.ts`
 5. Mesh nodes: `frontend/src/layers/buildMeshNodeLayer.ts`
-6. TinyGS satellites/stations: `frontend/src/layers/buildTinyGSLayer.ts`
-7. Cameras: `frontend/src/layers/buildCameraLayer.ts`
-8. Events: `frontend/src/layers/buildEventLayers.ts`
-9. Geofences/custom layers/observation ring/annotations:
+6. Cameras: `frontend/src/layers/buildCameraLayer.ts`
+7. Events: `frontend/src/layers/buildEventLayers.ts`
+8. Geofences/custom layers/observation ring/annotations:
    - `frontend/src/layers/buildGeofenceLayers.ts`
    - `frontend/src/layers/buildCustomLayers.ts`
    - `frontend/src/layers/buildObservationRingLayer.ts`

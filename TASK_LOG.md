@@ -5,6 +5,14 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 
 ---
 
+## 2026-09-30 — Docs housekeeping: unpublish working notes, keep relevant reviews
+
+- Removed the "Design Notes" section from the docs site and deleted five stale dated working documents (BEAST research, implementation tracker and gap analysis, the mesh endpoint audit, the APRS/MeshCore plan) — they remain in git history. Nothing else referenced them.
+- Kept the map layer note as [map-layers.md](docs/architecture/map-layers.md) (retitled, dead TinyGS reference removed) and published it under System Design.
+- Moved the dated reviews to `docs/reviews/` ([security](docs/reviews/security-2026-09-29.md), [dependabot](docs/reviews/dependabot-2026-09-29.md)); the security review, which carries the operator upgrade checklist, is published on the site under Configuration. References in `DEPENDENCIES.md` and `CLAUDE.md` updated.
+- "Region Packs" page status corrected from "nothing implemented" to partly implemented (format v1, loader, Oregon pack, setup wizard shipped).
+
+
 ## 2026-09-30 — Live deploy of the security hardening; ffmpeg core-dump disk fill fixed
 
 - **Incident**: the host disk hit 100% and Postgres crash-looped on checkpoint writes. Cause: `ffmpeg` in the transcription container aborted (`Assertion best_input >= 0 failed`, ffmpeg 7.1 `ffmpeg_filter.c`) on ~1 in 8 clips and wrote a ~170 MB core each time — 219 cores, 15 GB. Transcription itself kept working because `_preprocess` falls back to the raw file.

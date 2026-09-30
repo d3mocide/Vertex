@@ -91,7 +91,7 @@ operator's live production test.
   deliberate build-runtime review.
 
 These exclusions are encoded in `.github/dependabot.yml`; see
-`DEPENDABOT_REVIEW_2026-09-29.md` for the PR-by-PR evidence.
+[docs/reviews/dependabot-2026-09-29.md](docs/reviews/dependabot-2026-09-29.md) for the PR-by-PR evidence.
 
 ## Dependabot workflow
 
