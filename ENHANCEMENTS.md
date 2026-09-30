@@ -1,11 +1,71 @@
-# Vertex — Enhancement Roadmap
+# Vertex — Roadmap
 
-Tracking document for proposed and in-progress feature enhancements.
-Status: `[ ]` pending · `[~]` in progress · `[x]` done · `[-]` deferred/needs research
+Where the project is going and what has shipped. Detailed history lives in `TASK_LOG.md`.
+Status: `[ ]` pending · `[~]` in progress · `[x]` done · `[-]` deferred / needs research
 
 ---
 
-## Metrics Page Additions
+## Now: Portability and Region Packs
+
+Goal: someone anywhere in the US can give Vertex their location and get the equivalent local traffic, outage, transit and alert data, contributed as community **region packs**. The full proposal is in [docs/architecture/region-packs.md](docs/architecture/region-packs.md).
+
+| # | Item | Status | Notes |
+|---|------|--------|-------|
+| R0 | Design: contracts, providers, pack format, capability discovery, setup flow | `[~]` | Proposal written; open questions listed at the end of the design doc |
+| R1 | Contract inventory and specs (`docs/contracts/`, JSON Schema per feed) | `[ ]` | Start from what the UI consumes: incidents, cameras, signs, corridors, road weather, outages, transit, fire danger |
+| R2 | `GET /api/v1/capabilities` and UI empty-state handling | `[ ]` | Hide cards and layers with no provider; flag stale/down providers. Helps non-Oregon users before any pack exists |
+| R3 | Region as runtime config (backend endpoint, DB-backed, env override) | `[ ]` | Removes the frontend rebuild: the map center and range ring are currently baked in at build time |
+| R4 | NWS-based location resolver | `[ ]` | Location to office, zones, county, timezone, nearest airports and stations |
+| R5 | Provider interface and registry in the poller | `[ ]` | Runs on the existing `BasePoller` heartbeat, metrics and backoff |
+| R6 | Move Oregon code into `regions/oregon/` behind the interface | `[ ]` | ODOT TripCheck, ODIN outages, ODF fire danger, TriMet, Portland corridors. Must not change behavior; fixture tests |
+| R7 | Generalize the outage contract | `[ ]` | Replace `OregonStatus` (`pge_affected`, `pacificorp_affected`) with a per-utility list |
+| R8 | Declarative providers: `gtfs_rt`, `arcgis_featureserver`, `rss`/`cap`, `wzdx`, `json_rest` | `[ ]` | Most packs should need no Python |
+| R9 | Pack loader, `make pack-check`, CI validation | `[ ]` | Manifest schema, fixture replay, contract validation, secret/private-address/coordinate rejection |
+| R10 | First-run setup wizard with pack suggestion | `[ ]` | Location, resolve, suggest pack, confirm, apply |
+| R11 | A second pack from a different kind of region | `[ ]` | Proves the abstraction; ideally contributed by someone who lives there |
+| R12 | Pack authoring guide and `_template` pack | `[ ]` | Plus a CONTRIBUTING section |
+| R13 | Per-pack terminology (radio units, street conventions, agency names) | `[-]` | Depends on how generic the radio incident extractor can be made |
+| R14 | Non-US baseline (ADS-B, AIS, national weather service) | `[-]` | Out of scope for v1 |
+
+---
+
+## Recently Shipped
+
+Since the May foundations below. See `TASK_LOG.md` for detail.
+
+| Area | What shipped | Status |
+|------|--------------|--------|
+| Aircraft | ADS-B source arbitration: local BEAST, community feeds (airplanes.live / adsb.fi), OpenSky as a gap-filler with OAuth2; an older position never overwrites a newer one; ultrafeeder JSON standby | `[x]` |
+| Aircraft | Roles from registration and owner data (air ambulance, rescue, police, fire, military, news, government), map glow, Notable filter, emergency squawk ring, events | `[x]` |
+| Radio | P25 recorder from the OP25 audio websocket, Whisper transcription, deterministic incident extraction, geocoding via self-hosted Nominatim, live in-browser listening across receivers | `[x]` |
+| Briefings | Hourly AI briefing with analytic prompt, 7-day baseline, quality metrics, posture rating, history | `[x]` |
+| Incidents | Incidents page built on radio-derived dispatch incidents; dispatch map layer with severity and age | `[x]` |
+| Infrastructure | Closure triage by scope and event, freeway corridor status, message signs, power outages with weather and lightning context | `[x]` |
+| Environment | Priority-ordered page, weather history, nearby NWS and road-weather stations, ODF fire danger, FIRMS hotspots, lightning, dead feeds hidden | `[x]` |
+| Rail | Amtrak, TriMet GTFS-RT (MAX, WES, Streetcar), rail lines | `[x]` |
+| Replay | Time-windowed presence, thinned replay data (was: everything shown forever) | `[x]` |
+| Platform | Public DNS for pollers, `REGION_LAT`/`REGION_LON` honoured by the frontend build, `REGION_NAME` in the UI | `[x]` |
+| Project | README rewrite with screenshots and tour video, docs site on GitHub Pages loading the Markdown files, in-app Help refresh, SECURITY / CONTRIBUTING / templates / Dependabot, agent rules consolidated in `CLAUDE.md` | `[x]` |
+
+---
+
+## Open Items
+
+| # | Item | Status | Notes |
+|---|------|--------|-------|
+| O1 | Power outage cause and restoration time | `[-]` | ODIN gives customers and area only. PGE's outage map uses a Kubra feed that returns 401 without a browser session; PacifiCorp keeps its own. Context (weather, lightning) is shown instead |
+| O2 | NASA FIRMS hotspots | `[~]` | Code is live; needs a free `FIRMS_MAP_KEY` in `.env` |
+| O3 | Briefing quality tuning | `[~]` | Posture is sometimes over-called ELEVATED; occasional mixing of similar items. Watch `/summary/metrics` |
+| O4 | Geocoder misses | `[ ]` | House numbers absent from OSM, suffix-less streets, long-by-long intersections |
+| O5 | Link the in-app Help to the docs site | `[ ]` | Help stays user-focused; docs are for setup and development |
+| O6 | Document the 3 GB VM footprint and test on a Raspberry Pi 5 | `[ ]` | The Pi is the design target but untested |
+| O7 | Map key and Help stay in sync with the layer code | `[ ]` | Consider a check that flags layer changes without a docs change |
+
+---
+
+## Completed Foundations (May 2026)
+
+### Metrics Page Additions
 
 | # | Feature | Status | Notes |
 |---|---------|--------|-------|
@@ -20,7 +80,7 @@ Status: `[ ]` pending · `[~]` in progress · `[x]` done · `[-]` deferred/needs
 
 ---
 
-## New Feed Sources
+### New Feed Sources
 
 | # | Source | Status | Notes |
 |---|--------|--------|-------|
@@ -37,7 +97,7 @@ Status: `[ ]` pending · `[~]` in progress · `[x]` done · `[-]` deferred/needs
 
 ---
 
-## Data Collected But Not Displayed
+### Data Collected But Not Displayed
 
 | # | Field | Source | Currently Missing From | Status |
 |---|-------|--------|----------------------|--------|
@@ -52,40 +112,6 @@ Status: `[ ]` pending · `[~]` in progress · `[x]` done · `[-]` deferred/needs
 | D9 | APRS symbol codes | APRS identity | All APRS use same icon; symbol should drive icon | `[x]` | symbol_desc + station_type displayed as badges in AprsOverview panel |
 | D10 | Historical replay UI | `/observations/replay` API | Existed but lacked custom date-range picker | `[x]` Added absolute date/time range mode to PlaybackController |
 | D11 | TinyGS satellite name + SNR | TinyGS MQTT | Detail panel is minimal | `[ ]` |
-
----
-
-## Implementation Session Log
-
-### 2026-05-11
-- Implemented F4 (NOAA GOES satellite tiles) — `GOESLayer` raster WMS proxy via nowCOAST + Settings toggle
-- Implemented F5 (Wunderground PWS) — `WeatherPoller._fetch_pws()` + `/weather/pws` + `PWSCard`
-- Implemented F6 (NWS text products / NWWS) — `WeatherPoller._fetch_nwws_products()` + `/weather/nwws` + `NwwsCard`
-- Implemented F8 (GDACS disaster alerts) — `GdacsPoller` GeoRSS parser + events table + `GdacsCard`
-- Implemented F9 (NIFC fire perimeters) — `NifcPoller` ArcGIS GeoJSON + `FirePerimeterLayer` polygon overlay + Settings toggle
-- Added `nws_office`, `wunderground_api_key`, `wunderground_station_id` to poller config
-
-### 2026-05-10
-- Implemented M1 (per-poller obs/min + error count) — DB query in `/admin/pollers`, `error_count` in BasePoller heartbeat, PollerGrid UI updated
-- Implemented M4 (squawk alert counter) — `/admin/squawk-alerts` + `SquawkCounter` widget
-- Implemented M5 (P25 talkgroup activity) — `/admin/talkgroup-activity` + `TalkgroupActivity` chart
-- Implemented M6 (mesh battery distribution) — `/admin/mesh-battery` + `MeshBatteryChart`
-- Implemented M7 (data completeness scorecard) — `/admin/data-quality` + `DataQualityCard`
-- Implemented M8 (WS client timeline) — `WsClientChart` using existing metrics history
-- Implemented D5 (mesh battery + SNR gauge in EntityDetail)
-- Implemented D6 (nav status color badge in VesselOverview)
-- Implemented D7 (stream gauge flow rate via dedicated `StreamGaugeOverview` component)
-- Implemented D8 (seismic depth in SeismicCard event rows)
-- Marked D9 done (APRS symbol_desc + station_type already displayed as badges in AprsOverview)
-- Implemented F2 (PIREPs + SIGMETs/AIRMETs via WeatherPoller + `PirepCard`)
-- Implemented F3 (METAR/TAF via WeatherPoller + `MetarCard` with flight category color coding)
-
-### 2026-05-09
-- Created this document
-- Implemented M2 (signal quality chart) — new backend endpoint + `SignalQualityChart.tsx`
-- Implemented M3 (entity freshness widget) — new backend endpoint + `EntityFreshness.tsx`
-- Implemented D1 (squawk emergency display in AircraftOverview)
-- Implemented D10 (custom date-range picker in PlaybackController)
 
 ---
 

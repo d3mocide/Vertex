@@ -2123,3 +2123,8 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 
 ## 2026-09-29 — In-app Help refreshed
 - `frontend/src/docs/content.tsx` (content only, same components): current top-bar pages (Overview … Event Log), phone navigation, Settings layer groups, aircraft role glow and emergency squawk ring, dispatch incident icons, train and RF-sensor icons, Replay/Zones/Annotate/Snapshot, the Incidents, Infrastructure, Environment, Flight Log, Comms, Intel and Event Log pages, and the search/filter options (including what "OpenSky Supplement" covers).
+
+## 2026-09-29 — Region packs design and roadmap rework
+- New design proposal `docs/architecture/region-packs.md` (also on the docs site): core capabilities vs region packs, feed contracts, a provider interface with declarative providers first, pack format and precedence, `/api/v1/capabilities` with UI empty states, location-driven setup, contribution flow, security, phased migration, and open questions.
+- Grounded in the current seam (Redis feed keys plus feed freshness) and the leaks it must fix: Oregon-specific fields in the outage type, and the region being baked into the frontend at build time.
+- `ENHANCEMENTS.md` reworked into a current roadmap: region-pack track (R0–R14), recently shipped, open items; the May foundations are kept as history and the duplicate May session log was dropped.

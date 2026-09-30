@@ -13,6 +13,7 @@ Use the top-level [README.md](../README.md) for a quick overview. Use the pages 
 - [Environment Configuration](configuration/environment.md) for `.env` settings
 - [Source Configuration](configuration/sources.md) for `config/sources.yml`
 - [Poller Filtering and Distance Rules](configuration/poller-filtering.md) for BBOX, radius, and relevance logic by source
+- [Region Packs and Location Portability](architecture/region-packs.md) for the proposal to make Vertex portable beyond Oregon
 
 ## Documentation Structure
 
