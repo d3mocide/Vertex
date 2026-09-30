@@ -149,6 +149,7 @@ Base path: `/api/v1/`
 | `/traffic` | ODOT incidents, camera streams, flow data |
 | `/radio` | P25 stream metadata |
 | `/utilities` | Geofence CRUD |
+| `/capabilities` | Which regional data contracts have a provider here (drives what the UI shows) |
 | `/ws` | WebSocket event stream |
 
 ---
