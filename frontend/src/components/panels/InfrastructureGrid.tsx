@@ -7,6 +7,7 @@ import { RoadStatusCard } from './infrastructure/RoadStatusCard'
 import { MessageSignsCard } from './infrastructure/MessageSignsCard'
 import { PowerCard } from './infrastructure/PowerCard'
 import { PageHeader } from '../common/Page'
+import { useCapabilities, useContractAvailable } from '../../hooks/useCapabilities'
 
 function CctvThumbnail({
   cam, ldi, isFavorite, onToggleFavorite,
@@ -106,16 +107,6 @@ function CctvThumbnail({
   )
 }
 
-// Placeholder camera data when backend returns empty
-const PLACEHOLDER_CAMERAS: TrafficCamera[] = [
-  { id: 'cam-001', name: 'I-5 NB / Exit 289', url: '' },
-  { id: 'cam-002', name: 'I-5 SB / Nyberg Rd', url: '' },
-  { id: 'cam-003', name: 'I-5 / 99W Interchange', url: '' },
-  { id: 'cam-004', name: 'Tualatin-Sherwood / 99W', url: '' },
-  { id: 'cam-005', name: 'Boones Ferry / Sagert', url: '' },
-  { id: 'cam-006', name: 'Martinazzi / Wilsonville Rd', url: '' },
-]
-
 export function InfrastructureGrid() {
   const {
     cameras,
@@ -132,12 +123,22 @@ export function InfrastructureGrid() {
   const [page, setPage] = useState(0)
   const PAGE_SIZE = 12
 
+  // Regional data only appears where a provider feeds it (see docs/architecture/region-packs.md).
+  const caps = useCapabilities()
+  const hasIncidents = useContractAvailable('traffic.incidents')
+  const hasCameras = useContractAvailable('traffic.cameras')
+  const hasSigns = useContractAvailable('traffic.signs')
+  const hasCorridors = useContractAvailable('traffic.corridors')
+  const hasOutages = useContractAvailable('outages.areas')
+  const nothingHere = !hasIncidents && !hasCameras && !hasSigns && !hasCorridors && !hasOutages
+  const needsKey = caps ? Object.values(caps.contracts).find((c) => c.reason === 'not_configured' && c.requires) : undefined
+
   const closeModal = () => {
     setSelectedCamId(null)
   }
 
   // Filter by radius, then sort favorites to top
-  const allCameras = cameras.length > 0 ? cameras : PLACEHOLDER_CAMERAS
+  const allCameras = cameras
   const filteredCameras = allCameras
     .filter((cam) => !cam.dist_km || cam.dist_km <= radiusKm)
     .sort((a, b) => {
@@ -171,7 +172,7 @@ export function InfrastructureGrid() {
       <PageHeader
         icon="traffic"
         title="Infrastructure"
-        status={<>
+        status={hasCameras && <>
           <span className="label-caps" title="Show the last daylight image for night cameras">LDI</span>
           <button
             onClick={() => setLdiMode(!ldiMode)}
@@ -195,24 +196,36 @@ export function InfrastructureGrid() {
 
       <div className="flex-1 overflow-y-auto p-4 pb-24 flex flex-col gap-6">
 
+        {nothingHere && (
+          <div className="hud-panel p-6 max-w-2xl">
+            <div className="label-caps mb-2">No infrastructure feeds for {caps?.region.name ?? 'this region'}</div>
+            <p className="text-[13px] text-on-surface-variant leading-relaxed">
+              {needsKey
+                ? <>Road data needs a free API key: set <code className="font-mono text-amber-gold">{needsKey.requires}</code> in <code className="font-mono">.env</code> and restart the poller.</>
+                : <>Road, camera and outage data comes from region packs — local data sources contributed by the community. None covers this area yet.</>}
+              {' '}<a className="text-amber-gold underline" href="https://github.com/d3mocide/Vertex/blob/main/docs/architecture/region-packs.md" target="_blank" rel="noreferrer">How region packs work</a>
+            </p>
+          </div>
+        )}
+
         {/* Right now: what is closed or slow, and how the roads, signs and power look */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-          <IncidentsNow groups={triage.now} cameras={allCameras} onOpenCamera={setSelectedCamId} />
+        {(hasIncidents || hasCorridors || hasSigns || hasOutages) && <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+          {hasIncidents && <IncidentsNow groups={triage.now} cameras={allCameras} onOpenCamera={setSelectedCamId} />}
 
           <div className="flex flex-col gap-4">
-            <RoadStatusCard />
-            <MessageSignsCard />
-            <PowerCard
+            {hasCorridors && <RoadStatusCard />}
+            {hasSigns && <MessageSignsCard />}
+            {hasOutages && <PowerCard
               statewide={oregon.state_affected}
               metro={oregon.metro_affected}
               pge={oregon.pge_affected}
               pacific={oregon.pacificorp_affected}
-            />
+            />}
           </div>
-        </div>
+        </div>}
 
         {/* Cameras */}
-    <section aria-labelledby="cctv-heading">
+    {hasCameras && <section aria-labelledby="cctv-heading">
       <div className="flex items-center justify-between mb-3">
         <h3 id="cctv-heading" className="section-heading">
           <span className="ms text-[14px] leading-none" aria-hidden="true">videocam</span>
@@ -292,10 +305,10 @@ export function InfrastructureGrid() {
           </div>
         )}
       </div>
-    </section>
+    </section>}
 
         {/* Roadwork and notices with little impact, folded */}
-        <PlannedWork incidents={triage.planned} hiddenStale={triage.hiddenStale} />
+        {hasIncidents && <PlannedWork incidents={triage.planned} hiddenStale={triage.hiddenStale} />}
 
       </div>
     </div>

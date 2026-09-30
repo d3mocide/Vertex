@@ -3,6 +3,7 @@ import { useCivicPick } from '../../store'
 import { notificationPermission, requestNotificationPermission } from '../../notifications'
 import { getUserRole, clearToken } from '../../auth'
 import { ToggleRow } from './SettingsPrimitives'
+import { useContractAvailable } from '../../hooks/useCapabilities'
 
 export function SettingsPanel() {
   const {
@@ -49,6 +50,10 @@ export function SettingsPanel() {
     debugInsets,
     setDebugInsets,
   } = useCivicPick('settingsOpen', 'setSettingsOpen', 'radarVisible', 'setRadarVisible', 'radarOpacity', 'setRadarOpacity', 'smokeVisible', 'setSmokeVisible', 'goesVisible', 'setGoesVisible', 'firePerimetersVisible', 'setFirePerimetersVisible', 'fireDangerVisible', 'setFireDangerVisible', 'outagesVisible', 'setOutagesVisible', 'camerasVisible', 'setCamerasVisible', 'geofencesVisible', 'setGeofencesVisible', 'trailsVisible', 'setTrailsVisible', 'lightningVisible', 'setLightningVisible', 'nwsAlertsVisible', 'setNwsAlertsVisible', 'lightningDensityVisible', 'setLightningDensityVisible', 'railTracksVisible', 'setRailTracksVisible', 'gaugesVisible', 'setGaugesVisible', 'dispatchVisible', 'setDispatchVisible', 'terrainEnabled', 'setTerrainEnabled', 'terrainExaggeration', 'setTerrainExaggeration', 'entityFilter', 'setEntityFilter', 'debugInsets', 'setDebugInsets')
+  // Regional layers only get a switch where something feeds them.
+  const hasFireDanger = useContractAvailable('fire.danger')
+  const hasOutages = useContractAvailable('outages.areas')
+  const hasCameras = useContractAvailable('traffic.cameras')
 
   const [notifPermission, setNotifPermission] = useState(() => notificationPermission())
   const userRole = getUserRole()
@@ -150,9 +155,9 @@ export function SettingsPanel() {
 
               {/* Hazards & Environmental */}
               <ToggleRow label="Fire Perimeters" icon="local_fire_department" checked={firePerimetersVisible} onChange={setFirePerimetersVisible} />
-              <ToggleRow label="Fire Danger (ODF)" icon="whatshot" checked={fireDangerVisible} onChange={setFireDangerVisible} />
+              {hasFireDanger && <ToggleRow label="Fire Danger (ODF)" icon="whatshot" checked={fireDangerVisible} onChange={setFireDangerVisible} />}
               <ToggleRow label="Stream Gauges" icon="water" checked={gaugesVisible} onChange={setGaugesVisible} />
-              <ToggleRow label="Power Outages" icon="power_off" checked={outagesVisible} onChange={setOutagesVisible} />
+              {hasOutages && <ToggleRow label="Power Outages" icon="power_off" checked={outagesVisible} onChange={setOutagesVisible} />}
 
               {/* Operational & Tactical */}
               <ToggleRow label="Zone Monitor" icon="verified_user" checked={geofencesVisible} onChange={setGeofencesVisible} />
@@ -260,7 +265,7 @@ export function SettingsPanel() {
               <ToggleRow label="Mesh Nodes" icon="hub" checked={entityFilter.mesh_node} onChange={(v) => setEntityFilter({ mesh_node: v })} />
               <ToggleRow label="APRS" icon="sensors" checked={entityFilter.aprs} onChange={(v) => setEntityFilter({ aprs: v })} />
               <ToggleRow label="Fire Incidents" icon="local_fire_department" checked={entityFilter.fire_incident} onChange={(v) => setEntityFilter({ fire_incident: v })} />
-              <ToggleRow label="Cameras" icon="videocam" checked={camerasVisible} onChange={setCamerasVisible} />
+              {hasCameras && <ToggleRow label="Cameras" icon="videocam" checked={camerasVisible} onChange={setCamerasVisible} />}
               <ToggleRow label="History Trails" icon="timeline" checked={trailsVisible} onChange={setTrailsVisible} />
             </div>
           </section>

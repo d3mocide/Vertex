@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { API_BASE } from '../../../config'
 import { authHeaders } from '../../../auth'
+import { useContractAvailable } from '../../../hooks/useCapabilities'
 import { renderFireRow, type FirePanelEntity } from './FireStatusCard'
 
 interface Hotspot { lat: number; lon: number; ts: string; frp: number | null; confidence: 'high' | 'nominal'; dist_km: number }
@@ -36,6 +37,7 @@ export function FireSmokeCard({ localFires, regionalFires, aqi, aqiLabel }: {
   aqi: number | undefined
   aqiLabel: string | undefined
 }) {
+  const hasFireDanger = useContractAvailable('fire.danger')
   const [spots, setSpots] = useState<Hotspot[]>([])
   const [danger, setDanger] = useState<Danger | null>(null)
 
@@ -76,8 +78,10 @@ export function FireSmokeCard({ localFires, regionalFires, aqi, aqiLabel }: {
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
         <Chip label="Local fires" value={localFires.length} tone={localFires.length ? 'text-red-emergency' : 'text-on-surface'} hint="in alert radius" />
-        <Chip label="ODF danger" value={topZone ? topZone.label : '—'} tone={topZone ? DANGER_TONE[topZone.danger] : undefined}
-          hint={topZone ? (danger?.home ? `your zone ${topZone.zone}` : 'nearby zones') : undefined} />
+        {hasFireDanger && (
+          <Chip label="ODF danger" value={topZone ? topZone.label : '—'} tone={topZone ? DANGER_TONE[topZone.danger] : undefined}
+            hint={topZone ? (danger?.home ? `your zone ${topZone.zone}` : 'nearby zones') : undefined} />
+        )}
         <Chip label="Hotspots" value={spots.length} tone={spots.length ? 'text-amber-gold' : 'text-on-surface'}
           hint={nearestSpot ? `nearest ${Math.round(nearestSpot.dist_km)} km` : 'satellite, 24 h'} />
         <Chip label="Smoke" value={smoke.text} tone={smoke.tone} hint={aqi != null ? `AQI ${aqi}` : 'no AQI'} />
