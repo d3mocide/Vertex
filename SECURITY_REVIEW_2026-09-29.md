@@ -90,7 +90,16 @@ The poller suite exits successfully but reports two P25 recorder tasks still pen
 8. Start the bundled broker only with the `mqtt` profile and set `MQTT_USERNAME` plus `MQTT_PASSWORD`; keep its bind address loopback-only unless LAN sensors require it.
 9. Rebuild all four application images and recreate services. Existing browser bearer tokens are no longer used; users must sign in again.
 10. Rotate any secret that may previously have appeared in a URL, browser storage, reverse-proxy log, source export, or application log.
-11. Exercise login/logout, initial setup, region selection, role change, password reset, source editing, WebSocket reconnect, radio streaming, and each configured private feed in the deployed environment.
+11. **Upgrading an existing install (volumes created before the hardening):** the application containers now run as UID 1000, but Docker only copies image ownership into brand-new volumes, so the old root-owned `p25_audio` and `whisper_models` volumes must be handed over once, otherwise the poller cannot save P25 recordings (`Permission denied` on `/data/audio`):
+
+    ```bash
+    docker run --rm -v <project>_p25_audio:/d -v <project>_whisper_models:/m alpine chown -R 1000:1000 /d /m
+    ```
+
+    Use `docker volume ls` to find the exact names (the prefix is the Compose project name, `vertex` by default).
+12. The poller's enrichment caches now live on a `poller_cache` volume at `/data/cache` because the root filesystem is read-only. Remove any `ADSB_ENRICHMENT_CACHE_DIR=/data` override from `.env` (or set it to `/data/cache`); the old value fails with `Read-only file system`.
+13. After recreating only the backend, restart the frontend too (`docker compose restart frontend`): nginx resolves `backend` once at start and returns 502 on `/api` until restarted.
+14. Exercise login/logout, initial setup, region selection, role change, password reset, source editing, WebSocket reconnect, radio streaming, and each configured private feed in the deployed environment.
 
 ## Gates not closed by this review
 
