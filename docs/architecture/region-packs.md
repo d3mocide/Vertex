@@ -174,7 +174,7 @@ GET /api/v1/capabilities
 }
 ```
 
-`status` is `ok`, `stale`, `down` or `none`, built on the existing feed freshness tracking. The frontend reads this once and:
+`status` is `ok`, `stale`, `down`, `pending` (enabled, no data yet) or `none` (no provider applies), built on the existing feed freshness tracking (`feed:meta`). `none` carries a `reason` such as `not_configured` (a required key is missing) or `outside_coverage`. The frontend reads this once and:
 
 - hides cards and map layers whose contract has no provider (`none`), and shows a short, honest empty state on a page that would otherwise be blank ("No road-condition provider for your area yet. Region packs are how this gets added.");
 - keeps a card visible but flags it when a provider is `stale` or `down`;
@@ -218,7 +218,7 @@ Packs can run code in the poller, which has network access. Mitigations:
 
 | Phase | Outcome | Behavior change |
 |-------|---------|-----------------|
-| 0 | Contract inventory and specs; `/api/v1/capabilities`; UI hides cards with no provider | none for Oregon; clean empty states elsewhere |
+| 0 | Contract inventory and specs; `/api/v1/capabilities`; UI hides cards with no provider — **done** ([contracts](../contracts/README.md), `backend/capabilities.py`) | none for Oregon; clean empty states elsewhere |
 | 1 | Region moves to runtime config (backend endpoint, DB-backed, env override); frontend stops using build args; NWS-based region resolver | none; no more frontend rebuild for a location change |
 | 2 | Provider interface and registry; Oregon code moved into `regions/oregon/` behind it; `OregonStatus` replaced by the generic outage contract | none, verified by fixture tests |
 | 3 | Declarative providers (`gtfs_rt`, `arcgis_featureserver`, `rss`/`cap`, `wzdx`, `json_rest`); pack loader; `make pack-check`; CI | none |
@@ -227,9 +227,16 @@ Packs can run code in the poller, which has network access. Mitigations:
 
 The order matters: phase 0 and 1 help every non-Oregon user immediately and de-risk the rest, and phase 2 must not change Oregon behavior.
 
+## Decisions
+
+Settled 2026-09-29:
+
+1. **Packs live in the repository** under `regions/`, with an optional mounted directory for private packs (unpublished local sources). A repository per pack remains possible later.
+2. **Declarative providers first; Python providers are allowed after review.** Most packs should need only a manifest; a Python provider gets closer review because it runs inside the poller.
+3. **Order of work: phases 0 and 1 first** (capabilities and runtime region config), because they help every non-Oregon user immediately and do not change Oregon behavior.
+
 ## Open questions
 
-- **Where do packs live?** Recommendation: in the repo under `regions/`, plus an optional mounted directory for private packs. A separate repository per pack is possible later.
 - **How much do packs own the UI?** Recommendation: none. Packs supply data and terminology through contracts; they do not ship frontend code.
 - **Terminology.** Agency and dispatch-unit naming differs by region (the radio incident extractor uses local unit and street conventions). Do we need a per-pack vocabulary file, or a generic extractor with pack hints?
 - **Radio.** Talkgroup lists and trunked-system details are region-specific. Should packs seed talkgroups the way they seed geofences?

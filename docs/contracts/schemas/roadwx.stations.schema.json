@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/d3mocide/Vertex/docs/contracts/schemas/roadwx.stations.schema.json",
+  "title": "roadwx.stations (v0)",
+  "description": "Road-weather stations (RWIS). Measurements are null when a sensor is not reporting.",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "required": [
+      "id",
+      "name",
+      "lat",
+      "lon"
+    ],
+    "properties": {
+      "id": {
+        "type": [
+          "integer",
+          "string"
+        ]
+      },
+      "name": {
+        "type": "string"
+      },
+      "lat": {
+        "type": "number"
+      },
+      "lon": {
+        "type": "number"
+      },
+      "route": {
+        "type": "string"
+      },
+      "elev_ft": {
+        "type": "integer"
+      },
+      "dist_km": {
+        "type": "number"
+      },
+      "temp_f": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "dew_f": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "humidity": {
+        "type": [
+          "integer",
+          "null"
+        ]
+      },
+      "wind_mph": {
+        "type": [
+          "integer",
+          "null"
+        ]
+      },
+      "gust_mph": {
+        "type": [
+          "integer",
+          "null"
+        ]
+      },
+      "visibility_m": {
+        "type": [
+          "integer",
+          "null"
+        ]
+      },
+      "precip": {},
+      "surface_f": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "updated": {
+        "type": "string"
+      }
+    }
+  }
+}

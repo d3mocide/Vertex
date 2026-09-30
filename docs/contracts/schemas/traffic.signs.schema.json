@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/d3mocide/Vertex/docs/contracts/schemas/traffic.signs.schema.json",
+  "title": "traffic.signs (v0)",
+  "description": "Variable message signs. `text` is the pages joined for display.",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "required": [
+      "id",
+      "name",
+      "text",
+      "kind"
+    ],
+    "properties": {
+      "id": {
+        "type": [
+          "integer",
+          "string"
+        ]
+      },
+      "name": {
+        "type": "string"
+      },
+      "route": {
+        "type": "string"
+      },
+      "dist_km": {
+        "type": "number"
+      },
+      "page1": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "page2": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "text": {
+        "type": "string"
+      },
+      "kind": {
+        "enum": [
+          "message",
+          "speed",
+          "travel"
+        ]
+      }
+    }
+  }
+}

@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/d3mocide/Vertex/docs/contracts/schemas/outages.areas.schema.json",
+  "title": "outages.areas (v0)",
+  "description": "Power-outage areas as a GeoJSON FeatureCollection. Today the feed is Oregon's ODIN; a per-utility summary object (`utility:oregon`) also exists and is tracked for generalization (it hard-codes two utilities).",
+  "type": "object",
+  "required": [
+    "type",
+    "features"
+  ],
+  "properties": {
+    "type": {
+      "const": "FeatureCollection"
+    },
+    "updated": {
+      "type": "string"
+    },
+    "near": {
+      "type": "array",
+      "description": "Areas near the region center, nearest first"
+    },
+    "features": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "type",
+          "geometry",
+          "properties"
+        ],
+        "properties": {
+          "type": {
+            "const": "Feature"
+          },
+          "geometry": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "enum": [
+                  "Polygon",
+                  "MultiPolygon"
+                ]
+              }
+            }
+          },
+          "properties": {
+            "type": "object",
+            "required": [
+              "utility",
+              "meters_out"
+            ],
+            "properties": {
+              "utility": {
+                "type": "string"
+              },
+              "county": {
+                "type": "string"
+              },
+              "meters_out": {
+                "type": "integer"
+              },
+              "meters_served": {
+                "type": "integer"
+              },
+              "tract": {
+                "type": [
+                  "integer",
+                  "string"
+                ]
+              },
+              "dist_km": {
+                "type": "number"
+              },
+              "lat": {
+                "type": "number"
+              },
+              "lon": {
+                "type": "number"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/d3mocide/Vertex/docs/contracts/schemas/traffic.incidents.schema.json",
+  "title": "traffic.incidents (v0)",
+  "description": "Road closures and delays, one item per incident. `kind`, `scope`, `unplanned` and `group` are computed by triage; `severity` is the agency's own wording and is display-only.",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "required": [
+      "title"
+    ],
+    "properties": {
+      "title": {
+        "type": "string"
+      },
+      "description": {
+        "type": "string"
+      },
+      "location": {
+        "type": "string"
+      },
+      "link": {
+        "type": "string"
+      },
+      "pubDate": {
+        "type": "string",
+        "description": "Last update (ISO 8601)"
+      },
+      "start": {
+        "type": "string",
+        "description": "First reported (ISO 8601)"
+      },
+      "sched_end": {
+        "type": "string",
+        "description": "Scheduled end (ISO 8601)"
+      },
+      "lat": {
+        "type": "number"
+      },
+      "lon": {
+        "type": "number"
+      },
+      "dist_km": {
+        "type": "number",
+        "description": "Distance from the region center"
+      },
+      "severity": {
+        "type": "string",
+        "description": "Agency wording; not normalized"
+      },
+      "kind": {
+        "enum": [
+          "closure",
+          "delay",
+          "low"
+        ]
+      },
+      "scope": {
+        "enum": [
+          "road",
+          "ramp",
+          null
+        ]
+      },
+      "unplanned": {
+        "type": "boolean",
+        "description": "Crash, hazard, landslide... as opposed to planned work"
+      },
+      "group": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "description": "Closures within ~2.5 km share a group"
+      },
+      "lead": {
+        "type": "boolean"
+      },
+      "group_size": {
+        "type": "integer"
+      },
+      "event": {
+        "type": "string",
+        "description": "Provider extra (agency event type)"
+      },
+      "event_sub": {
+        "type": "string",
+        "description": "Provider extra"
+      },
+      "ramp": {
+        "type": "boolean",
+        "description": "Provider extra"
+      }
+    }
+  }
+}

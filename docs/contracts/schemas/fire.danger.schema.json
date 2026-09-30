@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/d3mocide/Vertex/docs/contracts/schemas/fire.danger.schema.json",
+  "title": "fire.danger (v0)",
+  "description": "Fire-danger level per zone as a GeoJSON FeatureCollection, plus the zones nearest the region center.",
+  "type": "object",
+  "required": [
+    "type",
+    "features"
+  ],
+  "properties": {
+    "type": {
+      "const": "FeatureCollection"
+    },
+    "fetched_at": {
+      "type": "string"
+    },
+    "home": {},
+    "nearby": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "zone": {
+            "type": "string"
+          },
+          "district": {
+            "type": "integer"
+          },
+          "danger": {
+            "type": "integer",
+            "description": "1 (low) upward"
+          },
+          "label": {
+            "type": "string"
+          },
+          "dist_km": {
+            "type": "number"
+          }
+        }
+      }
+    },
+    "features": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "type",
+          "geometry",
+          "properties"
+        ],
+        "properties": {
+          "type": {
+            "const": "Feature"
+          },
+          "geometry": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "enum": [
+                  "Polygon",
+                  "MultiPolygon"
+                ]
+              }
+            }
+          },
+          "properties": {
+            "type": "object",
+            "required": [
+              "zone",
+              "danger"
+            ],
+            "properties": {
+              "zone": {
+                "type": "string"
+              },
+              "danger": {
+                "type": "integer"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -11,9 +11,9 @@ Goal: someone anywhere in the US can give Vertex their location and get the equi
 
 | # | Item | Status | Notes |
 |---|------|--------|-------|
-| R0 | Design: contracts, providers, pack format, capability discovery, setup flow | `[~]` | Proposal written; open questions listed at the end of the design doc |
-| R1 | Contract inventory and specs (`docs/contracts/`, JSON Schema per feed) | `[ ]` | Start from what the UI consumes: incidents, cameras, signs, corridors, road weather, outages, transit, fire danger |
-| R2 | `GET /api/v1/capabilities` and UI empty-state handling | `[ ]` | Hide cards and layers with no provider; flag stale/down providers. Helps non-Oregon users before any pack exists |
+| R0 | Design: contracts, providers, pack format, capability discovery, setup flow | `[x]` | Decisions recorded 2026-09-29: packs in-repo (plus optional private mount), declarative-first with reviewed Python providers, phases 0 and 1 first. Open questions remain at the end of the design doc |
+| R1 | Contract inventory and specs (`docs/contracts/`, JSON Schema per feed) | `[x]` | v0 specs for the seven built-in regional contracts, each schema validated against a live payload. Still to spec: transit vehicles (entity-based), news and local alerts |
+| R2 | `GET /api/v1/capabilities` and UI empty-state handling | `[x]` | Endpoint plus registry (`backend/capabilities.py`); Infrastructure page cards, Settings layer toggles and the Fire & Smoke danger chip hide when no provider applies; empty state explains why (outside coverage, or a missing key). Removed the fake placeholder cameras. Follow-ups: flag stale/down providers in the UI, gate the map layers themselves |
 | R3 | Region as runtime config (backend endpoint, DB-backed, env override) | `[ ]` | Removes the frontend rebuild: the map center and range ring are currently baked in at build time |
 | R4 | NWS-based location resolver | `[ ]` | Location to office, zones, county, timezone, nearest airports and stations |
 | R5 | Provider interface and registry in the poller | `[ ]` | Runs on the existing `BasePoller` heartbeat, metrics and backoff |

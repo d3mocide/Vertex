@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/d3mocide/Vertex/docs/contracts/schemas/traffic.corridors.schema.json",
+  "title": "traffic.corridors (v0)",
+  "description": "Freeway corridor status: one item per road and direction, summarized from detector flow. Corridor definitions come from the region pack.",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "required": [
+      "road",
+      "dir",
+      "label",
+      "status"
+    ],
+    "properties": {
+      "road": {
+        "type": "string"
+      },
+      "dir": {
+        "enum": [
+          "N",
+          "S",
+          "E",
+          "W"
+        ]
+      },
+      "label": {
+        "type": "string"
+      },
+      "status": {
+        "enum": [
+          "normal",
+          "slow"
+        ]
+      },
+      "speed": {
+        "type": "integer",
+        "description": "Corridor speed in mph"
+      },
+      "stations": {
+        "type": "integer"
+      },
+      "reporting": {
+        "type": "integer"
+      },
+      "slowest": {
+        "type": "object",
+        "properties": {
+          "loc": {
+            "type": "string"
+          },
+          "speed": {
+            "type": "integer"
+          }
+        }
+      }
+    }
+  }
+}

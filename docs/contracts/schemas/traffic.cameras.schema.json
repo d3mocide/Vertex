@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/d3mocide/Vertex/docs/contracts/schemas/traffic.cameras.schema.json",
+  "title": "traffic.cameras (v0)",
+  "description": "Traffic camera locations and image URLs.",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "required": [
+      "id",
+      "name",
+      "url"
+    ],
+    "properties": {
+      "id": {
+        "type": "string"
+      },
+      "name": {
+        "type": "string"
+      },
+      "url": {
+        "type": "string",
+        "description": "Still image URL"
+      },
+      "ldi_url": {
+        "type": "string",
+        "description": "Optional last-daylight image URL for night cameras"
+      },
+      "lat": {
+        "type": "number"
+      },
+      "lon": {
+        "type": "number"
+      },
+      "road": {
+        "type": "string"
+      },
+      "dist_km": {
+        "type": "number"
+      },
+      "health": {
+        "enum": [
+          "ok",
+          "warn",
+          "down",
+          "unknown"
+        ]
+      },
+      "last_ok_ts": {
+        "type": [
+          "integer",
+          "null"
+        ],
+        "description": "Unix seconds of the last healthy fetch"
+      }
+    }
+  }
+}
