@@ -2120,3 +2120,6 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 - `docs/map-key.md` was dated May and wrong in places (mesh nodes were listed as orange; they are lime). Rewritten from the layer builders: entity icons/sizes/colors by zoom, aircraft role glow and emergency ring, dispatch incidents, event discs, lightning, stream gauges, mesh, cameras, receiver range ring, geofences, and the MapLibre overlays.
 - `docs/configuration/sources.md` gained the `mqtt_sources` section, the `acars` type, MeshCore URL options, region `show_on_map`, and corrected ADS-B guidance (BEAST primary, JSON standby).
 - Added `docs/.nojekyll` so GitHub Pages serves the Markdown files as-is.
+
+## 2026-09-29 — In-app Help refreshed
+- `frontend/src/docs/content.tsx` (content only, same components): current top-bar pages (Overview … Event Log), phone navigation, Settings layer groups, aircraft role glow and emergency squawk ring, dispatch incident icons, train and RF-sensor icons, Replay/Zones/Annotate/Snapshot, the Incidents, Infrastructure, Environment, Flight Log, Comms, Intel and Event Log pages, and the search/filter options (including what "OpenSky Supplement" covers).
