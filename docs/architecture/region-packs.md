@@ -192,7 +192,7 @@ Region is chosen **once, in a setup wizard**, not through a live-reloading setti
 4. **Keys.** The chosen pack's `requires_keys` are listed with `found`/`missing` status. Keys are never entered in the app: the operator adds them to `.env`, and features that need a missing key stay off (capabilities reports `not_configured`).
 5. **Review and save.** `PUT /api/v1/config/region` stores the region, timezone, NWS identifiers and chosen pack.
 
-It runs automatically on first sign-in when nothing has chosen a region (admins see the wizard; other users see a "setup not finished" message), and admins can reopen it from Settings, Region setup.
+It runs automatically on first sign-in when nothing has chosen a region (admins see the wizard; other users see a "setup not finished" message), and admins can reopen it from the admin console's **Region** page, which also shows the current region and where it came from, the installed packs with their key status, and which regional data sources are active as a result.
 
 **No live reload.** The poller reads the region once, at startup:
 

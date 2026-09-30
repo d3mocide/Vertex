@@ -38,7 +38,7 @@ Major surfaces include:
 - authentication and admin flows
 - outbound alert rule and webhook handling
 - Prometheus metrics endpoint
-- admin metrics (poller heartbeats, ingestion rates, signal quality, entity freshness, squawk counters, talkgroup activity, mesh battery, data completeness)
+- admin health console (`/admin/overview`: what needs attention, service status for PostgreSQL, Redis, the API, pollers, the AI briefing and the ADS-B receiver, and freshness of every data source against its expected interval; plus poller heartbeats, ingestion rates, entity activity, signal quality, storage and purge health, connection pool, squawk counters, talkgroup activity and data completeness)
 
 ## Poller Responsibilities
 

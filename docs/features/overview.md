@@ -43,7 +43,7 @@ Vertex currently covers several movement and mobility domains.
 ### Amateur and Community RF
 
 - APRS-IS ingest for radio and community station tracking
-- MeshCore endpoint support for mesh node awareness and battery/SNR display
+- MeshCore endpoint support for mesh node awareness and SNR display
 - TinyGS satellite ground station integration (optional)
 
 ## Weather and Environment
@@ -143,7 +143,7 @@ Operational features include:
 
 - optional JWT authentication with configurable token lifetime
 - viewer role for read-only access
-- admin metrics dashboard: per-poller ingestion rates, error counts, signal quality, entity freshness, squawk counters, P25 talkgroup activity, mesh battery distribution, and data completeness scorecard
+- admin health console: an attention summary, service cards (PostgreSQL, Redis, API, pollers, AI briefing, ADS-B receiver), a data-source table judged against each feed's expected interval, per-poller ingestion rates, entity activity, signal quality, storage and purge health, DB connection pool, squawk counters, P25 talkgroup activity and data completeness
 - runtime-editable source definitions via the UI
 - rate limiting and Prometheus metrics endpoint
 

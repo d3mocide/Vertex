@@ -21,7 +21,7 @@ Goal: someone anywhere in the US can give Vertex their location and get the equi
 | R7 | Generalize the outage contract | `[ ]` | Replace `OregonStatus` (`pge_affected`, `pacificorp_affected`) with a per-utility list |
 | R8 | Declarative providers: `gtfs_rt`, `arcgis_featureserver`, `rss`/`cap`, `wzdx`, `json_rest` | `[ ]` | Most packs should need no Python |
 | R9 | Pack loader, `make pack-check`, CI validation | `[~]` | Done: manifest v1, loader/validator (`backend/packs.py`), `make pack-check`, private-address/path/e-mail rejection, tests (run in CI with the backend suite). To do: fixture replay against contract schemas once providers are declarative |
-| R10 | First-run setup wizard with pack suggestion | `[x]` | Location (map, device location or coordinates), region details from the NWS resolver, pack choice (covering packs first, or core feeds only), key status, review and save. Runs on first sign-in and from Settings. The poller waits at a gate (`SETUP_GATE`) on a fresh install; no live reload — a later change needs a poller restart, which the screen reports |
+| R10 | First-run setup wizard with pack suggestion | `[x]` | Location (map, device location or coordinates), region details from the NWS resolver, pack choice (covering packs first, or core feeds only), key status, review and save. Runs on first sign-in and from the admin console's Region page. The poller waits at a gate (`SETUP_GATE`) on a fresh install; no live reload — a later change needs a poller restart, which the screen reports |
 | R11 | A second pack from a different kind of region | `[ ]` | Proves the abstraction; ideally contributed by someone who lives there |
 | R12 | Pack authoring guide and `_template` pack | `[~]` | `regions/_template/`, an Oregon pack, and a CONTRIBUTING section are in. To do: a step-by-step authoring guide once declarative providers exist |
 | R15 | Apply a pack's news and alert feeds during setup | `[ ]` | Pack `feeds` are specified but the wizard does not seed `sources.yml`/the database with them yet |
@@ -48,6 +48,7 @@ Since the May foundations below. See `TASK_LOG.md` for detail.
 | Rail | Amtrak, TriMet GTFS-RT (MAX, WES, Streetcar), rail lines | `[x]` |
 | Replay | Time-windowed presence, thinned replay data (was: everything shown forever) | `[x]` |
 | Platform | Public DNS for pollers, `REGION_LAT`/`REGION_LON` honoured by the frontend build, `REGION_NAME` in the UI | `[x]` |
+| Admin | Health console reworked around "is anything wrong?": an attention banner and service cards on the System tab, data sources judged against their expected interval, entity and dispatch activity instead of per-entity freshness, storage that judges the purge (not a countdown), pool judged against real capacity, events over the last 24 h. Region setup lives in the admin console (Region page). The purge is scheduled from when it last ran, so restarts no longer starve it | `[x]` |
 | Project | README rewrite with screenshots and tour video, docs site on GitHub Pages loading the Markdown files, in-app Help refresh, SECURITY / CONTRIBUTING / templates / Dependabot, agent rules consolidated in `CLAUDE.md` | `[x]` |
 
 ---
@@ -62,6 +63,9 @@ Since the May foundations below. See `TASK_LOG.md` for detail.
 | O4 | Geocoder misses | `[ ]` | House numbers absent from OSM, suffix-less streets, long-by-long intersections |
 | O5 | Link the in-app Help to the docs site | `[ ]` | Help stays user-focused; docs are for setup and development |
 | O6 | Document the 3 GB VM footprint and test on a Raspberry Pi 5 | `[ ]` | The Pi is the design target but untested |
+| O8 | Entity registry never expires | `[ ]` | The `entities` table keeps every aircraft, node and gauge ever seen (16k aircraft over ~2.5 months, plus ~200 legacy fire incidents from before regional scoping and ~70 legacy USGS gauges). The admin views now separate dormant entities, but pruning the registry (entities with no remaining observations, tags or events) needs a decision |
+| O9 | Structurally partial completeness rows | `[-]` | Mesh battery row removed (MeshCore adverts carry no battery field). Remaining: aircraft signal quality only exists for the local receiver (community and OpenSky positions have none). Informational only now; consider dropping or scoping these rows |
+| O10 | Static entities write a full observation every poll | `[ ]` | Mesh nodes (about 475 rows per 15 min) and stream gauges (78) record their unchanged position each time, roughly a third of the ~107k observations a day. Recording only on change would cut storage and purge work |
 | O7 | Map key and Help stay in sync with the layer code | `[ ]` | Consider a check that flags layer changes without a docs change |
 
 ---
@@ -74,10 +78,10 @@ Since the May foundations below. See `TASK_LOG.md` for detail.
 |---|---------|--------|-------|
 | M1 | Per-poller ingestion rate + error rate | `[x]` | Backend queries DB for obs/min per entity_type mapped to poller; `error_count` added to BasePoller heartbeat; PollerGrid shows obs/min + consecutive errors |
 | M2 | Signal quality histogram | `[x]` | `Observation.signal_quality` collected but never visualized. New `/admin/signal-quality` endpoint + `SignalQualityChart` component |
-| M3 | Entity freshness heatmap | `[x]` | % of entities with recent update by type. New `/admin/entity-freshness` endpoint + `EntityFreshness` component |
+| M3 | Entity freshness heatmap | `[x]` | Superseded: per-entity freshness misled (most entities seen in a day are naturally not current). Replaced by Entity Activity (active now, seen in 24 h, hourly shape) and, on the System tab, a data-source table covering every feed |
 | M4 | Squawk alert counter widget | `[x]` | `/admin/squawk-alerts` endpoint + `SquawkCounter` widget with color-coded 7500/7600/7700 cards |
 | M5 | P25 talkgroup activity chart | `[x]` | `/admin/talkgroup-activity` endpoint + `TalkgroupActivity` horizontal bar chart from p25_call_start events |
-| M6 | Mesh node battery distribution | `[x]` | `/admin/mesh-battery` endpoint + `MeshBatteryChart` bar chart per node |
+| M6 | Mesh node battery distribution | `[-]` | Removed: MeshCore adverts carry no battery field, so there was never data to show (the conditional battery gauges stay for sources that do send it, such as Meshtastic) |
 | M7 | Data completeness scorecard | `[x]` | `/admin/data-quality` endpoint + `DataQualityCard` showing % filled per field across entity types |
 | M8 | WebSocket reconnect timeline | `[x]` | `WsClientChart` sparkline renders ws_clients from existing metrics history — no new backend needed |
 
