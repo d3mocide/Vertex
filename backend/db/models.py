@@ -320,3 +320,16 @@ class MeshLink(Base):
     __table_args__ = (
         UniqueConstraint("source_url", "node_a", "node_b", name="mesh_links_unique"),
     )
+
+
+class AppSetting(Base):
+    """Small key/value store for settings changed at runtime (currently the operator's region).
+
+    Environment variables still win; this holds what was chosen in the app. Read by the backend and
+    by the poller (which restarts itself when the region changes).
+    """
+    __tablename__ = "app_settings"
+
+    key: Mapped[str] = mapped_column(String(64), primary_key=True)
+    value: Mapped[dict] = mapped_column(JSON)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

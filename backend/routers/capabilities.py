@@ -1,10 +1,13 @@
 from datetime import datetime, timezone
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
+from sqlalchemy.ext.asyncio import AsyncSession
 
 import capabilities
 from config import settings
+from deps import get_db
 from redis_bus import get_redis
+from routers.region import load_effective
 
 router = APIRouter(tags=["ops"])
 
@@ -25,6 +28,6 @@ async def _feed_ages() -> dict[str, float]:
 
 
 @router.get("/capabilities")
-async def get_capabilities():
+async def get_capabilities(db: AsyncSession = Depends(get_db)):
     """Which regional data contracts have a working provider, so the UI can hide what nothing feeds."""
-    return capabilities.build(settings, await _feed_ages())
+    return capabilities.build(settings, await _feed_ages(), await load_effective(db))

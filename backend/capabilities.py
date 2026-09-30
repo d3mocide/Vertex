@@ -51,11 +51,12 @@ def _inside(bbox: tuple[float, float, float, float], lat: float, lon: float) -> 
     return min_lat <= lat <= max_lat and min_lon <= lon <= max_lon
 
 
-def resolve(contract: Contract, settings, feed_ages: dict[str, float]) -> dict:
+def resolve(contract: Contract, settings, feed_ages: dict[str, float], center: tuple[float, float] | None = None) -> dict:
     """Status of one contract: ok, stale, down, pending (enabled, no data yet) or none (no provider applies)."""
     out = {"title": contract.title, "providers": [], "status": "none", "reason": None, "updated_age_s": None}
+    lat, lon = center if center else (settings.region_lat, settings.region_lon)
 
-    if contract.covers_bbox and not _inside(contract.covers_bbox, settings.region_lat, settings.region_lon):
+    if contract.covers_bbox and not _inside(contract.covers_bbox, lat, lon):
         out["reason"] = "outside_coverage"
         return out
     if contract.requires_key and not getattr(settings, contract.requires_key, ""):
@@ -80,17 +81,20 @@ def resolve(contract: Contract, settings, feed_ages: dict[str, float]) -> dict:
     return out
 
 
-def build(settings, feed_ages: dict[str, float]) -> dict:
-    return {
-        "region": {
+def build(settings, feed_ages: dict[str, float], region: dict | None = None) -> dict:
+    """The capabilities document. `region` is the effective region (region_config.effective);
+    without it the region comes straight from settings."""
+    if region is None:
+        region = {
             "name": settings.region_name,
             "center": [settings.region_lat, settings.region_lon],
-            "bbox": {
-                "min_lat": settings.bbox_min_lat, "max_lat": settings.bbox_max_lat,
-                "min_lon": settings.bbox_min_lon, "max_lon": settings.bbox_max_lon,
-            },
+            "bbox": {"min_lat": settings.bbox_min_lat, "max_lat": settings.bbox_max_lat,
+                     "min_lon": settings.bbox_min_lon, "max_lon": settings.bbox_max_lon},
             "timezone": settings.region_timezone,
-        },
+        }
+    center = (region["center"][0], region["center"][1])
+    return {
+        "region": {k: region[k] for k in ("name", "center", "bbox", "timezone")},
         "pack": None,  # region packs are not implemented yet; providers are built in
-        "contracts": {c.id: resolve(c, settings, feed_ages) for c in CONTRACTS},
+        "contracts": {c.id: resolve(c, settings, feed_ages, center) for c in CONTRACTS},
     }
