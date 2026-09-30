@@ -6,7 +6,7 @@ sqlalchemy[asyncio]==2.0.36
 pydantic-settings==2.15.0
 python-dateutil==2.9.0
 feedparser==6.0.14
-websockets==13.1
+websockets==17.1
 pyModeS==2.21.1
 aiomqtt==2.5.1
 sgp4==2.27
