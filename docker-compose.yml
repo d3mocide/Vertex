@@ -234,6 +234,9 @@ services:
     security_opt: ["no-new-privileges:true"]
     tmpfs:
       - /tmp:size=64m,noexec,nosuid,nodev
+    # An ffmpeg abort once wrote a ~170 MB core per call and filled the host disk.
+    ulimits:
+      core: 0
     build:
       context: ./transcription
     restart: unless-stopped
