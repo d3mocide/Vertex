@@ -6,12 +6,10 @@
 
 ![License](https://img.shields.io/badge/LICENSE-GPL--3.0-FFB800?style=flat-square&labelColor=050505&color=FFB800)
 ![Stack](https://img.shields.io/badge/STACK-Docker%20Compose-FFB800?style=flat-square&labelColor=050505&color=4D3800)
-![Platform](https://img.shields.io/badge/PLATFORM-Raspberry%20Pi%205-FFB800?style=flat-square&labelColor=050505&color=4D3800)
+![Platform](https://img.shields.io/badge/PLATFORM-Linux%20%C2%B7%20Docker-FFB800?style=flat-square&labelColor=050505&color=4D3800)
 ![Theme](https://img.shields.io/badge/THEME-DARK%20ONLY-050505?style=flat-square&labelColor=FFB800&color=050505)
 
 **Real-time situational awareness. Local-first. No cloud required.**
-
-Part of the [Sovereign Watch](https://github.com/d3mocide/Sovereign_Watch) family of local intelligence tools.
 
 </div>
 
@@ -19,7 +17,7 @@ Part of the [Sovereign Watch](https://github.com/d3mocide/Sovereign_Watch) famil
 
 ## // 00 · BRIEF
 
-Vertex fuses aircraft, vessels, traffic, weather, emergency alerts, trunked radio, mesh networks, and community feeds into a single map-centric dashboard that runs on hardware you control — a Raspberry Pi 5 is enough. Onyx surfaces, amber-gold signal accents, and a desaturated tactical map keep the focus where it belongs: on the data.
+Vertex fuses aircraft, vessels, traffic, weather, emergency alerts, trunked radio, mesh networks, and community feeds into a single map-centric dashboard that runs on hardware you control. Onyx surfaces, amber-gold signal accents, and a desaturated tactical map keep the focus where it belongs: on the data.
 
 ```
 DOMAIN · PUBLIC SAFETY    DENSITY · HIGH / DATA-FIRST
@@ -32,8 +30,6 @@ THEME  · DARK ONLY        RADIUS  · 0px / ALL
 
 <sub>Animated preview · [full tour with P25 radio audio (MP4)](docs/video/vertex-tour.mp4)</sub>
 
-
-![Vertex situational map](docs/img/overview.png)
 
 </div>
 
@@ -132,12 +128,12 @@ Set `REGION_LAT` / `REGION_LON` in `.env` to center the map and the receiver ran
 
 GPL-3.0 — see [LICENSE](LICENSE).
 
-## // 07 · PI 5 DEPLOYMENT
+## // 07 · DEPLOYMENT
 
 ### Prerequisites
 
-- Raspberry Pi 5 (8 GB recommended)
-- Raspberry Pi OS Bookworm (64-bit)
+- A 64-bit Linux host or VM — Vertex is developed and run on a 4 vCPU / 3 GB Linux VM
+- Raspberry Pi 5 (8 GB) is the design target for low-power installs, but it has not been tested there yet
 - Docker CE (`docker.io` + `docker-compose-plugin`)
 - A `.env` file configured from `.env.example`
 
@@ -178,4 +174,4 @@ sudo journalctl -u vertex -f        # Follow live logs
 
 ### Resource notes
 
-The full stack uses approximately 2 GB RAM under load. A Pi 5 with 8 GB is recommended for comfortable headroom. Resource limits are pre-configured in `docker-compose.yml` and can be tuned for your hardware.
+The full stack idles at roughly 1.2 GB RAM (the poller and transcription containers are the largest) and grows with the number of sources enabled. Resource limits are pre-configured in `docker-compose.yml` and can be tuned for your hardware.
