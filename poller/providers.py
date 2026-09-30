@@ -26,13 +26,11 @@ async def resolve_startup(pool, settings):
 
 
 def build_pollers(plan):
-    from pollers.traffic import TrafficPoller
-    from pollers.utilities import UtilityPoller
-    from pollers.odf_fire_danger import OdfFireDangerPoller
+    from regional_adapters import odf_fire_danger, traffic, utilities
     from pollers.wsdot import WsdotPoller
     from pollers.wadnr_fire_danger import WadnrFireDangerPoller
-    factories = {"odot-tripcheck": TrafficPoller, "oregon-odin": UtilityPoller,
-                 "odf-fire-danger": OdfFireDangerPoller, "wsdot-travel": WsdotPoller, "wadnr-fire-danger": WadnrFireDangerPoller}
+    factories = {"odot-tripcheck": traffic.TrafficPoller, "oregon-odin": utilities.UtilityPoller,
+                 "odf-fire-danger": odf_fire_danger.OdfFireDangerPoller, "wsdot-travel": WsdotPoller, "wadnr-fire-danger": WadnrFireDangerPoller}
     return [factories[pid]() for pid, p in plan.items() if not p["reason"] and p["contracts"]]
 
 

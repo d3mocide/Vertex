@@ -17,7 +17,7 @@ Goal: someone anywhere in the US can give Vertex their location and get the equi
 | R3 | Region as runtime config (backend endpoint, DB-backed, env override) | `[x]` | `GET/PUT /api/v1/config/region`, `app_settings` table, env > database > defaults; poller applies it at startup, and later changes require an operator restart; frontend loads it after sign-in and no longer uses build-time region args |
 | R4 | NWS-based location resolver | `[~]` | `POST /api/v1/config/region/resolve` returns office, forecast/county/fire zones, timezone, name and a default bbox (US only). Nearby observation stations and a climate product location are now resolved and reviewed; setup applies derived zones/stations with environment precedence. Remaining: dedicated airport/METAR suggestions |
 | R5 | Provider interface and registry in the poller | `[x]` | Shared reviewed catalog; startup selects ODOT, ODIN, ODF, WSDOT and WA DNR by pack, keys and monitoring bounds. Existing `BasePoller` lifecycle; isolated snapshots, additive traffic and per-source freshness |
-| R6 | Move Oregon code into `regions/oregon/` behind the interface | `[ ]` | ODOT TripCheck, ODIN outages, ODF fire danger, TriMet, Portland corridors. Must not change behavior; fixture tests |
+| R6 | Move Oregon code into `regions/oregon/` behind the interface | `[~]` | ODOT (including Portland corridors), ODIN and ODF now live in reviewed pack adapters; compatibility imports preserve behavior. Remaining: TriMet extraction with its contract and provider selection |
 | R7 | Generalize the outage contract | `[x]` | Power UI uses attributed per-utility totals and explicit coverage from `utility:outages`; removed Oregon-specific frontend state, retained old backend feeds as compatibility aliases. Merged provider snapshots and schema fixture validated; unknown/stale data cannot imply zero outages |
 | R8 | Declarative providers: `gtfs_rt`, `arcgis_featureserver`, `rss`/`cap`, `wzdx`, `json_rest` | `[ ]` | Most packs should need no Python |
 | R9 | Pack loader, `make pack-check`, CI validation | `[~]` | Done: manifest v1, loader/validator (`backend/packs.py`), `make pack-check`, private-address/path/e-mail rejection, tests (run in CI with the backend suite). To do: fixture replay against contract schemas once providers are declarative |
@@ -32,8 +32,9 @@ Goal: someone anywhere in the US can give Vertex their location and get the equi
 
 ### Next implementation sequence
 
-1. **R6: Oregon extraction.** The generic outage list and schema fixture have shipped. Move Oregon
-   adapters/corridors behind the established registry without changing their payloads.
+1. **R6: Oregon extraction.** The generic outage list and schema fixture have shipped.
+   ODOT/corridors, ODIN and ODF adapters have moved without payload changes; finish TriMet
+   extraction alongside its contract and provider selection.
 2. **Finish R17 and R1 for transit.** Define the transit contract and migrate independently configured
    TriMet into provider selection. Keep national/core pollers independent of packs.
 3. **R8 + R9 + R12: declarative adapters and authoring.** Generalize the Washington ArcGIS experience

@@ -42,3 +42,14 @@ satellite-hotspot feed. No extra NIFC collector starts when both packs are selec
 Sources: [DNR danger/burn restrictions](https://gis.dnr.wa.gov/site3/rest/services/Public_Wildfire/WADNR_PUBLIC_WD_WildfireDanger/MapServer),
 [NIFC open data](https://www.nifc.gov/fire-information/maps). Publisher data are dynamic and carry
 accuracy/liability disclaimers; mapped perimeters are not evacuation boundaries.
+
+## Outage access research
+
+The [Commerce statewide dashboard](https://www.commerce.wa.gov/eremo/) links to
+[OutageMapV5Public](https://www.arcgis.com/home/item.html?id=d7ae48976a774f6ba7a55db3931d317b).
+On the access check recorded in the task log, direct layer metadata and count queries
+returned ArcGIS error 403 (`GWM_0003`). Public dashboard visibility does not establish
+permission for independent API access. No dashboard session, token or referrer workaround
+is used. An authorized integration endpoint and reuse terms are needed before adding it.
+The dashboard participant list also excludes Clark Public Utilities, so even access to this
+source would not establish complete Vancouver-area outage coverage.
