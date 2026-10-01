@@ -22,6 +22,7 @@ import { isSupplementSource } from '../storeTypes'
 import { extractRailSegments, snapPointToRail, type RailSegment } from '../layers/railSnap'
 import { fetchRailGeoJSON } from '../layers/railData'
 import { applyPVB, type PVBState } from '../layers/pvb'
+import { smoothTransitPosition, type TransitMotionState } from '../layers/transitMotion'
 import { DEFAULT_CENTER, OBSERVATION_RANGE_KM, API_BASE } from '../config'
 import { authHeaders } from '../auth'
 import type { LightningStrike } from '../store'
@@ -60,6 +61,7 @@ export function MapOverlay({ map }: Props) {
   const typeVersionRef    = useRef<Record<string, number>>({})
   const tracksRef         = useRef<Record<string, Track>>({})
   const pvbRef            = useRef<Record<string, PVBState>>({})
+  const transitMotionRef  = useRef<Record<string, TransitMotionState>>({})
   const selectedRef       = useRef<string | null>(null)
   const camerasRef        = useRef<TrafficCamera[]>([])
   const selectedCamRef    = useRef<string | null>(null)
@@ -531,6 +533,7 @@ export function MapOverlay({ map }: Props) {
       last = performance.now()
       lastLayerBuild = 0
       pvbRef.current = {}
+      transitMotionRef.current = {}
     }
     document.addEventListener('visibilitychange', onVisibility)
 
@@ -579,6 +582,7 @@ export function MapOverlay({ map }: Props) {
       let tPhase = tFrame
 
       const pvb = pvbRef.current
+      if (replayModeRef.current) transitMotionRef.current = {}
       const sel = selectedRef.current
       const nowMs = Date.now()
 
@@ -679,10 +683,16 @@ export function MapOverlay({ map }: Props) {
           }
         }
 
-        // Rail feeds can have coarse/irregular heading updates; extrapolation causes
-        // visible drift. Keep trains on last reported (snapped) position until the
-        // next real update arrives.
-        if (replayModeRef.current || snappedBase.type === 'rail' || snappedBase.type === 'bus') {
+        // Transit reports can arrive many seconds apart. Blend briefly between
+        // actual fixes, but never extrapolate beyond the latest position.
+        if (!replayModeRef.current && (snappedBase.type === 'rail' || snappedBase.type === 'bus')
+            && snappedBase.source.startsWith('gtfs_')) {
+          const motion = smoothTransitPosition(snappedBase, transitMotionRef.current[uid], now)
+          transitMotionRef.current[uid] = motion.state
+          pvbTracks[uid] = motion.lon === snappedBase.lon && motion.lat === snappedBase.lat
+            && motion.courseTrue === snappedBase.courseTrue
+            ? snappedBase : { ...snappedBase, lon: motion.lon, lat: motion.lat, courseTrue: motion.courseTrue }
+        } else if (replayModeRef.current || snappedBase.type === 'rail' || snappedBase.type === 'bus') {
           pvbTracks[uid] = snappedBase
         } else {
           const [lon, lat] = applyPVB(pvb, snappedBase, nowMs)
@@ -700,6 +710,9 @@ export function MapOverlay({ map }: Props) {
         }
         for (const uid of Object.keys(railSnapCache)) {
           if (!(uid in allTracks)) delete railSnapCache[uid]
+        }
+        for (const uid of Object.keys(transitMotionRef.current)) {
+          if (!(uid in allTracks)) delete transitMotionRef.current[uid]
         }
       }
 
@@ -792,6 +805,7 @@ export function MapOverlay({ map }: Props) {
       layerMemoRef.current = {}
       deckRef.current = null
       pvbRef.current = {}
+      transitMotionRef.current = {}
     }
   }, [map])
 

@@ -18,7 +18,7 @@ const TYPE_COLOR: Record<string, string> = {
   aircraft:       'text-cyan-adsb',
   vessel:         'text-green-ais',
   train:          'text-amber-gold',
-  bus:            'text-amber-gold',
+  bus:            'text-transit-bus',
   aprs:           'text-cyan-adsb',
   fire_incident:  'text-red-emergency',
   satellite:      'text-violet-space',
@@ -271,7 +271,7 @@ export function EntitySearchPanel() {
                 onClick={() => setEntityFilter({ bus: !entityFilter.bus })}
                 className={`flex items-center gap-1 px-2 py-1 border text-[11px] uppercase tracking-widest font-bold transition-colors focus:outline-none ${
                   entityFilter.bus
-                    ? 'text-amber-gold border-amber-gold/60 bg-amber-gold/10'
+                    ? 'text-transit-bus border-transit-bus/60 bg-transit-bus/10'
                     : 'text-on-surface-variant border-white/10 hover:border-white/20'
                 }`}
                 aria-pressed={entityFilter.bus}

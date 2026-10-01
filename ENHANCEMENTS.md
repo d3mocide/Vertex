@@ -32,9 +32,10 @@ Goal: someone anywhere in the US can give Vertex their location and get the equi
 
 ### Next implementation sequence
 
-1. **Transit follow-up:** verify C-TRAN feed access and reuse terms, obtain an official Sound Transit/OneBusAway developer key, then validate a second live agency in its service area. Add service alerts, active-calendar handling and configurable agency selection. See [transit connectors](docs/architecture/transit-connectors.md).
-2. **R8 + R9 + R12: declarative adapters and authoring.** Turn the reviewed shared GTFS configurations and Washington ArcGIS experience into validated manifest mappings, replay fixtures against schemas and write an authoring guide. Washington outages and keyed Traveler API road-weather/flow need separate mappings and contracts.
-3. **R4: dedicated airport/METAR suggestions.** Build on location-derived NWS zones, observation stations and climate choices while preserving explicit operator configuration.
+1. **Local transit UX:** highlight a selected vehicle's published route, then browse routes and stops from both TriMet and Cherriots. Add density-aware grouping at regional zoom before expanding map overlays. Add active-calendar-aware timetables only after schedule dates and service exceptions are parsed; static GTFS alone does not establish live arrivals.
+2. **Transit coverage:** verify C-TRAN feed access and reuse terms, obtain an official Sound Transit/OneBusAway developer key, then validate a second live agency in its service area. Add service alerts and configurable agency selection. See [transit connectors](docs/architecture/transit-connectors.md).
+3. **R8 + R9 + R12: declarative adapters and authoring.** Turn the reviewed shared GTFS configurations and Washington ArcGIS experience into validated manifest mappings, replay fixtures against schemas and write an authoring guide. Washington outages and keyed Traveler API road-weather/flow need separate mappings and contracts.
+4. **R4: dedicated airport/METAR suggestions.** Build on location-derived NWS zones, observation stations and climate choices while preserving explicit operator configuration.
 
 ---
 

@@ -237,7 +237,7 @@ export function Sidebar() {
             <button
               type="button"
               onClick={() => toggleEntityType('bus')}
-              className={`text-amber-gold hover:text-white transition-all flex items-center gap-1 focus:outline-none ${entityFilter.bus ? 'opacity-100' : 'opacity-40'}`}
+              className={`text-transit-bus hover:text-white transition-all flex items-center gap-1 focus:outline-none ${entityFilter.bus ? 'opacity-100' : 'opacity-40'}`}
               title="Toggle buses layer"
             >
               <span className="ms text-[12px]" aria-hidden="true">directions_bus</span>
@@ -433,7 +433,7 @@ export function Sidebar() {
           <button
             type="button"
             onClick={() => toggleEntityType('bus')}
-            className={`text-amber-gold hover:text-white transition-all flex items-center text-left focus:outline-none ${entityFilter.bus ? 'opacity-100' : 'opacity-40'}`}
+              className={`text-transit-bus hover:text-white transition-all flex items-center text-left focus:outline-none ${entityFilter.bus ? 'opacity-100' : 'opacity-40'}`}
             title="Toggle buses layer"
           >
             <span className="ms text-[14px] mr-1.5 shrink-0" aria-hidden="true">directions_bus</span>

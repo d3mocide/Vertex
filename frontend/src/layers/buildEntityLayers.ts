@@ -51,6 +51,7 @@ function entityIconSize(selectedUid: string | null, track: Track, zoom: number):
 
 const TAK_ICON_COLOR: [number, number, number, number] = [0, 230, 180, 240]   // teal — friendly ground
 const TRAIN_ICON_COLOR: [number, number, number, number] = [255, 193, 7, 240]   // amber — Amtrak rail
+const BUS_ICON_COLOR: [number, number, number, number] = [255, 229, 132, 240]  // softer transit yellow
 
 function aprsColor(stationType: string | undefined): [number, number, number, number] {
   switch (stationType) {
@@ -161,7 +162,8 @@ export function buildEntityLayers(
       if (t.type === 'ground')  return aprsColor(t.stationType)
       if (t.type === 'tak')     return TAK_ICON_COLOR
       if (t.type === 'hazard')  return FIRE_ICON_COLOR
-      if (t.type === 'rail' || t.type === 'bus')    return tagColorMap?.[t.uid] ?? TRAIN_ICON_COLOR
+      if (t.type === 'rail')  return tagColorMap?.[t.uid] ?? TRAIN_ICON_COLOR
+      if (t.type === 'bus')   return tagColorMap?.[t.uid] ?? BUS_ICON_COLOR
       if (t.type === 'sensor')  return RF_SENSOR_COLOR
       // Lower-fidelity aircraft positions render dimmed so it is visually
       // clear the track is not a live local fix: OpenSky supplements (coarse,

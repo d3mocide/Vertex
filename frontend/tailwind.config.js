@@ -8,6 +8,7 @@ export default {
         'onyx-black':              '#050505',
         'onyx-deep':               '#0a0a0a',
         'amber-gold':              '#FFB800',
+        'transit-bus':             '#FFE584',
         'amber-gold-dim':          '#B88600',
         'amber-gold-muted':        '#4D3800',
         'on-surface':              '#F2F2F2',
