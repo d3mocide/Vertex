@@ -35,7 +35,7 @@ function entry(col: number, row: number) {
 export function createAtlasIcons(): IconAtlasResult {
   const canvas = document.createElement('canvas')
   canvas.width  = CELL * 4   // 256
-  canvas.height = CELL * 6   // 320 (row 3 train…, row 4 dispatch incidents)
+  canvas.height = CELL * 6   // 384 (row 3 train…, row 4 dispatch incidents, row 5 bus)
   const ctx = canvas.getContext('2d')!
 
   const W = '#ffffff'
@@ -288,15 +288,16 @@ export function createAtlasIcons(): IconAtlasResult {
     ctx.fill()
   }
 
-  // Bus silhouette: front windshield and wheels, separate from the rail pill.
+  // Bus: a shorter capsule in the train marker family, pointing along bearing.
+  // A small windshield cutout distinguishes road transit without a bulky pictogram.
   {
     const [ox, oy] = cellOrigin(0, 5)
     ctx.fillStyle = W
-    ctx.fillRect(ox + 18, oy + 10, 28, 40)
-    ctx.fillRect(ox + 17, oy + 47, 7, 9)
-    ctx.fillRect(ox + 40, oy + 47, 7, 9)
+    ctx.beginPath()
+    ctx.roundRect(ox + 24, oy + 17, 16, 30, 6)
+    ctx.fill()
     ctx.globalCompositeOperation = 'destination-out'
-    ctx.fillRect(ox + 22, oy + 15, 20, 13)
+    ctx.fillRect(ox + 28, oy + 22, 8, 3)
     ctx.globalCompositeOperation = 'source-over'
   }
 
