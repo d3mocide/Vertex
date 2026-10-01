@@ -37,7 +37,8 @@ export function entityToTrack(entity: Entity, existing?: Track): Track | null {
   // doesn't matter. A re-sent fix keeps its original time; a dead-reckoned
   // position is projected to the moment it was sent, so its age is ~0.
   let fixTimeMs: number | undefined
-  if (existing?.fixTimeMs != null && existing.lat === entity.lat && existing.lon === entity.lon) {
+  if (existing?.fixTimeMs != null && existing.lat === entity.lat && existing.lon === entity.lon
+      && (!entity.source.startsWith('gtfs_') || existing.lastSeen === entity.last_seen)) {
     fixTimeMs = existing.fixTimeMs
   } else if (positionDr) {
     fixTimeMs = Date.now()

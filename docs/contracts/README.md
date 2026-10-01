@@ -130,6 +130,9 @@ headsign, or the final scheduled stop name when that headsign is empty, and
 that matches its trip shape and heading may include a short `identity.motion_path`
 and `identity.route_match_m` offset. The frontend advances only the displayed marker
 along that shape for at most 25 seconds, then freezes until another measured fix.
+Corrections ease the distance along the moving route rather than restarting motion
+from a fixed point. The final five seconds of the projection window gradually slow
+the marker to a stop, and recent stationary reports transition back to the measured fix.
 The source coordinates remain measured; route projection does not create an arrival
 estimate or a new observation.
 

@@ -726,14 +726,24 @@ export function MapOverlay({ map }: Props) {
         // back to a short fix-to-fix transition when the trip has no safe match.
         if (!replayModeRef.current && (snappedBase.type === 'rail' || snappedBase.type === 'bus')
             && snappedBase.source.startsWith('gtfs_')) {
-          const projected = projectTransit(snappedBase, nowMs, transitProjectionRef.current[uid])
+          const previousProjection = transitProjectionRef.current[uid]
+          const previousMotion = transitMotionRef.current[uid]
+          const initial = !previousProjection && previousMotion
+            ? smoothTransitPosition(snappedBase, previousMotion, now) : undefined
+          const projected = projectTransit(snappedBase, nowMs, previousProjection, initial)
           if (projected) {
             transitProjectionRef.current[uid] = projected.state
             delete transitMotionRef.current[uid]
             pvbTracks[uid] = projected.track
           } else {
             delete transitProjectionRef.current[uid]
-            const motion = smoothTransitPosition(snappedBase, transitMotionRef.current[uid], now)
+            const handoff = previousProjection ? {
+              fromLon: previousProjection.shownLon, toLon: previousProjection.shownLon,
+              fromLat: previousProjection.shownLat, toLat: previousProjection.shownLat,
+              fromCourse: previousProjection.shownCourse, toCourse: previousProjection.shownCourse,
+              startedAt: now,
+            } : previousMotion
+            const motion = smoothTransitPosition(snappedBase, handoff, now)
             transitMotionRef.current[uid] = motion.state
             pvbTracks[uid] = motion.lon === snappedBase.lon && motion.lat === snappedBase.lat
               && motion.courseTrue === snappedBase.courseTrue

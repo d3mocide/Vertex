@@ -5,6 +5,13 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 
 ---
 
+## 2026-10-01 — Smooth transit report handoffs and route motion
+
+- Replaced fixed-origin position blending with corrections to distance along the moving trip path. Ordinary publisher reports retain cruising motion; bounded corrections ease over six to fifteen seconds and do not reverse forward route progress. Cached path distances and local lookahead headings keep movement on the route and soften turns.
+- Preserved the visible position when entering or leaving projection, including recent stationary fixes. Fresh transit fixes at unchanged coordinates now refresh their measurement clock; duplicate reports retain the original clock. Prediction still ends after 25 seconds, with a gradual slowdown during the last five seconds.
+- Added nine behavioral regression cases in `frontend/tests/transit-motion.mjs`, run with `node --test tests/transit-motion.mjs` from the frontend directory. Checked actual entity and route layers with Playwright in an isolated synthetic preview: old handoff speed ranged approximately 0.1–20 m/s for a 10 m/s vehicle; revised motion stayed approximately 10 m/s. Final browser run had no errors; inspected corner and report-handoff screenshots. Preview files and container removed.
+- Validation passed: nine motion tests, npm install, TypeScript, production frontend build, development-server startup and Compose validation. Python compilation skipped because no Python files changed. Rebuilt/recreated the frontend; application and proxied backend health respond successfully. Staged privacy and whitespace checks passed; committed locally without a push.
+
 ## 2026-10-01 — Trip destinations, route highlighting and bounded transit projection
 
 - Joined live GTFS vehicles to the matching static trip shape and destination. Empty trip headsigns resolve to the final scheduled stop; TriMet's live schedule leaves its trip headsign field empty. Missing publisher speed is inferred only from successive, plausible measured fixes and marked as estimated.
