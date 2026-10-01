@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Transit vehicles",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "required": [
+      "entity_id",
+      "entity_type",
+      "source",
+      "lat",
+      "lon",
+      "last_seen",
+      "position_ts",
+      "position_stale",
+      "identity"
+    ],
+    "properties": {
+      "entity_id": {
+        "type": "string"
+      },
+      "entity_type": {
+        "enum": [
+          "bus",
+          "train"
+        ]
+      },
+      "source": {
+        "type": "string"
+      },
+      "lat": {
+        "type": "number",
+        "minimum": -90,
+        "maximum": 90
+      },
+      "lon": {
+        "type": "number",
+        "minimum": -180,
+        "maximum": 180
+      },
+      "last_seen": {
+        "type": "string"
+      },
+      "position_ts": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "position_age_s": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "minimum": 0
+      },
+      "position_stale": {
+        "type": "boolean"
+      },
+      "identity": {
+        "type": "object",
+        "required": [
+          "feed",
+          "feed_label",
+          "vehicle_id",
+          "route_id",
+          "route_type",
+          "measurement_time_known"
+        ],
+        "properties": {
+          "feed": {
+            "type": "string"
+          },
+          "feed_label": {
+            "type": "string"
+          },
+          "vehicle_id": {
+            "type": "string"
+          },
+          "route_id": {
+            "type": "string"
+          },
+          "route_type": {
+            "type": "integer"
+          },
+          "measurement_time_known": {
+            "type": "boolean"
+          }
+        }
+      }
+    }
+  }
+}

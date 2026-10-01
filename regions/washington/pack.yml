@@ -7,6 +7,10 @@ covers:
   states: [WA]
   bbox: [-124.8, 45.5, -116.9, 49.1]
 requires_keys:
+  - name: SOUNDTRANSIT_API_KEY
+    where: https://www.soundtransit.org/help-contacts/business-information/open-transit-data-otd/otd-downloads
+    free: true
+    unlocks: [transit.routes, transit.vehicles]
   - name: WSDOT_API_KEY
     where: https://www.wsdot.wa.gov/traffic/api/
     free: true
@@ -25,3 +29,9 @@ providers:
   - id: wadnr-fire-danger
     kind: builtin
     provides: [fire.danger]
+  - id: ctran-transit
+    kind: builtin
+    provides: [transit.routes]
+  - id: soundtransit-transit
+    kind: builtin
+    provides: [transit.routes, transit.vehicles]

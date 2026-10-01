@@ -5,11 +5,12 @@ export type RailPath = 'tracks' | 'gtfs-shapes'
 
 // One request per path, shared by the rail map layer and train snapping.
 // A failed or empty response is evicted so the next caller retries.
+const fetchedAt: Partial<Record<RailPath, number>> = {}
 const inflight: Partial<Record<RailPath, Promise<GeoJSON.FeatureCollection | null>>> = {}
 
 export function fetchRailGeoJSON(path: RailPath): Promise<GeoJSON.FeatureCollection | null> {
   const cached = inflight[path]
-  if (cached) return cached
+  if (cached && Date.now() - (fetchedAt[path] ?? 0) < 60_000) return cached
   const p = (async () => {
     try {
       const res = await fetch(`${API_BASE}/rail/${path}`, { headers: authHeaders() })
@@ -21,6 +22,7 @@ export function fetchRailGeoJSON(path: RailPath): Promise<GeoJSON.FeatureCollect
       return null
     }
   })()
+  fetchedAt[path] = Date.now()
   inflight[path] = p
   p.then((g) => { if (!g) delete inflight[path] })
   return p

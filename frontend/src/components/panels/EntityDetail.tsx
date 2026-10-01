@@ -22,6 +22,7 @@ const TYPE_COLORS: Record<string, string> = {
   aircraft:       'text-cyan-adsb',
   vessel:         'text-green-ais',
   train:          'text-amber-gold',
+  bus:            'text-amber-gold',
   mesh_node:      'text-lime-rf',
   satellite:      'text-violet-space',
   aprs:           'text-cyan-adsb',
@@ -34,6 +35,7 @@ const TYPE_ICONS: Record<string, string> = {
   aircraft:       'flight',
   vessel:         'sailing',
   train:          'directions_railway',
+  bus:            'directions_bus',
   aprs:           'sensors',
   hazard:         'local_fire_department',
   fire_incident:  'local_fire_department',
@@ -269,7 +271,7 @@ export function EntityDetail() {
               <AircraftOverview entity={entity} getIdentity={getIdentity} trail={trail} />
             ) : entity.entity_type === 'vessel' ? (
               <VesselOverview entity={entity} getIdentity={getIdentity} />
-            ) : entity.entity_type === 'train' ? (
+            ) : (entity.entity_type === 'train' || entity.entity_type === 'bus') ? (
               <TrainOverview entity={entity} getIdentity={getIdentity} />
             ) : entity.entity_type === 'aprs' ? (
               <AprsOverview entity={entity} getIdentity={getIdentity} />

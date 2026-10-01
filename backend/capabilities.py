@@ -29,6 +29,8 @@ class Contract:
 
 
 CONTRACTS: tuple[Contract, ...] = (
+    Contract("transit.vehicles", "Live transit vehicles", ("transit:vehicles",), "trimet-transit", 90, "trimet_app_id", "TRIMET_APP_ID"),
+    Contract("transit.routes", "Local transit routes", ("transit:routes",), "trimet-transit", 90000),
     Contract("traffic.incidents", "Road closures and delays", ("traffic:incidents",), "odot-tripcheck",
              600, "odot_api_key", "ODOT_API_KEY"),
     Contract("traffic.cameras", "Traffic cameras", ("traffic:cameras",), "odot-tripcheck",

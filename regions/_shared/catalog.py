@@ -4,6 +4,7 @@ Manifests select these adapters; they never import or execute pack-supplied code
 """
 import hashlib
 import json
+from transit_sources import SOURCES
 
 SELECTION_KEY = "region_packs"
 OREGON = (-124.7, 41.9, -116.4, 46.3)
@@ -19,8 +20,15 @@ PROVIDERS = {
         "traffic.cameras": ["traffic:cameras"]}, "bbox": WASHINGTON, "key": "wsdot_api_key", "key_env": "WSDOT_API_KEY"},
     "wadnr-fire-danger": {"contracts": {"fire.danger": ["fire:danger"]}, "bbox": WASHINGTON},
 }
+for pid, source in SOURCES.items():
+    contracts = {"transit.routes": ["transit:routes"]}
+    if source["realtime_url"]:
+        contracts["transit.vehicles"] = ["transit:vehicles"]
+    PROVIDERS[pid] = {"contracts": contracts, "bbox": source["bbox"],
+                      **({"key": source["key"], "key_env": source["key"].upper()} if source.get("key") else {}),
+                      "unavailable": source.get("unavailable"), "enabled_setting": source.get("enabled_setting")}
 CONTRACT_IDS = {c for spec in PROVIDERS.values() for c in spec["contracts"]}
-LEGACY_PROVIDERS = ("odot-tripcheck", "oregon-odin", "odf-fire-danger")
+LEGACY_PROVIDERS = ("odot-tripcheck", "oregon-odin", "odf-fire-danger", "trimet-transit")
 
 
 def selected_ids(region):
@@ -62,6 +70,10 @@ def provider_plan(ids, installed, settings, bbox):
             reason = "unsupported_provider"
         elif not intersects(spec["bbox"], bbox):
             reason = "outside_coverage"
+        elif spec.get("unavailable"):
+            reason = spec["unavailable"]
+        elif spec.get("enabled_setting") and not getattr(settings, spec["enabled_setting"], True):
+            reason = "disabled"
         elif spec.get("key") and not getattr(settings, spec["key"], ""):
             reason = "not_configured"
         supported = set(spec["contracts"]) if spec else set()

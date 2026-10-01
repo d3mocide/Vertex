@@ -1,0 +1,18 @@
+"""Reviewed official transit feeds; credentials come only from server settings."""
+SOURCES = {'trimet-transit': {'name': 'trimet',
+                    'label': 'TriMet',
+                    'static_url': 'https://developer.trimet.org/schedule/gtfs.zip',
+                    'realtime_url': 'https://developer.trimet.org/ws/gtfs/VehiclePositions',
+                    'key': 'trimet_app_id',
+                    'key_param': 'appID',
+                    'bbox': (-123.3, 45.1, -122.2, 45.85),
+                    'static_setting': 'trimet_gtfs_static_url',
+                    'realtime_setting': 'trimet_gtfs_rt_url',
+                    'modes_setting': 'trimet_route_types',
+                    'interval_setting': 'trimet_poll_interval',
+                    'enabled_setting': 'trimet_gtfs_enabled'},
+ 'cherriots-transit': {'name': 'cherriots',
+                       'label': 'Cherriots',
+                       'static_url': 'https://cherriots.rideralerts.com/InfoPoint/gtfs-zip.ashx',
+                       'realtime_url': '',
+                       'bbox': (-123.6, 44.65, -122.3, 45.4)}}

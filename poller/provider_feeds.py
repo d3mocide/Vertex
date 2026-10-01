@@ -4,12 +4,13 @@ import json
 from urllib.parse import unquote, urlsplit
 
 from provider_catalog import PROVIDERS
+from transit_sources import SOURCES as TRANSIT_SOURCES
 
 owners = {}
 _locks = {}
 _TTLS = {"traffic:incidents": 1800, "traffic:cameras": 10800, "traffic:signs": 2700,
          "traffic:flow": 1800, "traffic:corridors": 1800, "weather:rwis": 4500,
-         "utility:outages": 3600, "utility:oregon": 3600, "utility:pge": 3600, "fire:danger": 16200}
+         "utility:outages": 3600, "utility:oregon": 3600, "utility:pge": 3600, "fire:danger": 16200, "transit:routes": 172800, "transit:vehicles": 180}
 
 
 def configure(plan):
@@ -35,6 +36,8 @@ def meta_key(pid, feed):
 def merge(feed, snapshots):
     if not snapshots:
         return []
+    if feed == "transit:routes":
+        return {"type": "FeatureCollection", "features": [f for data in snapshots for f in data.get("features", [])]}
     if feed == "utility:outages":
         if not all(isinstance(data, dict) and data.get("type") == "FeatureCollection" for data in snapshots):
             raise ValueError("Outage providers require a GeoJSON FeatureCollection")
@@ -77,7 +80,7 @@ def merge(feed, snapshots):
 def provenance(data, pid, ts):
     if not isinstance(data, list):
         if isinstance(data, dict) and data.get("type") == "FeatureCollection":
-            attribution = "WA DNR" if pid == "wadnr-fire-danger" else "ODF" if pid == "odf-fire-danger" else "Oregon ODIN" if pid == "oregon-odin" else pid
+            attribution = "WA DNR" if pid == "wadnr-fire-danger" else "ODF" if pid == "odf-fire-danger" else "Oregon ODIN" if pid == "oregon-odin" else TRANSIT_SOURCES.get(pid, {}).get("label", pid)
             result = {**data, "provider_id": pid, "attribution": attribution, "fetched_at": ts}
             result["features"] = [{**f, "properties": {**f.get("properties", {}), "provider_id": pid, "attribution": attribution}}
                                   for f in data.get("features", [])]
@@ -91,7 +94,7 @@ def provenance(data, pid, ts):
         return data
     rows = []
     for item in data:
-        row = {**item, "provider_id": pid, "attribution": "WSDOT" if pid == "wsdot-travel" else "ODOT" if pid == "odot-tripcheck" else pid,
+        row = {**item, "provider_id": pid, "attribution": "WSDOT" if pid == "wsdot-travel" else "ODOT" if pid == "odot-tripcheck" else TRANSIT_SOURCES.get(pid, {}).get("label", pid),
                "fetched_at": ts}
         # Keep existing ODOT camera bookmarks valid; new adapters always namespace IDs.
         if pid != "odot-tripcheck" and row.get("id") is not None and not str(row["id"]).startswith(pid + ":"):

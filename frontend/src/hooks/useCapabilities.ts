@@ -9,7 +9,7 @@ export interface ContractCapability {
   title: string
   providers: string[]
   status: ContractStatus
-  reason: 'outside_coverage' | 'not_configured' | 'not_in_pack' | 'no_pack' | 'invalid_pack' | 'unsupported_provider' | null
+  reason: 'outside_coverage' | 'not_configured' | 'not_in_pack' | 'no_pack' | 'invalid_pack' | 'unsupported_provider' | 'access_unverified' | 'disabled' | null
   requires?: string
   updated_age_s: number | null
   provider_statuses?: Record<string, { status: ContractStatus; reason: string | null; updated_age_s: number | null; requires: string | null }>

@@ -3,6 +3,10 @@ from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
+    trimet_gtfs_enabled: bool = True
+    trimet_app_id: str = ""
+    soundtransit_api_key: str = ""
+
     database_url: str = "postgresql+asyncpg://vertex@localhost:5432/vertex"
     redis_url: str = "redis://localhost:6379"
     log_level: str = "INFO"

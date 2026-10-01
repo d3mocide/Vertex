@@ -1,0 +1,30 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "id": "example:route-1",
+      "geometry": {
+        "type": "MultiLineString",
+        "coordinates": [
+          [
+            [
+              -122.7635,
+              45.3842
+            ],
+            [
+              -122.7623,
+              45.3842
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "route_id": "route-1",
+        "route_type": 3,
+        "feed": "example",
+        "attribution": "Example Transit"
+      }
+    }
+  ]
+}

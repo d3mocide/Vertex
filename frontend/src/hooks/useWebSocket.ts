@@ -28,6 +28,7 @@ const FILTER_KEY_TO_ENTITY_TYPE: Partial<Record<keyof EntityTypeFilter, string>>
   fire_incident:   'fire_incident',
   satellite:       'satellite',
   train:           'train',
+  bus:             'bus',
   rf_sensor:       'rf_sensor',
 }
 
@@ -185,6 +186,14 @@ export function useWebSocket() {
           case 'snapshot':
             setEntities(msg.data as Parameters<typeof setEntities>[0])
             break
+          case 'entity_remove': {
+            const id = msgData?.entity_id
+            if (typeof id === 'string') {
+              entityBufferRef.current = entityBufferRef.current.filter(e => e.entity_id !== id)
+              useCivicStore.getState().removeEntity(id)
+            }
+            break
+          }
           case 'entity_update':
             entityBufferRef.current.push(msg.data as Entity)
             break

@@ -289,13 +289,14 @@ class Settings(BaseSettings):
 
     # TriMet GTFS-RT — Portland Metro rail (MAX light rail, WES commuter, Portland Streetcar)
     # Free AppID at: https://developer.trimet.org/
-    trimet_gtfs_enabled: bool = False
+    trimet_gtfs_enabled: bool = True
     trimet_app_id: str = ""
     trimet_gtfs_static_url: str = "https://developer.trimet.org/schedule/gtfs.zip"
     trimet_gtfs_rt_url: str = "https://developer.trimet.org/ws/gtfs/VehiclePositions"
     # Comma-separated GTFS route type ints: 0=Tram, 1=Light Rail, 2=Rail
-    trimet_route_types: str = "0,1,2"
+    trimet_route_types: str = "0,1,2,3"
     trimet_poll_interval: int = 15
+    soundtransit_api_key: str = ""
 
     # P25 audio archiving — records per-call audio segments from the Icecast stream.
     # Requires an enabled RadioStream in the DB. Disabled by default.

@@ -1,0 +1,1 @@
+"""Reviewed Washington adapter configuration."""

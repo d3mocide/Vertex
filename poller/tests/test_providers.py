@@ -10,10 +10,10 @@ import providers
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize('choice,expected', [
-    ({'packs': ['oregon', 'washington']}, {'odot-tripcheck', 'oregon-odin', 'odf-fire-danger', 'wsdot-travel', 'wadnr-fire-danger'}),
+    ({'packs': ['oregon', 'washington']}, {'odot-tripcheck', 'oregon-odin', 'odf-fire-danger', 'wsdot-travel', 'wadnr-fire-danger', 'trimet-transit', 'cherriots-transit', 'ctran-transit', 'soundtransit-transit'}),
     ({'packs': []}, set()),
-    ({'packs': ['washington']}, {'wsdot-travel', 'wadnr-fire-danger'}),
-    (None, {'odot-tripcheck', 'oregon-odin', 'odf-fire-danger'}),
+    ({'packs': ['washington']}, {'wsdot-travel', 'wadnr-fire-danger', 'ctran-transit', 'soundtransit-transit'}),
+    (None, {'odot-tripcheck', 'oregon-odin', 'odf-fire-danger', 'trimet-transit'}),
 ])
 async def test_startup_selection_with_env_pinned_center(monkeypatch, choice, expected):
     root = Path(os.environ.get('REGION_PACKS_DIR', '/regions'))
@@ -28,7 +28,10 @@ async def test_startup_selection_with_env_pinned_center(monkeypatch, choice, exp
         bbox_max_lat=46.1, bbox_min_lon=-123.2, bbox_max_lon=-122)
     plan, errors, selected = await providers.resolve_startup(pool, settings)
     assert set(plan) == expected and errors == {} and selected == choice
-    assert all(p['reason'] is None for p in plan.values())
+    assert all(p['reason'] is None for pid, p in plan.items() if pid not in {'trimet-transit', 'ctran-transit', 'soundtransit-transit'})
+    if 'trimet-transit' in plan: assert plan['trimet-transit']['reason'] == 'not_configured'
+    if 'ctran-transit' in plan: assert plan['ctran-transit']['reason'] == 'access_unverified'
+    if 'soundtransit-transit' in plan: assert plan['soundtransit-transit']['reason'] == 'outside_coverage'
     read.assert_not_awaited()
 
 

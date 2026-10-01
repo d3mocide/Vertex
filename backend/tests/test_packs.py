@@ -206,7 +206,9 @@ def _region(pack):
 
 def test_legacy_install_keeps_every_builtin_provider():
     out = cap.build(_settings(), {}, _region(None), {})
-    assert out["pack"] is None and all(v["status"] == "pending" for v in out["contracts"].values())
+    assert out["pack"] is None
+    assert all(v["status"] == "pending" for k, v in out["contracts"].items() if not k.startswith("transit."))
+    assert out["contracts"]["transit.vehicles"]["reason"] == "not_configured"
 
 
 def test_core_only_choice_turns_regional_contracts_off():

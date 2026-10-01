@@ -31,7 +31,6 @@ from pollers.streamgauge import StreamGaugePoller
 from pollers.gdacs import GdacsPoller
 from pollers.nifc import NifcPoller
 from pollers.nifc_incidents import NifcIncidentsPoller
-from pollers.gtfs_rt import GtfsRtPoller
 from pollers.amtrak import AmtrakPoller
 from pollers.rail_infrastructure import RailInfrastructurePoller
 from bus import close
@@ -163,7 +162,6 @@ async def main():
         GdacsPoller(),
         NifcPoller(),
         NifcIncidentsPoller(),
-        GtfsRtPoller(),
         AmtrakPoller(),
         RailInfrastructurePoller(),
     ]

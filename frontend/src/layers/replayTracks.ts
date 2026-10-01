@@ -19,6 +19,7 @@ type Kind = { type: Track['type']; gapMs: number; trailMs: number }
 const KINDS: Record<string, Kind> = {
   aircraft: { type: 'air', gapMs: 90_000, trailMs: 10 * 60_000 },
   vessel:   { type: 'sea', gapMs: 15 * 60_000, trailMs: 30 * 60_000 },
+  bus:      { type: 'bus', gapMs: 120_000, trailMs: 10 * 60_000 },
   train:    { type: 'rail', gapMs: 10 * 60_000, trailMs: 20 * 60_000 },
   aprs:     { type: 'ground', gapMs: 30 * 60_000, trailMs: 60 * 60_000 },
 }

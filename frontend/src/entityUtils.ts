@@ -21,9 +21,10 @@ export function entityToTrack(entity: Entity, existing?: Track): Track | null {
   const isAprs = entity.entity_type === 'aprs'
   const isFire = entity.entity_type === 'fire_incident'
   const isTak = entity.entity_type === 'tak_client'
+  const isBus = entity.entity_type === 'bus'
   const isTrain = entity.entity_type === 'train'
   const isSensor = entity.entity_type === 'rf_sensor'
-  if (!isAir && !isSea && !isAprs && !isFire && !isTak && !isTrain && !isSensor) return null
+  if (!isAir && !isSea && !isAprs && !isFire && !isTak && !isTrain && !isBus && !isSensor) return null
 
   const altMeters  = isAir ? (entity.altitude ?? 0) * ALT_FT_TO_M : 0
   const speedMs    = (entity.speed ?? 0) * SPD_KT_TO_MS
@@ -120,7 +121,7 @@ export function entityToTrack(entity: Entity, existing?: Track): Track | null {
     altMeters,
     speedMs,
     courseTrue,
-    type:         isAir ? 'air' : isSea ? 'sea' : isTak ? 'tak' : isAprs ? 'ground' : isTrain ? 'rail' : isSensor ? 'sensor' : 'hazard',
+    type:         isAir ? 'air' : isSea ? 'sea' : isTak ? 'tak' : isAprs ? 'ground' : isTrain ? 'rail' : isBus ? 'bus' : isSensor ? 'sensor' : 'hazard',
     callsign:     entity.display_name,
     category:     (entity.identity?.category as string | undefined) ?? entity.tags?.[0],
     role:         isAir ? (entity.identity?.role as string | undefined) : undefined,

@@ -5,6 +5,8 @@
 | ODOT TripCheck | incidents, cameras, message signs, freeway corridors, road-weather stations | `ODOT_API_KEY` (free) | Freeway corridors remain the Portland-area list in the reviewed Oregon adapter |
 | Oregon ODIN | power-outage areas | none | Customers and area only; the source does not publish cause |
 | ODF | fire-danger zones | none | |
+| TriMet | local route shapes and live bus/rail entities | `TRIMET_APP_ID` | Official GTFS Schedule and keyed VehiclePositions API; Portland service area |
+| Cherriots | local route shapes | none | Official published GTFS Schedule; Salem service area; no live positions claimed |
 | KOIN / OPB | local news RSS | none | Portland-area / statewide reporting |
 | FlashAlert Emergency Newswire | emergency XML | none | Regional newswire; not an Oregon-only feed |
 | TVF&R | emergency-alert RSS | none | Portland metro fire district; not statewide coverage |
@@ -19,12 +21,6 @@ Feed subscriptions use the publishers' public RSS/XML endpoints; no redistributi
 News and emergency feeds are checked on the existing 60-second poller cadence. Upstream availability
 is reported by the normal feed-health machinery; empty emergency feeds can be quiet.
 
-Not yet described here (they arrive with later phases): TriMet transit (`TRIMET_*` settings) and the
-Portland-specific radio and geocoding vocabulary. The reviewed ODOT, ODIN and ODF implementations live in `adapters/`; the shared registry
-selects them at startup. Compatibility imports retain the original poller module names.
-Only fixed, reviewed imports execute Python; manifest values and private pack directories
-cannot select executable modules. TriMet extraction remains a roadmap step.
+Reviewed ODOT, ODIN, ODF and transit source configurations live in `adapters/`; the shared registry selects them at startup. Fixed reviewed imports execute Python; manifests and private packs cannot select executable modules. The common GTFS engine clips route shapes and filters measured vehicle positions to the monitoring bounds. Schedules describe the published network, not confirmed current service.
 
-Select Oregon and Washington together for border monitoring. Their feeds are combined by URL and
-shared cameras are deduplicated. Provider coverage uses the monitoring bounds; selecting another
-pack does not change the map center. TriMet remains configured separately until its contract is defined.
+Select Oregon and Washington together for border monitoring. Selecting packs does not change the map center. TriMet requires its official developer AppID; `TRIMET_GTFS_ENABLED=false` remains an explicit disable, and `TRIMET_ROUTE_TYPES` selects modes (default `0,1,2,3`, including buses). Keep keys in the operator environment. Portland-specific radio/geocoding terminology remains a separate roadmap item.

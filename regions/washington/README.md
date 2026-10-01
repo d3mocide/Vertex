@@ -20,7 +20,7 @@ A failed source retains its own last snapshot until expiry and cannot overwrite 
 The pack also subscribes to the shared FlashAlert Emergency Newswire. This is a regional subscription,
 not a Washington-only feed; selecting both packs subscribes once. Operator feed settings take precedence.
 
-Washington outages, transit, road-weather stations, message signs and corridor flow are
+Washington outages, road-weather stations, message signs and corridor flow are
 not included yet. Oregon retains those contracts where provided. Pack changes require a poller restart;
 the admin Region page reports when the saved selection has not been applied.
 
@@ -53,3 +53,9 @@ permission for independent API access. No dashboard session, token or referrer w
 is used. An authorized integration endpoint and reuse terms are needed before adding it.
 The dashboard participant list also excludes Clark Public Utilities, so even access to this
 source would not establish complete Vancouver-area outage coverage.
+
+## Transit
+
+The shared GTFS engine supports Sound Transit's official agency-specific rail schedule and OneBusAway VehiclePositions endpoint. `SOUNDTRANSIT_API_KEY` must be an authorized OneBusAway developer key; the WSDOT traffic key does not unlock transit. Activation requires selected Washington coverage intersecting the Seattle-area service bounds and the key. This source is the agency rail subset, not every Puget Sound bus operator. Live access remains unverified until an authorized key is supplied.
+
+C-TRAN is cataloged for border-area coverage but disabled with `access_unverified`. Its GTFS documentation returned access restrictions during research; no scraping, session workaround or unverified endpoint is used. Add it only after official access and reuse terms are confirmed. Both transit sources carry independent capability and freshness notices.

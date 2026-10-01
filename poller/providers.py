@@ -31,6 +31,10 @@ def build_pollers(plan):
     from pollers.wadnr_fire_danger import WadnrFireDangerPoller
     factories = {"odot-tripcheck": traffic.TrafficPoller, "oregon-odin": utilities.UtilityPoller,
                  "odf-fire-danger": odf_fire_danger.OdfFireDangerPoller, "wsdot-travel": WsdotPoller, "wadnr-fire-danger": WadnrFireDangerPoller}
+    from pollers.gtfs_rt import GtfsRtPoller
+    from transit_sources import SOURCES
+    for pid in SOURCES:
+        factories[pid] = lambda pid=pid: GtfsRtPoller(pid)
     return [factories[pid]() for pid, p in plan.items() if not p["reason"] and p["contracts"]]
 
 
@@ -40,6 +44,18 @@ async def start_providers(pool, settings, redis):
     plan, errors, choice = await resolve_startup(pool, settings)
     configure(plan)
     await reconcile(redis, set_feed)
+    from transit_sources import SOURCES
+    for pid, source in SOURCES.items():
+        if pid in plan and not plan[pid]["reason"]:
+            continue
+        key = 'transit:entities:' + source['name']
+        for eid in await redis.smembers(key):
+            eid = eid.decode() if isinstance(eid, bytes) else eid
+            await redis.delete('entity:' + eid)
+            await redis.publish('civic:updates', json.dumps({'type': 'entity_remove', 'data': {'entity_id': eid}}))
+        await redis.delete(key)
+    # The legacy wrapper heartbeat is no longer a collector.
+    await redis.hdel('metrics:poller_heartbeats', 'gtfs_rt')
     await redis.hset("region:poller", "packs_signature", selection_signature(choice) if choice is not None else "")
     await redis.set("region:providers", json.dumps({"providers": plan, "errors": errors}))
     for pid, provider in plan.items():

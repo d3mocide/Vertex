@@ -35,7 +35,7 @@ function entry(col: number, row: number) {
 export function createAtlasIcons(): IconAtlasResult {
   const canvas = document.createElement('canvas')
   canvas.width  = CELL * 4   // 256
-  canvas.height = CELL * 5   // 320 (row 3 train…, row 4 dispatch incidents)
+  canvas.height = CELL * 6   // 320 (row 3 train…, row 4 dispatch incidents)
   const ctx = canvas.getContext('2d')!
 
   const W = '#ffffff'
@@ -288,6 +288,18 @@ export function createAtlasIcons(): IconAtlasResult {
     ctx.fill()
   }
 
+  // Bus silhouette: front windshield and wheels, separate from the rail pill.
+  {
+    const [ox, oy] = cellOrigin(0, 5)
+    ctx.fillStyle = W
+    ctx.fillRect(ox + 18, oy + 10, 28, 40)
+    ctx.fillRect(ox + 17, oy + 47, 7, 9)
+    ctx.fillRect(ox + 40, oy + 47, 7, 9)
+    ctx.globalCompositeOperation = 'destination-out'
+    ctx.fillRect(ox + 22, oy + 15, 20, 13)
+    ctx.globalCompositeOperation = 'source-over'
+  }
+
   // ─── Row 3, Col 0 · TRAIN — pill (rounded rectangle) ────────────────────────
   // Abstract pill: long axis = direction-of-travel, rotates with GTFS-RT bearing.
   // Design guide atlas-train: rect x=11 y=6 w=10 h=20 rx=5 ry=5 (32-grid ×2).
@@ -435,6 +447,7 @@ export function createAtlasIcons(): IconAtlasResult {
       halo:       entry(2, 2),
       tak_client: entry(3, 2),
       train:      entry(0, 3),
+      bus:        entry(0, 5),
       rf_sensor:  entry(1, 3),
       dispatch_life:    entry(2, 3),
       dispatch_fire:    entry(3, 3),

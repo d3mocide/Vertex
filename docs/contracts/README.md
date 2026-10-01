@@ -24,6 +24,8 @@ These are **v0** specs, reverse-engineered from what the poller publishes and th
 | `traffic.corridors` | `traffic:corridors`, `traffic:flow` | ODOT TripCheck | [schema](schemas/traffic.corridors.schema.json) |
 | `roadwx.stations` | `weather:rwis` | ODOT TripCheck | [schema](schemas/roadwx.stations.schema.json) |
 | `outages.areas` | `utility:outages`, `utility:oregon` | Oregon ODIN | [schema](schemas/outages.areas.schema.json) |
+| `transit.vehicles` | `transit:vehicles` | Shared GTFS engine | [schema](schemas/transit.vehicles.schema.json) |
+| `transit.routes` | `transit:routes` | Shared GTFS engine | [schema](schemas/transit.routes.schema.json) |
 | `fire.danger` | `fire:danger` | ODF fire danger | [schema](schemas/fire.danger.schema.json) |
 
 `GET /api/v1/capabilities` reports, for each of these, whether a provider applies to your region and how fresh its data is.
@@ -108,3 +110,26 @@ A GeoJSON FeatureCollection of danger zones, with top-level `fetched_at` and `ne
 2. Add the contract to `backend/capabilities.py` so `/api/v1/capabilities` reports it.
 3. Check a real payload validates against the schema.
 4. Update the frontend types and consumers, and note the change in `TASK_LOG.md`.
+
+## Transit contracts
+
+`GET /api/v1/transit/vehicles` returns the merged, locally filtered measured bus/train
+snapshot. Entity IDs are feed-prefixed; legacy TriMet vehicle IDs remain stable.
+Coordinates and speed/heading come from vehicle positions, never schedule estimates.
+Speed is knots in the entity contract; bus details convert to mph for display.
+`position_ts` is null and `position_stale` true when measurement time is absent;
+`identity.measurement_time_known` makes that uncertainty explicit. Both known vehicle
+fixes and feed timestamps have a 90-second freshness limit, with 30 seconds allowed
+for publisher clock skew. A successful full empty snapshot clears its own agency's
+vehicles; failed requests retain last-known data until the 120-second live TTL.
+
+`GET /api/v1/transit/routes` returns combined route MultiLineStrings clipped to the
+monitoring bbox, with feed-prefixed feature IDs, agency/provider attribution and raw
+route IDs for realtime joins. It describes the scheduled network, not current service
+or vehicle locations. Stops identify relevant routes when shapes are absent; a route
+without shapes has no invented line geometry. Calendar and arrival contracts are future
+work. `GET /api/v1/rail/gtfs-shapes` remains a compatibility alias for rail geometry only.
+
+Static indexes refresh daily and are cached across poller restarts. Source-specific
+metadata preserves independent ages when another agency refreshes the merged feed.
+Fixtures use synthetic identifiers and the generic example location.

@@ -39,8 +39,10 @@ def region(ids):
 def test_both_shipped_packs_run_in_border_area():
     plan, errors = provider_plan(["oregon", "washington"], installed(), SETTINGS, BORDER)
     assert errors == {} and set(plan) == set(PROVIDERS)
-    assert all(p["reason"] is None for p in plan.values())
-    assert provider_plan(["oregon"], installed(), SETTINGS, BORDER)[0].keys() == PROVIDERS.keys() - {"wsdot-travel", "wadnr-fire-danger"}
+    assert all(p["reason"] is None for pid, p in plan.items() if pid not in {"trimet-transit", "ctran-transit", "soundtransit-transit"})
+    assert plan["ctran-transit"]["reason"] == "access_unverified"
+    assert plan["soundtransit-transit"]["reason"] == "outside_coverage"
+    assert provider_plan(["oregon"], installed(), SETTINGS, BORDER)[0].keys() == PROVIDERS.keys() - {"wsdot-travel", "wadnr-fire-danger", "ctran-transit", "soundtransit-transit"}
 
 
 def test_washington_runs_even_if_center_is_south_of_its_coverage():

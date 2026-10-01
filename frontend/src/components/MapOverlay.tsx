@@ -64,7 +64,7 @@ export function MapOverlay({ map }: Props) {
   const camerasRef        = useRef<TrafficCamera[]>([])
   const selectedCamRef    = useRef<string | null>(null)
   const activeTabRef      = useRef<string>('safety')
-  const entityFilterRef   = useRef<EntityTypeFilter>({ aircraft: true, adsbLocal: true, adsbSupplement: true, vessel: true, mesh_node: true, aprs: true, fire_incident: true, satellite: true, rf_sensor: true, train: true })
+  const entityFilterRef   = useRef<EntityTypeFilter>({ aircraft: true, adsbLocal: true, adsbSupplement: true, vessel: true, mesh_node: true, aprs: true, fire_incident: true, satellite: true, rf_sensor: true, train: true, bus: true })
   const searchQueryRef    = useRef<string>('')
   const altRangeRef       = useRef<RangeFilter>([0, 60_000])
   const speedRangeRef     = useRef<RangeFilter>([0, 600])
@@ -611,6 +611,7 @@ export function MapOverlay({ map }: Props) {
           if (track.type === 'ground' && !ef.aprs) continue
           if (track.type === 'hazard' && !ef.fire_incident) continue
           if (track.type === 'rail' && !ef.train) continue
+          if (track.type === 'bus' && !ef.bus) continue
 
           if (q) {
             const name = (track.callsign ?? uid).toLowerCase()
@@ -681,7 +682,7 @@ export function MapOverlay({ map }: Props) {
         // Rail feeds can have coarse/irregular heading updates; extrapolation causes
         // visible drift. Keep trains on last reported (snapped) position until the
         // next real update arrives.
-        if (replayModeRef.current || snappedBase.type === 'rail') {
+        if (replayModeRef.current || snappedBase.type === 'rail' || snappedBase.type === 'bus') {
           pvbTracks[uid] = snappedBase
         } else {
           const [lon, lat] = applyPVB(pvb, snappedBase, nowMs)

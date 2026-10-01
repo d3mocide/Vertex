@@ -17,6 +17,9 @@ class EntitySchema(BaseModel):
     speed: Optional[float] = None
     status: Optional[str] = None
     last_seen: Optional[datetime] = None
+    position_ts: Optional[float] = None
+    position_age_s: Optional[float] = None
+    position_stale: Optional[bool] = None
 
     class Config:
         from_attributes = True

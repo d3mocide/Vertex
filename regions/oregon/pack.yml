@@ -12,6 +12,10 @@ covers:
   bbox: [-124.7, 41.9, -116.4, 46.3]   # min_lon, min_lat, max_lon, max_lat
 
 requires_keys:
+  - name: TRIMET_APP_ID
+    where: https://developer.trimet.org/
+    free: true
+    unlocks: [transit.routes, transit.vehicles]
   - name: ODOT_API_KEY
     where: https://developer.odot.state.or.us
     free: true
@@ -47,3 +51,9 @@ providers:
   - id: odf-fire-danger
     kind: builtin
     provides: [fire.danger]
+  - id: trimet-transit
+    kind: builtin
+    provides: [transit.routes, transit.vehicles]
+  - id: cherriots-transit
+    kind: builtin
+    provides: [transit.routes]

@@ -43,7 +43,7 @@ function entityIconSize(selectedUid: string | null, track: Track, zoom: number):
   if (track.type === 'ground') {
     return track.uid === selectedUid ? 30 : 24
   }
-  if (track.type === 'rail') {
+  if ((track.type === 'rail' || track.type === 'bus')) {
     return track.uid === selectedUid ? 36 : 28
   }
   return track.uid === selectedUid ? 40 : 32
@@ -107,6 +107,7 @@ export function buildEntityLayers(
     : t.type === 'ground' ? 'aprs'
     : t.type === 'hazard' ? 'fire'
     : t.type === 'tak'    ? 'tak_client'
+    : t.type === 'bus'    ? 'bus'
     : t.type === 'rail'   ? 'train'
     : t.type === 'sensor' ? 'rf_sensor'
     : 'aircraft'
@@ -120,7 +121,7 @@ export function buildEntityLayers(
       const icon = baseIcon(t)
       if (zoom >= 9) return icon
       if (zoom >= 6) {
-        if (t.type === 'air' || t.type === 'sea' || t.type === 'tak' || t.type === 'rail') return icon
+        if (t.type === 'air' || t.type === 'sea' || t.type === 'tak' || t.type === 'rail' || t.type === 'bus') return icon
         return 'dot'
       }
       return 'dot'
@@ -149,7 +150,7 @@ export function buildEntityLayers(
       if (zoom >= 9) return icon
       if (zoom >= 6) {
         // Keep ADSB (air), AIS (sea), TAK clients, and trains as full icons at mid zoom.
-        if (t.type === 'air' || t.type === 'sea' || t.type === 'tak' || t.type === 'rail') return icon
+        if (t.type === 'air' || t.type === 'sea' || t.type === 'tak' || t.type === 'rail' || t.type === 'bus') return icon
         return 'dot'
       }
       return 'dot'
@@ -160,7 +161,7 @@ export function buildEntityLayers(
       if (t.type === 'ground')  return aprsColor(t.stationType)
       if (t.type === 'tak')     return TAK_ICON_COLOR
       if (t.type === 'hazard')  return FIRE_ICON_COLOR
-      if (t.type === 'rail')    return tagColorMap?.[t.uid] ?? TRAIN_ICON_COLOR
+      if (t.type === 'rail' || t.type === 'bus')    return tagColorMap?.[t.uid] ?? TRAIN_ICON_COLOR
       if (t.type === 'sensor')  return RF_SENSOR_COLOR
       // Lower-fidelity aircraft positions render dimmed so it is visually
       // clear the track is not a live local fix: OpenSky supplements (coarse,

@@ -2,7 +2,7 @@ import type { OverviewProps } from './AircraftOverview'
 
 const ROUTE_TYPES: Record<number, string> = {
   0: 'Tram / Streetcar',
-  1: 'Light Rail',
+  1: 'Subway / Metro',
   2: 'Rail',
   3: 'Bus',
   4: 'Ferry',
@@ -31,7 +31,7 @@ function statusBadge(code: string | undefined | null) {
   const label = AMTRAK_STATUS[key] ?? code
   const cls   = AMTRAK_STATUS_COLOR[key] ?? 'text-gray-400 border-white/20 bg-white/5'
   return (
-    <span className={`text-[11px] font-mono border px-1.5 py-0.5 rounded-sm ${cls}`}>
+    <span className={`text-[11px] font-mono border px-1.5 py-0.5 ${cls}`}>
       {label}
     </span>
   )
@@ -64,19 +64,21 @@ export function TrainOverview({ entity, getIdentity }: OverviewProps) {
 
   return (
     <>
+      {entity.source.startsWith('gtfs_') && entity.identity?.measurement_time_known === false &&
+        <p className="text-[12px] text-amber-gold mb-2">Publisher position time is unknown. Location may be out of date.</p>}
       {/* Speed / Heading stat tiles */}
       <div className="grid grid-cols-2 gap-2">
-        <div className="bg-white/5 border border-white/10 p-2 rounded-sm">
+        <div className="bg-white/5 border border-white/10 p-2">
           <div className="flex items-center gap-1.5 mb-1 text-on-surface-variant">
             <span className="ms text-[12px]">speed</span>
             <span className="label-caps text-[11px]">Speed</span>
           </div>
           <div className="font-mono text-amber-gold text-[14px] truncate [text-shadow:0_2px_4px_rgba(0,0,0,0.8),0_0_2px_rgba(0,0,0,1)]">
-            {entity.speed != null ? `${Math.round(entity.speed)} kts` : '--'}
+            {entity.speed != null ? entity.entity_type === 'bus' ? `${Math.round(entity.speed * 1.15078)} mph` : `${Math.round(entity.speed)} kts` : '--'}
           </div>
         </div>
 
-        <div className="bg-white/5 border border-white/10 p-2 rounded-sm">
+        <div className="bg-white/5 border border-white/10 p-2">
           <div className="flex items-center gap-1.5 mb-1 text-on-surface-variant">
             <span className="ms text-[12px]">explore</span>
             <span className="label-caps text-[11px]">Heading</span>

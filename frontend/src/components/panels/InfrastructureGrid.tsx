@@ -6,6 +6,7 @@ import { IncidentsNow } from './infrastructure/IncidentsNow'
 import { PlannedWork } from './infrastructure/PlannedWork'
 import { RoadStatusCard } from './infrastructure/RoadStatusCard'
 import { MessageSignsCard } from './infrastructure/MessageSignsCard'
+import { TransitCard } from './infrastructure/TransitCard'
 import { PowerCard } from './infrastructure/PowerCard'
 import { PageHeader } from '../common/Page'
 import { useCapabilities, useContractAvailable } from '../../hooks/useCapabilities'
@@ -211,6 +212,7 @@ export function InfrastructureGrid() {
             {hasCorridors && <RoadStatusCard />}
             {hasSigns && <MessageSignsCard />}
             {hasOutages && <PowerCard />}
+            <TransitCard />
           </div>
         </div>}
 

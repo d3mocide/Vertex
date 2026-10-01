@@ -158,7 +158,7 @@ export interface Track {
   altMeters:     number        // metres MSL (0 for vessels)
   speedMs:       number        // m/s
   courseTrue:    number        // 0–360°, true north
-  type:          'air' | 'sea' | 'ground' | 'hazard' | 'tak' | 'rail' | 'sensor'
+  type:          'air' | 'sea' | 'ground' | 'hazard' | 'tak' | 'rail' | 'bus' | 'sensor'
   callsign?:     string
   category?:     string
   role?:         string        // aircraft role (medical, rescue, law_enforcement, …)
@@ -364,6 +364,7 @@ export type EntityTypeFilter = {
   satellite: boolean
   rf_sensor: boolean
   train: boolean
+  bus: boolean
 }
 
 // [min, max] — altitude in feet, speed in knots

@@ -1,0 +1,21 @@
+[
+  {
+    "entity_id": "gtfs:example:bus-1",
+    "entity_type": "bus",
+    "source": "gtfs_example",
+    "lat": 45.3842,
+    "lon": -122.7635,
+    "last_seen": "2026-10-01T12:00:00+00:00",
+    "position_ts": 1790856000,
+    "position_age_s": 0,
+    "position_stale": false,
+    "identity": {
+      "feed": "example",
+      "feed_label": "Example Transit",
+      "vehicle_id": "bus-1",
+      "route_id": "route-1",
+      "route_type": 3,
+      "measurement_time_known": true
+    }
+  }
+]

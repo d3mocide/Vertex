@@ -66,6 +66,7 @@ export interface CivicStore {
   railTracksVisible:        boolean
 
   // Actions — data
+  removeEntity: (id: string) => void
   setEntities:      (entities: Entity[]) => void
   setAircraftSnapshot: (entities: Entity[]) => void
   upsertEntity:     (entity: Entity) => void
@@ -437,7 +438,7 @@ export const useCivicStore = create<CivicStore>()(
   settingsOpen:     false,
   helpOpen:         false,
   debugInsets:      false,
-  entityFilter:     { aircraft: true, adsbLocal: true, adsbSupplement: true, vessel: true, mesh_node: true, aprs: true, fire_incident: true, satellite: true, rf_sensor: true, train: true },
+  entityFilter:     { aircraft: true, adsbLocal: true, adsbSupplement: true, vessel: true, mesh_node: true, aprs: true, fire_incident: true, satellite: true, rf_sensor: true, train: true, bus: true },
   entitySearchQuery: '',
   entityAltRange:   ALT_RANGE_DEFAULT,
   entitySpeedRange: SPD_RANGE_DEFAULT,
@@ -455,6 +456,12 @@ export const useCivicStore = create<CivicStore>()(
   replaySpeed:     1,
 
   // Data actions
+  removeEntity: (id) => set((s) => {
+    const entities = { ...s.entities }, tracks = { ...s.tracks }
+    const type = entities[id]?.entity_type
+    delete entities[id]; delete tracks[id]
+    return { entities, tracks, entityTypeVersion: bumpTypes(s.entityTypeVersion, type ? [type] : []) }
+  }),
   setEntities: (list) => {
     const entities = Object.fromEntries(list.map((e) => [e.entity_id, e]))
     const tracks: Record<string, Track> = {}
@@ -547,10 +554,11 @@ export const useCivicStore = create<CivicStore>()(
         // last_seen is NOAA's observation time; many gauges report hourly or less.
         stream_gauge:  21_600_000,   // 6 h
         tak_client:     300_000,   // 5 min  — TAK SA ping is every 30 s–2 min
+        bus:            120_000,
         train:          600_000,   // 10 min — Amtrak polls every 60 s
       }
       for (const [id, e] of Object.entries(next)) {
-        let limit = STALE_MS[e.entity_type]
+        let limit = e.source.startsWith('gtfs_') ? 120_000 : STALE_MS[e.entity_type]
         if (e.entity_type === 'aircraft' && isSupplementSource(e.source)) {
           limit = 600_000 // 10 min threshold for OpenSky (polls every 4 min)
         }

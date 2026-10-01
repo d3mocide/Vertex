@@ -1,4 +1,3 @@
-import asyncio
 import json
 import logging
 import time
@@ -15,9 +14,6 @@ _REDIS_KEY = "cache:rail:tracks"
 
 # In-process fallback so a warm backend doesn't hit Redis on every request
 _mem: dict = {"data": None, "ts": 0.0}
-
-# In-process cache for poller-written GTFS route shapes
-_gtfs_mem: dict = {"data": None, "ts": 0.0}
 
 
 @router.get("/rail/tracks")
@@ -45,24 +41,22 @@ async def get_rail_tracks():
     return {"type": "FeatureCollection", "features": []}
 
 
+@router.get("/transit/routes")
+async def get_transit_routes():
+    raw = await get_redis().get("feed:transit:routes")
+    return json.loads(raw) if raw else {"type": "FeatureCollection", "features": []}
+
+
+@router.get("/transit/vehicles")
+async def get_transit_vehicles():
+    raw = await get_redis().get("feed:transit:vehicles")
+    return json.loads(raw) if raw else []
+
+
 @router.get("/rail/gtfs-shapes")
 async def get_gtfs_shapes():
-    """TriMet GTFS route shapes as GeoJSON (written by poller into Redis, 24-hour TTL)."""
-    redis_key = "cache:gtfs:trimet:shapes"
-    now = time.monotonic()
-
-    if _gtfs_mem["data"] is not None and (now - _gtfs_mem["ts"]) < _CACHE_TTL_S:
-        return _gtfs_mem["data"]
-
-    try:
-        r = get_redis()
-        cached_raw = await r.get(redis_key)
-        if cached_raw:
-            geojson = json.loads(cached_raw)
-            _gtfs_mem["data"] = geojson
-            _gtfs_mem["ts"] = now
-            return geojson
-    except Exception as exc:
-        logger.warning("[rail] Redis GTFS shapes read failed: %s", exc)
-
-    return {"type": "FeatureCollection", "features": []}
+    """Selected transit sources' rail shapes; bus routes never become rail snapping paths."""
+    collection = await get_transit_routes()
+    return {**collection, "features": [f for f in collection["features"]
+            if f.get("properties", {}).get("route_type") not in {3, 800}
+            and not 700 <= f.get("properties", {}).get("route_type", -1) <= 799]}
