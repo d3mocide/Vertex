@@ -23,6 +23,8 @@ import { extractRailSegments, snapPointToRail, type RailSegment } from '../layer
 import { fetchRailGeoJSON } from '../layers/railData'
 import { applyPVB, type PVBState } from '../layers/pvb'
 import { smoothTransitPosition, type TransitMotionState } from '../layers/transitMotion'
+import { projectTransit, type TransitProjectionState } from '../layers/transitProjection'
+import { buildTransitRouteLayers, type TransitRoute } from '../layers/transitRouteLayer'
 import { DEFAULT_CENTER, OBSERVATION_RANGE_KM, API_BASE } from '../config'
 import { authHeaders } from '../auth'
 import type { LightningStrike } from '../store'
@@ -62,6 +64,8 @@ export function MapOverlay({ map }: Props) {
   const tracksRef         = useRef<Record<string, Track>>({})
   const pvbRef            = useRef<Record<string, PVBState>>({})
   const transitMotionRef  = useRef<Record<string, TransitMotionState>>({})
+  const transitProjectionRef = useRef<Record<string, TransitProjectionState>>({})
+  const selectedTransitRouteRef = useRef<TransitRoute | null>(null)
   const selectedRef       = useRef<string | null>(null)
   const camerasRef        = useRef<TrafficCamera[]>([])
   const selectedCamRef    = useRef<string | null>(null)
@@ -150,6 +154,30 @@ export function MapOverlay({ map }: Props) {
   const camerasVisibleRef = useRef(false)
   useEffect(() => { camerasVisibleRef.current = camerasVisible  }, [camerasVisible])
   useEffect(() => { activeTabRef.current = activeTab            }, [activeTab])
+  const selectedVehicle = selectedId ? entities[selectedId] : undefined
+  const selectedFeed = selectedVehicle?.identity?.feed
+  const selectedShape = selectedVehicle?.identity?.shape_id
+  useEffect(() => {
+    let cancelled = false
+    selectedTransitRouteRef.current = null
+    if (typeof selectedFeed === 'string' && typeof selectedShape === 'string' && selectedShape) {
+      const load = async () => {
+        try {
+          const url = `${API_BASE}/transit/trip-shape/${encodeURIComponent(selectedFeed)}/${encodeURIComponent(selectedShape)}`
+          const response = await fetch(url, { headers: authHeaders() })
+          if (!response.ok) return
+          const geometry = await response.json() as { type?: string; coordinates?: unknown }
+          if (cancelled || geometry.type !== 'MultiLineString' || !Array.isArray(geometry.coordinates)) return
+          const lines = (geometry.coordinates as unknown[]).filter((line): line is [number, number][] =>
+            Array.isArray(line) && line.length >= 2 && line.every(p => Array.isArray(p) && p.length === 2
+              && p.every(v => typeof v === 'number' && Number.isFinite(v))))
+          selectedTransitRouteRef.current = { type: selectedVehicle?.entity_type === 'bus' ? 'bus' : 'train', lines }
+        } catch { /* source shape unavailable */ }
+      }
+      load()
+    }
+    return () => { cancelled = true; selectedTransitRouteRef.current = null }
+  }, [selectedId, selectedFeed, selectedShape])
   const geofencesVisibleRef = useRef(true)
   useEffect(() => { geofencesVisibleRef.current = geofencesVisible }, [geofencesVisible])
   const trailsVisibleRef = useRef(true)
@@ -310,6 +338,7 @@ export function MapOverlay({ map }: Props) {
           }
           const isAir    = t.type === 'air'
           const isRail   = t.type === 'rail'
+          const isBus    = t.type === 'bus'
           const isGround = t.type === 'ground'
           const isHazard = t.type === 'hazard'
           const ALT_M_TO_FT = 3.28084
@@ -317,29 +346,33 @@ export function MapOverlay({ map }: Props) {
 
           const tooltipIcon = isAir ? 'flight' 
             : isRail ? 'directions_railway' 
+            : isBus ? 'directions_bus'
             : isGround ? 'sensors' 
             : isHazard ? 'local_fire_department' 
             : 'sailing'
 
           const tooltipColor = isAir ? 'text-blue-400' 
             : isRail ? 'text-amber-400' 
+            : isBus ? 'text-transit-bus'
             : isGround ? 'text-cyan-400' 
             : isHazard ? 'text-red-400' 
             : 'text-teal-400'
 
           const sourceLabel = isAir ? 'ADS-B' 
             : isRail ? escHtml(t.source.toUpperCase()) 
+            : isBus ? escHtml(t.source.toUpperCase())
             : isGround ? 'APRS' 
             : isHazard ? 'INTEL' 
             : 'AIS'
 
           const statusLabel = isAir ? 'Airborne' 
             : isRail ? 'En Route' 
+            : isBus ? 'On Route'
             : isGround ? 'Station' 
             : isHazard ? 'Active' 
             : 'Underway'
           html = `
-            <div class="p-2 min-w-[160px] bg-slate-900/95 border border-slate-700 rounded-lg shadow-2xl backdrop-blur-md">
+            <div class="p-2 min-w-[160px] bg-slate-900/95 border border-slate-700 shadow-2xl backdrop-blur-md">
               <div class="flex items-center justify-between mb-2 border-b border-slate-700/50 pb-1.5">
                 <div class="flex items-center gap-2">
                   <span class="material-symbols-outlined text-[16px] ${tooltipColor}">${tooltipIcon}</span>
@@ -349,8 +382,10 @@ export function MapOverlay({ map }: Props) {
               </div>
               <div class="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-[11px] text-slate-400 font-mono">
                  ${isAir ? `<span>ALT:</span><span class="text-blue-200 text-right">${Math.round(t.altMeters * ALT_M_TO_FT).toLocaleString()} FT</span>` : ''}
-                 <span>SPD:</span><span class="text-white text-right">${Math.round(t.speedMs * MS_TO_KT)} KTS</span>
+                 <span>SPD:</span><span class="text-white text-right">${t.transitSpeedInferred ? '~' : ''}${isBus ? `${Math.round(t.speedMs * 2.23694)} MPH` : `${Math.round(t.speedMs * MS_TO_KT)} KTS`}</span>
                  <span>HDG:</span><span class="text-white text-right">${Math.round(t.courseTrue).toString().padStart(3, '0')}°</span>
+                 ${t.transitDestination ? `<span>DEST:</span><span class="text-white text-right truncate">${escHtml(t.transitDestination.slice(0, 80))}</span>` : ''}
+                 ${t.positionDr && t.transitMotionPath ? '<span class="col-span-2 text-transit-bus">Projected along published route</span>' : ''}
                  ${t.category ? `<span>CAT:</span><span class="text-amber-400 text-right uppercase">${escHtml(t.category)}</span>` : ''}
               </div>
               <div class="mt-2 pt-1 border-t border-white/5 text-[11px] text-slate-500 flex justify-between uppercase">
@@ -534,6 +569,7 @@ export function MapOverlay({ map }: Props) {
       lastLayerBuild = 0
       pvbRef.current = {}
       transitMotionRef.current = {}
+      transitProjectionRef.current = {}
     }
     document.addEventListener('visibilitychange', onVisibility)
 
@@ -582,7 +618,10 @@ export function MapOverlay({ map }: Props) {
       let tPhase = tFrame
 
       const pvb = pvbRef.current
-      if (replayModeRef.current) transitMotionRef.current = {}
+      if (replayModeRef.current) {
+        transitMotionRef.current = {}
+        transitProjectionRef.current = {}
+      }
       const sel = selectedRef.current
       const nowMs = Date.now()
 
@@ -649,7 +688,7 @@ export function MapOverlay({ map }: Props) {
         // Rail snapping is expensive against large OSM segment sets. Cache snap
         // results per raw report and only recompute when the server position updates.
         let snappedBase = track
-        if (track.type === 'rail' && railSegments.length > 0) {
+        if (track.type === 'rail' && !track.transitMotionPath && railSegments.length > 0) {
           const cached = railSnapCache[uid]
           if (
             cached &&
@@ -683,15 +722,23 @@ export function MapOverlay({ map }: Props) {
           }
         }
 
-        // Transit reports can arrive many seconds apart. Blend briefly between
-        // actual fixes, but never extrapolate beyond the latest position.
+        // Follow the published trip shape between recent measured fixes; fall
+        // back to a short fix-to-fix transition when the trip has no safe match.
         if (!replayModeRef.current && (snappedBase.type === 'rail' || snappedBase.type === 'bus')
             && snappedBase.source.startsWith('gtfs_')) {
-          const motion = smoothTransitPosition(snappedBase, transitMotionRef.current[uid], now)
-          transitMotionRef.current[uid] = motion.state
-          pvbTracks[uid] = motion.lon === snappedBase.lon && motion.lat === snappedBase.lat
-            && motion.courseTrue === snappedBase.courseTrue
-            ? snappedBase : { ...snappedBase, lon: motion.lon, lat: motion.lat, courseTrue: motion.courseTrue }
+          const projected = projectTransit(snappedBase, nowMs, transitProjectionRef.current[uid])
+          if (projected) {
+            transitProjectionRef.current[uid] = projected.state
+            delete transitMotionRef.current[uid]
+            pvbTracks[uid] = projected.track
+          } else {
+            delete transitProjectionRef.current[uid]
+            const motion = smoothTransitPosition(snappedBase, transitMotionRef.current[uid], now)
+            transitMotionRef.current[uid] = motion.state
+            pvbTracks[uid] = motion.lon === snappedBase.lon && motion.lat === snappedBase.lat
+              && motion.courseTrue === snappedBase.courseTrue
+              ? snappedBase : { ...snappedBase, lon: motion.lon, lat: motion.lat, courseTrue: motion.courseTrue }
+          }
         } else if (replayModeRef.current || snappedBase.type === 'rail' || snappedBase.type === 'bus') {
           pvbTracks[uid] = snappedBase
         } else {
@@ -713,6 +760,9 @@ export function MapOverlay({ map }: Props) {
         }
         for (const uid of Object.keys(transitMotionRef.current)) {
           if (!(uid in allTracks)) delete transitMotionRef.current[uid]
+        }
+        for (const uid of Object.keys(transitProjectionRef.current)) {
+          if (!(uid in allTracks)) delete transitProjectionRef.current[uid]
         }
       }
 
@@ -761,6 +811,8 @@ export function MapOverlay({ map }: Props) {
           ...memoGroup('trailSelected', [
             tracksRef.current, sel, trailsVisibleRef.current, replayModeRef.current ? replayTsRef.current : 0,
           ], () => buildTrailLayers(rawTracks, sel, trailsVisibleRef.current, 'selected')),
+          ...memoGroup('selectedTransitRoute', [selectedTransitRouteRef.current, sel, replayModeRef.current],
+            () => replayModeRef.current ? [] : buildTransitRouteLayers(selectedTransitRouteRef.current)),
           ...memoGroup('dispatch', [dispatchRef.current, dispatchVisibleRef.current, minuteBucket, zoom >= 8],
             () => buildDispatchLayers(dispatchRef.current, dispatchVisibleRef.current, nowMs, zoom)),
           ...timed('entities', () => buildEntityLayers(pvbTracks, sel, cycleRef.current, zoom, missionTagsRef.current)),
@@ -806,6 +858,7 @@ export function MapOverlay({ map }: Props) {
       deckRef.current = null
       pvbRef.current = {}
       transitMotionRef.current = {}
+      transitProjectionRef.current = {}
     }
   }, [map])
 

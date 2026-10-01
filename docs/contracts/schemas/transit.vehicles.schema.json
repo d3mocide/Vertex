@@ -85,6 +85,30 @@
           },
           "measurement_time_known": {
             "type": "boolean"
+          },
+          "speed_inferred": {
+            "type": "boolean"
+          },
+          "destination": {
+            "type": "string"
+          },
+          "shape_id": {
+            "type": "string"
+          },
+          "route_match_m": {
+            "type": "number",
+            "minimum": 0
+          },
+          "motion_path": {
+            "type": "array",
+            "minItems": 2,
+            "maxItems": 48,
+            "items": {
+              "type": "array",
+              "prefixItems": [{ "type": "number" }, { "type": "number" }],
+              "minItems": 2,
+              "maxItems": 2
+            }
           }
         }
       }

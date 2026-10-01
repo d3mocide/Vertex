@@ -2,7 +2,10 @@ import json
 import logging
 import time
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
+from redis.exceptions import ResponseError
+
+from provider_catalog import PROVIDERS
 
 from redis_bus import get_redis
 
@@ -51,6 +54,22 @@ async def get_transit_routes():
 async def get_transit_vehicles():
     raw = await get_redis().get("feed:transit:vehicles")
     return json.loads(raw) if raw else []
+
+
+@router.get("/transit/trip-shape/{feed}/{shape_id}")
+async def get_transit_trip_shape(feed: str, shape_id: str):
+    """The selected GTFS trip's published path, clipped to the monitoring area."""
+    if feed + "-transit" not in PROVIDERS or len(shape_id) > 128 or not shape_id:
+        raise HTTPException(status_code=404, detail="Trip shape unavailable")
+    try:
+        raw = await get_redis().hget("cache:transit:" + feed + ":paths", shape_id)
+    except ResponseError:
+        # During a rolling upgrade the previous cache may still be a string.
+        raise HTTPException(status_code=404, detail="Trip shape unavailable") from None
+    lines = json.loads(raw) if raw else None
+    if not lines:
+        raise HTTPException(status_code=404, detail="Trip shape unavailable")
+    return {"type": "MultiLineString", "coordinates": lines}
 
 
 @router.get("/rail/gtfs-shapes")

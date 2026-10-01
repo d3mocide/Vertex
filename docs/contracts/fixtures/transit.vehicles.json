@@ -5,6 +5,7 @@
     "source": "gtfs_example",
     "lat": 45.3842,
     "lon": -122.7635,
+    "speed": 12,
     "last_seen": "2026-10-01T12:00:00+00:00",
     "position_ts": 1790856000,
     "position_age_s": 0,
@@ -15,7 +16,12 @@
       "vehicle_id": "bus-1",
       "route_id": "route-1",
       "route_type": 3,
-      "measurement_time_known": true
+      "measurement_time_known": true,
+      "speed_inferred": true,
+      "destination": "Central Station",
+      "shape_id": "trip-shape-1",
+      "route_match_m": 8.5,
+      "motion_path": [[-122.7635, 45.3842], [-122.7629, 45.3842]]
     }
   }
 ]

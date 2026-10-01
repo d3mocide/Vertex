@@ -57,6 +57,7 @@ export function TrainOverview({ entity, getIdentity }: OverviewProps) {
   const routeType      = typeof routeTypeRaw === 'number' ? routeTypeRaw : null
   const tripId         = getIdentity('trip_id')
   const feedLabel      = getIdentity('feed_label')
+  const gtfsDestination = getIdentity('destination')
 
   const routeLabel = routeShortName
     ? `${routeShortName}${routeLongName ? ` — ${routeLongName}` : ''}`
@@ -66,6 +67,8 @@ export function TrainOverview({ entity, getIdentity }: OverviewProps) {
     <>
       {entity.source.startsWith('gtfs_') && entity.identity?.measurement_time_known === false &&
         <p className="text-[12px] text-amber-gold mb-2">Publisher position time is unknown. Location may be out of date.</p>}
+      {entity.source.startsWith('gtfs_') && Array.isArray(entity.identity?.motion_path) &&
+        <p className="text-[12px] text-on-surface-variant mb-2">Map marker may move along the published route between measured updates.</p>}
       {/* Speed / Heading stat tiles */}
       <div className="grid grid-cols-2 gap-2">
         <div className="bg-white/5 border border-white/10 p-2">
@@ -74,7 +77,7 @@ export function TrainOverview({ entity, getIdentity }: OverviewProps) {
             <span className="label-caps text-[11px]">Speed</span>
           </div>
           <div className="font-mono text-amber-gold text-[14px] truncate [text-shadow:0_2px_4px_rgba(0,0,0,0.8),0_0_2px_rgba(0,0,0,1)]">
-            {entity.speed != null ? entity.entity_type === 'bus' ? `${Math.round(entity.speed * 1.15078)} mph` : `${Math.round(entity.speed)} kts` : '--'}
+            {entity.speed != null ? `${entity.identity?.speed_inferred === true ? '~' : ''}${entity.entity_type === 'bus' ? `${Math.round(entity.speed * 1.15078)} mph` : `${Math.round(entity.speed)} kts`}` : '--'}
           </div>
         </div>
 
@@ -151,6 +154,7 @@ export function TrainOverview({ entity, getIdentity }: OverviewProps) {
                 {([
                   ['ID',     vehicleLabel],
                   ['Route',  routeLabel],
+                  ['Destination', gtfsDestination],
                   ['Type',   routeType != null ? (ROUTE_TYPES[routeType] ?? String(routeType)) : undefined],
                   ['Feed',   feedLabel],
                   ['Source', entity.source],

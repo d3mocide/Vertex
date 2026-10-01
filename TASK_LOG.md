@@ -5,6 +5,13 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 
 ---
 
+## 2026-10-01 — Trip destinations, route highlighting and bounded transit projection
+
+- Joined live GTFS vehicles to the matching static trip shape and destination. Empty trip headsigns resolve to the final scheduled stop; TriMet's live schedule leaves its trip headsign field empty. Missing publisher speed is inferred only from successive, plausible measured fixes and marked as estimated.
+- Selected vehicles light up their clipped published trip shape. Moving vehicles with a fresh position, compatible bearing and close shape match project their displayed marker along a short forward path for at most 25 seconds. New measured reports blend over two seconds; implausible jumps, stale fixes and unmatched shapes do not extrapolate. Source coordinates and observations remain measured.
+- Stored trip paths by shape in Redis so selection reads one shape. Added destination, estimated-speed and projection cues to transit details and tooltips; updated the vehicle contract, architecture notes and transit roadmap. Cherriots remains schedule-only and Sound Transit still needs its separate developer key.
+- Validation: backend 307 passed/1 skipped, poller 459 passed; frontend TypeScript and production build, development-server startup, Compose check, schema fixture and projection behavior passed. Live TriMet snapshot after refresh: 410 vehicles, 407 with destinations, 239 with inferred speed and 238 with safely matched forward paths. The selected-shape endpoint returned published geometry; frontend proxy health passed and anonymous access remained protected.
+
 ## 2026-09-30 — Resume Oregon packs: apply news and emergency feeds during setup
 
 - Completed the unfinished Oregon/template feed manifests and validation in `backend/packs.py`: RSS news, RSS/FlashAlert alerts, bounded feed lists, duplicate rejection, public-host checks and no embedded credentials.

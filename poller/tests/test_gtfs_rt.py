@@ -30,7 +30,7 @@ def archive(files):
 def fixture():
     return archive({
         'routes.txt': 'route_id,route_type,route_short_name,route_long_name\nr1,3,1,Example Bus\nr2,0,2,Example Tram\n',
-        'trips.txt': 'trip_id,route_id,shape_id\nt1,r1,s1\nt2,r2,s2\n',
+        'trips.txt': 'trip_id,route_id,shape_id,trip_headsign\nt1,r1,s1,Downtown\nt2,r2,s2,Campus\n',
         'shapes.txt': 'shape_id,shape_pt_lat,shape_pt_lon,shape_pt_sequence\ns1,45.3842,-124,1\ns1,45.3842,-121,2\n',
         'stops.txt': 'stop_id,stop_lat,stop_lon\nstop,45.3842,-122.7635\n',
         'stop_times.txt': 'trip_id,stop_id\nt2,stop\n',
@@ -48,13 +48,13 @@ def message():
 
 
 def normalize(m=None, source=SOURCE):
-    routes,trips,local,_=g.read_static(fixture(),BOX,{0,3},SOURCE)
-    return g.normalize_vehicles(m or message(),routes,trips,local,source,BOX,NOW)
+    routes,trips,local,_,paths=g.read_static(fixture(),BOX,{0,3},SOURCE)
+    return g.normalize_vehicles(m or message(),routes,trips,local,source,BOX,NOW,paths)
 
 
 def test_shapes_cross_area_without_vertices_inside_and_stops_supply_missing_shapes():
-    routes,trips,local,geo=g.read_static(fixture(),BOX,{0,3},SOURCE)
-    assert local=={'r1','r2'} and trips['t2']=='r2'
+    routes,trips,local,geo,paths=g.read_static(fixture(),BOX,{0,3},SOURCE)
+    assert local=={'r1','r2'} and trips['t2']['route_id']=='r2'
     line=geo['features'][0]['geometry']['coordinates'][0]
     assert line[0][0]==BOX[0] and line[-1][0]==BOX[2]
     assert geo['features'][0]['properties']['route_type']==3
@@ -65,6 +65,63 @@ def test_bus_and_train_are_distinct_and_zero_speed_heading_preserved():
     assert bus['entity_type']=='bus' and train['entity_type']=='train'
     assert bus['speed']==0 and bus['heading']==0 and bus['position_age_s']==10
     assert bus['entity_id']=='gtfs:example:same0'
+    assert bus['identity']['destination']=='Downtown'
+    assert bus['identity']['shape_id']=='s1'
+
+
+def test_motion_path_needs_matching_trip_shape_heading_and_measured_speed():
+    m=message()
+    m.entity[0].vehicle.position.speed=10
+    m.entity[0].vehicle.position.bearing=90
+    bus=normalize(m)[0]
+    path=bus['identity']['motion_path']
+    assert len(path)>=2 and path[0][0]<path[-1][0]
+    assert 0 <= bus['identity']['route_match_m'] < 45
+    m.entity[0].vehicle.position.bearing=270
+    assert 'motion_path' not in normalize(m)[0]['identity']
+    m.entity[0].vehicle.position.bearing=90
+    m.entity[0].vehicle.position.latitude+=0.01
+    assert 'motion_path' not in normalize(m)[0]['identity']
+    m.entity[0].vehicle.position.latitude-=0.01
+    m.entity[0].vehicle.ClearField('timestamp')
+    assert 'motion_path' not in normalize(m)[0]['identity']
+
+
+def test_missing_headsign_uses_final_scheduled_stop():
+    content=archive({
+        'routes.txt': 'route_id,route_type,route_short_name\nr1,3,1\n',
+        'trips.txt': 'trip_id,route_id,shape_id\nt1,r1,s1\n',
+        'shapes.txt': 'shape_id,shape_pt_lat,shape_pt_lon,shape_pt_sequence\ns1,45.3842,-123,1\ns1,45.3842,-122,2\n',
+        'stops.txt': 'stop_id,stop_name,stop_lat,stop_lon\na,First,45.3842,-122.8\nb,Terminal,45.3842,-122.7\n',
+        'stop_times.txt': 'trip_id,stop_id,stop_sequence\nt1,a,1\nt1,b,2\n',
+    })
+    _,trips,_,_,_=g.read_static(content,BOX,{3},SOURCE)
+    assert trips['t1']['headsign']=='Terminal'
+
+
+def test_missing_realtime_speed_uses_consecutive_measured_fixes():
+    routes,trips,local,_,paths=g.read_static(fixture(),BOX,{0,3},SOURCE)
+    positions={}
+    first=message()
+    first.entity[0].vehicle.position.bearing=90
+    initial=g.normalize_vehicles(first,routes,trips,local,SOURCE,BOX,NOW,paths,positions)[0]
+    assert 'motion_path' not in initial['identity']
+    second=message()
+    second.entity[0].vehicle.timestamp=NOW
+    second.entity[0].vehicle.position.longitude+=0.001
+    second.entity[0].vehicle.position.bearing=90
+    moved=g.normalize_vehicles(second,routes,trips,local,SOURCE,BOX,NOW,paths,positions)[0]
+    assert moved['identity']['speed_inferred'] is True
+    assert moved['speed'] > 1
+    assert len(moved['identity']['motion_path']) >= 2
+    jump=message()
+    jump.header.timestamp=NOW+15
+    jump.entity[0].vehicle.timestamp=NOW+15
+    jump.entity[0].vehicle.position.longitude+=0.02
+    jump.entity[0].vehicle.position.bearing=90
+    implausible=g.normalize_vehicles(jump,routes,trips,local,SOURCE,BOX,NOW+15,paths,positions)[0]
+    assert implausible['identity']['speed_inferred'] is False
+    assert 'motion_path' not in implausible['identity']
 
 
 def test_feed_namespace_prevents_vehicle_id_collisions():
@@ -112,7 +169,7 @@ def test_fresh_empty_snapshot_and_differential_rejection():
 
 
 def test_static_limits_and_mode_filter(monkeypatch):
-    _,_,local,geo=g.read_static(fixture(),BOX,{0},SOURCE)
+    _,_,local,geo,_=g.read_static(fixture(),BOX,{0},SOURCE)
     assert local=={'r2'} and not geo['features']
     monkeypatch.setattr(g,'MAX_EXPANDED_BYTES',1)
     with pytest.raises(ValueError):g.read_static(fixture(),BOX,{0,3},SOURCE)
@@ -147,14 +204,15 @@ async def test_cached_index_restores_original_age_without_marking_routes_fresh(m
     import hashlib
     import json
     collector = g.GtfsRtPoller('trimet-transit')
-    signature = hashlib.sha256(json.dumps([collector.source['static_url'], collector.box,
+    signature = hashlib.sha256(json.dumps([3, collector.source['static_url'], collector.box,
         sorted(collector.modes)], sort_keys=True).encode()).hexdigest()
     cached = {'signature': signature, 'ts': g.time.time()-3600,
-        'routes': {'r1': {'type': 3}}, 'trips': {'t1': 'r1'}, 'local': ['r1']}
-    redis = SimpleNamespace(get=AsyncMock(return_value=json.dumps(cached)), exists=AsyncMock(return_value=True))
+        'routes': {'r1': {'type': 3}}, 'trips': {'t1': {'route_id': 'r1'}}, 'local': ['r1']}
+    redis = SimpleNamespace(get=AsyncMock(return_value=json.dumps(cached)),
+        hgetall=AsyncMock(return_value={'s1': json.dumps([[[0, 0], [1, 1]]])}), exists=AsyncMock(return_value=True))
     monkeypatch.setattr(g, 'get_bus', AsyncMock(return_value=redis))
     await collector.setup()
-    assert collector.local == {'r1'} and collector.trips == {'t1': 'r1'}
+    assert collector.local == {'r1'} and collector.trips == {'t1': {'route_id': 'r1'}}
     assert 3599 <= g.time.monotonic()-collector.static_ts <= 3601
 
 

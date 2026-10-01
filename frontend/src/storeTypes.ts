@@ -167,6 +167,9 @@ export interface Track {
   trail:         TrailPt[]     // raw history, newest last, capped at 150 pts
   smoothedTrail: number[][]    // [[lon,lat],...] after 2× Chaikin
   predictedPath: [number, number][]
+  transitMotionPath?: [number, number][]
+  transitDestination?: string
+  transitSpeedInferred?: boolean
 }
 
 export interface AirportSnapshot {

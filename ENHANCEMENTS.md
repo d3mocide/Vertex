@@ -32,7 +32,7 @@ Goal: someone anywhere in the US can give Vertex their location and get the equi
 
 ### Next implementation sequence
 
-1. **Local transit UX:** highlight a selected vehicle's published route, then browse routes and stops from both TriMet and Cherriots. Add density-aware grouping at regional zoom before expanding map overlays. Add active-calendar-aware timetables only after schedule dates and service exceptions are parsed; static GTFS alone does not establish live arrivals.
+1. **Local transit UX:** selected GTFS vehicles now highlight their published trip shape, show the trip headsign when available and move along a bounded shape projection between measured reports. Next, browse routes and stops from both TriMet and Cherriots. Add density-aware grouping at regional zoom before expanding map overlays. Add active-calendar-aware timetables only after schedule dates and service exceptions are parsed; static GTFS alone does not establish live arrivals.
 2. **Transit coverage:** verify C-TRAN feed access and reuse terms, obtain an official Sound Transit/OneBusAway developer key, then validate a second live agency in its service area. Add service alerts and configurable agency selection. See [transit connectors](docs/architecture/transit-connectors.md).
 3. **R8 + R9 + R12: declarative adapters and authoring.** Turn the reviewed shared GTFS configurations and Washington ArcGIS experience into validated manifest mappings, replay fixtures against schemas and write an authoring guide. Washington outages and keyed Traveler API road-weather/flow need separate mappings and contracts.
 4. **R4: dedicated airport/METAR suggestions.** Build on location-derived NWS zones, observation stations and climate choices while preserving explicit operator configuration.
@@ -53,7 +53,7 @@ Since the May foundations below. See `TASK_LOG.md` for detail.
 | Infrastructure | Closure triage by scope and event, freeway corridor status, message signs, power outages with weather and lightning context | `[x]` |
 | Environment | Regional NWS map clipping; shared NIFC/EONET wildfire reports with state, proximity and containment; contained incidents grouped separately; ODF/WA DNR danger and scoped burn restrictions; weather history, nearby stations, FIRMS and lightning | `[x]` |
 | Rail | Amtrak, regional GTFS rail entities and legacy rail geometry | `[x]` |
-| Local transit | Shared locally bounded GTFS engine, TriMet buses/rail, Cherriots schedules, pack/key/coverage gates and per-source status | `[x]` |
+| Local transit | Shared locally bounded GTFS engine, TriMet buses/rail, Cherriots schedules, pack/key/coverage gates and per-source status; selected-trip route highlighting, trip destinations and bounded shape projection between measured fixes | `[x]` |
 | Replay | Time-windowed presence, thinned replay data (was: everything shown forever) | `[x]` |
 | Platform | Public DNS for pollers, `REGION_LAT`/`REGION_LON` honoured by the frontend build, `REGION_NAME` in the UI | `[x]` |
 | Admin | Health console reworked around "is anything wrong?": an attention banner and service cards on the System tab, data sources judged against their expected interval, entity and dispatch activity instead of per-entity freshness, storage that judges the purge (not a countdown), pool judged against real capacity, events over the last 24 h. Region setup lives in the admin console (Region page). The purge is scheduled from when it last ran, so restarts no longer starve it | `[x]` |

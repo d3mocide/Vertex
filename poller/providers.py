@@ -54,6 +54,7 @@ async def start_providers(pool, settings, redis):
             await redis.delete('entity:' + eid)
             await redis.publish('civic:updates', json.dumps({'type': 'entity_remove', 'data': {'entity_id': eid}}))
         await redis.delete(key)
+        await redis.delete('cache:transit:' + source['name'] + ':paths')
     # The legacy wrapper heartbeat is no longer a collector.
     await redis.hdel('metrics:poller_heartbeats', 'gtfs_rt')
     await redis.hset("region:poller", "packs_signature", selection_signature(choice) if choice is not None else "")

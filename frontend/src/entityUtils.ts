@@ -102,8 +102,13 @@ export function entityToTrack(entity: Entity, existing?: Track): Track | null {
     ? chaikinSmooth(filterTrailSpikes(trail.map(p => [p[0], p[1]])), 2)
     : []
 
+  const transitMotionPath = (isBus || isTrain) && entity.source.startsWith('gtfs_')
+    && Array.isArray(entity.identity?.motion_path)
+    ? (entity.identity.motion_path as unknown[]).filter((p): p is [number, number] =>
+        Array.isArray(p) && p.length === 2 && p.every(v => typeof v === 'number' && Number.isFinite(v)))
+    : []
   const predictedPath: [number, number][] = []
-  if (speedMs >= 0.5 && !isFire && !positionStale) {
+  if (speedMs >= 0.5 && !isFire && !positionStale && !((isBus || isTrain) && entity.source.startsWith('gtfs_'))) {
     for (let i = 1; i <= PRED_STEPS; i++) {
       predictedPath.push(destinationPoint(entity.lon, entity.lat, courseTrue, speedMs * PRED_STEP_S * i))
     }
@@ -130,6 +135,11 @@ export function entityToTrack(entity: Entity, existing?: Track): Track | null {
     trail,
     smoothedTrail,
     predictedPath,
+    transitMotionPath: transitMotionPath.length >= 2 && transitMotionPath.length <= 48 ? transitMotionPath : undefined,
+    transitDestination: (isBus || isTrain) && entity.source.startsWith('gtfs_')
+      && typeof entity.identity?.destination === 'string' ? entity.identity.destination : undefined,
+    transitSpeedInferred: (isBus || isTrain) && entity.source.startsWith('gtfs_')
+      && entity.identity?.speed_inferred === true,
   }
 }
 

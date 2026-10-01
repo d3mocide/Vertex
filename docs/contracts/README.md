@@ -115,13 +115,23 @@ A GeoJSON FeatureCollection of danger zones, with top-level `fetched_at` and `ne
 
 `GET /api/v1/transit/vehicles` returns the merged, locally filtered measured bus/train
 snapshot. Entity IDs are feed-prefixed; legacy TriMet vehicle IDs remain stable.
-Coordinates and speed/heading come from vehicle positions, never schedule estimates.
+Coordinates and heading come from vehicle positions. Speed comes from the publisher
+when present, or from successive measured positions when a plausible fix pair exists;
+`identity.speed_inferred` distinguishes the latter. Schedule data never supplies speed.
 Speed is knots in the entity contract; bus details convert to mph for display.
 `position_ts` is null and `position_stale` true when measurement time is absent;
 `identity.measurement_time_known` makes that uncertainty explicit. Both known vehicle
 fixes and feed timestamps have a 90-second freshness limit, with 30 seconds allowed
 for publisher clock skew. A successful full empty snapshot clears its own agency's
 vehicles; failed requests retain last-known data until the 120-second live TTL.
+When static trip IDs match, `identity.destination` carries the publisher's trip
+headsign, or the final scheduled stop name when that headsign is empty, and
+`identity.shape_id` names the published shape. A fresh, moving fix
+that matches its trip shape and heading may include a short `identity.motion_path`
+and `identity.route_match_m` offset. The frontend advances only the displayed marker
+along that shape for at most 25 seconds, then freezes until another measured fix.
+The source coordinates remain measured; route projection does not create an arrival
+estimate or a new observation.
 
 `GET /api/v1/transit/routes` returns combined route MultiLineStrings clipped to the
 monitoring bbox, with feed-prefixed feature IDs, agency/provider attribution and raw
@@ -129,6 +139,8 @@ route IDs for realtime joins. It describes the scheduled network, not current se
 or vehicle locations. Stops identify relevant routes when shapes are absent; a route
 without shapes has no invented line geometry. Calendar and arrival contracts are future
 work. `GET /api/v1/rail/gtfs-shapes` remains a compatibility alias for rail geometry only.
+`GET /api/v1/transit/trip-shape/{feed}/{shape_id}` returns one selected trip's
+published MultiLineString clipped to the monitoring bounds, for route highlighting.
 
 Static indexes refresh daily and are cached across poller restarts. Source-specific
 metadata preserves independent ages when another agency refreshes the merged feed.
