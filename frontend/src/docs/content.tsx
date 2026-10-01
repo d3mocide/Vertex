@@ -389,7 +389,7 @@ const searchFiltering = (
       </DocText>
       <DocList items={[
         "Entity types: Air, Sea, APRS and Fire.",
-        "ADS-B sources: Local (your own receiver) and OpenSky Supplement, which also includes the airplanes.live / adsb.fi community feeds. Turn the supplement off to see only what your receiver hears.",
+        "ADS-B sources: Local (your own receiver) and OpenSky Supplement, which also includes the airplanes.live / adsb.fi community feeds. Turn the supplement off to see only what your receiver hears. A filled cyan pip marks the local position feed; a hollow pip marks an external network feed at regional zoom and closer. Fresh reports have equal brightness. Dim aircraft indicate stale or estimated positions.",
         "Altitude and speed sliders to isolate a flight envelope.",
         "Mission tags, when entities have been tagged."
       ]} />

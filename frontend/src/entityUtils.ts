@@ -32,12 +32,14 @@ export function entityToTrack(entity: Entity, existing?: Track): Track | null {
   const positionStale = Boolean(entity.position_stale)
   const positionDr = Boolean(entity.position_dr)
 
-  // When the position was measured, on the local clock. Derived from the fix
-  // age rather than the server's absolute timestamp so client/server clock skew
-  // doesn't matter. A re-sent fix keeps its original time; a dead-reckoned
-  // position is projected to the moment it was sent, so its age is ~0.
+  // Aircraft fix ages are mapped onto the local clock. AIS uses its absolute
+  // reception timestamp because cached snapshots retain the original age. A
+  // re-sent fix keeps its clock; dead reckoning is anchored at receipt.
   let fixTimeMs: number | undefined
-  if (existing?.fixTimeMs != null && existing.lat === entity.lat && existing.lon === entity.lon
+  if (isSea && typeof entity.position_ts === 'number' && Number.isFinite(entity.position_ts)) {
+    fixTimeMs = Math.min(Date.now(), entity.position_ts * 1000)
+  } else if (existing?.fixTimeMs != null && existing.lat === entity.lat && existing.lon === entity.lon
+      && existing.source === entity.source && existing.positionDr === positionDr
       && (!entity.source.startsWith('gtfs_') || existing.lastSeen === entity.last_seen)) {
     fixTimeMs = existing.fixTimeMs
   } else if (positionDr) {
@@ -136,6 +138,10 @@ export function entityToTrack(entity: Entity, existing?: Track): Track | null {
     trail,
     smoothedTrail,
     predictedPath,
+    vesselHeading: isSea && typeof entity.identity?.true_heading === 'number'
+      && entity.identity.true_heading >= 0 && entity.identity.true_heading < 360 ? entity.identity.true_heading : undefined,
+    vesselCourseKnown: isSea ? entity.heading != null && entity.heading >= 0 && entity.heading < 360 : undefined,
+    vesselStationary: isSea ? ['At Anchor', 'Moored', 'Aground'].includes(String(entity.identity?.nav_status ?? entity.status)) : undefined,
     transitMotionPath: transitMotionPath.length >= 2 && transitMotionPath.length <= 48 ? transitMotionPath : undefined,
     transitDestination: (isBus || isTrain) && entity.source.startsWith('gtfs_')
       && typeof entity.identity?.destination === 'string' ? entity.identity.destination : undefined,

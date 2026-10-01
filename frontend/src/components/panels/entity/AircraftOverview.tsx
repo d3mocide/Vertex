@@ -1,3 +1,4 @@
+import { isSupplementSource } from '../../../storeTypes'
 import type { Entity } from '../../../storeTypes'
 import { roleMeta } from '../../../aircraftRoles'
 
@@ -45,6 +46,8 @@ export function AircraftOverview({ entity, getIdentity, trail = [] }: OverviewPr
   const identityRows: [string, string | undefined][] = [
     ['Type',    entity.entity_type],
     ['Source',  entity.source],
+    ['Position feed', isSupplementSource(entity.source) ? 'External network (hollow pip)' : 'Local receiver (filled pip)'],
+    ['Position quality', entity.position_dr ? 'Estimated' : entity.position_stale ? 'Stale fix' : 'Fresh fix'],
     ['ICAO24',  getIdentity('icao24')],
     ['Callsign', getIdentity('callsign')],
     ['Reg', getIdentity('registration')],

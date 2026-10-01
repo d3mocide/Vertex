@@ -12,6 +12,7 @@ import zipfile
 from datetime import datetime, timezone
 
 import httpx
+from redis.exceptions import RedisError
 from google.transit import gtfs_realtime_pb2
 
 import provider_catalog  # installs the reviewed shared support path
@@ -268,15 +269,28 @@ class GtfsRtPoller(BasePoller):
         self.paths_key = 'cache:transit:' + self.source['name'] + ':paths'
         self.cache_signature = hashlib.sha256(json.dumps([3, self.source['static_url'], self.box, sorted(self.modes)], sort_keys=True).encode()).hexdigest()
         r = await get_bus()
-        raw = await r.get(self.cache_key)
-        if raw:
-            cached = json.loads(raw)
-            age = time.time() - cached.get('ts', 0)
-            if cached.get('signature') == self.cache_signature and 0 <= age < 86400 and await r.exists(self.paths_key) and await r.exists('feed:provider:'+self.provider_id+':transit:routes'):
-                self.routes, self.trips, self.local = cached['routes'], cached['trips'], set(cached['local'])
-                self.paths = {sid.decode() if isinstance(sid, bytes) else sid: json.loads(lines)
-                              for sid, lines in (await r.hgetall(self.paths_key)).items()}
-                self.static_ts = time.monotonic() - age
+        try:
+            raw = await r.get(self.cache_key)
+            if raw:
+                cached = json.loads(raw)
+                age = time.time() - cached.get('ts', 0)
+                if cached.get('signature') == self.cache_signature and 0 <= age < 86400 and await r.exists(self.paths_key) and await r.exists('feed:provider:'+self.provider_id+':transit:routes'):
+                    # A regional path hash can be tens of MB. Restore in small
+                    # pages so one large response cannot time out startup.
+                    paths, cursor = {}, 0
+                    while True:
+                        cursor, page = await r.hscan(self.paths_key, cursor=cursor, count=64)
+                        paths.update({sid.decode() if isinstance(sid, bytes) else sid: json.loads(lines)
+                                      for sid, lines in page.items()})
+                        if not cursor: break
+                    self.routes, self.trips, self.local = cached['routes'], cached['trips'], set(cached['local'])
+                    self.paths = paths
+                    self.static_ts = time.monotonic() - age
+        except (RedisError, ValueError, TypeError, KeyError) as exc:
+            # Cache restoration is optional; the poll loop can rebuild it.
+            # Keep a failed warm start from terminating unrelated feed tasks.
+            logger.warning('[%s] transit cache restore failed (%s); rebuilding', self.name, type(exc).__name__)
+            self.static_ts = 0
 
     async def poll(self):
         source = self.source

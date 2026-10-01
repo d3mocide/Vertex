@@ -21,7 +21,7 @@ import { isSupplementSource } from '../storeTypes'
 
 import { extractRailSegments, snapPointToRail, type RailSegment } from '../layers/railSnap'
 import { fetchRailGeoJSON } from '../layers/railData'
-import { applyPVB, type PVBState } from '../layers/pvb'
+import { applyPVB, applyPVBTrack, type PVBState } from '../layers/pvb'
 import { smoothTransitPosition, type TransitMotionState } from '../layers/transitMotion'
 import { projectTransit, type TransitProjectionState } from '../layers/transitProjection'
 import { buildTransitRouteLayers, type TransitRoute } from '../layers/transitRouteLayer'
@@ -358,19 +358,19 @@ export function MapOverlay({ map }: Props) {
             : isHazard ? 'text-red-400' 
             : 'text-teal-400'
 
-          const sourceLabel = isAir ? 'ADS-B' 
+          const sourceLabel = isAir ? (isSupplementSource(t.source) ? 'ADS-B · Network' : 'ADS-B · Local')
             : isRail ? escHtml(t.source.toUpperCase()) 
             : isBus ? escHtml(t.source.toUpperCase())
             : isGround ? 'APRS' 
             : isHazard ? 'INTEL' 
             : 'AIS'
 
-          const statusLabel = isAir ? 'Airborne' 
+          const statusLabel = isAir ? (t.positionDr ? 'Estimated' : t.positionStale ? 'Stale fix' : 'Fresh fix')
             : isRail ? 'En Route' 
             : isBus ? 'On Route'
             : isGround ? 'Station' 
             : isHazard ? 'Active' 
-            : 'Underway'
+            : t.vesselStationary ? 'Stationary' : t.positionStale ? 'Stale report' : 'Recent report'
           html = `
             <div class="p-2 min-w-[160px] bg-slate-900/95 border border-slate-700 shadow-2xl backdrop-blur-md">
               <div class="flex items-center justify-between mb-2 border-b border-slate-700/50 pb-1.5">
@@ -383,7 +383,9 @@ export function MapOverlay({ map }: Props) {
               <div class="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-[11px] text-slate-400 font-mono">
                  ${isAir ? `<span>ALT:</span><span class="text-blue-200 text-right">${Math.round(t.altMeters * ALT_M_TO_FT).toLocaleString()} FT</span>` : ''}
                  <span>SPD:</span><span class="text-white text-right">${t.transitSpeedInferred ? '~' : ''}${isBus ? `${Math.round(t.speedMs * 2.23694)} MPH` : `${Math.round(t.speedMs * MS_TO_KT)} KTS`}</span>
-                 <span>HDG:</span><span class="text-white text-right">${Math.round(t.courseTrue).toString().padStart(3, '0')}°</span>
+                 <span>${t.type === 'sea' ? 'COG' : 'HDG'}:</span><span class="text-white text-right">${t.type !== 'sea' || t.vesselCourseKnown ? `${Math.round(t.courseTrue).toString().padStart(3, '0')}°` : '--'}</span>
+                 ${t.vesselHeading != null ? `<span>BOW:</span><span class="text-white text-right">${Math.round(t.vesselHeading)}°</span>` : ''}
+                 ${t.type === 'sea' && !t.positionStale && t.vesselCourseKnown && !t.vesselStationary && t.speedMs >= 0.5 ? '<span class="col-span-2 text-green-ais">Short course-based projection</span>' : ''}
                  ${t.transitDestination ? `<span>DEST:</span><span class="text-white text-right truncate">${escHtml(t.transitDestination.slice(0, 80))}</span>` : ''}
                  ${t.positionDr && t.transitMotionPath ? '<span class="col-span-2 text-transit-bus">Projected along published route</span>' : ''}
                  ${t.category ? `<span>CAT:</span><span class="text-amber-400 text-right uppercase">${escHtml(t.category)}</span>` : ''}
@@ -752,10 +754,12 @@ export function MapOverlay({ map }: Props) {
         } else if (replayModeRef.current || snappedBase.type === 'rail' || snappedBase.type === 'bus') {
           pvbTracks[uid] = snappedBase
         } else {
-          const [lon, lat] = applyPVB(pvb, snappedBase, nowMs)
-          pvbTracks[uid] = (lon === snappedBase.lon && lat === snappedBase.lat)
-            ? snappedBase
-            : { ...snappedBase, lon, lat }
+          if (snappedBase.type === 'air' || snappedBase.type === 'sea') {
+            pvbTracks[uid] = applyPVBTrack(pvb, snappedBase, nowMs)
+          } else {
+            const [lon, lat] = applyPVB(pvb, snappedBase, nowMs)
+            pvbTracks[uid] = { ...snappedBase, lon, lat }
+          }
         }
       }
 

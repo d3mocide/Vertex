@@ -128,7 +128,7 @@ export function buildEntityLayers(
       return 'dot'
     },
     getPosition: (t) => [t.lon, t.lat],
-    getAngle:    (t) => -t.courseTrue,
+    getAngle:    (t) => -(t.vesselHeading ?? t.courseTrue),
     getColor:    [15, 23, 42, 220], // Slate-900 with high alpha for contrast
     getSize:     (t) => entityIconSize(selectedUid, t, zoom) + 2.5,
     sizeUnits:   'pixels',
@@ -136,7 +136,7 @@ export function buildEntityLayers(
     pickable:    false, // Only top layer needs to be pickable
     updateTriggers: {
       getIcon:  zoom,
-      getAngle: trackArr.map(t => t.courseTrue),
+      getAngle: trackArr.map(t => t.vesselHeading ?? t.courseTrue),
       getSize:  [selectedUid, zoom],
     },
   })
@@ -157,7 +157,7 @@ export function buildEntityLayers(
       return 'dot'
     },
     getPosition: (t) => [t.lon, t.lat],
-    getAngle:    (t) => -t.courseTrue,
+    getAngle:    (t) => -(t.vesselHeading ?? t.courseTrue),
     getColor:    (t) => {
       if (t.type === 'ground')  return aprsColor(t.stationType)
       if (t.type === 'tak')     return TAK_ICON_COLOR
@@ -165,17 +165,10 @@ export function buildEntityLayers(
       if (t.type === 'rail')  return tagColorMap?.[t.uid] ?? TRAIN_ICON_COLOR
       if (t.type === 'bus')   return tagColorMap?.[t.uid] ?? BUS_ICON_COLOR
       if (t.type === 'sensor')  return RF_SENSOR_COLOR
-      // Lower-fidelity aircraft positions render dimmed so it is visually
-      // clear the track is not a live local fix: OpenSky supplements (coarse,
-      // delayed) and stale/dead-reckoned local tracks (estimated during a
-      // signal gap).
-      if (t.type === 'air') {
-        if (isSupplementSource(t.source)) {
-          return tagColorMap?.[t.uid] ?? entityColor(t, 120)
-        }
-        if (t.positionStale || t.positionDr) {
-          return tagColorMap?.[t.uid] ?? entityColor(t, 140)
-        }
+      // Source is provenance; only freshness and estimation reduce visibility.
+      if ((t.type === 'air' || t.type === 'sea') && (t.positionStale || t.positionDr)) {
+        const color = tagColorMap?.[t.uid] ?? entityColor(t)
+        return [color[0], color[1], color[2], 140]
       }
       return tagColorMap?.[t.uid] ?? entityColor(t)
     },
@@ -185,10 +178,22 @@ export function buildEntityLayers(
     pickable:    true,
     updateTriggers: {
       getIcon:  zoom,
-      getAngle: trackArr.map(t => t.courseTrue),
+      getAngle: trackArr.map(t => t.vesselHeading ?? t.courseTrue),
       getColor: trackArr.map(t => tagColorMap?.[t.uid]?.join(',') ?? `${t.altMeters + t.speedMs}${t.stationType ?? ''}${t.source ?? ''}${t.positionStale ? 's' : ''}${t.positionDr ? 'd' : ''}`),
       getSize:  [selectedUid, zoom],
     },
+  })
+
+  // Filled pip = local receiver, hollow pip = external network. Screen-aligned
+  // metadata stays separate from the aircraft's heading and role color.
+  const sourceBadgeLayer = new IconLayer<Track>({
+    id: 'aircraft-source-badges',
+    data: zoom >= 6 ? trackArr.filter(t => t.type === 'air') : [],
+    iconAtlas: atlas.url, iconMapping: atlas.mapping,
+    getIcon: t => isSupplementSource(t.source) ? 'ring' : 'dot',
+    getPosition: t => [t.lon, t.lat], getPixelOffset: [10, 10],
+    getSize: 10, sizeUnits: 'pixels', getColor: [0, 191, 255, 240],
+    billboard: true, pickable: false,
   })
 
   // Pulsing red ring for APRS emergency stations.
@@ -234,7 +239,7 @@ export function buildEntityLayers(
     iconMapping: atlas.mapping,
     getIcon:     glowIcon,
     getPosition: (t) => [t.lon, t.lat],
-    getAngle:    (t) => -t.courseTrue,
+    getAngle:    (t) => -(t.vesselHeading ?? t.courseTrue),
     getColor:    (t) => glowColor(t, i === 0 ? 0.22 : 0.5),
     getSize:     (t) => entityIconSize(selectedUid, t, zoom) + (i === 0 ? 20 : 10),
     sizeUnits:   'pixels',
@@ -299,5 +304,5 @@ export function buildEntityLayers(
     fontFamily: 'monospace',
   })
 
-  return [selectionRingLayer, emergencyRingLayer, ...roleGlowLayers, iconOutlineLayer, iconLayer, aprsLabelLayer, takLabelLayer, sensorLabelLayer]
+  return [selectionRingLayer, emergencyRingLayer, ...roleGlowLayers, iconOutlineLayer, iconLayer, sourceBadgeLayer, aprsLabelLayer, takLabelLayer, sensorLabelLayer]
 }

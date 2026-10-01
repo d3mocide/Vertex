@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+import math
 from typing import Optional
 from sanitize import safe_stripped
 from enrichment.vessel_type import decode_ship_type, decode_nav_status
@@ -9,10 +10,57 @@ from enrichment.vessel_type import decode_ship_type, decode_nav_status
 _static_cache: dict[str, dict] = {}
 
 
+def _number(value, low, high):
+    if value is None or isinstance(value, bool): return None
+    try: value = float(value)
+    except (ValueError, TypeError): return None
+    return value if math.isfinite(value) and low <= value < high else None
+
+
+def _received_time(value, now):
+    """Source receive time, not the AIS seconds-within-a-minute field."""
+    if value is None: return now, 'local_receipt'
+    try:
+        if isinstance(value, (float, int)):
+            result = float(value)
+        else:
+            text = str(value).strip().removesuffix(' UTC').replace(' +0000', '+00:00')
+            if len(text) == 14 and text.isdigit():
+                parsed = datetime.strptime(text, '%Y%m%d%H%M%S').replace(tzinfo=timezone.utc)
+            else:
+                parsed = datetime.fromisoformat(text.replace('Z', '+00:00'))
+                if parsed.tzinfo is None: parsed = parsed.replace(tzinfo=timezone.utc)
+            result = parsed.timestamp()
+        if math.isfinite(result) and 0 < result <= now+30:
+            return result, 'source_receipt'
+    except (ValueError, TypeError, OverflowError): pass
+    # An invalid supplied clock must not make an old position look fresh.
+    return None, 'unknown'
+
+
+def _motion(identity, speed, course, heading, received):
+    now = datetime.fromisoformat(_now()).timestamp()
+    timestamp, time_source = _received_time(received, now)
+    identity.update({'course_over_ground': _number(course, 0, 360),
+                     'true_heading': _number(heading, 0, 360),
+                     'position_time_source': time_source})
+    return {'speed': _number(speed, 0, 102.3), 'heading': identity['course_over_ground'],
+            'position_ts': timestamp,
+            'position_age_s': max(0, now-timestamp) if timestamp is not None else None,
+            'position_stale': timestamp is None or now-timestamp > 90,
+            'last_seen': datetime.fromtimestamp(timestamp or now, timezone.utc).isoformat()}
+
+
+def _coordinates(lat, lon):
+    lat = _number(lat, -90, 91)
+    lon = _number(lon, -180, 181)
+    return (lat, lon) if lat is not None and lon is not None and lat <= 90 and lon <= 180 else None
+
+
 def normalize_aisstream(data: dict) -> Optional[dict]:
     meta = data.get("MetaData", {})
     mmsi = str(meta.get("MMSI", ""))
-    if not mmsi:
+    if not mmsi or mmsi in {'None', '0'}:
         return None
     msg_type = data.get("MessageType", "")
     msg = data.get("Message", {})
@@ -21,8 +69,15 @@ def normalize_aisstream(data: dict) -> Optional[dict]:
         _cache_aisstream_static(mmsi, msg.get("ShipStaticData", {}))
         return None  # no position to publish
 
-    if msg_type == "PositionReport":
-        pr = msg.get("PositionReport", {})
+    if msg_type in {"PositionReport", "StandardClassBPositionReport"}:
+        pr = msg.get(msg_type, {})
+        if pr.get('Valid') is False: return None
+        lat = pr.get('Latitude')
+        lon = pr.get('Longitude')
+        if lat is None: lat = meta.get('Latitude', meta.get('latitude'))
+        if lon is None: lon = meta.get('Longitude', meta.get('longitude'))
+        coordinates = _coordinates(lat, lon)
+        if coordinates is None: return None
         ship_name = safe_stripped(meta.get("ShipName"), mmsi)
 
         nav_code = pr.get("NavigationalStatus")
@@ -34,6 +89,7 @@ def normalize_aisstream(data: dict) -> Optional[dict]:
 
         # Merge any cached static data for this vessel
         identity.update(_static_cache.get(mmsi, {}))
+        motion = _motion(identity, pr.get('Sog'), pr.get('Cog'), pr.get('TrueHeading'), meta.get('time_utc'))
 
         return {
             "entity_id": f"vessel:{mmsi}",
@@ -41,12 +97,10 @@ def normalize_aisstream(data: dict) -> Optional[dict]:
             "source": "aisstream",
             "display_name": ship_name,
             "identity": identity,
-            "lat": pr.get("Latitude") or meta.get("latitude"),
-            "lon": pr.get("Longitude") or meta.get("longitude"),
-            "heading": pr.get("TrueHeading"),
-            "speed": pr.get("Sog"),
+            "lat": coordinates[0],
+            "lon": coordinates[1],
+            **motion,
             "status": nav_label or str(nav_code or ""),
-            "last_seen": _now(),
             "tags": ["vessel"],
         }
     return None
@@ -56,6 +110,8 @@ def normalize_ais_catcher(data: dict) -> Optional[dict]:
     mmsi = str(data.get("mmsi", ""))
     if not mmsi or data.get("lat") is None or data.get("lon") is None:
         return None
+    coordinates = _coordinates(data.get('lat'), data.get('lon'))
+    if coordinates is None: return None
 
     ship_name = safe_stripped(data.get("shipname"), mmsi)
 
@@ -116,6 +172,9 @@ def normalize_ais_catcher(data: dict) -> Optional[dict]:
         identity["length_m"] = length
     if width:
         identity["width_m"] = width
+    received = next((data[key] for key in ('toa', 'rxuxtime', 'rxtime', 'timestamp')
+                     if data.get(key) is not None), None)
+    motion = _motion(identity, data.get('speed'), data.get('course'), data.get('heading'), received)
 
     return {
         "entity_id": f"vessel:{mmsi}",
@@ -123,13 +182,11 @@ def normalize_ais_catcher(data: dict) -> Optional[dict]:
         "source": "ais-catcher",
         "display_name": ship_name,
         "identity": identity,
-        "lat": data.get("lat"),
-        "lon": data.get("lon"),
-        "heading": data.get("heading"),
-        "speed": data.get("speed"),
+        "lat": coordinates[0],
+        "lon": coordinates[1],
+        **motion,
         "status": nav_label or str(nav_code or ""),
         "signal_quality": data.get("rssi"),
-        "last_seen": _now(),
         "tags": ["vessel"],
     }
 

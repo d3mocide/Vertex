@@ -209,9 +209,11 @@ async def test_cached_index_restores_original_age_without_marking_routes_fresh(m
     cached = {'signature': signature, 'ts': g.time.time()-3600,
         'routes': {'r1': {'type': 3}}, 'trips': {'t1': {'route_id': 'r1'}}, 'local': ['r1']}
     redis = SimpleNamespace(get=AsyncMock(return_value=json.dumps(cached)),
-        hgetall=AsyncMock(return_value={'s1': json.dumps([[[0, 0], [1, 1]]])}), exists=AsyncMock(return_value=True))
+        hscan=AsyncMock(side_effect=[(7, {'s1': json.dumps([[[0, 0], [1, 1]]])}), (0, {'s2': json.dumps([[[0, 0], [2, 2]]])})]), exists=AsyncMock(return_value=True))
     monkeypatch.setattr(g, 'get_bus', AsyncMock(return_value=redis))
     await collector.setup()
+    assert redis.hscan.await_count == 2
+    assert set(collector.paths) == {'s1', 's2'}
     assert collector.local == {'r1'} and collector.trips == {'t1': {'route_id': 'r1'}}
     assert 3599 <= g.time.monotonic()-collector.static_ts <= 3601
 
@@ -228,3 +230,14 @@ async def test_schedule_refresh_failure_keeps_index_and_continues_live_feed(monk
     await collector.poll()
     feed.assert_awaited_once_with('transit:vehicles', [], provider_id='trimet-transit',broadcast=False)
     assert collector.static_retry_at > g.time.monotonic()
+
+
+@pytest.mark.asyncio
+async def test_cache_timeout_falls_back_without_terminating_startup(monkeypatch):
+    from redis.exceptions import TimeoutError
+    collector = g.GtfsRtPoller()
+    redis = SimpleNamespace(get=AsyncMock(side_effect=TimeoutError('cache response timeout')))
+    monkeypatch.setattr(g, 'get_bus', AsyncMock(return_value=redis))
+    await collector.setup()
+    assert collector.static_ts == 0
+    assert collector.paths == {}

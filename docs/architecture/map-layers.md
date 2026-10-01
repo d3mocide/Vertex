@@ -70,3 +70,11 @@ Purpose: single source of truth for where map layers are rendered, why they live
 1. Add Settings toggles for per-category labels (APRS, gauges, TinyGS sat names).
 2. Add viewport-aware label caps to Deck text layers.
 3. Add layer diagnostics panel (counts per layer, label counts, last feed timestamp).
+
+### Aircraft and vessel motion
+
+`frontend/src/layers/pvb.ts` corrects the moving report anchor with a Hermite offset that preserves displayed position and velocity when reports arrive or feeds switch. Orientation eases over the shortest angular arc. Large discontinuities reset the anchor; stale non-estimated fixes hold. Aircraft projection remains bounded to 30 seconds; AIS projection stops at 45 seconds with a gradual slowdown during the final ten seconds. Prediction lines start at the displayed marker and respect the remaining window. These estimates do not change measured coordinates or observation history.
+
+Aircraft source and freshness are separate signals. At zoom 6 and closer, a filled cyan pip means the current position comes from the local receiver; a hollow pip means an external network. Fresh aircraft have equal brightness regardless of source. Stale or dead-reckoned positions dim; tooltips and details identify the position feed and quality. Existing local/external filters and source arbitration remain available.
+
+AIS normalization separates course over ground (movement) from true bow heading (icon orientation), rejects unavailable motion and position values, and handles Class B position reports. Reception clocks are preserved and labelled as source receipt or local receipt; they are not claimed to be measurement clocks. Unknown course, stationary navigation status and old reports do not drive forward prediction. The predictor follows a short course estimate, not an inferred destination route or shipping channel.

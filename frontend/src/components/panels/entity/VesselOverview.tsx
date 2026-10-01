@@ -28,6 +28,8 @@ export function VesselOverview({ entity, getIdentity }: OverviewProps) {
   const identityRows: [string, string | undefined][] = [
     ['Type',        entity.entity_type],
     ['Source',      entity.source],
+    ['Bow heading', getIdentity('true_heading') != null ? `${getIdentity('true_heading')}°` : undefined],
+    ['Position quality', entity.position_stale ? 'Stale report' : 'Recent report'],
     ['MMSI',        getIdentity('mmsi')],
     ['IMO',         getIdentity('imo')],
     ['Name',        getIdentity('shipname') ?? getIdentity('name') ?? getIdentity('display_name') ?? entity.display_name],
@@ -50,7 +52,7 @@ export function VesselOverview({ entity, getIdentity }: OverviewProps) {
   return (
     <>
       <div className="grid grid-cols-2 gap-2">
-        <div className="bg-white/5 border border-white/10 p-2 rounded-sm relative overflow-hidden">
+        <div className="bg-white/5 border border-white/10 p-2 relative overflow-hidden">
           <div className="flex items-center gap-1.5 mb-1 text-on-surface-variant relative z-10">
             <span className="ms text-[12px]">speed</span>
             <span className="label-caps text-[11px]">Speed (SOG)</span>
@@ -60,7 +62,7 @@ export function VesselOverview({ entity, getIdentity }: OverviewProps) {
           </div>
         </div>
 
-        <div className="bg-white/5 border border-white/10 p-2 rounded-sm">
+        <div className="bg-white/5 border border-white/10 p-2">
           <div className="flex items-center gap-1.5 mb-1 text-on-surface-variant">
             <span className="ms text-[12px]">explore</span>
             <span className="label-caps text-[11px]">Course (COG)</span>
@@ -90,7 +92,7 @@ export function VesselOverview({ entity, getIdentity }: OverviewProps) {
             {navStatus && (
               <div className="flex justify-between items-center gap-2">
                 <span className="text-[11px] text-on-surface-variant">Nav Status</span>
-                <span className={`text-[11px] font-mono border px-1.5 py-0.5 rounded-sm ${navStatusClass(navStatus)}`}>
+                <span className={`text-[11px] font-mono border px-1.5 py-0.5 ${navStatusClass(navStatus)}`}>
                   {navStatus}
                 </span>
               </div>

@@ -5,6 +5,14 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 
 ---
 
+## 2026-10-01 — Smooth aircraft and vessel corrections; separate feed provenance from freshness
+
+- Aircraft and AIS corrections now preserve displayed position and velocity through new reports and feed switches, with adaptive bounded correction windows and smooth shortest-arc orientation. Large discontinuities reset; stale non-estimated positions hold. Prediction lines begin at the displayed marker and respect the remaining projection window. Source changes at unchanged aircraft coordinates use the incoming fix age.
+- Fresh aircraft from local and external feeds have equal brightness. A filled cyan pip marks the local position feed and a hollow pip marks an external network at zoom 6 and closer. Stale or estimated positions dim; tooltips, entity details and help explain source separately from freshness. Existing identity arbitration and source filters remain available.
+- AIS normalization separates course over ground from bow heading, handles Class B reports, preserves reception timestamps and rejects unavailable motion/position values. Reception times are explicitly distinguished from measurement times. Known moving vessels project for at most 45 seconds and gradually stop during the final ten seconds; unknown course, stationary navigation status and old reports do not extrapolate. Cached snapshots retain reception age.
+- Rollout exposed a transit warm-start timeout while restoring a large Redis path hash. Changed cache restoration to small HSCAN pages; an invalid or unavailable cache falls back to rebuilding without terminating other feed tasks. Added paging and timeout regression coverage.
+- Validation passed: 21 frontend motion cases, 472 poller tests, npm install, explicit TypeScript check, frontend production build, development-server startup, Compose validation, Python compilation and whitespace checks. Playwright verified actual entity-layer colors, source pips and separate vessel orientation in a synthetic preview with no browser errors; screenshot reviewed, temporary preview removed. Rebuilt/recreated frontend and poller. Proxied health passed; 28 recent poller heartbeats, zero process restarts and no database-pool shutdown errors after the cache fix. Fresh AIS sample contained normalized motion and reception clocks with no invalid headings. Committed locally without a push.
+
 ## 2026-10-01 — Smooth transit report handoffs and route motion
 
 - Replaced fixed-origin position blending with corrections to distance along the moving trip path. Ordinary publisher reports retain cruising motion; bounded corrections ease over six to fifteen seconds and do not reverse forward route progress. Cached path distances and local lookahead headings keep movement on the route and soften turns.
