@@ -32,6 +32,7 @@ import { buildTransitRouteLayers, type TransitRoute } from '../layers/transitRou
 import { DEFAULT_CENTER, OBSERVATION_RANGE_KM, API_BASE } from '../config'
 import { authHeaders } from '../auth'
 import type { LightningStrike } from '../store'
+import { installPerfRecorder, markLayerBuild } from '../perfRecorder'
 
 interface Props {
   map: maplibregl.Map
@@ -623,6 +624,14 @@ export function MapOverlay({ map }: Props) {
       st.n++; st.total += d; if (d > st.max) st.max = d
     }
     if (perfOn) (window as unknown as { __vertexPerf: unknown }).__vertexPerf = perfStats
+    let removePerfRecorder: (() => void) | null = null
+    if (perfOn) {
+      // window.__vertexPerfRecord(seconds, label): frame pacing, long tasks, heap and layer-rebuild rate (perfRecorder.ts).
+      removePerfRecorder = installPerfRecorder({
+        phaseStats: perfStats,
+        counts: () => (window as unknown as { __vertexPerfCounts?: unknown }).__vertexPerfCounts ?? null,
+      })
+    }
 
     const tick = (now: number) => {
       // Clamp dt so a paused/throttled rAF can't fast-forward the pulse phase.
@@ -846,6 +855,7 @@ export function MapOverlay({ map }: Props) {
           orderedLayers.some((layer, i) => layer !== lastSubmittedLayers[i])) {
         overlay.setProps({ layers: orderedLayers })
         lastSubmittedLayers = orderedLayers
+        markLayerBuild(now)
       }
       if (perfOn) {
         perfMark('setProps', tPhase)
@@ -864,6 +874,7 @@ export function MapOverlay({ map }: Props) {
     return () => {
       cancelAnimationFrame(rafRef.current)
       document.removeEventListener('visibilitychange', onVisibility)
+      removePerfRecorder?.()
       map.off('click', onMapClick)
       map.off('mousemove', onMapMouseMove)
       map.off('mouseout', onMapMouseOut)
