@@ -74,8 +74,8 @@ const PRESETS: Preset[] = [
     sub: { 'aircraft.who': ['medical', 'rescue', 'fire', 'law_enforcement', 'alert'] } },
   { id: 'traffic', label: 'Traffic & transit', icon: 'traffic', hint: 'Buses, trains, rail, cameras and crash calls',
     on: ['bus', 'train', 'railTracksVisible', 'camerasVisible', 'dispatchVisible'] },
-  { id: 'airsea', label: 'Air & marine', icon: 'flight', hint: 'Aircraft and vessels with their trails',
-    on: ['aircraft', 'vessel', 'trailsVisible'] },
+  { id: 'airsea', label: 'Air & marine', icon: 'flight', hint: 'Aircraft in the air and vessels, with their trails',
+    on: ['aircraft', 'vessel', 'trailsVisible'], sub: { 'aircraft.state': ['airborne'] } },
   { id: 'comms', label: 'Radio & mesh', icon: 'cell_tower', hint: 'Mesh nodes, APRS stations and radio dispatch',
     on: ['mesh_node', 'aprs', 'dispatchVisible'] },
 ]

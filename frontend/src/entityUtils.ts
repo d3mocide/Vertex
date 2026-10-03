@@ -137,6 +137,7 @@ export function entityToTrack(entity: Entity, existing?: Track): Track | null {
     stationType:  isAprs ? (entity.identity?.station_type as string | undefined) : undefined,
     aircraftClass: isAir ? (entity.identity?.aircraft_class as string | undefined) : undefined,
     military:     isAir ? entity.identity?.military === true : undefined,
+    onGround:     isAir ? entity.status === 'on_ground' : undefined,
     shipType:     isSea ? (entity.identity?.ship_type as string | undefined) : undefined,
     shipCategory: isSea ? (entity.identity?.ship_category as string | undefined) : undefined,
     trail,

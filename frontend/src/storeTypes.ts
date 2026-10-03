@@ -166,6 +166,7 @@ export interface Track {
   stationType?:  string
   aircraftClass?: string      // normalised kind (airliner, light, helicopter, …), see entityFacets.ts
   military?:     boolean      // tar1090 military flag
+  onGround?:     boolean      // the receiver's on-ground flag (surface position or a ground squawk), not inferred from altitude
   shipType?:     string       // AIS ship type label ("Cargo", "Tug", …)
   shipCategory?: string       // AIS ship type bucket (cargo, tanker, tug, …)
   trail:         TrailPt[]     // raw history, newest last, capped at 150 pts

@@ -27,6 +27,9 @@ export const FACETS: Facet[] = [
     { value: 'highperf', label: 'High performance' }, { value: 'glider', label: 'Gliders & balloons' },
     { value: 'uav', label: 'Drones' }, { value: 'ground', label: 'Ground vehicles' }, { value: 'unknown', label: 'Unknown' },
   ] },
+  { id: 'aircraft.state', entity: 'aircraft', label: 'State', options: [
+    { value: 'airborne', label: 'In the air' }, { value: 'ground', label: 'On the ground' },
+  ] },
   { id: 'aircraft.who', entity: 'aircraft', label: 'Who', options: [
     { value: 'medical', label: 'Air ambulance' }, { value: 'rescue', label: 'Search & rescue' },
     { value: 'fire', label: 'Firefighting' }, { value: 'law_enforcement', label: 'Law enforcement' },
@@ -84,6 +87,7 @@ const APRS_STATIONS = new Set(['weather', 'infrastructure', 'fixed', 'mobile', '
 export function trackValues(track: Track, facetId: string): string[] {
   switch (facetId) {
     case 'aircraft.kind': return [track.aircraftClass || 'unknown']
+    case 'aircraft.state': return [track.onGround ? 'ground' : 'airborne']
     case 'aircraft.who': {
       const out: string[] = []
       if (track.role) out.push(track.role)

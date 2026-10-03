@@ -17,6 +17,12 @@ try {
   assert.equal(f.trackPassesFacets(heli, { 'aircraft.kind': ['airliner'] }), false)
   assert.equal(f.trackPassesFacets(T({}), { 'aircraft.kind': ['unknown'] }), true)
 
+  // State comes from the receiver's on-ground flag; without it an aircraft counts as airborne.
+  assert.equal(f.trackPassesFacets(T({ onGround: true }), { 'aircraft.state': ['airborne'] }), false)
+  assert.equal(f.trackPassesFacets(T({ onGround: true }), { 'aircraft.state': ['ground'] }), true)
+  assert.equal(f.trackPassesFacets(T({ onGround: false }), { 'aircraft.state': ['airborne'] }), true)
+  assert.equal(f.trackPassesFacets(T({}), { 'aircraft.state': ['airborne'] }), true)
+
   // "Who" is multi-valued: a military helicopter with an emergency squawk matches all three.
   const multi = T({ aircraftClass: 'helicopter', role: 'medical', military: true, alert: 'emergency' })
   assert.deepEqual(f.trackValues(multi, 'aircraft.who').sort(), ['alert', 'medical', 'military'])
