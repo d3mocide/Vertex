@@ -2479,3 +2479,9 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 
 - Hillshade colours come from the design palette (`frontend/src/layers/mapPalette.ts`, named after the Tailwind tokens) instead of hard-coded blue-grey hex; the shading reads its own DEM source (`terrain-hillshade-dem`, same tiles) so MapLibre no longer warns about one source driving both terrain and hillshade; a dark sky and haze replace MapLibre's default daytime blue when the view is tilted far enough to show the horizon. Camera presets (2D, 45°, 60°, reset north) and the relief slider live in the Layers box's View group.
 - Verified in the rebuilt stack with terrain on: no page errors or terrain/sky/hillshade warnings, heights read back, tiles served by the backend. Still to confirm on a real GPU: how the lifted overlays and the sky look, and frame pacing from Dev Tools → Tests → Terrain 3D.
+
+## 2026-10-03 — Layers box rework (phone layout, real presets)
+
+- **Phone layout**: the panel was a free-floating scroller that could end up scrolled past its own header and overlap the audio bar. It is now a sheet that sits above the audio bar and navigation, with the title, close button and presets pinned and only the layer list scrolling.
+- **Presets are complete pictures**: choosing one sets every layer, entity types included, so nothing is left over. Overview (the stock defaults), Weather watch, Fire, Traffic & transit, Air & marine, Comms & mesh. The panel shows which preset matches (or "Custom mix"), a one-line description, and how many layers are on; the LAYERS button carries the same count. Each group has All / None. Regional layers that have no provider are left out of the matching, so presets still match on regions without them.
+- Checked in the browser on phone and desktop widths: every preset applies and then reads back as the active one, no page errors; TypeScript passes.
