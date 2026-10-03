@@ -62,9 +62,8 @@ export function NWSAlertsLayer({ map, visible }: Props) {
     return () => {
       clearInterval(timer)
       try {
-        if (map.getLayer(LYR_ALERTS)) {
-          map.setLayoutProperty(LYR_ALERTS, 'visibility', 'none')
-        }
+        if (map.getLayer(LYR_ALERTS)) map.removeLayer(LYR_ALERTS)
+        if (map.getSource(SRC_ALERTS)) map.removeSource(SRC_ALERTS)
       } catch { /* ignore */ }
     }
   }, [map, isVisible])

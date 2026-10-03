@@ -19,6 +19,7 @@ import { useWebSocket }  from '../hooks/useWebSocket'
 import { useRegions }    from '../hooks/useRegions'
 import { RegionLayer }      from './layers/RegionLayer'
 import { MeshLinksLayer }   from './layers/MeshLinksLayer'
+import { installMapStylePriority } from '../layers/mapStylePriority'
 import { RailLayer }        from './layers/RailLayer'
 
 function makeCircleImage(size: number, rgba: [number, number, number, number]) {
@@ -120,6 +121,8 @@ export function Map() {
       },
     })
 
+    const removeStylePriority = installMapStylePriority(m)
+
     // Static region-center marker so operators can quickly orient to the
     // configured area of responsibility.
     const regionMarkerEl = document.createElement('div')
@@ -186,6 +189,7 @@ export function Map() {
 
     return () => {
       regionMarker.remove()
+      removeStylePriority()
       m.remove()
     }
   }, [])

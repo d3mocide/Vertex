@@ -61,9 +61,8 @@ export function GOESLayer({ map, visible }: Props) {
 
     return () => {
       try {
-        if (map.getLayer(LYR_GOES)) {
-          map.setLayoutProperty(LYR_GOES, 'visibility', 'none')
-        }
+        if (map.getLayer(LYR_GOES)) map.removeLayer(LYR_GOES)
+        if (map.getSource(SRC_GOES)) map.removeSource(SRC_GOES)
       } catch { /* ignore */ }
     }
   }, [map, isVisible])

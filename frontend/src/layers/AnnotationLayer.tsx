@@ -22,6 +22,7 @@ interface AnnotationGeometry {
  * plus text labels (TextLayer).
  */
 export function buildAnnotationLayers(annotations: AnnotationItem[], visible: boolean): Layer[] {
+  if (!visible || annotations.length === 0) return []
   const markerData: Array<{
     position: [number, number]
     id: number

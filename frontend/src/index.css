@@ -406,3 +406,19 @@ html.ios-pwa {
   padding-right: 3rem;
 }
 
+
+/* Shared map hover cards: neutral surfaces, square edges and bounded text. */
+@layer components {
+  .map-tooltip-card {
+    @apply p-2 w-[280px] max-w-[calc(100vw-32px)] bg-surface-container-highest
+           border border-outline-variant shadow-2xl backdrop-blur-md text-on-surface;
+    overflow-wrap: anywhere;
+  }
+  .map-tooltip-heading {
+    @apply flex items-start gap-2 text-[11px] font-mono font-bold text-on-surface mb-2
+           border-b border-outline-variant pb-1.5;
+  }
+  .map-tooltip-heading-block {
+    @apply mb-2 border-b border-outline-variant pb-1.5;
+  }
+}

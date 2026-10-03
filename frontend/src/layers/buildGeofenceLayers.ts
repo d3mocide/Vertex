@@ -24,7 +24,7 @@ export function buildGeofenceLayers(
   geofences: GeofenceItem[],
   visible: boolean,
 ): Layer[] {
-  if (!geofences.length) return []
+  if (!visible || !geofences.length) return []
 
   const layers: Layer[] = []
 

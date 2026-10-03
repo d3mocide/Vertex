@@ -18,14 +18,15 @@ export function RailLayer({ map }: Props) {
   const gtfsLoadedRef = useRef(false)
 
   useEffect(() => {
-    if (!map || typeof map.getSource !== 'function') return
+    if (!map || typeof map.getSource !== 'function' || !railTracksVisible) return
+    let cancelled = false
 
     // OSM tracks — basemap-style rail geometry for all mainline/freight/Amtrak
     const loadOsm = async () => {
       if (osmLoadedRef.current) return
       try {
         const geojson = await fetchRailGeoJSON('tracks')
-        if (!geojson || map.getSource(OSM_SRC_ID)) return
+        if (cancelled || !geojson || map.getSource(OSM_SRC_ID)) return
 
         map.addSource(OSM_SRC_ID, { type: 'geojson', data: geojson })
         // Insert OSM below the GTFS layer if it already loaded; otherwise append
@@ -58,7 +59,7 @@ export function RailLayer({ map }: Props) {
       try {
         // Null until the poller has cached the shapes; retried below
         const geojson = await fetchRailGeoJSON('gtfs-shapes')
-        if (!geojson || map.getSource(GTFS_SRC_ID)) return
+        if (cancelled || !geojson || map.getSource(GTFS_SRC_ID)) return
 
         map.addSource(GTFS_SRC_ID, { type: 'geojson', data: geojson })
         map.addLayer({
@@ -78,7 +79,9 @@ export function RailLayer({ map }: Props) {
 
     const loadAll = () => { loadOsm(); loadGtfs() }
 
-    if (map.isStyleLoaded()) {
+    // Other newly enabled overlays can make isStyleLoaded() false while
+    // their tiles load; the initial map load has already completed.
+    if (map.getStyle()) {
       loadAll()
     } else {
       map.once('load', loadAll)
@@ -90,8 +93,12 @@ export function RailLayer({ map }: Props) {
       if (!osmLoadedRef.current || !gtfsLoadedRef.current) loadAll()
     }, 5_000)
 
-    return () => clearInterval(retryInterval)
-  }, [map])
+    return () => {
+      cancelled = true
+      clearInterval(retryInterval)
+      map.off('load', loadAll)
+    }
+  }, [map, railTracksVisible])
 
   useEffect(() => {
     if (!map || typeof map.getLayer !== 'function') return

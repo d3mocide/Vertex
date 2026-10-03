@@ -14,7 +14,7 @@ export function SmokeLayer({ map }: Props) {
   const smokeVisible = useCivicStore((s) => s.smokeVisible)
 
   useEffect(() => {
-    if (!map || typeof map.getLayer !== 'function') return
+    if (!map || typeof map.getLayer !== 'function' || !smokeVisible) return
 
     // Cache-busting timestamp updated every 5 minutes.
     const getTiles = () => {
@@ -57,7 +57,13 @@ export function SmokeLayer({ map }: Props) {
       }
     } catch { /* ignore */ }
 
-    return () => clearInterval(interval)
+    return () => {
+      clearInterval(interval)
+      try {
+        if (map.getLayer(LYR_SMOKE)) map.removeLayer(LYR_SMOKE)
+        if (map.getSource(SRC_SMOKE)) map.removeSource(SRC_SMOKE)
+      } catch { /* map may already be removed */ }
+    }
   }, [map, smokeVisible])
 
   return null

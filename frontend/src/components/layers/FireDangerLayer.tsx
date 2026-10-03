@@ -28,6 +28,13 @@ export function FireDangerLayer({ map }: Props) {
 
   useEffect(() => {
     if (!map || typeof map.getLayer !== 'function') return
+    if (!visible) {
+      for (const id of [FILL, LINE]) {
+        if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', 'none')
+      }
+      return
+    }
+    const controller = new AbortController()
 
     if (!map.getSource(SRC)) {
       map.addSource(SRC, { type: 'geojson', data: { type: 'FeatureCollection', features: [] } })
@@ -42,11 +49,11 @@ export function FireDangerLayer({ map }: Props) {
     }
 
     if (visible && Date.now() - lastFetchRef.current > 5 * 60 * 1000) {
-      lastFetchRef.current = Date.now()
-      fetch(`${API_BASE}/weather/fire/danger`, { headers: authHeaders() })
+      fetch(`${API_BASE}/weather/fire/danger`, { headers: authHeaders(), signal: controller.signal })
         .then((r) => (r.ok ? r.json() : null))
         .then((geojson) => {
-          if (!geojson?.features) return
+          if (controller.signal.aborted || !geojson?.features) return
+          lastFetchRef.current = Date.now()
           ;(map.getSource(SRC) as maplibregl.GeoJSONSource | undefined)?.setData(geojson)
         })
         .catch(() => { /* ignore */ })
@@ -56,6 +63,7 @@ export function FireDangerLayer({ map }: Props) {
     try {
       for (const id of [FILL, LINE]) if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', vis)
     } catch { /* ignore */ }
+    return () => controller.abort()
   }, [map, visible])
 
   return null

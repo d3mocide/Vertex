@@ -2334,6 +2334,59 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 - Updated the transit roadmap: selected-vehicle route highlighting, route/stop browsing, regional density grouping, then active-calendar-aware timetables. Schedule data alone cannot support live arrival claims.
 - Verified npm install and TypeScript check (zero errors), frontend production build, development server startup, Compose parsing and seven behavioral motion checks (initial fix, interpolation, finish, consecutive updates, heading turn, large jump and stale fix). Production frontend rollout and health passed; the live transit feed still reports bus and train entities. Final privacy and staged checks pass; committed locally without a push.
 
+## 2026-10-01 — Review map layer priority
+
+- Audited Deck assembly, shared entity batches and MapLibre weather/area insertion. Aircraft/transit have no explicit type priority; dispatch is below the shared entity batch, with event/lightning/camera/annotation layers submitted afterward. Lazy weather creation and asynchronous rail loading prevent a stable MapLibre stack.
+- Documented the current stack and proposed aircraft-first, dispatch-second hierarchy in `docs/architecture/map-layers.md`, including hazards, movement, fixed infrastructure, context geometry and weather. Covered selection behavior, flat-overlay depth, raster anchors and legacy operational-geometry migration.
+- Review/documentation only; no runtime changes or deployment. Inspected source and installed Deck defaults; no implementation tests required.
+
+## 2026-10-01 — Align history trails with entity priority
+
+- Updated the map priority proposal so history, selected history, gap bridges and motion predictions share their entity's logical tier and draw behind all peer icons. Published route geometry remains in the lower context tier.
+- Documented restrained trail styling, cached per-tier batching and crossing-trail/live/replay/performance validation. Documentation only; no runtime changes. Diff whitespace validation passed.
+
+## 2026-10-01 — Implement map entity and history priority
+
+- Added shared entity/trail classification and stable per-tier batches. Aircraft draw above dispatch; hazards, ground operations, vessels, trains, buses and fixed infrastructure follow. Selected history stays behind peer icons in its own tier; cached history, filters, motion and replay inputs are preserved. Entity hover recognizes the new batch IDs.
+- Centralized Deck ordering with explicit flat-overlay depth behavior, and native ordering on style changes to stabilize lazy weather enable, radar recreation and asynchronous rail loading. Saved annotation polygons/lines/points now follow their geometry tiers. Existing native operational geometry remains a compatibility path; its separate Deck migration remains pending.
+- Updated architecture documentation and recorded the proposed aircraft provenance mark inside the chevron as separate visual follow-up work; badge placement is unchanged in this rollout.
+- Validation: dependency installation reported zero vulnerabilities; TypeScript, production build, Docker frontend build, development startup, Compose parsing and diff whitespace checks passed. Synthetic Playwright checks verified unique IDs, tier order, selected bus history below dispatch, peer trails behind icons, native lazy/re-add ordering, aircraft picking and dispatch opaque-pixel picking in flat/tilted views with zero browser errors. Temporary preview tooling removed; synthetic screenshots remain outside the repository. Frontend rollout verification follows.
+- Frontend-only rollout passed: rebuilt/recreated frontend serves a successful health response. No backend/poller changes, dependency changes, commit or push.
+
+## 2026-10-01 — Integrate aircraft provenance into the chevron
+
+- Replaced the floating aircraft source badge with two atlas variants: filled local pip and hollow external ring in an interior cutout. Marks rotate/scale with the aircraft and inherit its color/freshness opacity; plain silhouettes remain for glows/outlines and zooms below 9. Existing source classification, hover details and layer priorities remain.
+- Inspected synthetic local/external previews at four headings, normal/selected sizes, zooms 12/8/5 and a 45-degree tilted view. Browser assertions verified source variants, low-zoom omission and removal of the separate badge layer; zero browser errors. Temporary preview removed; synthetic screenshots remain outside the repository.
+- TypeScript, production frontend build, Compose parsing and whitespace checks passed. Updated map architecture documentation. Frontend-only rollout verification follows; no dependencies, backend or poller changed.
+- Frontend rebuilt/recreated successfully and its health endpoint responds. Changes remain uncommitted; no push requested.
+
+## 2026-10-01 — Plain aircraft chevrons and readable source tooltip
+
+- Removed integrated local/external pip variants and restored the plain aircraft chevron. Provenance remains in hover/details and existing feed controls; feed configuration is unchanged.
+- Moved entity tooltip source text below the callsign, with a bounded card width and wrapping monospace identifier. This prevents ADS-B/source text from colliding with long callsigns. Updated the map architecture reference.
+- TypeScript, Compose parsing and diff whitespace checks passed. Synthetic Playwright layout checks passed at desktop and narrow widths with long identifiers and zero browser errors; inspected the narrow screenshot. Temporary preview removed. Production build/rollout verification follows.
+- Production frontend build and frontend-only rollout passed; health endpoint responds successfully. No dependencies, backend/poller changes, commit or push.
+
+## 2026-10-01 — Keep rail geometry above the basemap
+
+- Split native weather and operational ordering. Weather stays below road/transport geometry and labels; rail tracks/routes and other native operational geometry now draw above the entire basemap, beneath Deck entities. Lazy additions and radar/rail re-additions retain this order.
+- Verified a real synthetic MapLibre road/raster/rail overlap in flat and tilted views, including remove/re-add sequences. Browser errors were zero and inspected the overlap screenshot. Existing rail compatibility rendering remains; its Deck migration is still separate follow-up work.
+
+## 2026-10-01 — Align all map hover cards with the entity tooltip
+
+- Added shared neutral surface and heading classes for all Deck map hover cards. Cameras, events, dispatch, gauges, mesh nodes, geofences and custom geometry now match entities with square borders, bounded width, wrapped headings and semantic tokens. Data fields use monospace; cards flip left/up near map edges.
+- Rendered nine tooltip scenarios from the actual templates with synthetic long identifiers. Desktop/narrow browser checks confirmed matching surfaces, zero-radius cards, no horizontal overflow and zero browser errors; inspected the combined screenshot. Temporary preview tooling removed. TypeScript/build/rollout checks follow.
+- TypeScript and production frontend build passed; Compose parsing and final diff whitespace checks passed. Frontend-only rollout completed and health responds successfully. No dependencies, backend/poller changes, commit or push.
+
+## 2026-10-01 — Audit and optimize frontend map rendering
+
+- Profiled disabled, aircraft-only and dense operational-overlay scenarios with synthetic reports. Disabled map reports previously produced about 100 Deck submissions and 14 React commits per 3.5-second sample; both now remain zero after the visibility transition. Dense operational layer count fell from 90 to 40, with 50 empty layers eliminated. A separate construction-only comparison measured mean all-on preparation at 1.54 ms before and 1.31 ms after; software GPU saturation prevents a hardware FPS claim.
+- Added reference-preserving visible-track and derived-layer caches, direct high-frequency store-to-ref synchronization, scoped mesh/gauge extraction and layer submission suppression. Hidden camera/lightning/dispatch/mesh feeds avoid map component commits. Static and paused replay geometry stays cached; live motion, selection and alert animation continue. Fixed RF sensor filtering and predictions remaining visible with trails off; selected TAK/train history retains its existing exception.
+- Gated map-only geofence, gauge and train warm-up polling, and selected transit route loading. Disabled weather sources/timers are removed; mesh geometry follows visibility. Rail ignores late results and stops hidden retries; simultaneous weather enable no longer delays rail while waiting for tiles. Fire/outage area requests abort when hidden and avoid initial disabled source construction. Shared ingestion/catalog/panel lifecycles remain independent of map visibility.
+- Added repeatable cache/filter/trail regression checks and a rendering review with methodology, results and remaining viewport/trail/hardware profiling work. Synthetic browser checks passed repeated native off/on/off cycles, replay interpolation and paused caching, replay filtering and hidden-feed update isolation with zero browser errors. Temporary benchmark pages/modules removed.
+- Validation: retained regression checks, TypeScript, production Docker frontend build, Compose parsing and diff whitespace checks passed. Frontend-only rollout/health verification follows. No dependencies, backend/poller changes, commit or push.
+- Frontend-only rollout completed and health responds successfully. Temporary development container stopped; changes remain uncommitted.
+
 ## 2026-10-02 — Move the AI briefing to ornith with a lean thinking prompt
 
 - Benchmarked `ornith-1.5-9b-uncensored` against the previous production model (`qwen3.5-9b-defiant-fable-mtp`) on frozen live contexts, one model at a time on the single-slot LLM server. With the old prompt ornith was unreliable (2 of 10 runs failed, 190–565 s, posture flipped). Reasoning traces showed no looping but the model redrafted the BOTTOM LINE 12–22 times inside its reasoning, following the 8-step "triage every item" thinking procedure literally.

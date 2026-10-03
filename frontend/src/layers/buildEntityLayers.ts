@@ -1,10 +1,10 @@
 import { Layer, type LayerContext } from '@deck.gl/core'
 import { IconLayer, ScatterplotLayer, TextLayer } from '@deck.gl/layers'
 import type { Track } from '../store'
-import { isSupplementSource } from '../storeTypes'
 import { getAtlasIcons } from './atlasIcons'
 import { entityColor } from './colorUtils'
 import { roleMeta } from '../aircraftRoles'
+import { groupTracks, tierLayers } from './layerPriority'
 
 // ─── StencilClearLayer ────────────────────────────────────────────────────────
 // Clears MapLibre tile stencil buffer bleed before deck.gl draws.
@@ -67,7 +67,7 @@ function aprsColor(stationType: string | undefined): [number, number, number, nu
 
 // ─── buildEntityLayers ────────────────────────────────────────────────────────
 // Returns: [selectionRingLayer, iconLayer, labelLayer]
-export function buildEntityLayers(
+function buildEntityTier(
   tracks: Record<string, Track>,
   selectedUid: string | null,
   cycle: number,
@@ -184,18 +184,6 @@ export function buildEntityLayers(
     },
   })
 
-  // Filled pip = local receiver, hollow pip = external network. Screen-aligned
-  // metadata stays separate from the aircraft's heading and role color.
-  const sourceBadgeLayer = new IconLayer<Track>({
-    id: 'aircraft-source-badges',
-    data: zoom >= 6 ? trackArr.filter(t => t.type === 'air') : [],
-    iconAtlas: atlas.url, iconMapping: atlas.mapping,
-    getIcon: t => isSupplementSource(t.source) ? 'ring' : 'dot',
-    getPosition: t => [t.lon, t.lat], getPixelOffset: [10, 10],
-    getSize: 10, sizeUnits: 'pixels', getColor: [0, 191, 255, 240],
-    billboard: true, pickable: false,
-  })
-
   // Pulsing red ring for APRS emergency stations.
   const emergencyAprs = trackArr.filter(t => t.type === 'ground' && t.stationType === 'emergency')
   const emergencyRingLayer = new ScatterplotLayer<Track>({
@@ -304,5 +292,15 @@ export function buildEntityLayers(
     fontFamily: 'monospace',
   })
 
-  return [selectionRingLayer, emergencyRingLayer, ...roleGlowLayers, iconOutlineLayer, iconLayer, sourceBadgeLayer, aprsLabelLayer, takLabelLayer, sensorLabelLayer]
+  return [selectionRingLayer, emergencyRingLayer, ...roleGlowLayers, iconOutlineLayer, iconLayer, aprsLabelLayer, takLabelLayer, sensorLabelLayer]
+    .filter(layer => Array.isArray(layer.props.data) && layer.props.data.length > 0)
+}
+
+export function buildEntityLayers(
+  tracks: Record<string, Track>, selectedUid: string | null, cycle: number,
+  zoom: number, tagColorMap?: Record<string, [number, number, number, number]>,
+): Layer[] {
+  return Array.from(groupTracks(tracks), ([priority, group]) =>
+    tierLayers(buildEntityTier(group, selectedUid, cycle, zoom, tagColorMap), priority),
+  ).flat()
 }

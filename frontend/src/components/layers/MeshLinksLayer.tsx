@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import type { Map as MapLibreMap } from 'maplibre-gl'
+import type { Map as MapLibreMap, GeoJSONSource } from 'maplibre-gl'
 import { useCivicStore } from '../../store'
 import type { Entity } from '../../store'
 import { useEntitiesByType } from '../../hooks/useEntities'
@@ -12,6 +12,8 @@ interface MeshLink {
   link_quality: number | null
   last_seen:    string
 }
+
+const EMPTY_LINKS: MeshLink[] = []
 
 const SOURCE_ID = 'mesh-links'
 const LAYER_ID = 'mesh-links-line'
@@ -37,13 +39,14 @@ interface Props {
 export function MeshLinksLayer({ map }: Props) {
   // Subscribe to mesh nodes only — depending on the whole entities map made
   // this effect rebuild its GeoJSON on every aircraft/vessel update.
-  const meshNodes = useEntitiesByType('mesh_node')
-  const meshLinks = useCivicStore((s) => s.meshLinks)
-  const meshStatus = useCivicStore((s) => s.meshStatus)
+  const visible = useCivicStore(s => s.entityFilter.mesh_node)
+  const meshNodes = useEntitiesByType('mesh_node', visible)
+  const meshLinks = useCivicStore((s) => visible ? s.meshLinks : EMPTY_LINKS)
+  const meshStatus = useCivicStore((s) => visible ? s.meshStatus : null)
 
   // Initialize Layer and Source
   useEffect(() => {
-    if (!map) return
+    if (!map || !visible) return
 
     if (!map.getSource(SOURCE_ID)) {
       map.addSource(SOURCE_ID, {
@@ -72,12 +75,12 @@ export function MeshLinksLayer({ map }: Props) {
         console.debug('[MeshLinksLayer] cleanup failed:', err)
       }
     }
-  }, [map])
+  }, [map, visible])
 
   // Update Data
   useEffect(() => {
-    if (!map) return
-    const source = map.getSource(SOURCE_ID) as any
+    if (!map || !visible) return
+    const source = map.getSource(SOURCE_ID) as GeoJSONSource | undefined
     if (!source) return
 
     const now = Date.now()
@@ -132,7 +135,7 @@ export function MeshLinksLayer({ map }: Props) {
       type: 'FeatureCollection',
       features
     })
-  }, [map, meshNodes, meshLinks, meshStatus])
+  }, [map, visible, meshNodes, meshLinks, meshStatus])
 
   return null
 }

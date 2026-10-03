@@ -61,9 +61,8 @@ export function LightningDensityLayer({ map, visible }: Props) {
     return () => {
       clearInterval(timer)
       try {
-        if (map.getLayer(LYR_LIGHTNING)) {
-          map.setLayoutProperty(LYR_LIGHTNING, 'visibility', 'none')
-        }
+        if (map.getLayer(LYR_LIGHTNING)) map.removeLayer(LYR_LIGHTNING)
+        if (map.getSource(SRC_LIGHTNING)) map.removeSource(SRC_LIGHTNING)
       } catch { /* ignore */ }
     }
   }, [map, isVisible])

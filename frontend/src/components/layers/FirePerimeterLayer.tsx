@@ -17,6 +17,13 @@ export function FirePerimeterLayer({ map }: Props) {
 
   useEffect(() => {
     if (!map || typeof map.getLayer !== 'function') return
+    if (!firePerimetersVisible) {
+      for (const id of [LYR_FILL, LYR_LINE]) {
+        if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', 'none')
+      }
+      return
+    }
+    const controller = new AbortController()
 
     // Add source + layers once
     if (!map.getSource(SRC_PERIMS)) {
@@ -52,11 +59,11 @@ export function FirePerimeterLayer({ map }: Props) {
     if (firePerimetersVisible) {
       const now = Date.now()
       if (now - lastFetchRef.current > 60000) {
-        lastFetchRef.current = now
-        fetch(`${API_BASE}/weather/fire/perimeters`, { headers: authHeaders() })
+        fetch(`${API_BASE}/weather/fire/perimeters`, { headers: authHeaders(), signal: controller.signal })
           .then((r) => r.ok ? r.json() : null)
           .then((geojson) => {
-            if (!geojson || !geojson.features) return
+            if (controller.signal.aborted || !geojson || !geojson.features) return
+            lastFetchRef.current = Date.now()
             const src = map.getSource(SRC_PERIMS) as maplibregl.GeoJSONSource | undefined
             src?.setData(geojson)
           })
@@ -69,6 +76,7 @@ export function FirePerimeterLayer({ map }: Props) {
       if (map.getLayer(LYR_FILL)) map.setLayoutProperty(LYR_FILL, 'visibility', vis)
       if (map.getLayer(LYR_LINE)) map.setLayoutProperty(LYR_LINE, 'visibility', vis)
     } catch { /* ignore */ }
+    return () => controller.abort()
   }, [map, firePerimetersVisible])
 
   return null
