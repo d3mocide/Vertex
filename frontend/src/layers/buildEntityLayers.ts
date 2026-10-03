@@ -1,10 +1,11 @@
 import { Layer, type LayerContext } from '@deck.gl/core'
-import { IconLayer, ScatterplotLayer, TextLayer } from '@deck.gl/layers'
+import { IconLayer, LineLayer, ScatterplotLayer, TextLayer } from '@deck.gl/layers'
 import type { Track } from '../store'
 import { getAtlasIcons } from './atlasIcons'
 import { entityColor } from './colorUtils'
 import { roleMeta } from '../aircraftRoles'
 import { groupTracks, tierLayers } from './layerPriority'
+import { lift, liftMsl, terrainActive, terrainVersion, type Lifted } from './terrainElevation'
 
 // ─── StencilClearLayer ────────────────────────────────────────────────────────
 // Clears MapLibre tile stencil buffer bleed before deck.gl draws.
@@ -65,6 +66,25 @@ function aprsColor(stationType: string | undefined): [number, number, number, nu
   }
 }
 
+/** Where a track is drawn: on the terrain surface, aircraft at their altitude. */
+function trackPosition(t: Track): Lifted {
+  return t.type === 'air' && t.altMeters > 0 ? liftMsl(t.lon, t.lat, t.altMeters) : lift(t.lon, t.lat)
+}
+
+/** Thin lines from airborne aircraft down to the ground beneath them, drawn only while 3D terrain is on. */
+function aircraftStalks(trackArr: Track[]): Layer[] {
+  if (!terrainActive()) return []
+  const air = trackArr.filter(t => t.type === 'air' && t.altMeters > 150)
+  if (air.length === 0) return []
+  return [new LineLayer<Track>({
+    id: 'aircraft-stalks', data: air,
+    getSourcePosition: (t) => lift(t.lon, t.lat) as [number, number, number],
+    getTargetPosition: (t) => trackPosition(t) as [number, number, number],
+    getColor: (t) => entityColor(t, 70), getWidth: 1, widthUnits: 'pixels', pickable: false,
+    updateTriggers: { getSourcePosition: terrainVersion(), getTargetPosition: terrainVersion() },
+  })]
+}
+
 // ─── buildEntityLayers ────────────────────────────────────────────────────────
 // Returns: [selectionRingLayer, iconLayer, labelLayer]
 function buildEntityTier(
@@ -82,7 +102,7 @@ function buildEntityTier(
   const selectionRingLayer = new ScatterplotLayer<Track>({
     id:             'selection-ring',
     data:           selectedTrack ? [selectedTrack] : [],
-    getPosition:    (t) => [t.lon, t.lat],
+    getPosition:    trackPosition,
     getRadius:      () => 30 + cycle * 40,
     getFillColor:   (t) => {
       const [r, g, b] = entityColor(t)
@@ -127,7 +147,7 @@ function buildEntityTier(
       }
       return 'dot'
     },
-    getPosition: (t) => [t.lon, t.lat],
+    getPosition: trackPosition,
     getAngle:    (t) => -(t.vesselHeading ?? t.courseTrue),
     getColor:    [15, 23, 42, 220], // Slate-900 with high alpha for contrast
     getSize:     (t) => entityIconSize(selectedUid, t, zoom) + 2.5,
@@ -156,7 +176,7 @@ function buildEntityTier(
       }
       return 'dot'
     },
-    getPosition: (t) => [t.lon, t.lat],
+    getPosition: trackPosition,
     getAngle:    (t) => -(t.vesselHeading ?? t.courseTrue),
     getColor:    (t) => {
       if (t.type === 'ground')  return aprsColor(t.stationType)
@@ -189,7 +209,7 @@ function buildEntityTier(
   const emergencyRingLayer = new ScatterplotLayer<Track>({
     id:             'aprs-emergency-rings',
     data:           emergencyAprs,
-    getPosition:    (t) => [t.lon, t.lat],
+    getPosition:    trackPosition,
     getRadius:      () => 20 + cycle * 30,
     getFillColor:   () => [255, 80, 80, Math.round(140 * (1 - cycle * cycle))],
     getLineColor:   () => [255, 80, 80, Math.round(255 * (1 - cycle * cycle))],
@@ -226,7 +246,7 @@ function buildEntityTier(
     iconAtlas:   atlas.url,
     iconMapping: atlas.mapping,
     getIcon:     glowIcon,
-    getPosition: (t) => [t.lon, t.lat],
+    getPosition: trackPosition,
     getAngle:    (t) => -(t.vesselHeading ?? t.courseTrue),
     getColor:    (t) => glowColor(t, i === 0 ? 0.22 : 0.5),
     getSize:     (t) => entityIconSize(selectedUid, t, zoom) + (i === 0 ? 20 : 10),
@@ -245,7 +265,7 @@ function buildEntityTier(
   const aprsLabelLayer = new TextLayer<Track>({
     id: 'aprs-labels',
     data: zoom >= 10 ? trackArr.filter((t) => t.type === 'ground') : [],
-    getPosition: (t) => [t.lon, t.lat],
+    getPosition: trackPosition,
     getText: (t) => t.callsign ?? t.uid,
     getSize: 10,
     sizeUnits: 'pixels',
@@ -266,7 +286,7 @@ function buildEntityTier(
   const takLabelLayer = new TextLayer<Track>({
     id: 'tak-labels',
     data: zoom >= 9 ? trackArr.filter((t) => t.type === 'tak') : [],
-    getPosition: (t) => [t.lon, t.lat],
+    getPosition: trackPosition,
     getText: (t) => t.callsign ?? t.uid,
     getSize: 11,
     sizeUnits: 'pixels',
@@ -281,7 +301,7 @@ function buildEntityTier(
   const sensorLabelLayer = new TextLayer<Track>({
     id: 'rf-sensor-labels',
     data: zoom >= 10 ? trackArr.filter((t) => t.type === 'sensor') : [],
-    getPosition: (t) => [t.lon, t.lat],
+    getPosition: trackPosition,
     getText: (t) => t.callsign ?? t.uid,
     getSize: 10,
     sizeUnits: 'pixels',
@@ -292,7 +312,7 @@ function buildEntityTier(
     fontFamily: 'monospace',
   })
 
-  return [selectionRingLayer, emergencyRingLayer, ...roleGlowLayers, iconOutlineLayer, iconLayer, aprsLabelLayer, takLabelLayer, sensorLabelLayer]
+  return [...aircraftStalks(trackArr), selectionRingLayer, emergencyRingLayer, ...roleGlowLayers, iconOutlineLayer, iconLayer, aprsLabelLayer, takLabelLayer, sensorLabelLayer]
     .filter(layer => Array.isArray(layer.props.data) && layer.props.data.length > 0)
 }
 

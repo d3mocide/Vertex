@@ -1,6 +1,7 @@
 import { ScatterplotLayer } from '@deck.gl/layers'
 import type { SystemEvent } from '../store'
 import type { RGBA } from './colorUtils'
+import { lift, terrainVersion } from './terrainElevation'
 
 export function buildEventLayers(events: SystemEvent[], nowMs: number) {
   // Only map events that have geographic coordinates. special_aircraft events are logged for the
@@ -24,7 +25,7 @@ export function buildEventLayers(events: SystemEvent[], nowMs: number) {
       stroked: true,
       filled: true,
       lineWidthMinPixels: 2,
-      getPosition: (d) => [d.details!.lon!, d.details!.lat!],
+      getPosition: (d) => lift(d.details!.lon!, d.details!.lat!),
       getRadius: (d) => {
         // Base size on magnitude if available, otherwise fallback by severity
         if (d.details?.magnitude) {
@@ -56,7 +57,7 @@ export function buildEventLayers(events: SystemEvent[], nowMs: number) {
         return [200, 200, 200, alpha]
       },
       // Ensure it updates when 'nowMs' or data changes
-      updateTriggers: {
+      updateTriggers: { getPosition: terrainVersion(),
         getFillColor: [nowMs],
         getLineColor: [nowMs],
       },

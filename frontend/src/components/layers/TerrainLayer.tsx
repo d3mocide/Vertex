@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import * as maplibregl from 'maplibre-gl'
 import { useCivicStore } from '../../store'
+import { configureTerrainElevation } from '../../layers/terrainElevation'
 
 interface Props { map: maplibregl.Map }
 
@@ -26,6 +27,7 @@ export function TerrainLayer({ map }: Props) {
       } catch (err) {
         // A terrain failure must not leave the user with a saved preference that fails on every load.
         console.error('[terrain] could not apply 3D terrain, turning it off:', err)
+        configureTerrainElevation(map, false, 1)
         useCivicStore.getState().setTerrainEnabled(false)
       }
     }
@@ -88,6 +90,8 @@ export function TerrainLayer({ map }: Props) {
           map.easeTo({ pitch: 0, duration: 600 })
         }
       }
+      // Overlays read ground heights from the live terrain; tell them it changed (or went away).
+      configureTerrainElevation(map, terrainEnabled, terrainExaggeration)
     }
 
     // MapLibre requires the style to be fully loaded before addSource/setTerrain.
@@ -98,6 +102,8 @@ export function TerrainLayer({ map }: Props) {
       return () => { map.off('load', applyTerrain) }
     }
   }, [map, terrainEnabled, terrainExaggeration])
+
+  useEffect(() => () => configureTerrainElevation(null, false, 1), [])
 
   return null
 }

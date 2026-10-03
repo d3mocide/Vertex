@@ -1,5 +1,6 @@
 import { IconLayer } from '@deck.gl/layers'
 import { getAtlasIcons } from './atlasIcons'
+import { lift, terrainVersion } from './terrainElevation'
 
 export interface LightningStrike {
   lat: number
@@ -46,7 +47,7 @@ export function buildLightningLayer(strikes: LightningStrike[], nowMs: number, z
       iconAtlas:   atlas.url,
       iconMapping: atlas.mapping,
       getIcon:     () => iconName,
-      getPosition: (s) => [s.lon, s.lat],
+      getPosition: (s) => lift(s.lon, s.lat),
       getSize:     (s) => {
         const age = Math.max(0, Math.min(1, (nowMs - s.ts) / FADE_MS))
         return baseSize * (1 - age * 0.55)   // shrinks to ~45% of base as it ages
@@ -58,7 +59,7 @@ export function buildLightningLayer(strikes: LightningStrike[], nowMs: number, z
       },
       sizeUnits: 'pixels',
       billboard: true,
-      updateTriggers: {
+      updateTriggers: { getPosition: terrainVersion(),
         getIcon:  zoom,
         getSize:  [nowMs, zoom],
         getColor: nowMs,

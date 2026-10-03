@@ -8,6 +8,7 @@ import { useCivicStore } from '../store'
 import type { Entity, Track, TrafficCamera, EntityTypeFilter, RangeFilter, ReplayData, SystemEvent } from '../store'
 import { orderOperationalLayers } from '../layers/layerPriority'
 import { buildEntityLayers } from '../layers/buildEntityLayers'
+import { terrainVersion } from '../layers/terrainElevation'
 import { buildTrailLayers } from '../layers/buildTrailLayers'
 import { buildCameraLayer } from '../layers/buildCameraLayer'
 import { buildEventLayers } from '../layers/buildEventLayers'
@@ -779,6 +780,7 @@ export function MapOverlay({ map }: Props) {
       const entityZoom = zoom >= 10 ? 10 : zoomBucket
       const minuteBucket = Math.floor(nowMs / 60_000)  // mesh stale styling (hours-scale threshold)
       const typeVer = typeVersionRef.current
+      const tv = terrainVersion()   // overlay positions follow the terrain: rebuild groups when it changes
       const timed = <T,>(name: string, fn: () => T): T => {
         if (!perfOn) return fn()
         const t0 = performance.now(); const out = fn(); perfMark(name, t0); return out
@@ -791,7 +793,7 @@ export function MapOverlay({ map }: Props) {
           ...memoGroup('obsRing', [],
             () => buildObservationRingLayers(DEFAULT_CENTER, OBSERVATION_RANGE_KM, true)),
           // Rebuilt only when mesh nodes change (not on every aircraft update).
-          ...memoGroup('mesh', [typeVer.mesh_node, entityFilterRef.current.mesh_node, zoomBucket, minuteBucket],
+          ...memoGroup('mesh', [typeVer.mesh_node, entityFilterRef.current.mesh_node, zoomBucket, minuteBucket, tv],
             () => !entityFilterRef.current.mesh_node ? [] : timed('mesh', () => buildMeshNodeLayers(
               memo.get('meshData', [typeVer.mesh_node], () => Object.values(entitiesRef.current).filter(e => e.entity_type === 'mesh_node')),
               entityFilterRef.current.mesh_node,
@@ -799,7 +801,7 @@ export function MapOverlay({ map }: Props) {
               zoomBucket,
               minuteBucket,
             ))),
-          ...memoGroup('gauge', [typeVer.stream_gauge, gaugeFallbackRef.current, gaugesVisibleRef.current, zoomBucket],
+          ...memoGroup('gauge', [typeVer.stream_gauge, gaugeFallbackRef.current, gaugesVisibleRef.current, zoomBucket, tv],
             () => {
               if (!gaugesVisibleRef.current) return []
               const wsGauges = memo.get('gaugeData', [typeVer.stream_gauge],
@@ -811,25 +813,25 @@ export function MapOverlay({ map }: Props) {
           // Trail history only changes when a report arrives: cache it on the
           // track store + filters instead of re-tessellating every path each frame.
           ...memoGroup('trailHistory', [
-            rawTracks, sel, trailsVisibleRef.current,
+            rawTracks, sel, trailsVisibleRef.current, tv,
           ], () => timed('trails', () => buildTrailLayers(rawTracks, sel, trailsVisibleRef.current, 'history'))),
-          ...memoGroup('trailDynamic', [pvbTracks, sel, trailsVisibleRef.current],
+          ...memoGroup('trailDynamic', [pvbTracks, sel, trailsVisibleRef.current, tv],
             () => timed('trailsDyn', () => buildTrailLayers(pvbTracks, sel, trailsVisibleRef.current, 'dynamic'))),
           ...memoGroup('trailSelected', [
-            rawTracks, sel, trailsVisibleRef.current,
+            rawTracks, sel, trailsVisibleRef.current, tv,
           ], () => buildTrailLayers(rawTracks, sel, trailsVisibleRef.current, 'selected')),
           ...memoGroup('selectedTransitRoute', [selectedTransitRouteRef.current, rawTracks[sel ?? ''], replayModeRef.current],
             () => replayModeRef.current || !rawTracks[sel ?? ''] ? [] : buildTransitRouteLayers(selectedTransitRouteRef.current)),
-          ...memoGroup('dispatch', [dispatchRef.current, dispatchVisibleRef.current, minuteBucket, zoom >= 8],
+          ...memoGroup('dispatch', [dispatchRef.current, dispatchVisibleRef.current, minuteBucket, zoom >= 8, tv],
             () => buildDispatchLayers(dispatchRef.current, dispatchVisibleRef.current, nowMs, zoom)),
-          ...memoGroup('entity', [pvbTracks, sel, animated ? cycleRef.current : 0, entityZoom, missionTagsRef.current],
+          ...memoGroup('entity', [pvbTracks, sel, animated ? cycleRef.current : 0, entityZoom, missionTagsRef.current, tv],
             () => timed('entities', () => buildEntityLayers(pvbTracks, sel, cycleRef.current, entityZoom, missionTagsRef.current))),
-          ...memoGroup('event', [systemEventsRef.current, minuteBucket],
+          ...memoGroup('event', [systemEventsRef.current, minuteBucket, tv],
             () => timed('events', () => buildEventLayers(systemEventsRef.current, nowMs))),
           ...memoGroup('lightning', [lightningVisibleRef.current, lightningRef.current, zoomBucket,
-            lightningVisibleRef.current ? Math.floor(nowMs / 100) : 0],
+            lightningVisibleRef.current ? Math.floor(nowMs / 100) : 0, tv],
             () => lightningVisibleRef.current ? buildLightningLayer(lightningRef.current, nowMs, zoomBucket) : []),
-          ...memoGroup('camera', [camerasVisibleRef.current, camerasRef.current, selectedCamRef.current, zoomBucket],
+          ...memoGroup('camera', [camerasVisibleRef.current, camerasRef.current, selectedCamRef.current, zoomBucket, tv],
             () => (camerasVisibleRef.current
               ? [buildCameraLayer(camerasRef.current, selectedCamRef.current, zoomBucket)]
               : [])),

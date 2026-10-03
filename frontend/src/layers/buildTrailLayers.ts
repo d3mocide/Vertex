@@ -5,9 +5,11 @@ import type { Track } from '../store'
 import { getDistanceMeters } from './geoUtils'
 import { entityColor } from './colorUtils'
 import { groupTracks, tierLayers } from './layerPriority'
+import { lift, terrainActive } from './terrainElevation'
 
-const pos = (arr: number[]): Position => arr as unknown as Position
-const posA = (arr: number[][]): Position[] => arr as unknown as Position[]
+// Trail vertices follow the terrain surface while 3D terrain is on; flat maps keep the stored arrays untouched.
+const pos = (arr: number[]): Position => (terrainActive() ? lift(arr[0], arr[1]) : arr) as unknown as Position
+const posA = (arr: number[][]): Position[] => (terrainActive() ? arr.map(p => lift(p[0], p[1])) : arr) as unknown as Position[]
 const DASH_EXTENSION = new PathStyleExtension({ dash: true })
 type TrailPart = 'all' | 'history' | 'dynamic' | 'selected'
 type GapBridge = { from: number[]; to: number[]; color: [number, number, number, number] }

@@ -2,6 +2,7 @@ import { IconLayer } from '@deck.gl/layers'
 import type { Entity } from '../store'
 import { getAtlasIcons } from './atlasIcons'
 import { MESH_NODE_STALE_MS } from '../config'
+import { lift, terrainVersion } from './terrainElevation'
 
 export interface MeshNodePoint {
   entity_id: string
@@ -61,12 +62,12 @@ export function buildMeshNodeLayers(
     iconAtlas:   atlas.url,
     iconMapping: atlas.mapping,
     getIcon:     () => iconForZoom(zoom),
-    getPosition: (p) => [p.lon, p.lat],
+    getPosition: (p) => lift(p.lon, p.lat),
     getSize:     () => iconSize(zoom),
     getColor:    (p) => p.stale ? MESH_STALE : MESH_ACTIVE,
     sizeUnits:   'pixels',
     billboard:   false,
-    updateTriggers: {
+    updateTriggers: { getPosition: terrainVersion(),
       getIcon:  zoom,
       getSize:  zoom,
       // Scalar trigger: an array here is a new object every build, so deck

@@ -1,6 +1,7 @@
 import { IconLayer } from '@deck.gl/layers'
 import type { RadioIncident, RadioIncidentCategory } from '../storeTypes'
 import { getAtlasIcons } from './atlasIcons'
+import { lift, terrainVersion } from './terrainElevation'
 
 /*
  * Dispatch incidents on the main map: located radio incidents (poller
@@ -58,7 +59,7 @@ export function buildDispatchLayers(incidents: RadioIncident[], visible: boolean
     iconMapping: atlas.mapping,
     sizeUnits: 'pixels' as const,
     billboard: true,
-    getPosition: (i: RadioIncident) => [i.lon!, i.lat!] as [number, number],
+    getPosition: (i: RadioIncident) => lift(i.lon!, i.lat!),
   }
   return [
     new IconLayer<RadioIncident>({
@@ -69,7 +70,7 @@ export function buildDispatchLayers(incidents: RadioIncident[], visible: boolean
       getIcon: () => 'halo',
       getSize: (i) => (far ? 22 : i.severity >= 5 ? 60 : 50),
       getColor: (i) => (i.severity >= 5 ? [...RED_HALO, 150] : [...dispatchColor(i.severity), 110]),
-      updateTriggers: { getSize: [far] },
+      updateTriggers: { getPosition: terrainVersion(), getSize: [far] },
     }),
     new IconLayer<RadioIncident>({
       ...common,
@@ -79,7 +80,7 @@ export function buildDispatchLayers(incidents: RadioIncident[], visible: boolean
       getIcon: (i) => (far ? 'dot' : DISPATCH_GLYPH[i.category] ?? 'dispatch_other'),
       getSize: (i) => (far ? (i.severity >= 5 ? 11 : 9) : i.severity >= 5 ? 36 : 32),
       getColor: (i) => [...dispatchColor(i.severity), alpha(i)],
-      updateTriggers: { getIcon: [far], getSize: [far], getColor: [minute] },
+      updateTriggers: { getPosition: terrainVersion(), getIcon: [far], getSize: [far], getColor: [minute] },
     }),
   ]
 }

@@ -1,6 +1,7 @@
 import { IconLayer } from '@deck.gl/layers'
 import type { TrafficCamera } from '../store'
 import { getAtlasIcons } from './atlasIcons'
+import { lift, terrainVersion } from './terrainElevation'
 
 // Atlas hue: --cat-cam #FFB800 (amber gold)
 const COLOR_DEFAULT:  [number, number, number, number] = [255, 184,   0, 200]
@@ -33,12 +34,12 @@ export function buildCameraLayer(
     iconAtlas:   atlas.url,
     iconMapping: atlas.mapping,
     getIcon:     () => iconForZoom(zoom),
-    getPosition: (c) => [c.lon!, c.lat!],
+    getPosition: (c) => lift(c.lon!, c.lat!),
     getSize:     (c) => iconSize(selectedCamId, c.id, zoom),
     getColor:    (c) => c.id === selectedCamId ? COLOR_SELECTED : COLOR_DEFAULT,
     sizeUnits:   'pixels',
     billboard:   false,
-    updateTriggers: {
+    updateTriggers: { getPosition: terrainVersion(),
       getIcon:  zoom,
       getSize:  [selectedCamId, zoom],
       getColor: selectedCamId,

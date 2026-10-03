@@ -1,6 +1,7 @@
 import { IconLayer } from '@deck.gl/layers'
 import type { Entity } from '../store'
 import { getAtlasIcons } from './atlasIcons'
+import { lift, terrainVersion } from './terrainElevation'
 
 export interface StreamGaugePoint {
   entity_id: string
@@ -75,12 +76,12 @@ export function buildStreamGaugeLayers(entities: Entity[], visible: boolean, zoo
     iconAtlas:   atlas.url,
     iconMapping: atlas.mapping,
     getIcon:     () => gaugeIconName(zoom),
-    getPosition: (p) => [p.lon, p.lat],
+    getPosition: (p) => lift(p.lon, p.lat),
     getSize:     () => gaugeIconSize(zoom),
     getColor:    (p) => p.color,
     sizeUnits:   'pixels',
     billboard:   false,
-    updateTriggers: {
+    updateTriggers: { getPosition: terrainVersion(),
       getIcon:  zoom,
       getSize:  zoom,
       getColor: points.map(p => p.stage),
