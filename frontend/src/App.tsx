@@ -34,6 +34,7 @@ import { FlightLogPanel }      from './components/panels/FlightLogPanel'
 import { AnnotationController } from './components/panels/AnnotationController'
 import { InstallPrompt } from './components/InstallPrompt'
 import { DevTools } from './components/dev/DevTools'
+import { MapErrorBoundary } from './components/MapErrorBoundary'
 import { loadRegion } from './region'
 import { fetchSetupStatus, type SetupStatus } from './setup'
 import { SetupWizard } from './components/SetupWizard'
@@ -77,7 +78,7 @@ function Dashboard() {
         `}
         aria-hidden={activeTab !== 'safety'}
       >
-        <Map />
+        <MapErrorBoundary><Map /></MapErrorBoundary>
       </div>
 
       {/* Status-bar band (iPad / large screens) — a solid backdrop for the

@@ -15,6 +15,7 @@ import { TerrainLayer }         from './layers/TerrainLayer'
 import { NWSAlertsLayer }         from './layers/NWSAlertsLayer'
 import { LightningDensityLayer }  from './layers/LightningDensityLayer'
 import { MapOverlay }           from './MapOverlay'
+import { installDeckTerrainCompat } from '../layers/deckTerrainCompat'
 import { useWebSocket }  from '../hooks/useWebSocket'
 import { useRegions }    from '../hooks/useRegions'
 import { RegionLayer }      from './layers/RegionLayer'
@@ -121,6 +122,7 @@ export function Map() {
       },
     })
 
+    installDeckTerrainCompat(m)   // deck.gl 9.4 vs MapLibre 6: without this, enabling 3D terrain crashes the app
     const removeStylePriority = installMapStylePriority(m)
 
     // Static region-center marker so operators can quickly orient to the

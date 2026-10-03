@@ -21,6 +21,16 @@ export function TerrainLayer({ map }: Props) {
     if (!map) return
 
     function applyTerrain() {
+      try {
+        applyTerrainUnsafe()
+      } catch (err) {
+        // A terrain failure must not leave the user with a saved preference that fails on every load.
+        console.error('[terrain] could not apply 3D terrain, turning it off:', err)
+        useCivicStore.getState().setTerrainEnabled(false)
+      }
+    }
+
+    function applyTerrainUnsafe() {
       // ── 1. Ensure the DEM raster source exists ──────────────────────────────
       if (!map.getSource(TERRAIN_SRC)) {
         map.addSource(TERRAIN_SRC, {
