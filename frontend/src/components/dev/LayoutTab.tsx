@@ -1,5 +1,4 @@
 import { useEffect, useState, useCallback } from 'react'
-import { useCivicPick } from '../store'
 
 // ── Developer overlay: surfaces the exact iOS safe-area insets, viewport
 //    geometry, and DOM-layer heights on-device, so we never have to guess at
@@ -11,13 +10,13 @@ import { useCivicPick } from '../store'
 //    894 while the screen is 956) you can see *exactly* which element is the
 //    culprit — html=crimson · body=green · #root=blue.
 //
-//    Enable via Settings → System → "Layout / Safe-Area Inspector", or by
-//    loading the app with ?debug=insets in the URL.
+//    This is the Layout tab of the Developer tools (DevTools.tsx). Open the tools via
+//    Settings → System → "Developer tools", or load the app with ?debug=insets.
 
 interface Insets { top: number; right: number; bottom: number; left: number }
 interface LayerRect { h: number; top: number; bottom: number }
 
-interface Metrics {
+export interface Metrics {
   insets: Insets
   innerW: number
   innerH: number
@@ -137,7 +136,7 @@ function readMetrics(): Metrics {
 }
 
 // Plain-text dump for the Copy button — paste straight into a bug report.
-function buildReport(m: Metrics): string {
+export function buildReport(m: Metrics): string {
   const L = (k: string, v: LayerRect) => `${k} rect H ${v.h} (${v.top}→${v.bottom})`
   return [
     'VERTEX LAYOUT DIAG',
@@ -162,10 +161,10 @@ function buildReport(m: Metrics): string {
   ].join('\n')
 }
 
-const CORNERS = ['top-left', 'top-right', 'bottom-left', 'bottom-right'] as const
-type Corner = (typeof CORNERS)[number]
+export const CORNERS = ['top-left', 'top-right', 'bottom-left', 'bottom-right'] as const
+export type Corner = (typeof CORNERS)[number]
 
-const CORNER_CLASS: Record<Corner, string> = {
+export const CORNER_CLASS: Record<Corner, string> = {
   'top-left': 'top-2 left-2 pt-safe pl-safe',
   'top-right': 'top-2 right-2 pt-safe pr-safe',
   'bottom-left': 'bottom-2 left-2 pb-safe pl-safe',
@@ -181,7 +180,7 @@ const LAYER_META: Record<LayerKey, { name: string; dot: string; text: string; bg
   root: { name: '#root', dot: 'bg-cyan-adsb',     text: 'text-cyan-adsb',     bg: 'bg-cyan-adsb' },
 }
 
-function Row({ label, value }: { label: string; value: string | number }) {
+export function Row({ label, value }: { label: string; value: string | number }) {
   return (
     <div className="flex items-center justify-between gap-4">
       <span className="text-on-surface-variant">{label}</span>
@@ -190,7 +189,7 @@ function Row({ label, value }: { label: string; value: string | number }) {
   )
 }
 
-function SectionLabel({ children, divider }: { children: string; divider?: boolean }) {
+export function SectionLabel({ children, divider }: { children: string; divider?: boolean }) {
   return (
     <div
       className={`font-bold text-[9px] tracking-widest uppercase text-on-surface-variant pb-0.5 ${
@@ -217,28 +216,13 @@ function LayerRow({ k, rect }: { k: LayerKey; rect: LayerRect }) {
   )
 }
 
-export function DevInsetInspector() {
-  const { debugInsets, setDebugInsets } = useCivicPick('debugInsets', 'setDebugInsets')
+/** Live layout metrics, refreshed on resize, orientation and visual-viewport changes while `active`. */
+export function useLayoutMetrics(active: boolean): Metrics {
   const [metrics, setMetrics] = useState<Metrics>(() => readMetrics())
-  const [corner, setCorner] = useState<Corner>('top-right')
-  const [copied, setCopied] = useState(false)
-
-  // Allow ?debug=insets (or bare ?debug) to switch the inspector on.
-  // Strip the param immediately so a refresh doesn't re-enable it.
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search)
-    if (params.has('debug') && (params.get('debug') === 'insets' || params.get('debug') === '')) {
-      setDebugInsets(true)
-      params.delete('debug')
-      const newSearch = params.toString()
-      history.replaceState(null, '', newSearch ? `?${newSearch}` : window.location.pathname)
-    }
-  }, [setDebugInsets])
-
   const refresh = useCallback(() => setMetrics(readMetrics()), [])
 
   useEffect(() => {
-    if (!debugInsets) return
+    if (!active) return
     refresh()
     const vv = window.visualViewport
     window.addEventListener('resize', refresh)
@@ -253,33 +237,21 @@ export function DevInsetInspector() {
       vv?.removeEventListener('scroll', refresh)
       window.clearInterval(id)
     }
-  }, [debugInsets, refresh])
+  }, [active, refresh])
 
-  if (!debugInsets) return null
+  return metrics
+}
 
+// Horizontal markers at each DOM layer's bottom edge. Where the green (body)
+// or red (html) line falls short of the blue (#root) / screen bottom, you've
+// found the gap. Labels are staggered so coincident lines stay readable.
+const layerOrder: LayerKey[] = ['html', 'body', 'root']
+const labelLeft: Record<LayerKey, string> = { html: '8px', body: '34%', root: '64%' }
+
+/** Translucent bands over each safe area and markers at each DOM layer's bottom edge. */
+export function InsetBands({ metrics }: { metrics: Metrics }) {
   const { insets, layers } = metrics
-  const cycleCorner = () =>
-    setCorner(c => CORNERS[(CORNERS.indexOf(c) + 1) % CORNERS.length])
-
-  const copyReport = () => {
-    navigator.clipboard?.writeText(buildReport(metrics)).then(
-      () => {
-        setCopied(true)
-        window.setTimeout(() => setCopied(false), 1200)
-      },
-      () => {/* clipboard blocked — no-op */},
-    )
-  }
-
-  // Horizontal markers at each DOM layer's bottom edge. Where the green (body)
-  // or red (html) line falls short of the blue (#root) / screen bottom, you've
-  // found the gap. Labels are staggered so coincident lines stay readable.
-  const layerOrder: LayerKey[] = ['html', 'body', 'root']
-  const labelLeft: Record<LayerKey, string> = { html: '8px', body: '34%', root: '64%' }
-
   return (
-    <>
-      {/* Inset visualisers — translucent amber bands over each safe area. */}
       <div className="fixed inset-0 z-[90] pointer-events-none" aria-hidden="true">
         {insets.top > 0 && (
           <div
@@ -328,40 +300,14 @@ export function DevInsetInspector() {
           )
         })}
       </div>
+  )
+}
 
-      {/* Readout panel */}
-      <div className={`fixed z-[91] w-[228px] pointer-events-auto ${CORNER_CLASS[corner]}`}>
-        <div className="bg-onyx-deep/95 border border-amber-gold backdrop-blur-md max-h-[82vh] flex flex-col">
-          <div className="flex items-center justify-between gap-2 px-2 h-7 border-b border-amber-gold/40 shrink-0">
-            <span className="font-bold text-[10px] tracking-widest uppercase text-amber-gold">
-              Layout Diag
-            </span>
-            <div className="flex items-center gap-1">
-              <button
-                onClick={copyReport}
-                className="text-on-surface-variant hover:text-amber-gold"
-                aria-label="Copy diagnostics"
-              >
-                <span className="ms text-[16px]">{copied ? 'check' : 'content_copy'}</span>
-              </button>
-              <button
-                onClick={cycleCorner}
-                className="text-on-surface-variant hover:text-amber-gold"
-                aria-label="Move inspector"
-              >
-                <span className="ms text-[16px]">open_with</span>
-              </button>
-              <button
-                onClick={() => setDebugInsets(false)}
-                className="text-on-surface-variant hover:text-amber-gold"
-                aria-label="Close inspector"
-              >
-                <span className="ms text-[16px]">close</span>
-              </button>
-            </div>
-          </div>
-
-          <div className="p-2 space-y-1.5 text-[10px] overflow-y-auto">
+/** The readout rows of the Layout tab. */
+export function LayoutBody({ metrics }: { metrics: Metrics }) {
+  const { insets, layers } = metrics
+  return (
+    <div className="space-y-1.5 text-[10px]">
             <SectionLabel>Mode</SectionLabel>
             <Row label="iOS ver"     value={metrics.iosVer} />
             <Row label="nav.standalone" value={String(metrics.navStandalone)} />
@@ -406,9 +352,6 @@ export function DevInsetInspector() {
                 {metrics.screenGap}px
               </span>
             </div>
-          </div>
-        </div>
-      </div>
-    </>
+    </div>
   )
 }

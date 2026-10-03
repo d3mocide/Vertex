@@ -33,6 +33,7 @@ import { DEFAULT_CENTER, OBSERVATION_RANGE_KM, API_BASE } from '../config'
 import { authHeaders } from '../auth'
 import type { LightningStrike } from '../store'
 import { installPerfRecorder, markLayerBuild } from '../perfRecorder'
+import { isPerfEnabled, markPhase, registerDevMap, setScene } from '../devtools/devState'
 
 interface Props {
   map: maplibregl.Map
@@ -613,25 +614,14 @@ export function MapOverlay({ map }: Props) {
     let lastSubmittedLayers: Layer[] = []
     let lastCleanupTracks: Record<string, Track> | null = null
 
-    // Opt-in frame profiling: localStorage.vertexPerf = '1', then read
-    // window.__vertexPerf (per-phase ms, rolling averages over build frames).
-    let perfOn = false
-    try { perfOn = localStorage.getItem('vertexPerf') === '1' } catch { /* storage blocked */ }
-    const perfStats: Record<string, { n: number; total: number; max: number }> = {}
-    const perfMark = (name: string, t0: number) => {
-      const d = performance.now() - t0
-      const st = perfStats[name] ?? (perfStats[name] = { n: 0, total: 0, max: 0 })
-      st.n++; st.total += d; if (d > st.max) st.max = d
-    }
-    if (perfOn) (window as unknown as { __vertexPerf: unknown }).__vertexPerf = perfStats
-    let removePerfRecorder: (() => void) | null = null
-    if (perfOn) {
-      // window.__vertexPerfRecord(seconds, label): frame pacing, long tasks, heap and layer-rebuild rate (perfRecorder.ts).
-      removePerfRecorder = installPerfRecorder({
-        phaseStats: perfStats,
-        counts: () => (window as unknown as { __vertexPerfCounts?: unknown }).__vertexPerfCounts ?? null,
-      })
-    }
+    // Opt-in frame profiling (Developer tools, ?debug=perf, or localStorage.vertexPerf = '1'): per-phase CPU time and
+    // a scene snapshot feed the Frames, Tests and Scene tabs. isPerfEnabled() is re-read on every rebuild, so the
+    // tools can be switched on and off without remounting the map.
+    let perfOn = isPerfEnabled()
+    const perfMark = markPhase
+    let lastScenePublish = 0
+    registerDevMap(map)
+    const removePerfRecorder = installPerfRecorder()
 
     const tick = (now: number) => {
       // Clamp dt so a paused/throttled rAF can't fast-forward the pulse phase.
@@ -648,6 +638,7 @@ export function MapOverlay({ map }: Props) {
         return
       }
       lastLayerBuild = now
+      perfOn = isPerfEnabled()
       const tFrame = perfOn ? performance.now() : 0
       let tPhase = tFrame
 
@@ -860,10 +851,17 @@ export function MapOverlay({ map }: Props) {
       if (perfOn) {
         perfMark('setProps', tPhase)
         perfMark('frameTotal', tFrame)
-        ;(window as unknown as { __vertexPerfCounts: unknown }).__vertexPerfCounts = {
-          tracks: Object.keys(pvbTracks).length,
-          entities: Object.keys(entitiesRef.current).length,
-          layers: orderedLayers.length,
+        if (now - lastScenePublish >= 500) {
+          lastScenePublish = now
+          setScene({
+            ts: Date.now(),
+            tracks: Object.keys(pvbTracks).length,
+            entities: Object.keys(entitiesRef.current).length,
+            layers: orderedLayers.map((layer) => {
+              const data = (layer.props as { data?: unknown }).data
+              return { id: layer.id, count: Array.isArray(data) ? data.length : null }
+            }),
+          })
         }
       }
 
@@ -874,7 +872,8 @@ export function MapOverlay({ map }: Props) {
     return () => {
       cancelAnimationFrame(rafRef.current)
       document.removeEventListener('visibilitychange', onVisibility)
-      removePerfRecorder?.()
+      removePerfRecorder()
+      registerDevMap(null)
       map.off('click', onMapClick)
       map.off('mousemove', onMapMouseMove)
       map.off('mouseout', onMapMouseOut)

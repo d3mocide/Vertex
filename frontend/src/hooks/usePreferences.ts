@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import { useCivicStore } from '../store'
 import { API_BASE } from '../config'
 import { authHeaders, isLoggedIn } from '../auth'
+import { isPrefSavingSuspended } from '../devtools/devState'
 
 const PREF_KEY = 'ui'
 const DEBOUNCE_MS = 1500
@@ -92,7 +93,7 @@ export function usePreferences() {
   // Debounced save whenever persisted state changes
   useEffect(() => {
     const unsub = useCivicStore.subscribe((state) => {
-      if (!isLoggedIn()) return
+      if (!isLoggedIn() || isPrefSavingSuspended()) return
       const prefs = extractPrefs(state)
       const json = JSON.stringify(prefs)
       if (json === lastSavedRef.current) return

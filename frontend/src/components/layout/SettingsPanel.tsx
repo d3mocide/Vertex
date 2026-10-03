@@ -284,7 +284,7 @@ export function SettingsPanel() {
                 />
               </div>
               <p className="mt-2 text-[11px] text-on-surface-variant leading-relaxed">
-                Overlays live safe-area insets, viewport metrics &amp; DOM-layer heights. Toggle off to exit debug mode.
+                Opens the developer tools: live frame stats and recording, scripted map test scenarios, GPU and scene info, WebSocket rates, and the safe-area / viewport layout inspector. Toggle off to close them.
               </p>
             </section>
           )}

@@ -33,7 +33,7 @@ import { CommsPanel }          from './components/panels/CommsPanel'
 import { FlightLogPanel }      from './components/panels/FlightLogPanel'
 import { AnnotationController } from './components/panels/AnnotationController'
 import { InstallPrompt } from './components/InstallPrompt'
-import { DevInsetInspector } from './components/DevInsetInspector'
+import { DevTools } from './components/dev/DevTools'
 import { loadRegion } from './region'
 import { fetchSetupStatus, type SetupStatus } from './setup'
 import { SetupWizard } from './components/SetupWizard'
@@ -179,7 +179,7 @@ function Dashboard() {
       <SettingsPanel />
       <HelpPanel />
       <InstallPrompt />
-      <DevInsetInspector />
+      <DevTools />
     </div>
   )
 }

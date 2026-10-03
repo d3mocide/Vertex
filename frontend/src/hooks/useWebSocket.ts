@@ -6,6 +6,7 @@ import { isSupplementSource } from '../storeTypes'
 import { authHeaders } from '../auth'
 import { initNotifications, maybeNotify, notifyMeshMessage } from '../notifications'
 import { parseSummary } from '../summaryUtils'
+import { recordWsMessage } from '../devtools/devState'
 
 const RECONNECT_DELAY_INITIAL_MS = 1000
 const RECONNECT_DELAY_MAX_MS = 60_000
@@ -181,6 +182,7 @@ export function useWebSocket() {
           console.warn('[ws] malformed frame, ignoring:', err)
           return
         }
+        recordWsMessage(typeof e.data === 'string' ? e.data.length : 0, String(msg.type))
         const msgData = msg.data as Record<string, unknown> | undefined
         switch (msg.type) {
           case 'snapshot':
