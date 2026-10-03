@@ -282,3 +282,32 @@ def test_ems_activity_lists_only_flagged_syndromes_with_their_usual_level():
     out = format_ems_activity(feed)
     assert "Overdose / intoxication: 22 patient reports in 24 h (usual ~6); 19 in the last 6 h (usual ~2)" in out
     assert "Falls" not in out and "141 reports" in out and "no patient details" in out
+
+
+def _incident(status, calls=(), last_seen_ago_min=5):
+    from types import SimpleNamespace
+    last = NOW - timedelta(minutes=last_seen_ago_min)
+    return SimpleNamespace(status=status, last_seen=last, calls=[SimpleNamespace(status=s, ts=NOW - timedelta(minutes=m)) for s, m in calls])
+
+
+def test_incident_status_says_when_an_incident_closed_and_calls_it_history():
+    from pollers.summary_context import incident_status
+    out = incident_status(_incident("cleared", [(None, 50), ("cleared", 25)], last_seen_ago_min=25), NOW)
+    assert out == "cleared 25m ago (units recalled or released) — likely resolved"
+
+
+def test_incident_status_reports_scene_and_contained_timing():
+    from pollers.summary_context import incident_status
+    assert incident_status(_incident("on_scene", [("on_scene", 70)], last_seen_ago_min=10), NOW) == "units on scene since 1h ago; last radio 10m ago"
+    assert incident_status(_incident("contained", [("contained", 12)], last_seen_ago_min=12), NOW) == "contained 12m ago (reported under control)"
+
+
+def test_active_incident_shows_how_recent_the_radio_traffic_is_and_stale_ones_are_resolved():
+    from pollers.summary_context import incident_status
+    assert incident_status(_incident("active", last_seen_ago_min=5), NOW) == "active; last radio 5m ago"
+    assert incident_status(_incident("active", last_seen_ago_min=5 * 60), NOW) == "no radio update for 5h — likely resolved"
+
+
+def test_a_contained_incident_goes_stale_like_any_other():
+    from pollers.summary_context import incident_status
+    assert incident_status(_incident("contained", [("contained", 18 * 60)], last_seen_ago_min=18 * 60), NOW) == "no radio update for 18h — likely resolved"

@@ -187,6 +187,8 @@ def test_incident_dict_carries_the_enrichment():
     ("engine 210 on fire attack engine 39 on fire supply", "fire"),
     ("engine 53 respond to miscellaneous non-fire at 9080 southwest 91st avenue", "fire"),
     ("no smoke no fire so far on the 1st floor", "outside_fire"),
+    ("i m shooting at 12 05", "violence"),
+    ("we ll give it a shot at 9 pm and see", "violence"),
 ])
 def test_keyword_false_positives_are_not_incidents(text, wrong):
     assert call(text).category != wrong
@@ -336,4 +338,26 @@ def test_a_serious_call_without_an_address_joins_the_incident_with_the_same_unit
 def test_a_serious_call_of_another_nature_does_not_join():
     inc = extract(rows_of((0, "CCOM FD Disp", "engine 322 respond to natural gas leak at 6901 glen echo avenue cross streets are x and y"),
                           (4, "CCOM FD 24", "engine 322 we have a person struck by a car here")))
+    assert len(inc) == 2
+
+
+def test_an_address_less_fire_read_heard_with_the_addressed_dispatch_is_the_same_incident():
+    inc = extract(rows_of((0, "WC Fire Disp", "engine 5 respond to residential fire at 2345 southeast brookwood avenue cross streets are x and y"),
+                          (1, "WC OPS 35", "copy we are about to tap a residential fire we will show you clear")))
+    assert len(inc) == 1 and len(inc[0].calls) == 2
+
+
+def test_a_nearby_address_less_fire_does_not_join_when_it_is_too_late_or_ambiguous():
+    late = extract(rows_of((0, "WC Fire Disp", "engine 5 respond to residential fire at 2345 southeast brookwood avenue cross streets are x"),
+                           (10, "WC OPS 35", "copy we are about to tap a residential fire we will show you clear")))
+    assert len(late) == 2
+    two = extract(rows_of((0, "WC Fire Disp", "engine 5 respond to residential fire at 2345 southeast brookwood avenue"),
+                          (1, "CCOM FD Disp", "engine 9 respond to residential fire at 700 northeast oak street"),
+                          (2, "WC OPS 35", "copy we are about to tap a residential fire we will show you clear")))
+    assert len(two) == 3
+
+
+def test_address_less_assault_chatter_never_joins_an_assault_elsewhere():
+    inc = extract(rows_of((0, "WC Fire Disp", "engine 62 and amr 109 respond to assault at 7067 southeast blanton street cross streets are x and y"),
+                          (1, "WC Fire Disp", "firepower 364 has the assault engine closed we are clear")))
     assert len(inc) == 2

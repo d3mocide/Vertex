@@ -241,6 +241,25 @@ async def get_incidents():
         return empty
 
 
+@router.get("/ems-activity")
+async def get_ems_activity():
+    """EMS patient-report activity from the hospital talkgroups (see poller ems_syndromes).
+
+    Counts of medics' pre-arrival reports per syndrome over 24 h and 6 h, each with the usual level for the same
+    hours on earlier days and a `flag` when it is unusually high. Counts only: no patient details are kept.
+    `building` is true until enough baseline days exist for a surge verdict.
+    """
+    raw = await get_redis().get("feed:ems:activity")
+    empty = {"ts": None, "window_hours": 24, "baseline_days": 0, "building": True, "reports": 0,
+             "reports_baseline": None, "syndromes": [], "flags": []}
+    if not raw:
+        return empty
+    try:
+        return json.loads(raw)
+    except (json.JSONDecodeError, TypeError):
+        return empty
+
+
 @router.get("/calls")
 async def get_calls(
     hours: int = Query(24, ge=1, le=168),

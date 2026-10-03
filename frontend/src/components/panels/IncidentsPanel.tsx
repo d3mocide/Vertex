@@ -5,6 +5,7 @@ import ReactMarkdown, { type Components } from 'react-markdown'
 import { API_BASE } from '../../config'
 import { authHeaders } from '../../auth'
 import { RadioIncidents, isActive } from './RadioIncidents'
+import { EmsActivity } from './EmsActivity'
 import { PageHeader, StatTiles, type Stat } from '../common/Page'
 import { SituationRail } from '../layout/SituationRail'
 
@@ -239,6 +240,8 @@ export function IncidentsPanel() {
 
       {/* 2. DISPATCH INCIDENTS — clustered from P25 radio (list + map) */}
       <div id="sec-dispatch" className="scroll-mt-4"><RadioIncidents /></div>
+
+      <EmsActivity />
 
       {/* 3. PRIORITY SYSTEM EVENTS */}
       {prioritySystemEvents.length > 0 && (

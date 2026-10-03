@@ -564,11 +564,30 @@ _CATEGORY_LABEL = {
 _STALE_AFTER = timedelta(hours=3)
 
 
+def _ago(ts: datetime, now: datetime) -> str:
+    mins = max(int((now - ts).total_seconds() // 60), 0)
+    return f"{mins}m ago" if mins < 60 else f"{mins // 60}h ago"
+
+
 def incident_status(inc, now: datetime) -> str:
+    """Where the incident stands, in words the briefing can act on. Statuses come from the units' own traffic
+    (radio_incidents links "on scene", "recall" and "you can cancel" calls to the incident they belong to), so say when
+    that happened; a cleared incident says "likely resolved", which the briefing rules treat as history."""
     quiet = now - inc.last_seen
-    if inc.status in ("active", "on_scene") and quiet > _STALE_AFTER:
+    if inc.status in ("active", "on_scene", "contained") and quiet > _STALE_AFTER:
         return f"no radio update for {int(quiet.total_seconds() // 3600)}h — likely resolved"
-    return inc.status.replace("_", " ")
+
+    def when(status: str) -> str:
+        call = max((c for c in inc.calls if c.status == status), key=lambda c: c.ts, default=None)
+        return _ago(call.ts if call else inc.last_seen, now)
+
+    if inc.status == "cleared":
+        return f"cleared {when('cleared')} (units recalled or released) — likely resolved"
+    if inc.status == "contained":
+        return f"contained {when('contained')} (reported under control)"
+    if inc.status == "on_scene":
+        return f"units on scene since {when('on_scene')}; last radio {_ago(inc.last_seen, now)}"
+    return f"active; last radio {_ago(inc.last_seen, now)}"
 
 
 def must_cover(radio_incidents, traffic_disruptions, now: datetime) -> list[dict]:

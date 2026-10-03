@@ -93,8 +93,8 @@ _NATURES: list[tuple[str, int, re.Pattern]] = [
     ("structure_fire", 5, re.compile(r"(?:structure|house|apartment|residential|commercial|working) fire(?! alarm)(?!\w)|fire in (a|the) (building|house|apartment|unit)|smoke (in|from) (the |a )?(building|house|apartment|residence)")),
     ("violence", 4, re.compile(
         r"gunshot|shots? fired|stabbing wound|\bstabbed\b|\bstabbing\b(?! (?:pain|sensation|feeling))"
-        r"|\b(?:been|was|were|got|get|being|gets) shot (?:in|to|at|by|twice|multiple|once|and|while|during|several|with)\b|\bshot (?:himself|herself|themselves|in the|to the|in his|in her|twice|multiple|at|and (?:killed|wounded))"
-        r"|(?:report of|reported|call for|respond(?:ing)? to|possible) (?:a |an )?shooting\b|\bshooting (?:victim|incident|suspect|at|in progress|toward|towards)")),
+        r"|\b(?:been|was|were|got|get|being|gets) shot (?:in|to|at|by|twice|multiple|once|and|while|during|several|with)\b|\bshot (?:himself|herself|themselves|in the|to the|in his|in her|twice|multiple|and (?:killed|wounded))"
+        r"|(?:report of|reported|call for|respond(?:ing)? to|possible) (?:a |an )?shooting\b|\bshooting (?:victim|incident|suspect|in progress|toward|towards)")),
     ("rescue", 4, re.compile(r"entrap|trapped|high angle|confined space|technical rescue|extrication|(?:structure|building|roof|wall|floor|trench|house|garage|ceiling|deck|stairs?) collapse|collapsed (?:building|structure|roof|wall|trench)")),
     ("hazmat", 4, re.compile(r"hazmat|hazardous material|fuel spill|chemical (spill|leak)")),
     ("gas_leak", 4, re.compile(r"gas (leak|odor|smell)|odor of gas|smell of gas|natural gas|gas line")),
@@ -537,6 +537,8 @@ def cluster(calls: list[Call], gap: timedelta = timedelta(minutes=90)) -> list[I
     3. Calls without an address cannot cluster on one, so they are linked by units: a call whose units match exactly
        one nearby incident joins it (this is how "Engine 62 clear" or "recall" closes an incident, and how a truncated
        dispatch read joins the incident that has the full address). Ambiguous matches are left alone.
+    4. A serious address-less call of a nature in _NEARBY_LINKABLE heard within three minutes of exactly one incident of the
+       same nature joins it (the dispatch read twice, once without the address).
     Routine unlocated chatter that links to nothing is dropped.
     """
     incidents: list[Incident] = []
@@ -592,6 +594,11 @@ def cluster(calls: list[Call], gap: timedelta = timedelta(minutes=90)) -> list[I
 _LINK_BEFORE = timedelta(minutes=10)     # a follow-up may be heard slightly before the dispatch read that carries the address
 _LINK_AFTER = timedelta(hours=3)         # status traffic can trail the last address read by hours on a big incident
 _LINK_AFTER_SERIOUS = timedelta(minutes=45)
+# Natures where two separate incidents of the same kind within a few minutes are rare enough that an address-less call
+# heard that close to exactly one addressed incident is almost always another read of it. Assaults, violence, rescues and
+# medical calls are excluded: those do overlap, and their chatter is often about something else.
+_NEARBY_LINKABLE = {"structure_fire", "fire", "outside_fire", "vehicle_fire", "gas_leak", "carbon_monoxide", "hazmat", "crash", "water_rescue"}
+_LINK_NEARBY = timedelta(minutes=3)
 
 
 def _link_by_units(incidents: list[Incident], loose: list[Call]) -> list[Incident]:
@@ -615,6 +622,14 @@ def _link_by_units(incidents: list[Incident], loose: list[Call]) -> list[Inciden
         if len(found) == 1:
             for c in u.calls:
                 _absorb(found[0], c)
+            absorbed.add(id(u))
+    for u in unlocated:                                  # a dispatch read without its address, heard with the addressed one
+        if id(u) in absorbed or u.category not in _NEARBY_LINKABLE:
+            continue
+        near = [i for i in located if i.category == u.category and abs(i.first_seen - u.first_seen) <= _LINK_NEARBY]
+        if len(near) == 1:
+            for c in u.calls:
+                _absorb(near[0], c)
             absorbed.add(id(u))
     return [i for i in incidents if id(i) not in absorbed]
 
