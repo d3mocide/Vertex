@@ -173,7 +173,8 @@ class BeastAircraftDecoder:
                     ac.callsign = _normalize_callsign(callsign)
                 category = self._safe(pms.adsb.category, hex_msg)
                 if category is not None:
-                    ac.category = str(category)
+                    # pyModeS gives only the number; the type code names the set (4 = A ... 1 = D), as other feeds send it.
+                    ac.category = f"{'DCBA'[typecode - 1]}{category}"
 
             if 5 <= typecode <= 8:
                 ac.on_ground = True

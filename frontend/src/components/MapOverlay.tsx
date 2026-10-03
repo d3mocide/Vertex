@@ -5,10 +5,11 @@ import { MapLayerCache } from '../layers/mapLayerCache'
 import { VisibleTrackCache } from '../layers/visibleTracks'
 import { MapboxOverlay } from '@deck.gl/mapbox'
 import { useCivicStore } from '../store'
-import type { Entity, Track, TrafficCamera, EntityTypeFilter, RangeFilter, ReplayData, SystemEvent } from '../store'
+import type { Entity, Track, TrafficCamera, EntityTypeFilter, SubFilters, RangeFilter, ReplayData, SystemEvent } from '../store'
 import { orderOperationalLayers } from '../layers/layerPriority'
 import { buildEntityLayers } from '../layers/buildEntityLayers'
 import { terrainVersion } from '../layers/terrainElevation'
+import { meshPassesFacets } from '../entityFacets'
 import { buildTrailLayers } from '../layers/buildTrailLayers'
 import { buildCameraLayer } from '../layers/buildCameraLayer'
 import { buildEventLayers } from '../layers/buildEventLayers'
@@ -81,6 +82,7 @@ export function MapOverlay({ map }: Props) {
   const selectedCamRef    = useRef<string | null>(null)
   const activeTabRef      = useRef<string>('safety')
   const entityFilterRef   = useRef<EntityTypeFilter>({ aircraft: true, adsbLocal: true, adsbSupplement: true, vessel: true, mesh_node: true, aprs: true, fire_incident: true, satellite: true, rf_sensor: true, train: true, bus: true })
+  const subFiltersRef     = useRef<SubFilters>({})
   const searchQueryRef    = useRef<string>('')
   const altRangeRef       = useRef<RangeFilter>([0, 60_000])
   const speedRangeRef     = useRef<RangeFilter>([0, 600])
@@ -97,6 +99,7 @@ export function MapOverlay({ map }: Props) {
   const camerasVisible   = useCivicStore((s) => s.camerasVisible)
   const activeTab        = useCivicStore((s) => s.activeTab)
   const entityFilter      = useCivicStore((s) => s.entityFilter)
+  const subFilters        = useCivicStore((s) => s.subFilters)
   const entitySearchQuery = useCivicStore((s) => s.entitySearchQuery)
   const entityAltRange    = useCivicStore((s) => s.entityAltRange)
   const entitySpeedRange  = useCivicStore((s) => s.entitySpeedRange)
@@ -136,6 +139,7 @@ export function MapOverlay({ map }: Props) {
   useEffect(() => { camerasRef.current = cameras                }, [cameras])
   useEffect(() => { selectedCamRef.current = selectedCamId      }, [selectedCamId])
   useEffect(() => { entityFilterRef.current = entityFilter      }, [entityFilter])
+  useEffect(() => { subFiltersRef.current = subFilters          }, [subFilters])
   useEffect(() => { searchQueryRef.current = entitySearchQuery  }, [entitySearchQuery])
   useEffect(() => { altRangeRef.current = entityAltRange        }, [entityAltRange])
   useEffect(() => { speedRangeRef.current = entitySpeedRange    }, [entitySpeedRange])
@@ -656,7 +660,7 @@ export function MapOverlay({ map }: Props) {
             () => buildReplayTracks(replayDataRef.current!, replayTsRef.current))
         : tracksRef.current
       const rawTracks = visibleTracks.get(allTracks, entityFilterRef.current,
-        searchQueryRef.current, altRangeRef.current, speedRangeRef.current)
+        searchQueryRef.current, altRangeRef.current, speedRangeRef.current, subFiltersRef.current)
       const animated = memo.get('animated', [rawTracks, sel, replayModeRef.current], () =>
         Boolean(sel && rawTracks[sel]) || Object.values(rawTracks).some(track =>
           track.alert || (track.type === 'ground' && track.stationType === 'emergency') ||
@@ -793,9 +797,9 @@ export function MapOverlay({ map }: Props) {
           ...memoGroup('obsRing', [],
             () => buildObservationRingLayers(DEFAULT_CENTER, OBSERVATION_RANGE_KM, true)),
           // Rebuilt only when mesh nodes change (not on every aircraft update).
-          ...memoGroup('mesh', [typeVer.mesh_node, entityFilterRef.current.mesh_node, zoomBucket, minuteBucket, tv],
+          ...memoGroup('mesh', [typeVer.mesh_node, entityFilterRef.current.mesh_node, subFiltersRef.current, zoomBucket, minuteBucket, tv],
             () => !entityFilterRef.current.mesh_node ? [] : timed('mesh', () => buildMeshNodeLayers(
-              memo.get('meshData', [typeVer.mesh_node], () => Object.values(entitiesRef.current).filter(e => e.entity_type === 'mesh_node')),
+              memo.get('meshData', [typeVer.mesh_node, subFiltersRef.current], () => Object.values(entitiesRef.current).filter(e => e.entity_type === 'mesh_node' && meshPassesFacets(e, subFiltersRef.current))),
               entityFilterRef.current.mesh_node,
               nowMs,
               zoomBucket,

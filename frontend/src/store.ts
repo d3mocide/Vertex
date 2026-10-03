@@ -8,7 +8,7 @@ export * from './storeTypes'
 import type {
   Entity, Track, AlertItem, NewsItem, WeatherState, RadioState,
   TrafficCamera, SystemEvent, CustomLayerItem, SystemHealth, TrafficIncident,
-  SummaryState, RadioIncidentFeed, AdvisoryFeed, FeedMetaEntry, TrailPoint, AirportSnapshot, AppMode, NavTab, EntityTypeFilter,
+  SummaryState, RadioIncidentFeed, AdvisoryFeed, FeedMetaEntry, TrailPoint, AirportSnapshot, AppMode, NavTab, EntityTypeFilter, SubFilters,
   RangeFilter, ReplayData, EntityMissionTag, AnnotationItem,
   TrafficFlowSensor, UtilityStatus, MeshMessage, MeshLink,
   AcarsMessage,
@@ -134,6 +134,9 @@ export interface CivicStore {
   toggleDebugInsets:   () => void
   entityFilter:        EntityTypeFilter
   setEntityFilter:     (f: Partial<EntityTypeFilter>) => void
+  subFilters:          SubFilters
+  setSubFilter:        (facet: string, values: string[]) => void
+  setSubFilters:       (all: SubFilters) => void
   entitySearchQuery:   string
   setEntitySearchQuery: (q: string) => void
   entityAltRange:      RangeFilter
@@ -438,6 +441,7 @@ export const useCivicStore = create<CivicStore>()(
   settingsOpen:     false,
   helpOpen:         false,
   debugInsets:      false,
+  subFilters:       {},
   entityFilter:     { aircraft: true, adsbLocal: true, adsbSupplement: true, vessel: true, mesh_node: true, aprs: true, fire_incident: true, satellite: true, rf_sensor: true, train: true, bus: true },
   entitySearchQuery: '',
   entityAltRange:   ALT_RANGE_DEFAULT,
@@ -693,6 +697,13 @@ export const useCivicStore = create<CivicStore>()(
   setDebugInsets:    (debugInsets)    => set({ debugInsets }),
   toggleDebugInsets: ()               => set((s) => ({ debugInsets: !s.debugInsets })),
   setEntityFilter:   (f)              => set((s) => ({ entityFilter: { ...s.entityFilter, ...f } })),
+  setSubFilter:      (facet, values)  => set((s) => {
+    const next = { ...s.subFilters }
+    if (values.length) next[facet] = values
+    else delete next[facet]
+    return { subFilters: next }
+  }),
+  setSubFilters:     (all)            => set({ subFilters: { ...all } }),
   setEntitySearchQuery: (entitySearchQuery) => set({ entitySearchQuery }),
   setEntityAltRange:   (entityAltRange)    => set({ entityAltRange }),
   setEntitySpeedRange: (entitySpeedRange)  => set({ entitySpeedRange }),
@@ -765,10 +776,12 @@ export const useCivicStore = create<CivicStore>()(
         ...current,
         ...p,
         entityFilter: { ...current.entityFilter, ...(p.entityFilter ?? {}) },
+        subFilters: p.subFilters && typeof p.subFilters === 'object' ? p.subFilters : {},
       }
     },
     partialize: (state) => ({
       entityFilter:       state.entityFilter,
+      subFilters:         state.subFilters,
       mode:               state.mode,
       trailsVisible:      state.trailsVisible,
       radarVisible:       state.radarVisible,

@@ -612,6 +612,17 @@ class TestDecoderIngestV2(unittest.TestCase):
         self.assertIsNotNone(ac)
         self.assertEqual(ac.callsign, "KLM1023")
 
+    def test_category_carries_the_set_letter(self):
+        """pyModeS returns only the category number; the type code names the set, so TC 4 + CA 3 is 'A3'."""
+        import pyModeS as pms
+        base = "8D4840D6" + "232CC371C32CE0" + "000000"      # the KLM identification frame with CA changed from 0 to 3
+        msg = base[:-6] + format(pms.crc(base), "06X")
+        self.assertEqual(pms.crc(msg), 0)
+        self.decoder.ingest(bytes.fromhex(msg))
+        ac = self.decoder._aircraft.get(pms.icao(msg).lower())
+        self.assertIsNotNone(ac)
+        self.assertEqual(ac.category, "A3")
+
     # --- Position (CPR global pair) -----------------------------------------
 
     def test_global_cpr_resolves_position(self):

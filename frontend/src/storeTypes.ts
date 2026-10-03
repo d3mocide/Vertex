@@ -164,6 +164,10 @@ export interface Track {
   role?:         string        // aircraft role (medical, rescue, law_enforcement, …)
   alert?:        string        // aircraft alert squawk (emergency, hijack, …)
   stationType?:  string
+  aircraftClass?: string      // normalised kind (airliner, light, helicopter, …), see entityFacets.ts
+  military?:     boolean      // tar1090 military flag
+  shipType?:     string       // AIS ship type label ("Cargo", "Tug", …)
+  shipCategory?: string       // AIS ship type bucket (cargo, tanker, tug, …)
   trail:         TrailPt[]     // raw history, newest last, capped at 150 pts
   smoothedTrail: number[][]    // [[lon,lat],...] after 2× Chaikin
   predictedPath: [number, number][]
@@ -372,6 +376,9 @@ export type EntityTypeFilter = {
   train: boolean
   bus: boolean
 }
+
+/** Sub-filters per facet id (see entityFacets.ts): the selected values; no entry or an empty list means show all. */
+export type SubFilters = Record<string, string[]>
 
 // [min, max] — altitude in feet, speed in knots
 export type RangeFilter = [number, number]

@@ -10,6 +10,31 @@ from enrichment.vessel_type import decode_ship_type, decode_nav_status
 _static_cache: dict[str, dict] = {}
 
 
+_STATIC_KEYS = ("ship_name", "ship_type", "ship_type_code", "ship_category", "callsign", "imo", "length_m", "width_m",
+                "draught", "destination", "eta")
+
+
+def seed_static_cache(rows) -> int:
+    """Restore static fields from stored vessel identities, so a restart does not forget every ship type until the
+    next static broadcast (class A ships repeat them every 6 minutes, class B and quiet ones less often)."""
+    seeded = 0
+    for mmsi, identity in rows:
+        if not mmsi or not isinstance(identity, dict) or identity.get("ship_type_code") is None:
+            continue
+        entry = {k: identity[k] for k in _STATIC_KEYS if identity.get(k) not in (None, "")}
+        if "ship_category" not in entry and identity.get("ship_type_code") is not None:
+            try:
+                _, category = decode_ship_type(int(identity["ship_type_code"]))
+            except (TypeError, ValueError):
+                category = None
+            if category:
+                entry["ship_category"] = category
+        # Whatever the live stream already taught us this run wins over the stored copy.
+        _static_cache[str(mmsi)] = {**entry, **_static_cache.get(str(mmsi), {})}
+        seeded += 1
+    return seeded
+
+
 def _number(value, low, high):
     if value is None or isinstance(value, bool): return None
     try: value = float(value)
@@ -69,6 +94,12 @@ def normalize_aisstream(data: dict) -> Optional[dict]:
         _cache_aisstream_static(mmsi, msg.get("ShipStaticData", {}))
         return None  # no position to publish
 
+    if msg_type == "StaticDataReport":
+        # AIS message 24: what Class B transponders (pleasure craft, small commercial and fishing boats) send in
+        # place of message 5. Part A carries the name, part B the ship type, call sign and dimensions.
+        _cache_aisstream_static_report(mmsi, msg.get("StaticDataReport", {}), meta.get("ShipName"))
+        return None
+
     if msg_type in {"PositionReport", "StandardClassBPositionReport"}:
         pr = msg.get(msg_type, {})
         if pr.get('Valid') is False: return None
@@ -89,6 +120,7 @@ def normalize_aisstream(data: dict) -> Optional[dict]:
 
         # Merge any cached static data for this vessel
         identity.update(_static_cache.get(mmsi, {}))
+        ship_name = identity.get("ship_name") or ship_name
         motion = _motion(identity, pr.get('Sog'), pr.get('Cog'), pr.get('TrueHeading'), meta.get('time_utc'))
 
         return {
@@ -205,10 +237,12 @@ def _cache_aisstream_static(mmsi: str, sd: dict) -> None:
 
     ship_type_code = sd.get("Type")
     if ship_type_code is not None:
-        label, _ = decode_ship_type(ship_type_code)
+        label, category = decode_ship_type(ship_type_code)
         if label:
             entry["ship_type"] = label
         entry["ship_type_code"] = int(ship_type_code)
+        if category:
+            entry["ship_category"] = category
 
     draught = sd.get("MaximumStaticDraught")
     if draught:
@@ -239,7 +273,48 @@ def _cache_aisstream_static(mmsi: str, sd: dict) -> None:
             entry["width_m"] = int(c) + int(d)
 
     if entry:
-        _static_cache[mmsi] = entry
+        _static_cache.setdefault(mmsi, {}).update(entry)
+
+
+def _dimensions(dim, entry: dict) -> None:
+    if not isinstance(dim, dict):
+        return
+    try:
+        a, b, c, d = (int(dim.get(k) or 0) for k in ("A", "B", "C", "D"))
+    except (TypeError, ValueError):
+        return
+    if a + b > 0:
+        entry["length_m"] = a + b
+    if c + d > 0:
+        entry["width_m"] = c + d
+
+
+def _cache_aisstream_static_report(mmsi: str, report: dict, meta_name=None) -> None:
+    """Merge an AISstream StaticDataReport (AIS message 24, parts A and B) into the static cache."""
+    if not isinstance(report, dict):
+        return
+    entry: dict = {}
+    part_a = report.get("ReportA")
+    if isinstance(part_a, dict):
+        name = safe_stripped(part_a.get("Name")) or safe_stripped(meta_name)
+        if name:
+            entry["ship_name"] = name
+    part_b = report.get("ReportB")
+    if isinstance(part_b, dict):
+        callsign = safe_stripped(part_b.get("CallSign"))
+        if callsign:
+            entry["callsign"] = callsign
+        code = part_b.get("ShipType")
+        if isinstance(code, (int, float)) and not isinstance(code, bool) and int(code) > 0:
+            label, category = decode_ship_type(int(code))
+            if label:
+                entry["ship_type"] = label
+            entry["ship_type_code"] = int(code)
+            if category:
+                entry["ship_category"] = category
+        _dimensions(part_b.get("Dimension"), entry)
+    if entry:
+        _static_cache.setdefault(mmsi, {}).update(entry)
 
 
 def _format_eta(eta: dict) -> str | None:

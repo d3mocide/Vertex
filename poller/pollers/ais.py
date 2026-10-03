@@ -4,7 +4,7 @@ import logging
 import websockets
 from config import settings, load_regions
 from bus import publish_entity
-from normalizers.vessel import normalize_aisstream, normalize_ais_catcher
+from normalizers.vessel import normalize_aisstream, normalize_ais_catcher, seed_static_cache
 from .base import BasePoller
 from redaction import redact_text, redact_url
 from security import validate_safe_url
@@ -12,6 +12,15 @@ from security import validate_safe_url
 logger = logging.getLogger(__name__)
 
 _RETRY_DELAY = 10
+
+
+def _as_dict(value):
+    if isinstance(value, str):
+        try:
+            value = json.loads(value)
+        except ValueError:
+            return {}
+    return value if isinstance(value, dict) else {}
 
 
 class AisPoller(BasePoller):
@@ -42,6 +51,15 @@ class AisPoller(BasePoller):
             logger.info("[ais] no local sources — will use AISstream.io fallback")
         else:
             logger.warning("[ais] no AIS source configured — poller inactive")
+        try:
+            vessels = await get_pool().fetch(
+                "SELECT entity_id, identity FROM entities WHERE entity_type = 'vessel' AND last_seen > NOW() - INTERVAL '30 days'"
+                " AND identity::jsonb ? 'ship_type_code'"
+            )
+            seeded = seed_static_cache((r["entity_id"].split(":", 1)[-1], _as_dict(r["identity"])) for r in vessels)
+            logger.info("[ais] restored static data for %d vessel(s) from the database", seeded)
+        except Exception as exc:  # the stream still fills the cache; this only saves the wait
+            logger.warning("[ais] could not restore vessel static data: %s", exc)
 
     async def run(self):
         await self.setup()
@@ -89,7 +107,7 @@ class AisPoller(BasePoller):
         sub = json.dumps({
             "APIKey": settings.aisstream_api_key,
             "BoundingBoxes": bboxes,
-            "FilterMessageTypes": ["PositionReport", "ShipStaticData", "StandardClassBPositionReport"],
+            "FilterMessageTypes": ["PositionReport", "ShipStaticData", "StaticDataReport", "StandardClassBPositionReport"],
         })
         logger.info("[ais] connecting to AISstream.io")
         while True:

@@ -10,6 +10,7 @@ from bus import get_bus, publish_entity, set_aircraft_snapshot
 from db import write_event
 from sanitize import sanitize_payload
 from enrichment.aircraft_db import AircraftDb
+from enrichment.aircraft_class import classify as classify_aircraft_class, normalize_category
 from enrichment.aircraft_roles import ROLES, alert_for, alert_label, classify_aircraft
 from enrichment.airlines_db import AirlinesDb
 from enrichment.airports_db import AirportsDb
@@ -1007,6 +1008,19 @@ class AdsbPoller(BasePoller):
                 entity.pop("distance_km", None)
 
             identity["phase"] = self._classify_phase(entity)
+
+            # One category format, a size/kind class that works even when the feed sent no category, and the
+            # tar1090 database's military flag (independent of role: a military helicopter is both).
+            category = normalize_category(identity.get("category"))
+            if category:
+                identity["category"] = category
+            else:
+                identity.pop("category", None)
+            identity["aircraft_class"], _ = classify_aircraft_class(identity)
+            if isinstance(icao, str) and self._aircraft_db.lookup_flags(icao) & 1:
+                identity["military"] = True
+            else:
+                identity.pop("military", None)
 
             # Who flies it: air ambulance, rescue, law enforcement, ... plus emergency squawks.
             hit = classify_aircraft(identity)

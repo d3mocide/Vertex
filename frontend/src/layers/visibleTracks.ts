@@ -1,4 +1,5 @@
-import type { EntityTypeFilter, RangeFilter, Track } from '../store'
+import type { EntityTypeFilter, RangeFilter, SubFilters, Track } from '../store'
+import { trackPassesFacets } from '../entityFacets'
 import { isSupplementSource } from '../storeTypes'
 
 /** Cache map filtering between reports; hidden-only updates preserve identity. */
@@ -7,8 +8,8 @@ export class VisibleTrackCache {
   private visible: Record<string, Track> = {}
 
   get(tracks: Record<string, Track>, filter: EntityTypeFilter, query: string,
-      altitude: RangeFilter, speed: RangeFilter): Record<string, Track> {
-    const inputs = [tracks, filter, query, altitude, speed]
+      altitude: RangeFilter, speed: RangeFilter, subFilters: SubFilters = {}): Record<string, Track> {
+    const inputs = [tracks, filter, query, altitude, speed, subFilters]
     if (inputs.every((value, i) => Object.is(value, this.inputs[i]))) return this.visible
     this.inputs = inputs
     const q = query.toLowerCase()
@@ -22,6 +23,7 @@ export class VisibleTrackCache {
       if (track.type === 'rail' && !filter.train) continue
       if (track.type === 'bus' && !filter.bus) continue
       if (track.type === 'sensor' && !filter.rf_sensor) continue
+      if (!trackPassesFacets(track, subFilters)) continue
       if (q && !(track.callsign ?? uid).toLowerCase().includes(q) && !uid.toLowerCase().includes(q)) continue
       const altFt = track.altMeters * 3.28084
       if (track.type === 'air' && (altFt < altitude[0] || altFt > altitude[1])) continue
