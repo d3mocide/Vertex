@@ -27,6 +27,7 @@ import { EventLogPanel }      from './components/panels/EventLogPanel'
 import { EntitySearchPanel }   from './components/panels/EntitySearchPanel'
 import { PlaybackController }  from './components/panels/PlaybackController'
 import { GeofenceController }  from './components/panels/GeofenceController'
+import { LayersController }    from './components/panels/LayersController'
 import { CameraModal }         from './components/panels/CameraModal'
 import { IncidentsPanel }      from './components/panels/IncidentsPanel'
 import { CommsPanel }          from './components/panels/CommsPanel'
@@ -153,6 +154,7 @@ function Dashboard() {
                     <PlaybackController />
                     <GeofenceController />
                     <AnnotationController />
+                    <LayersController />
                   </div>
                 </div>
               </>
