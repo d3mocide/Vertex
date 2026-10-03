@@ -148,6 +148,9 @@ class Settings(BaseSettings):
     summary_llm_extra_body: str = ""
     # Past briefings kept in Redis (newest first) for trend comparison.
     summary_history_len: int = 24
+    # Talkgroup tags (comma-separated substrings) that carry EMS-to-hospital patient reports, on top of the built-in
+    # match for tags containing HOSP/HOS/HSP. Those calls are kept but never become radio incidents.
+    radio_hospital_tags: str = ""
     # Hours of P25 transcripts mined for structured radio incidents
     # (feed:radio:incidents and the briefing's radio section).
     radio_incidents_window_hours: int = 24

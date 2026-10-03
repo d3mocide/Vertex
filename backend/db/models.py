@@ -291,6 +291,15 @@ class P25Recording(Base):
     transcription: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
 
+class EmsSyndromeHourly(Base):
+    """Hourly counts of EMS pre-arrival patient reports per syndrome (poller/ems_syndromes.py); counts only, no text."""
+    __tablename__ = "ems_syndrome_hourly"
+
+    hour: Mapped[datetime] = mapped_column(DateTime(timezone=True), primary_key=True)
+    syndrome: Mapped[str] = mapped_column(String(32), primary_key=True)
+    n: Mapped[int] = mapped_column(Integer)
+
+
 class Annotation(Base):
     __tablename__ = "annotations"
 

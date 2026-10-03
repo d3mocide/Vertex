@@ -675,6 +675,23 @@ def format_entity_activity(rows) -> str | None:
     return "TRACKED ENTITY ACTIVITY:\n" + "\n".join(lines)
 
 
+def format_ems_activity(feed: dict | None) -> str | None:
+    """Unusually high EMS patient-report volumes (hospital radio) — silent when nothing is unusual or the baseline is
+    still building, so it only costs prompt space when there is something to say."""
+    if not isinstance(feed, dict) or feed.get("building") or not feed.get("flags"):
+        return None
+    lines = []
+    for row in feed.get("syndromes", []):
+        if not row.get("flag"):
+            continue
+        usual = f"usual ~{row['baseline']:g}" if row.get("baseline") is not None else "no usual level yet"
+        usual6 = f"usual ~{row['baseline_6h']:g}" if row.get("baseline_6h") is not None else "no usual level yet"
+        lines.append(f"- {row['label']}: {row['count']} patient reports in 24 h ({usual}); {row['count_6h']} in the last 6 h ({usual6})")
+    return ("EMS PATIENT-REPORT ACTIVITY (counts of medics' pre-arrival reports to hospitals, no patient details; "
+            f"{feed.get('reports')} reports in 24 h) — syndromes unusually high versus the same hours on earlier days:\n"
+            + "\n".join(lines))
+
+
 def format_previous(previous: dict | None, now: datetime) -> str | None:
     if not previous or not previous.get("summary"):
         return None
@@ -925,6 +942,10 @@ async def build_context(r, pool, now: datetime, window_hours: int,
                 sections.append((_P_HIGH, text))
     else:
         sections.append((_P_KEEP, "SYSTEM EVENTS: Database unavailable — no event, radio or entity history."))
+
+    ems = format_ems_activity(_loads(await r.get("feed:ems:activity")))
+    if ems:
+        sections.append((_P_LOW + 5, ems))
 
     news = format_news(
         _loads(await r.get("feed:news:local")), _loads(await r.get("feed:intel:alerts")), now, window_start,

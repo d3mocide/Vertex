@@ -265,3 +265,20 @@ def test_previous_briefing_without_bottom_line_is_truncated():
     from pollers.summary_context import format_previous
     out = format_previous({"ts": "2026-09-27T01:00:00+00:00", "summary": "x" * 2000}, datetime(2026, 9, 27, 2, tzinfo=timezone.utc))
     assert out.count("x") == 600
+
+
+def test_ems_activity_is_silent_unless_a_syndrome_is_unusually_high():
+    from pollers.summary_context import format_ems_activity
+    quiet = {"building": False, "flags": [], "reports": 120, "syndromes": []}
+    building = {"building": True, "flags": ["tox"], "reports": 10, "syndromes": []}
+    assert format_ems_activity(None) is None and format_ems_activity(quiet) is None and format_ems_activity(building) is None
+
+
+def test_ems_activity_lists_only_flagged_syndromes_with_their_usual_level():
+    from pollers.summary_context import format_ems_activity
+    feed = {"building": False, "flags": ["tox"], "reports": 141, "syndromes": [
+        {"key": "fall", "label": "Falls", "count": 15, "count_6h": 3, "baseline": 14, "baseline_6h": 3, "flag": False},
+        {"key": "tox", "label": "Overdose / intoxication", "count": 22, "count_6h": 19, "baseline": 6, "baseline_6h": 2, "flag": True}]}
+    out = format_ems_activity(feed)
+    assert "Overdose / intoxication: 22 patient reports in 24 h (usual ~6); 19 in the last 6 h (usual ~2)" in out
+    assert "Falls" not in out and "141 reports" in out and "no patient details" in out

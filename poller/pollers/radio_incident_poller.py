@@ -45,7 +45,8 @@ async def load_incidents(pool, since: datetime, geocoder=None, live_lookups: int
         "ORDER BY started_at",
         since,
     )
-    incidents = extract([tuple(r) for r in rows])
+    hospital_tags = tuple(t.strip() for t in settings.radio_hospital_tags.split(",") if t.strip())
+    incidents = extract([tuple(r) for r in rows], hospital_tags)
     if geocoder is not None and geocoder.enabled:
         for inc in incidents:
             entry = await geocoder.lookup(inc.location, cache_only=geocoder.lookups >= live_lookups)

@@ -18,7 +18,7 @@ if _POLLER_ROOT not in sys.path:
 
 import pytest
 
-from radio_incidents import extract, normalise, parse_call
+from radio_incidents import extract, is_hospital_tag, locate, normalise, parse_call
 
 T0 = datetime(2026, 9, 25, 12, 0)
 
@@ -162,3 +162,178 @@ def test_incident_dict_carries_the_enrichment():
     d = inc.to_dict()
     assert d["nature"] == "Commercial fire" and d["unit_summary"] == "2 engines, a heavy rescue, a rescue"
     assert "city" in d and "markers" in d and "cross_streets" in d
+
+
+# ── Keyword false positives seen in the transcript corpus ────────────────────
+# The nature patterns describe the incident, not a bare word: patients "shot for psychosis", people "giving it a
+# shot", "shooting pain", "not an entrapment", "our MVC" and "canceled by fire" all outnumber the real thing.
+
+@pytest.mark.parametrize("text, wrong", [
+    ("let s give it a shot copy robert 49 thank you", "violence"),
+    ("today has a history of similar a patient received a shot for psychosis", "violence"),
+    ("he started having shooting pain that went from his lower back to his hip", "violence"),
+    ("she has a sharp stabbing pain to the left side of her chest no radiation", "violence"),
+    ("a male was shooting up drugs a caller said he s now unconscious with a coat over his head", "violence"),
+    ("command from 214 the gas has been shot", "violence"),
+    ("this is not an entrapment the patient is walking up the embankment currently", "rescue"),
+    ("can you inform if we have any entrapments", "rescue"),
+    ("it doesn t sound like she s entrapped just her door will not open on its own", "rescue"),
+    ("adult female conscious now had collapsed while walking seemed disoriented and confused", "rescue"),
+    ("it looks like our mvc doesn t have connection to the server so i m going to try power cycling", "crash"),
+    ("this is just a disabled vehicle not a crash you can clear", "crash"),
+    ("they don t crash into the helicopter", "crash"),
+    ("sit tight you re canceled by fire on scene no patient contact", "fire"),
+    ("fire com copies we are on scene", "fire"),
+    ("engine 210 on fire attack engine 39 on fire supply", "fire"),
+    ("engine 53 respond to miscellaneous non-fire at 9080 southwest 91st avenue", "fire"),
+    ("no smoke no fire so far on the 1st floor", "outside_fire"),
+])
+def test_keyword_false_positives_are_not_incidents(text, wrong):
+    assert call(text).category != wrong
+
+
+@pytest.mark.parametrize("text, category", [
+    ("life flight 1 all we have is adult male with a gunshot wound to the belly", "violence"),
+    ("he shot himself in the stomach that s what we have", "violence"),
+    ("respond with the police on a party 2 bravo penetrating stabbing wound", "violence"),
+    ("crash with 1 individual out and the other still trapped do you want to upgrade", "rescue"),
+    ("it s a small structure collapse with trees on the garage of the house", "rescue"),
+    ("engine 66 respond to commercial fire at 6320 southwest main avenue", "structure_fire"),
+    ("engine 53 respond to car fire at 8620 southwest hall boulevard", "vehicle_fire"),
+    ("engine 56 respond to miscellaneous fire at 1275 kent street", "fire"),
+    ("engine 17 respond to barn fire at 18375 northwest derry creek road", "fire"),
+    ("the power line is on fire at 4840 south west dodge road", "fire"),
+    ("engine 60 respond to smoke in the area at 6626 northwest thompson road", "outside_fire"),
+    ("engine 61 spong traffic accident at southwest seahills boulevard and southwest parkway", "crash"),
+])
+def test_real_incident_phrasings_keep_their_category(text, category):
+    assert call(text).category == category
+
+
+def test_asr_fire_alarm_garbles_are_not_structure_fires():
+    # "residential fire alarm" is heard as "residential firearm(s)" / "firelight"
+    for text in ("engine 318 respond to residential firearm 24590 southeast silver road cross streets are southeast nola avenue",
+                 "return to commercial firearms at 035 southwest 163rd avenue",
+                 "residential firelight division 225257 this is for a kitchen smoke detector"):
+        assert call(text).category == "fire_alarm", text
+
+
+def test_a_stray_word_does_not_create_an_unlocated_serious_incident():
+    rows = [(T0, 1809, "PCC DPS Disp", "i ll try it ll be just a minute but i ll give it a shot copy robert 49 thank you"),
+            (T0, 1809, "WC AMR Disp", "sit tight you re canceled by fire on scene no patient contact"),
+            (T0, 1809, "KSR WST HSP", "she has been having a sharp stabbing pain to the left side of the chest for hours")]
+    assert extract(rows) == []
+
+
+# ── Hospital patient reports ─────────────────────────────────────────────────
+
+@pytest.mark.parametrize("tag", ["PROV SV HOSP", "KSR WST HSP", "MERDNPK HOS", "Tuality Hospital", "Some Medical Center"])
+def test_hospital_tags_are_recognised(tag):
+    assert is_hospital_tag(tag)
+
+
+@pytest.mark.parametrize("tag", ["WC Fire Disp", "CCOM FD 24", "WC OPS 34", "CC AMR Disp", "", None])
+def test_dispatch_and_ops_tags_are_not_hospital(tag):
+    assert not is_hospital_tag(tag)
+
+
+def test_site_specific_hospital_tags_can_be_configured():
+    assert not is_hospital_tag("PROV NEWBRG")
+    assert is_hospital_tag("PROV NEWBRG", ["newbrg"])
+    assert not is_hospital_tag("WC Fire Disp", [""])   # an empty entry matches nothing
+
+
+def test_hospital_patient_reports_do_not_become_incidents():
+    report = ("code one with a 43 year old male coming in for an evaluation after a motor vehicle accident, "
+              "pain in his neck, the patient was also assaulted earlier and has a gunshot history")
+    rows = [(T0, 1, "PROV SV HOSP", report), (T0, 1, "PROV NEWBRG", report), (T0, 1, "WC Fire Disp", report)]
+    assert len(extract(rows)) == 2                                  # "PROV NEWBRG" has no hospital marker...
+    assert len(extract(rows, ["PROV NEWBRG"])) == 1                 # ...until configured: only the dispatch copy is left
+    assert extract(rows[:2], ["PROV NEWBRG"]) == []
+
+
+# ── Locations dispatch reads without a clean "number street suffix" ──────────
+
+@pytest.mark.parametrize("text, expected", [
+    ("engine 52 respond to natural gas leak at 11879 southwest austin cross streets are southwest 4th and main", "11879 SW Austin"),
+    ("medic 5 respond at 360 east powell please respond on ops 1", "360 E Powell"),
+    ("a party 2 baker traffic accident southeast 202 in burnside ops 1", "SE 202nd Ave & Burnside"),
+    ("injury southwest 13 in jefferson for a scooter crash", "SW 13th Ave & Jefferson"),
+    ("assault 3080 northeast martin luther king jr blvd your patient is in the lobby", "3080 NE Martin Luther King Jr Blvd"),
+    ("traffic accident 984-1 north vancouver way respond on op 6", "9841 N Vancouver Way"),
+    ("respond to a traffic accident westbound 84 at mile 3", "I-84"),
+])
+def test_additional_location_forms(text, expected):
+    assert locate(normalise(text))[0] == expected
+
+
+@pytest.mark.parametrize("text", [
+    "938 east street unit 4 respond",              # "street" is a suffix, not a street name
+    "a bravo level fall northeast 183 and bravo 401",   # MPDS level, not a cross street
+    "engine 5 at 1234 on ops 1",                   # a number alone is not an address
+])
+def test_dispatch_filler_is_not_read_as_a_location(text):
+    assert locate(normalise(text))[0] is None
+
+
+# ── Linking calls into incidents ─────────────────────────────────────────────
+
+def rows_of(*items):
+    """items: (minutes, tag, text)"""
+    return [(T0 + timedelta(minutes=m), 1, tag, text) for m, tag, text in items]
+
+
+def test_street_name_spelled_two_ways_at_one_house_number_is_one_incident():
+    inc = extract(rows_of((0, "WC Fire Disp", "engine 56 engine 39 respond to commercial fire at 31240 southwest blooms ferry road cross streets are x and y"),
+                          (6, "WC Fire Disp", "chief 6 respond to commercial fire at 31240 southwest boonesbury road cross streets are x and y")))
+    assert len(inc) == 1 and len(inc[0].calls) == 2 and inc[0].category == "structure_fire"
+
+
+def test_different_house_numbers_stay_separate():
+    inc = extract(rows_of((0, "WC Fire Disp", "engine 56 respond to commercial fire at 31240 southwest blooms ferry road"),
+                          (6, "WC Fire Disp", "engine 57 respond to commercial fire at 31250 southwest blooms ferry road")))
+    assert len(inc) == 2
+
+
+def test_incompatible_natures_at_one_house_number_stay_separate():
+    inc = extract(rows_of((0, "WC Fire Disp", "engine 61 respond to traffic accident at 500 southwest main street"),
+                          (5, "WC Fire Disp", "engine 62 respond to structure fire at 500 southwest oak street")))
+    assert {i.category for i in inc} == {"crash", "structure_fire"} and len(inc) == 2
+
+
+def test_same_house_number_after_the_gap_is_a_new_incident():
+    inc = extract(rows_of((0, "WC Fire Disp", "engine 56 respond to commercial fire at 31240 southwest blooms ferry road"),
+                          (200, "WC Fire Disp", "engine 56 respond to commercial fire at 31240 southwest boonesbury road")))
+    assert len(inc) == 2
+
+
+DISPATCH = "engine 62 engine 67 respond to commercial fire at 100 southwest main street cross streets are oak street and elm street"
+
+
+def test_an_addressless_cancel_closes_the_incident_its_unit_was_sent_to():
+    inc = extract(rows_of((0, "WC Fire Disp", DISPATCH), (40, "WC OPS 35", "engine 62 is on scene now"), (90, "WC OPS 35", "engine 62 you can cancel")))
+    assert len(inc) == 1 and inc[0].status == "cleared" and len(inc[0].calls) == 3
+
+
+def test_a_status_call_whose_unit_matches_two_incidents_is_ignored():
+    inc = extract(rows_of((0, "WC Fire Disp", "engine 5 engine 62 respond to commercial fire at 100 southwest main street"),
+                          (3, "WC Fire Disp", "engine 5 engine 70 respond to structure fire at 900 northeast elm street"),
+                          (30, "WC OPS 35", "engine 5 you can cancel")))
+    assert len(inc) == 2 and all(i.status == "active" for i in inc)
+
+
+def test_status_traffic_hours_later_does_not_link():
+    inc = extract(rows_of((0, "WC Fire Disp", DISPATCH), (400, "WC OPS 35", "engine 62 you can cancel")))
+    assert len(inc) == 1 and inc[0].status == "active"
+
+
+def test_a_serious_call_without_an_address_joins_the_incident_with_the_same_unit():
+    inc = extract(rows_of((0, "CCOM FD Disp", "engine 322 engine 315 respond to natural gas leak at 6901 glen echo avenue cross streets are x and y"),
+                          (4, "CCOM FD 24", "engine 322 bc 302 natural gas leak coming in, the informant is possibly smelling propane")))
+    assert len(inc) == 1 and len(inc[0].calls) == 2 and inc[0].category == "gas_leak"
+
+
+def test_a_serious_call_of_another_nature_does_not_join():
+    inc = extract(rows_of((0, "CCOM FD Disp", "engine 322 respond to natural gas leak at 6901 glen echo avenue cross streets are x and y"),
+                          (4, "CCOM FD 24", "engine 322 we have a person struck by a car here")))
+    assert len(inc) == 2

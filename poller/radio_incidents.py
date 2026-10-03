@@ -81,26 +81,53 @@ def normalise(text: str) -> str:
 # ── Nature / severity ────────────────────────────────────────────────────────
 
 # (category, severity 1-5, pattern) — first match wins, so order matters.
+#
+# Transcripts are single ASR'd transmissions from dispatch, field crews AND hospital/EMS patient reports, so a
+# bare keyword is rarely enough: "give it a shot", "shooting pain", "stabbing pain", "the patient collapsed",
+# "not an entrapment", "our MVC lost its connection" and "canceled by fire" all appear far more often than the
+# incidents those words suggest. Patterns therefore describe the *incident* ("been shot", "stabbing wound",
+# "structure collapse", "miscellaneous fire at ...") and negated mentions are discarded (see _negated()).
 _NATURES: list[tuple[str, int, re.Pattern]] = [
-    ("water_rescue", 5, re.compile(r"water rescue|in the water|person in (the )?water|jumper|on the railing|fireboat|swift ?water")),
-    # "(?! alarm)": "commercial fire alarm" is an alarm, not a fire.
-    ("structure_fire", 5, re.compile(r"(?:structure|house|apartment|residential|commercial|working) fire(?! alarm)|fire in (a|the) (building|house|apartment|unit)|smoke (in|from) (the |a )?(building|house|apartment|residence)")),
-    ("violence", 4, re.compile(r"shooting|shots fired|gunshot|stabbing|stabbed|\bshot\b")),
-    ("rescue", 4, re.compile(r"entrap|trapped|high angle|confined space|technical rescue|extrication|collapse")),
+    ("water_rescue", 5, re.compile(r"water rescue|in the water|person in (the )?water|jumper (?:on|off|from|at|near) (?:the |a )?(?:\w+ )?(?:bridge|overpass)|on the railing|fireboat|swift ?water")),
+    # "(?! alarm)": "commercial fire alarm" is an alarm, not a fire; "(?!\w)": "residential firelight" is not a fire.
+    ("structure_fire", 5, re.compile(r"(?:structure|house|apartment|residential|commercial|working) fire(?! alarm)(?!\w)|fire in (a|the) (building|house|apartment|unit)|smoke (in|from) (the |a )?(building|house|apartment|residence)")),
+    ("violence", 4, re.compile(
+        r"gunshot|shots? fired|stabbing wound|\bstabbed\b|\bstabbing\b(?! (?:pain|sensation|feeling))"
+        r"|\b(?:been|was|were|got|get|being|gets) shot (?:in|to|at|by|twice|multiple|once|and|while|during|several|with)\b|\bshot (?:himself|herself|themselves|in the|to the|in his|in her|twice|multiple|at|and (?:killed|wounded))"
+        r"|(?:report of|reported|call for|respond(?:ing)? to|possible) (?:a |an )?shooting\b|\bshooting (?:victim|incident|suspect|at|in progress|toward|towards)")),
+    ("rescue", 4, re.compile(r"entrap|trapped|high angle|confined space|technical rescue|extrication|(?:structure|building|roof|wall|floor|trench|house|garage|ceiling|deck|stairs?) collapse|collapsed (?:building|structure|roof|wall|trench)")),
     ("hazmat", 4, re.compile(r"hazmat|hazardous material|fuel spill|chemical (spill|leak)")),
     ("gas_leak", 4, re.compile(r"gas (leak|odor|smell)|odor of gas|smell of gas|natural gas|gas line")),
     ("carbon_monoxide", 4, re.compile(r"carbon mon\w*|\bco alarm")),
     ("train_or_ped_struck", 4, re.compile(r"(pedestrian|person) struck|struck by (a |an )?(car|vehicle|train|freight)|train vs|versus (a )?train")),
-    ("crash", 3, re.compile(r"traffic accident|motor vehicle (accident|crash|collision)|\bmvc\b|\bmva\b|rollover|collision|crash")),
+    ("crash", 3, re.compile(r"traffic accident|motor vehicle (accident|crash|collision)|(?<!our )(?<!my )\bmvc\b(?! (?:doesn|isn|has|is not|lost|connection))|\bmva\b|rollover|\bcollision\b|\bcrash(?:ed)?\b(?! (?:cart|into the (?:room|helicopter)))")),
     ("vehicle_fire", 3, re.compile(r"(car|vehicle|auto|truck|rv) fire")),
-    ("outside_fire", 3, re.compile(r"vegetation|brush fire|grass fire|tree (is )?on fire|bark ?dust|outside fire|dumpster fire|trash fire|debris fire|cardboard|smoke investigation|illegal burn|fire on the")),
+    ("outside_fire", 3, re.compile(r"vegetation|brush fire|grass fire|tree (is )?on fire|bark ?dust|outside fire|dumpster fire|trash fire|debris fire|smoke investigation|illegal burn|smoke in the area|(?:grass|brush|bush|tree|garbage|trash) (?:can )?on fire|\bfire on the (?:stoop|porch|deck|patio|balcony|roof|fence|lawn)")),
     ("assault", 3, re.compile(r"assault")),
-    ("fire_alarm", 1, re.compile(r"fire alarm|commercial alarm|unverified alarm|smoke alarm|alarm activation")),
-    # A bare "fire" (after alarms are ruled out) is nearly always a real one;
-    # ASR often mangles the qualifier ("smallside fire" = small outside fire).
-    ("fire", 3, re.compile(r"\bfire\b(?! (department|dispatch|station|engine|district|marshal|boat|ops|crews?))")),
+    ("fire_alarm", 1, re.compile(r"fire alarm|commercial alarm|unverified alarm|smoke alarm|alarm activation|fire (?:pull )?station alarm|(?:residential|commercial) fire ?(?:arms?|light)\b")),
+    # A bare "fire" is overwhelmingly the agency ("canceled by fire", "fire com", "fire attack", "fire company"), so a
+    # generic fire needs dispatch phrasing: a qualifier or "respond to ... fire", ideally with a place.
+    ("fire", 3, re.compile(
+        r"(?<!non-)\b(?:miscellaneous|misc|small|unknown(?: type)?|type unclear|possible|reported|medium|large|major|working|warming|wildland|forest|extinguished|outside|backyard|electrical|gasoline|propane|oil|power ?line|barn|shed|garage|fence|trailer|boat|tree|bush|deck|pallet|wood ?pile) fire\b(?! (?:alarm|department|dispatch|station|engine|district|marshal|boat|ops|crews?|com\b|attack|company|call|watch|supply|ground|command|investigat\w*|tac\b|response|unit|rider|drill|prior))"
+        r"|(?<=respond to )fire (?:at|on|near)\b|(?<=respond to a )fire (?:at|on|near)\b|(?<=responding to )fire (?:at|on|near)\b"
+        r"|\b(?:on|catching|caught) fire\b(?! (?:alarm|department|dispatch|station|engine|district|marshal|boat|ops|crews?|com\b|attack|company|call|watch|supply|ground|command|investigat\w*|tac\b|response|unit|rider|drill|prior))"
+        r"|\bfire in (?:a |an |the |our |his |her |their )?(?:\w+ ){0,2}(?:bathroom|kitchen|boat|street|backyard|yard|garage|attic|basement|bedroom|room|vent|chimney|dumpster|field|woods|shed|barn|trailer|car|vehicle|elevator|shaft|walls?|ceiling|roof|hallway|stairwell|laundry)\b"
+        r"|(?<!test )(?<!information )(?<!info )(?<!non-)(?<!non )\bfire(?= at \d)")),
     ("medical", 1, re.compile(r"sick person|breathing problem|\bfall\b|unconscious|chest pain|seizure|abdominal|psychiatric|overdose|diabetic|stroke|cardiac|allergic|bleeding|lift assist|medical alarm|sick|injur|pain|breathing|faint|welfare check|intoxicated")),
 ]
+_NEGATORS = {"no", "not", "never", "without", "nobody", "none", "negative", "t"}   # "t" = the n't in "doesn't" etc.
+
+
+def _negated(t: str, start: int) -> bool:
+    """True when one of the 5 words before `start` negates the match ("no entrapment", "not an entrapment", "doesn't think anybody is trapped")."""
+    words = t[:start].split()[-5:]
+    return any(w in _NEGATORS for w in words) or (t.startswith("entrap", start) and "any" in words)
+
+
+def _first_real(pat: re.Pattern, t: str, medical: bool = False):
+    return next((m for m in pat.finditer(t) if medical or not _negated(t, m.start())), None)
+
+
 _MPDS = re.compile(r"\b(\d{1,2})?\s*-?\s*(alpha|bravo|charlie|delta|echo|omega)\b")
 _PRIORITY = re.compile(r"\b(?:priority|priorit\w*|predi|parity|priorty|priory)\s+(\d)\b")
 _ACUITY = {"omega": 0, "alpha": 1, "bravo": 2, "charlie": 3, "delta": 4, "echo": 5}
@@ -116,11 +143,11 @@ def classify(t: str, anchor: int | None = None) -> tuple[str, int]:
     """
     if anchor is None:
         for cat, sev, pat in _NATURES:
-            if pat.search(t):
+            if _first_real(pat, t, cat == "medical"):
                 return cat, sev
         return "other", 1
     matches = [(m.start(), m.end(), order, cat, sev)
-               for order, (cat, sev, pat) in enumerate(_NATURES) for m in pat.finditer(t)]
+               for order, (cat, sev, pat) in enumerate(_NATURES) for m in pat.finditer(t) if cat == "medical" or not _negated(t, m.start())]
     # Drop matches nested inside a longer one ("fire" inside "structure fire").
     matches = [a for a in matches
                if not any(b is not a and b[0] <= a[0] and a[1] <= b[1] and (b[1] - b[0]) > (a[1] - a[0])
@@ -152,7 +179,7 @@ _SUFFIX_RE = "|".join(sorted(_SUFFIX, key=len, reverse=True))
 # A street: optional direction, then either one numbered token ("70th", "2")
 # or 1-3 word tokens that are not directions, then a suffix.
 _WORD = rf"(?!(?:{_DIR_RE})\b)[a-z][a-z0-9']*"
-_NAME = rf"(?:\d{{1,3}}(?:st|nd|rd|th)?|{_WORD}(?:\s+{_WORD}){{0,2}}?)"
+_NAME = rf"(?:\d{{1,3}}(?:st|nd|rd|th)?|martin luther king(?: jr)?|{_WORD}(?:\s+{_WORD}){{0,2}}?)"
 
 
 def _street_re(i: int) -> str:
@@ -168,8 +195,16 @@ _INTERSECTION_RE = re.compile(r"\b" + _street_re(1) + r"\s+(?:and\s+|&\s+|at\s+)
 _INTERSECTION_BARE_RE = re.compile(
     r"\b" + _street_re(1) + r"\s+(?:and\s+|&\s+|at\s+)?(?P<d2>" + _DIR_RE + r")\s+(?P<n2>" + _WORD + r")\b(?!\s+(?:" + _SUFFIX_RE + r")\b)"
 )
+# Dispatch often reads a street without its suffix ("11879 southwest austin", "2020 southwest broadway behind ...").
+# Only trusted as a last resort and only with a direction, a 3+ digit number and a dispatch cue after the name.
+_ADDR_BARE_RE = re.compile(
+    r"\b(?P<num>\d{3,6})\s+(?P<d1>" + _DIR_RE + r")\s+(?P<n1>(?!(?:" + _SUFFIX_RE + r")\b)" + _WORD + r"(?:\s+" + _WORD + r"){0,1}?)"
+    r"(?=\s+(?:cross streets?|unit\b|ops?\b|working|talk ?group|respon\w*|please|tucker\w*|switch|stand ?by|behind|next to|near|across|in the|apartments?)|\s*$)")
+# Portland shorthand "southeast 202 in burnside" = SE 202nd & Burnside.
+_NUM_IN_RE = re.compile(r"\b(?P<d1>" + _DIR_RE + r")\s+(?P<n1>\d{1,3})\s+(?:in|and|at)\s+(?:(?P<d2>" + _DIR_RE + r")\s+)?(?P<n2>" + _WORD + r")\b")
 _LANDMARK_RE = re.compile(r"\b(?:on|at|off) (?:the )?(?:(\w+) )?(bridge|overpass|river|waterfront|max (?:platform|station)|transit (?:center|station)|light rail)\b")
-_HIGHWAY_RE = re.compile(r"\b(?:i|interstate)\s*-?\s*(5|84|205|405)\b|\b(?:highway|hwy|us|or)\s*-?\s*(26|30|217|99e|99w|43|213|224|8|10)\b|\bsunset highway\b")
+_HIGHWAY_RE = re.compile(r"\b(?:i|interstate)\s*-?\s*(5|84|205|405)\b|\b(?:east|west|north|south)bound\s+(?:i\s*-?\s*)?(?P<bd>5|84|205|405)\b|\b(?:highway|hwy|us|or)\s*-?\s*(26|30|217|99e|99w|43|213|224|8|10)\b|\bsunset highway\b")
+_NOT_STREET = {"alpha", "bravo", "charlie", "delta", "echo", "omega", "ops", "op", "unit", "priority", "code", "engine", "medic", "truck"}
 _STOP_NAME = re.compile(r"^(on|at|in|to|the|and|of|a|respond|responding|unit|ops|is|for|with)\b")
 
 
@@ -200,8 +235,12 @@ def extract_location(t: str) -> tuple[str | None, str | None]:
     return loc, key
 
 
+_SPLIT_NUM_RE = re.compile(r"\b(\d{2,4})-(\d{1,2})(?=\s+" + _DIR_RE + r"\b)")
+
+
 def locate(t: str) -> tuple[str | None, str | None, int | None]:
     """Return (display_location, cluster_key, match_position) from normalised text."""
+    t = _SPLIT_NUM_RE.sub(lambda m: m.group(1) + m.group(2), t)   # same length or shorter; position is only a hint
     m = _ADDR_RE.search(t)
     if m:
         street = _street(m.group("d1"), m.group("n1"), m.group("s1"))
@@ -221,16 +260,27 @@ def locate(t: str) -> tuple[str | None, str | None, int | None]:
         b = _street(m.group("d2"), m.group("n2"), "")
         if a and b and a != b:
             return f"{a} & {b}", " & ".join(sorted([a.lower(), b.lower()])), m.start()
+    m = _NUM_IN_RE.search(t)
+    if m:
+        a = _street(m.group("d1"), m.group("n1"), "ave")
+        b = _street(m.group("d2"), m.group("n2"), "")
+        if a and b and not _STOP_NAME.match(m.group("n2")) and m.group("n2") not in _NOT_STREET:
+            return f"{a} & {b}", " & ".join(sorted([a.lower(), b.lower()])), m.start()
+    m = _ADDR_BARE_RE.search(t)
+    if m:
+        street = _street(m.group("d1"), m.group("n1"), "")
+        if street:
+            return f"{m.group('num')} {street}", _address_key(m.group("num"), m.group("d1"), m.group("n1")), m.start()
     m = _LANDMARK_RE.search(t)
     if m:
         name = f"{m.group(1)} {m.group(2)}" if m.group(1) and m.group(1) not in ("the", "a") else m.group(2)
         return f"{name} (landmark)", None, m.start()
     m = _HIGHWAY_RE.search(t)
     if m:
-        if m.group(1):
-            hw = f"I-{m.group(1)}"
-        elif m.group(2):
-            hw = f"Hwy {m.group(2).upper()}"
+        if m.group(1) or m.group("bd"):
+            hw = f"I-{m.group(1) or m.group('bd')}"
+        elif m.group(3):
+            hw = f"Hwy {m.group(3).upper()}"
         else:
             hw = "US 26 (Sunset Hwy)"
         return hw, None, m.start()  # highways are too long to cluster on alone
@@ -433,22 +483,80 @@ class Incident:
 _STATUS_RANK = {"active": 0, "on_scene": 1, "contained": 2, "cleared": 3}
 
 
-def cluster(calls: list[Call], gap: timedelta = timedelta(minutes=90)) -> list[Incident]:
-    """Group calls about the same address within `gap` of each other into incidents.
+_FAMILY = {"structure_fire": "fire", "fire": "fire", "outside_fire": "fire", "vehicle_fire": "fire", "fire_alarm": "fire",
+           "gas_leak": "gas", "carbon_monoxide": "gas", "hazmat": "gas"}
 
-    Calls without a clusterable address become their own incident only when
-    they are non-routine (severity >= 3); routine unlocated chatter is dropped.
-    Status-only follow-ups ("recall", "on scene") with an address merge into
-    the open incident at that address.
+
+def _compatible(a: str, b: str) -> bool:
+    """Could two calls about the same place be the same incident? Anything pairs with the vague "other"; otherwise the
+    categories must be in one family (all fire types, all gas types) or be the same."""
+    if "other" in (a, b) or a == b:
+        return True
+    fa, fb = _FAMILY.get(a), _FAMILY.get(b)
+    return fa is not None and fa == fb
+
+
+def _number_dir(key: str | None) -> tuple[str, str] | None:
+    """House number + direction of an address key ("1485|NE|gardner"): the part ASR rarely garbles."""
+    parts = (key or "").split("|")
+    return (parts[0], parts[1]) if len(parts) == 3 and parts[0].isdigit() and len(parts[0]) >= 3 else None
+
+
+def _unit_keys(units: list[str]) -> set[str]:
+    return {u.lower() for u in units}
+
+
+def _absorb(into: "Incident", c: Call) -> None:
+    into.calls.append(c)
+    into.last_seen = max(into.last_seen, c.ts)
+    into.first_seen = min(into.first_seen, c.ts)
+    if c.severity > into.severity and _compatible(c.category, into.category):
+        into.category, into.severity = c.category, c.severity
+    if c.acuity and (into.acuity is None or _ACUITY.get(c.acuity, 0) > _ACUITY.get(into.acuity, 0)):
+        into.acuity = c.acuity
+    for u in c.units:
+        if u not in into.units:
+            into.units.append(u)
+    if c.tag and c.tag not in into.talkgroups:
+        into.talkgroups.append(c.tag)
+    into.cross_streets = into.cross_streets or c.cross_streets
+    into.nature = into.nature or c.nature
+    for m in c.markers:
+        if m not in into.markers:
+            into.markers.append(m)
+    if c.status and _STATUS_RANK[c.status] > _STATUS_RANK[into.status]:
+        into.status = c.status
+
+
+def cluster(calls: list[Call], gap: timedelta = timedelta(minutes=90)) -> list[Incident]:
+    """Group calls about the same place into incidents.
+
+    1. Same address key within `gap` (status-only follow-ups with an address merge too).
+    2. The same house number + direction under a different street name within `gap` is the same incident whose street
+       name ASR spelled two ways ("Blooms Ferry" / "Boonesbury"), provided the categories are compatible.
+    3. Calls without an address cannot cluster on one, so they are linked by units: a call whose units match exactly
+       one nearby incident joins it (this is how "Engine 62 clear" or "recall" closes an incident, and how a truncated
+       dispatch read joins the incident that has the full address). Ambiguous matches are left alone.
+    Routine unlocated chatter that links to nothing is dropped.
     """
     incidents: list[Incident] = []
     open_by_key: dict[str, Incident] = {}
+    open_by_nd: dict[tuple[str, str], Incident] = {}
+    loose: list[Call] = []          # address-less calls that did not start an incident, for the unit-linking pass
     for c in sorted(calls, key=lambda c: c.ts):
         inc = open_by_key.get(c.key) if c.key else None
         if inc is not None and c.ts - inc.last_seen > gap:
             inc = None
+        nd = _number_dir(c.key)
+        if inc is None and nd is not None:
+            cand = open_by_nd.get(nd)
+            if cand is not None and c.ts - cand.last_seen <= gap and _compatible(c.category, cand.category):
+                inc = cand
+                open_by_key[c.key] = cand
         if inc is None:
             if not c.key and c.severity < 3:
+                if c.units and c.status:
+                    loose.append(c)
                 continue
             if c.category == "other" and not c.units:
                 continue
@@ -457,6 +565,8 @@ def cluster(calls: list[Call], gap: timedelta = timedelta(minutes=90)) -> list[I
             incidents.append(inc)
             if c.key:
                 open_by_key[c.key] = inc
+                if nd is not None:
+                    open_by_nd[nd] = inc
         inc.calls.append(c)
         inc.last_seen = max(inc.last_seen, c.ts)
         if c.severity > inc.severity or inc.category in ("other", "fire_alarm") and c.category not in ("other",):
@@ -476,7 +586,37 @@ def cluster(calls: list[Call], gap: timedelta = timedelta(minutes=90)) -> list[I
                 inc.markers.append(m)
         if c.status and _STATUS_RANK[c.status] > _STATUS_RANK[inc.status]:
             inc.status = c.status
-    return incidents
+    return _link_by_units(incidents, loose)
+
+
+_LINK_BEFORE = timedelta(minutes=10)     # a follow-up may be heard slightly before the dispatch read that carries the address
+_LINK_AFTER = timedelta(hours=3)         # status traffic can trail the last address read by hours on a big incident
+_LINK_AFTER_SERIOUS = timedelta(minutes=45)
+
+
+def _link_by_units(incidents: list[Incident], loose: list[Call]) -> list[Incident]:
+    located = [i for i in incidents if i.key]
+    unlocated = [i for i in incidents if not i.key]
+
+    def candidates(units: set[str], t0, t1, category: str | None, after: timedelta) -> list[Incident]:
+        return [i for i in located
+                if units & _unit_keys(i.units) and i.first_seen - _LINK_BEFORE <= t0 and t1 <= i.last_seen + after
+                and (category is None or _compatible(category, i.category))]
+
+    for call in loose:                                   # "Engine 62 clear", "recall", "on scene" with no address
+        found = candidates(_unit_keys(call.units), call.ts, call.ts, None, _LINK_AFTER)
+        if len(found) == 1:
+            _absorb(found[0], call)
+    absorbed: set[int] = set()
+    for u in unlocated:                                  # serious address-less calls (truncated reads, field traffic)
+        if not u.units:
+            continue
+        found = candidates(_unit_keys(u.units), u.first_seen, u.last_seen, u.category, _LINK_AFTER_SERIOUS)
+        if len(found) == 1:
+            for c in u.calls:
+                _absorb(found[0], c)
+            absorbed.add(id(u))
+    return [i for i in incidents if id(i) not in absorbed]
 
 
 def rank(incidents: list[Incident]) -> list[Incident]:
@@ -484,7 +624,23 @@ def rank(incidents: list[Incident]) -> list[Incident]:
     return sorted(incidents, key=lambda i: (i.severity, len(i.units) + len(i.calls), i.last_seen), reverse=True)
 
 
-def extract(rows) -> list[Incident]:
+_HOSPITAL_TAG = re.compile(r"\bhosp(?:ital)?\b|\bhos\b|\bhsp\b|medical (?:center|ctr)|\bmed ctr\b|\bemergency room\b", re.I)
+
+
+def is_hospital_tag(tag: str | None, extra: tuple[str, ...] | list[str] = ()) -> bool:
+    """True for talkgroups that carry EMS-to-hospital patient reports ("code 1 with a 74-year-old female ... ETA 10").
+
+    Those describe a patient the dispatch channels already handled, with histories full of "collapsed", "shot",
+    "stabbing pain" and "motor vehicle accident", so they are not incidents of their own. The transcripts stay in
+    the database (they are a source of aggregate EMS-load signals); they just don't create or merge incidents.
+    `extra` adds site-specific tag substrings for names without a hospital marker.
+    """
+    tag = tag or ""
+    return bool(_HOSPITAL_TAG.search(tag)) or any(e and e.lower() in tag.lower() for e in extra)
+
+
+def extract(rows, hospital_tags: tuple[str, ...] | list[str] = ()) -> list[Incident]:
     """rows: iterable of (ts, tgid, tag, transcription). Returns ranked incidents."""
-    calls = [parse_call(ts, tgid, tag or "", text or "") for ts, tgid, tag, text in rows if text and len(text) >= 20]
+    calls = [parse_call(ts, tgid, tag or "", text or "") for ts, tgid, tag, text in rows
+             if text and len(text) >= 20 and not is_hospital_tag(tag, hospital_tags)]
     return rank(cluster(calls))
