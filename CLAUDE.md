@@ -153,6 +153,7 @@ Base path: `/api/v1/`
 | `/capabilities` | Which regional data contracts have a provider here (drives what the UI shows) |
 | `/setup/status`, `/setup/packs` | Setup wizard: whether setup is needed and whether the poller needs a restart; installed region packs (covering the given location first) with key status |
 | `/config/region` | The operator's region: `GET` reports it and where it came from, `PUT` (admin) saves it in the database unless `.env` pins it, `POST /resolve` suggests NWS office, zones, timezone and name for a location |
+| `/terrain/dem/{z}/{x}/{y}.png` | Elevation tiles for the 3D map, fetched once from `TERRAIN_TILE_URL` and cached in memory (public, read-only) |
 | `/ws` | WebSocket event stream |
 
 ---

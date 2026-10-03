@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import * as maplibregl from 'maplibre-gl'
 import { useCivicStore } from '../../store'
+import { API_BASE } from '../../config'
 import { configureTerrainElevation } from '../../layers/terrainElevation'
 
 interface Props { map: maplibregl.Map }
@@ -8,11 +9,9 @@ interface Props { map: maplibregl.Map }
 const TERRAIN_SRC       = 'terrain-dem'
 const HILLSHADE_LAYER   = 'terrain-hillshade'
 
-// AWS/Nextzen Terrarium elevation tiles — free, no API key required.
-// Encoding: each pixel encodes elevation as (R * 256 + G + B / 256) - 32768
-const TERRAIN_TILES = [
-  'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png',
-]
+// Terrarium elevation tiles, fetched and cached by the backend (TERRAIN_TILE_URL picks the upstream) so the browser
+// never contacts a third party and each tile is downloaded once. Each pixel encodes (R * 256 + G + B / 256) - 32768 m.
+const TERRAIN_TILES = [`${API_BASE}/terrain/dem/{z}/{x}/{y}.png`]
 
 export function TerrainLayer({ map }: Props) {
   const terrainEnabled      = useCivicStore((s) => s.terrainEnabled)

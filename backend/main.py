@@ -14,7 +14,7 @@ from db.session import init_db
 from rate_limit import RateLimitMiddleware
 from request_limits import RequestSizeLimitMiddleware
 from redis_bus import init_redis, close_redis
-from routers import entities, observations, events, weather, alerts, news, traffic, health, ws, radio, utilities, summary, auth, geofences, sources, aircraft, admin, admin_debug, alertrules, sitrep, layers, entity_tags, annotations, config_regions, mesh, acars, rail, capabilities, region, setup
+from routers import entities, observations, events, weather, alerts, news, traffic, health, ws, radio, utilities, summary, auth, geofences, sources, aircraft, admin, admin_debug, alertrules, sitrep, layers, entity_tags, annotations, config_regions, mesh, acars, rail, capabilities, region, setup, terrain
 from metrics_collector import run_metrics_collector
 from sitrep_scheduler import run_sitrep_scheduler
 from webhook_dispatcher import run_webhook_dispatcher
@@ -74,6 +74,7 @@ app.include_router(entities.router, prefix="/api/v1")
 app.include_router(observations.router, prefix="/api/v1")
 app.include_router(events.router, prefix="/api/v1")
 app.include_router(weather.router, prefix="/api/v1")
+app.include_router(terrain.router, prefix="/api/v1")
 app.include_router(alerts.router, prefix="/api/v1")
 app.include_router(news.router, prefix="/api/v1")
 app.include_router(traffic.router, prefix="/api/v1")

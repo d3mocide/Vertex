@@ -18,6 +18,7 @@ _PUBLIC_PREFIXES = (
     "/api/v1/weather/radar/wms",
     "/api/v1/weather/alerts/wms",
     "/api/v1/weather/lightning/wms",
+    "/api/v1/terrain/dem/",
 )
 _MUTATING_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
 _AUTH_PUBLIC_PATHS = frozenset({

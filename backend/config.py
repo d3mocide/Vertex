@@ -34,6 +34,10 @@ class Settings(BaseSettings):
     # searched ZIP to census.gov). Set false to keep lookups fully local.
     boundary_zip_lookup_enabled: bool = True
 
+    # Elevation tiles for the 3D terrain view (Terrarium-encoded PNG, {z}/{x}/{y} template). Fetched by the backend and
+    # cached in memory; point this at a self-hosted tile server to keep the map fully local.
+    terrain_tile_url: str = "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png"
+
     # Authentication (disabled by default — set AUTH_ENABLED=true to activate)
     auth_enabled: bool = False
     auth_secret_key: str = ""       # generate: openssl rand -hex 32
