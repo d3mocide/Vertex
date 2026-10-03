@@ -63,11 +63,32 @@ def test_stale_fire_perimeters_are_omitted():
         {"properties": {"name": "Old", "state": "US-OR", "acres": 0.1, "updated": stale,
                         "centroid_lat": 45.4, "centroid_lon": -122.7}},
         {"properties": {"name": "New", "state": "US-OR", "acres": 20.5, "updated": fresh,
-                        "centroid_lat": 44.0, "centroid_lon": -121.0}},
+                        "centroid_lat": 45.4, "centroid_lon": -122.7}},
     ]}
     text = format_fire_perimeters(payload, NOW)
     assert "New" in text and "Old" not in text
     assert "1 older/undated perimeters omitted" in text
+
+
+def test_fire_perimeters_keep_only_relevant_ones():
+    fresh = (NOW - timedelta(days=1)).isoformat()
+
+    def fire(name, lat, lon, acres, contained=None):
+        return {"properties": {"name": name, "state": "US-OR", "acres": acres, "contained_pct": contained,
+                               "updated": fresh, "centroid_lat": lat, "centroid_lon": lon}}
+
+    payload = {"features": [
+        fire("Nearby", 45.4, -122.7, 20),                  # local: kept whatever its size
+        fire("BigSmoky", 45.4, -118.0, 5000, 10),          # in smoke range, large and uncontained: kept
+        fire("Contained", 45.4, -118.0, 5000, 90),         # large but mostly contained: dropped
+        fire("SmallFar", 45.4, -118.0, 200),               # in range but small: dropped
+        fire("VeryFar", 40.0, -105.0, 90000, 5),           # beyond smoke range: dropped
+    ]}
+    text = format_fire_perimeters(payload, NOW)
+    assert "Nearby" in text and "BigSmoky" in text
+    for dropped in ("Contained", "SmallFar", "VeryFar"):
+        assert dropped not in text
+    assert "3 distant or largely contained perimeters omitted" in text
 
 
 def test_traffic_splits_disruptions_from_planned_roadwork():
@@ -228,11 +249,19 @@ def test_score_counts_residential_fire_as_structure_fire_in_bottom_line():
     assert score_briefing(text, facts)["life_safety_in_bottom_line"] is True
 
 
-def test_previous_briefing_omits_its_recommended_actions():
+def test_previous_briefing_keeps_only_its_bottom_line():
     from datetime import datetime, timezone
     from pollers.summary_context import format_previous
     prev = {"ts": "2026-09-27T01:00:00+00:00", "summary":
-            "**BOTTOM LINE:** x\n### Key Developments\n- fire\n### Recommended Actions\n- Contact dispatch\n### Data Gaps\n- none"}
+            "**BOTTOM LINE:** Posture NORMAL. One gas leak.\n### Key Developments\n- fire\n### Recommended Actions\n- Contact dispatch\n### Data Gaps\n- none"}
     out = format_previous(prev, datetime(2026, 9, 27, 2, tzinfo=timezone.utc))
-    assert "Key Developments" in out and "Data Gaps" in out
-    assert "Contact dispatch" not in out and "Recommended Actions" not in out
+    assert "Posture NORMAL. One gas leak." in out and "do not copy it" in out
+    for dropped in ("Key Developments", "Data Gaps", "Contact dispatch", "Recommended Actions"):
+        assert dropped not in out
+
+
+def test_previous_briefing_without_bottom_line_is_truncated():
+    from datetime import datetime, timezone
+    from pollers.summary_context import format_previous
+    out = format_previous({"ts": "2026-09-27T01:00:00+00:00", "summary": "x" * 2000}, datetime(2026, 9, 27, 2, tzinfo=timezone.utc))
+    assert out.count("x") == 600

@@ -235,6 +235,25 @@ def format_fire_incidents(entities: list[dict], now: datetime) -> str:
     return "WILDFIRE INCIDENTS (EONET, nearest first):\n" + "\n".join(lines)
 
 
+_MAX_PERIMETERS = 6
+_SMOKE_RANGE_KM = 400
+_SMOKE_MIN_ACRES = 1000
+_SMOKE_MAX_CONTAINED_PCT = 50
+
+
+def _perimeter_relevant(dist, props: dict) -> bool:
+    if props.get("_geofences"):
+        return True
+    if not isinstance(dist, (int, float)):
+        return False
+    if dist <= settings.fire_alert_radius_km:
+        return True
+    acres, contained = props.get("acres"), props.get("contained_pct")
+    return (dist <= _SMOKE_RANGE_KM
+            and isinstance(acres, (int, float)) and acres >= _SMOKE_MIN_ACRES
+            and (contained is None or contained < _SMOKE_MAX_CONTAINED_PCT))
+
+
 def format_fire_perimeters(payload, now: datetime) -> str:
     if payload is None:
         return "MAPPED FIRE PERIMETERS (NIFC): Feed has not synced."
@@ -256,12 +275,19 @@ def format_fire_perimeters(payload, now: datetime) -> str:
         dist = haversine_km(settings.region_lat, settings.region_lon, clat, clon) \
             if isinstance(clat, (int, float)) and isinstance(clon, (int, float)) else None
         rows.append((dist, props))
-    rows.sort(key=lambda r: r[0] if r[0] is not None else 1e9)
+    # Of the recently updated ones, only perimeters that could affect the region are worth the model's attention:
+    # local (inside the alert radius or a geofence) or large, still-uncontained fires within smoke range.
+    # Far-off or mostly contained fires are context, not briefing material.
+    relevant = [(d, p) for d, p in rows if _perimeter_relevant(d, p)]
+    far = len(rows) - len(relevant)
+    rows = sorted(relevant, key=lambda r: r[0] if r[0] is not None else 1e9)
     stale_note = f" ({stale} older/undated perimeters omitted as inactive)" if stale else ""
+    if far:
+        stale_note += f" ({far} distant or largely contained perimeters omitted)"
     if not rows:
         return f"MAPPED FIRE PERIMETERS (NIFC): None updated in the last {settings.fire_regional_recent_hours // 24} days{stale_note}."
     lines = []
-    for dist, props in rows[:10]:
+    for dist, props in rows[:_MAX_PERIMETERS]:
         acres = props.get("acres")
         contained = props.get("contained_pct")
         bits = [f"{acres} ac" if acres is not None else "acreage unknown"]
@@ -652,10 +678,11 @@ def format_entity_activity(rows) -> str | None:
 def format_previous(previous: dict | None, now: datetime) -> str | None:
     if not previous or not previous.get("summary"):
         return None
-    # Only the assessment is needed to judge what changed. Its Recommended
-    # Actions are left out: the model copied them forward verbatim, so old
-    # (and since-disallowed) advice outlived every prompt change.
-    text = re.sub(r"\n###\s*Recommended Actions.*?(?=\n###|\Z)", "", previous["summary"], flags=re.S | re.I)
+    # Only the posture and headline are needed to judge what changed. The model copied everything else
+    # forward (old Recommended Actions, "Resolved" groupings of violence calls, stale ages), so the rest
+    # is left out and every briefing is written from the current data.
+    m = re.search(r"\*\*BOTTOM LINE:\*\*.*?(?=\n###|\Z)", previous["summary"], flags=re.S)
+    text = m.group(0).strip() if m else previous["summary"][:600]
     return (
         f"PREVIOUS BRIEFING (issued {fmt_ts(previous.get('ts'), now)}) — compare against it; do not copy it:\n"
         + sanitise(text, 3000)
@@ -891,7 +918,9 @@ async def build_context(r, pool, now: datetime, window_hours: int,
                 if sep:
                     sections.append((_P_HIGH + 8, "RADIO-DERIVED INCIDENTS" + incidents))
             elif text.startswith("TRACKED ENTITY"):
-                sections.append((_P_LOW + 5, text))
+                # Seen/active counts per entity type never changed a briefing's judgement; the
+                # anomaly and event sections already surface any real deviation.
+                continue
             else:
                 sections.append((_P_HIGH, text))
     else:
