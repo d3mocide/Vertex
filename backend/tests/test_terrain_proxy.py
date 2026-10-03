@@ -87,7 +87,19 @@ async def test_upstream_errors_become_a_miss(monkeypatch):
     assert await terrain.get_tile(4, 1, 1) is None
 
 
+def _public_prefixes():
+    """Read the tuple from the source: several other test modules replace `auth_middleware` with a stub."""
+    import ast
+    from pathlib import Path
+    tree = ast.parse((Path(__file__).resolve().parents[1] / "auth_middleware.py").read_text())
+    for node in tree.body:
+        if isinstance(node, ast.Assign) and any(getattr(t, "id", "") == "_PUBLIC_PREFIXES" for t in node.targets):
+            return tuple(ast.literal_eval(node.value))
+    raise AssertionError("_PUBLIC_PREFIXES not found")
+
+
 def test_the_tile_route_is_public_but_nothing_else_under_terrain_is():
-    import auth_middleware
-    assert any("/api/v1/terrain/dem/".startswith(p) or p == "/api/v1/terrain/dem/" for p in auth_middleware._PUBLIC_PREFIXES)
-    assert not "/api/v1/terrain/other".startswith(tuple(auth_middleware._PUBLIC_PREFIXES))
+    prefixes = _public_prefixes()
+    assert "/api/v1/terrain/dem/10/1/2.png".startswith(prefixes)
+    assert not "/api/v1/terrain".startswith(prefixes)
+    assert not "/api/v1/terrain/other".startswith(prefixes)
