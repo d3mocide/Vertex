@@ -61,6 +61,14 @@ export type RadioIncidentCategory =
   | 'carbon_monoxide' | 'train_or_ped_struck' | 'crash' | 'vehicle_fire' | 'outside_fire'
   | 'fire' | 'assault' | 'critical_medical' | 'fire_alarm' | 'medical' | 'other'
 
+export interface RadioIncidentCall {
+  ts: string
+  tag: string                  // talkgroup name
+  status: 'active' | 'on_scene' | 'contained' | 'cleared' | null
+  units: string[]
+  text: string
+}
+
 export interface RadioIncident {
   id: string
   category: RadioIncidentCategory
@@ -75,6 +83,7 @@ export interface RadioIncident {
   acuity: string | null        // MPDS level (alpha … echo)
   talkgroups: string[]
   quote: string
+  timeline?: RadioIncidentCall[]  // transmissions in time order, trimmed (at most 12)
   lat: number | null
   lon: number | null
   geofences: string[]          // "<name> (<zone_type>)"
@@ -87,6 +96,15 @@ export interface RadioIncident {
   markers?: string[]           // "Entrapment", "Evacuation", "More resources requested", …
 }
 
+/** Dispatch volume of the last 24 h against the same hours on earlier days (poller incident_baseline.py). */
+export interface RadioIncidentBaseline {
+  ts: string
+  baseline_days: number
+  building: boolean            // fewer than 5 earlier days: no "usual" yet
+  categories: Record<string, { count: number; usual: number | null; flag: boolean }>
+  flags: string[]
+}
+
 export interface RadioIncidentFeed {
   ts: string | null
   window_hours: number | null
@@ -97,6 +115,7 @@ export interface RadioIncidentFeed {
   transcribed_calls: number
   by_category: Record<string, number>
   incidents: RadioIncident[]
+  baseline?: RadioIncidentBaseline | null
 }
 
 /** One ranked item for the advisory bar (poller/advisories.py). */
