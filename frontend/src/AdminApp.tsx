@@ -4,15 +4,17 @@ import AdminUsers from './admin/AdminUsers'
 import AdminFeeds from './admin/AdminFeeds'
 import AdminDebug from './admin/AdminDebug'
 import AdminRegion from './admin/AdminRegion'
+import AdminSitrep from './admin/AdminSitrep'
 import { AlertRulesSection } from './components/layout/AlertRulesSection'
 
-type Section = 'metrics' | 'users' | 'feeds' | 'region' | 'alerts' | 'debug'
+type Section = 'metrics' | 'users' | 'feeds' | 'region' | 'sitrep' | 'alerts' | 'debug'
 
 const NAV: { id: Section; label: string; icon: string; blurb: string }[] = [
   { id: 'metrics', label: 'Health', icon: 'monitoring', blurb: 'Services, pollers, ingestion and data quality' },
   { id: 'users', label: 'Users', icon: 'group', blurb: 'Accounts, roles, passwords and API keys' },
   { id: 'feeds', label: 'Feeds', icon: 'rss_feed', blurb: 'Radio streams, news feeds, pollers and alert zones' },
   { id: 'region', label: 'Region', icon: 'public', blurb: 'Where this install is, region packs and their keys' },
+  { id: 'sitrep', label: 'Sitrep', icon: 'psychology', blurb: 'How well the AI briefings cover what happened' },
   { id: 'alerts', label: 'Alerts', icon: 'notifications_active', blurb: 'Rules that post webhooks and deliver briefings' },
   { id: 'debug', label: 'Debug', icon: 'bug_report', blurb: 'Probe remote feeds for silent failures' },
 ]
@@ -71,7 +73,7 @@ export default function AdminApp() {
             Map
           </a>
         </div>
-        <nav className="grid grid-cols-6 border-t border-white/5" aria-label="Admin sections">
+        <nav className="grid grid-cols-7 border-t border-white/5" aria-label="Admin sections">
           {NAV.map(({ id, label, icon }) => (
             <button
               key={id}
@@ -137,6 +139,7 @@ export default function AdminApp() {
           {active === 'users' && <AdminUsers />}
           {active === 'feeds' && <AdminFeeds />}
           {active === 'region' && <AdminRegion />}
+          {active === 'sitrep' && <AdminSitrep />}
           {active === 'alerts' && (
             <div className="max-w-2xl">
               <AlertRulesSection open />
