@@ -295,6 +295,9 @@ function IncidentCard({ incident: i, now, selected, onSelect, expanded = false }
           {i.geofences.map((g) => (
             <span key={g} className="border border-outline-variant text-on-surface-variant px-1 py-0.5">{zoneName(g)}</span>
           ))}
+          {i.approx && (
+            <span className="text-on-surface-variant italic" title="The address is not in the map data; the pin is where its cross streets meet">approx. pin</span>
+          )}
           {i.lat == null && i.location && (
             <span className="text-on-surface-variant italic" title="Address could not be located">not mapped</span>
           )}
