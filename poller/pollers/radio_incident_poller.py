@@ -19,6 +19,7 @@ from db import get_pool
 from geocoder import Geocoder
 from geo_tags import geofences_for_points
 from advisories import distance_km
+from incident_baseline import baseline_report
 from radio_incidents import extract
 from .base import BasePoller
 
@@ -30,6 +31,9 @@ _MAX_PUBLISHED = 150
 # New (uncached) addresses geocoded per minute — keeps the geocoder load
 # gentle; the first backlog fills in over a few cycles.
 _LIVE_LOOKUPS_PER_CYCLE = 25
+
+_BASELINE_DAYS = 14
+_BASELINE_EVERY = timedelta(minutes=55)
 
 
 async def load_incidents(pool, since: datetime, geocoder=None, live_lookups: int = 0):
@@ -66,6 +70,8 @@ class RadioIncidentPoller(BasePoller):
 
     def __init__(self):
         self._last_hash = ""
+        self._baseline: dict | None = None
+        self._baseline_at: datetime | None = None
 
     async def setup(self):
         if settings.geocoder_url:
@@ -80,8 +86,34 @@ class RadioIncidentPoller(BasePoller):
         except Exception as exc:
             logger.warning("[radio_incidents] street-name gazetteer refresh failed: %s", exc)
 
+    def _maybe_refresh_baseline(self, now: datetime) -> None:
+        if self._baseline_at is None or now - self._baseline_at >= _BASELINE_EVERY:
+            self._baseline_at = now      # also covers failures: do not retry every minute
+            asyncio.create_task(self._refresh_baseline(now))
+
+    async def _refresh_baseline(self, now: datetime) -> None:
+        """Dispatch volume vs. the same hours on earlier days. Extracting two weeks of calls takes ~10 s of CPU, so it
+        runs hourly in a thread rather than on every poll."""
+        try:
+            pool = get_pool()
+            earliest = await pool.fetchval(
+                "SELECT min(started_at) FROM p25_recordings WHERE length(coalesce(transcription, '')) >= 20")
+            rows = await pool.fetch(
+                "SELECT started_at, tgid, tag, transcription FROM p25_recordings "
+                "WHERE started_at >= $1 AND length(coalesce(transcription, '')) >= 20 ORDER BY started_at",
+                now - timedelta(days=_BASELINE_DAYS + 2))
+            hospital = tuple(t.strip() for t in settings.radio_hospital_tags.split(",") if t.strip())
+
+            def work() -> dict:
+                return baseline_report(extract([tuple(r) for r in rows], hospital), now, earliest,
+                                       baseline_days=_BASELINE_DAYS)
+            self._baseline = await asyncio.to_thread(work)
+        except Exception as exc:
+            logger.warning("[radio_incidents] dispatch baseline failed: %s", exc)
+
     async def poll(self):
         now = datetime.now(timezone.utc)
+        self._maybe_refresh_baseline(now)
         window = settings.radio_incidents_window_hours
         geocoder = Geocoder(await get_bus(), get_pool())
         try:
@@ -105,6 +137,7 @@ class RadioIncidentPoller(BasePoller):
             "located_count": sum(1 for i in incidents if i.lat is not None),
             "by_category": dict(Counter(i.category for i in incidents).most_common()),
             "incidents": published,
+            "baseline": self._baseline,
         }
         digest = hashlib.sha1(json.dumps(body, sort_keys=True, default=str).encode()).hexdigest()
         if digest == self._last_hash:

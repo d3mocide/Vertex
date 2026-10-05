@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import * as maplibregl from 'maplibre-gl'
 import { useCivicPick } from '../../store'
-import type { RadioIncident, RadioIncidentCategory } from '../../storeTypes'
+import type { RadioIncident, RadioIncidentBaseline, RadioIncidentCategory } from '../../storeTypes'
 import { MAP_STYLE, DEFAULT_CENTER } from '../../config'
 import { ensureKnownStyleImages, KNOWN_STYLE_IMAGE_FALLBACKS } from '../Map'
 import { ChipRow, Chip, EmptyState } from '../common/Page'
@@ -303,15 +303,71 @@ function IncidentCard({ incident: i, now, selected, onSelect, expanded = false }
         <details className="group" open={expanded}>
           <summary className="cursor-pointer text-[11px] uppercase tracking-widest text-on-surface-variant hover:text-on-surface list-none flex items-center gap-1">
             <span className="ms text-[14px] group-open:rotate-90 transition-transform" aria-hidden="true">chevron_right</span>
-            Radio transcript
+            {i.timeline && i.timeline.length > 1 ? `Timeline · ${i.call_count} transmissions` : 'Radio transcript'}
           </summary>
-          <p className="mt-1 font-mono text-[11px] text-on-surface-variant leading-relaxed border-l border-amber-p25/40 pl-2">
-            {i.quote}
-          </p>
+          {i.timeline && i.timeline.length > 0 ? (
+            <ol className="mt-2 border-l border-amber-p25/40 ml-1 stack-y-2">
+              {i.timeline.map((c, n) => (
+                <li key={`${c.ts}-${n}`} className="pl-3 relative">
+                  <span className="absolute -left-[3px] top-1.5 w-1.5 h-1.5 rounded-full bg-amber-p25" aria-hidden="true" />
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px]">
+                    <span className="font-mono text-on-surface">{hhmm(c.ts)}</span>
+                    <span className="label-caps">{c.tag || 'radio'}</span>
+                    {c.status && <span className="border border-white/10 px-1 uppercase tracking-widest text-on-surface-variant">{c.status.replace('_', ' ')}</span>}
+                    {c.units.map((u) => <span key={u} className="font-mono text-amber-p25">{u}</span>)}
+                  </div>
+                  <p className="mt-0.5 font-mono text-[11px] text-on-surface-variant leading-relaxed">{c.text}</p>
+                </li>
+              ))}
+              {i.call_count > i.timeline.length && (
+                <li className="pl-3 text-[11px] italic text-on-surface-variant">{i.call_count - i.timeline.length} transmissions between the first and latest are not shown.</li>
+              )}
+            </ol>
+          ) : (
+            <p className="mt-1 font-mono text-[11px] text-on-surface-variant leading-relaxed border-l border-amber-p25/40 pl-2">{i.quote}</p>
+          )}
           <p className="mt-1 text-[11px] text-on-surface-variant italic">Automatic transcription — names and numbers may be garbled.</p>
         </details>
       </div>
     </li>
+  )
+}
+
+// ─── Activity vs usual ───────────────────────────────────────────────────────
+
+/** The last 24 h by category against what is usual for the same hours, so a busy day stands out from an ordinary one. */
+function ActivityVsUsual({ baseline }: { baseline: RadioIncidentBaseline | null | undefined }) {
+  if (!baseline) return null
+  const rows = Object.entries(baseline.categories)
+    .filter(([k, v]) => k !== 'total' && (v.count > 0 || (v.usual ?? 0) >= 1))
+    .sort((a, b) => Number(b[1].flag) - Number(a[1].flag) || b[1].count - a[1].count)
+  if (rows.length === 0) return null
+  const total = baseline.categories.total
+  return (
+    <div className="border border-white/10 bg-surface-container px-3 py-2" aria-label="Dispatch activity compared with usual">
+      <div className="flex items-center justify-between gap-2 mb-1.5">
+        <span className="label-caps">Last 24h vs usual · serious incidents</span>
+        {baseline.building ? (
+          <span className="font-mono text-[11px] text-on-surface-variant">building baseline · {baseline.baseline_days} of 5 days</span>
+        ) : total ? (
+          <span className={`font-mono text-[11px] ${total.flag ? 'text-amber-gold' : 'text-on-surface-variant'}`}>
+            {total.count} total · usual {total.usual}
+          </span>
+        ) : null}
+      </div>
+      <div className="flex flex-wrap gap-1.5">
+        {rows.map(([cat, v]) => (
+          <span key={cat}
+                className={`inline-flex items-center gap-1 border px-1.5 py-0.5 text-[11px] ${v.flag ? 'border-amber-gold/60 text-amber-gold bg-amber-gold/10' : 'border-white/10 text-on-surface-variant'}`}
+                title={v.usual == null ? 'No baseline yet' : `${v.count} in the last 24 h; usual ${v.usual} for the same hours`}>
+            {v.flag && <span className="ms text-[13px]" aria-hidden="true">trending_up</span>}
+            <span className="uppercase tracking-wider">{(CATEGORY[cat as RadioIncidentCategory] ?? CATEGORY.other).label}</span>
+            <span className="font-mono text-on-surface">{v.count}</span>
+            {v.usual != null && <span className="font-mono">/ {v.usual}</span>}
+          </span>
+        ))}
+      </div>
+    </div>
   )
 }
 
@@ -434,6 +490,8 @@ export function RadioIncidents() {
           </select>
         )}
       </ChipRow>
+
+      <ActivityVsUsual baseline={radioIncidents?.baseline} />
 
       <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] gap-4 items-start">
         {/* Phones: map first, list below. Desktop: list left, sticky map right. */}

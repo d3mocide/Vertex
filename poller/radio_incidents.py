@@ -511,6 +511,17 @@ class Incident:
         best = max(self.calls, key=lambda c: (c.severity, len(c.text)))
         return best.text
 
+    def timeline(self, limit: int = 12, width: int = 280) -> list[dict]:
+        """The incident's transmissions in time order, for the drill-down: trimmed text, never more than `limit`.
+
+        When there are more, the first and the latest are kept (dispatch and the most recent word), the middle is cut.
+        """
+        calls = sorted(self.calls, key=lambda c: c.ts)
+        if len(calls) > limit:
+            calls = calls[:limit // 2] + calls[-(limit - limit // 2):]
+        return [{"ts": c.ts.isoformat(), "tag": c.tag, "status": c.status, "units": c.units[:4],
+                 "text": c.text if len(c.text) <= width else c.text[:width].rstrip() + "…"} for c in calls]
+
     def to_dict(self) -> dict:
         return {
             "id": f"{self.first_seen.strftime('%Y%m%d%H%M')}-"
@@ -527,6 +538,7 @@ class Incident:
             "acuity": self.acuity,
             "talkgroups": self.talkgroups,
             "quote": self.summary_quote[:400],
+            "timeline": self.timeline(),
             "lat": self.lat,
             "lon": self.lon,
             "geofences": self.geofences,

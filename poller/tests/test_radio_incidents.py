@@ -470,3 +470,14 @@ def test_routine_or_negated_medical_calls_are_not_critical(text):
 def test_critical_medical_without_an_address_is_routine_chatter():
     c = parse_call(T0, 1, "WC Fire Disp", "fire can i please place the truck 6n on the choking call engine 6-7 in quarters")
     assert (c.category, c.severity) == ("medical", 1)
+
+
+def test_timeline_is_ordered_trimmed_and_capped():
+    calls = [parse_call(T0 + timedelta(minutes=m), 1, "WC Fire Disp",
+                        ("Engine 1 respond to a structure fire at 200 southwest main street. " + "x" * 400) if m == 0 else "engine 1 is on scene at 200 southwest main street")
+             for m in range(20)]
+    [inc] = [i for i in extract([(c.ts, c.tgid, c.tag, c.text) for c in calls]) if i.category == "structure_fire"]
+    tl = inc.to_dict()["timeline"]
+    assert len(tl) == 12 and [t["ts"] for t in tl] == sorted(t["ts"] for t in tl)
+    assert tl[0]["text"].endswith("…") and len(tl[0]["text"]) <= 281
+    assert tl[-1]["ts"] == (T0 + timedelta(minutes=19)).isoformat()    # the latest word is kept
