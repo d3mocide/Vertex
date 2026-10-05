@@ -27,6 +27,7 @@ export const CATEGORY: Record<RadioIncidentCategory, { label: string; icon: stri
   hazmat:              { label: 'Hazmat / spill',        icon: 'science',               group: 'hazard' },
   crash:               { label: 'Traffic crash',         icon: 'car_crash',             group: 'traffic' },
   assault:             { label: 'Assault',               icon: 'personal_injury',       group: 'medical' },
+  critical_medical:    { label: 'Critical medical',      icon: 'cardiology',            group: 'life' },
   medical:             { label: 'Medical',               icon: 'emergency',             group: 'medical' },
   other:               { label: 'Other',                 icon: 'radio',                 group: 'other' },
 }
