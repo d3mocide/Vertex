@@ -106,6 +106,8 @@ _NATURES: list[tuple[str, int, re.Pattern]] = [
     ("vehicle_fire", 3, re.compile(r"(car|vehicle|auto|truck|rv) fire")),
     ("outside_fire", 3, re.compile(r"vegetation|brush fire|grass fire|tree (is )?on fire|bark ?dust|outside fire|dumpster fire|trash fire|debris fire|smoke investigation|illegal burn|smoke in the area|(?:grass|brush|bush|tree|garbage|trash) (?:can )?on fire|\bfire on the (?:stoop|porch|deck|patio|balcony|roof|fence|lawn)")),
     ("assault", 3, re.compile(r"assault")),
+    # Time-critical medical calls: serious, but routine enough (a few a day) to stay below the must-cover tier.
+    ("critical_medical", 3, re.compile(r"(?:cardiac|respiratory) arrest|\bcpr (?:in progress|is being|being)|performing cpr|compressions in progress|\bchoking\b|\b(?:near )?drowning\b|suicid(?:e|al)|overdose (?:with|and) (?:no|not)")),
     ("fire_alarm", 1, re.compile(r"fire alarm|commercial alarm|unverified alarm|smoke alarm|alarm activation|fire (?:pull )?station alarm|(?:residential|commercial) fire ?(?:arms?|light)\b")),
     # A bare "fire" is overwhelmingly the agency ("canceled by fire", "fire com", "fire attack", "fire company"), so a
     # generic fire needs dispatch phrasing: a qualifier or "respond to ... fire", ideally with a place.
@@ -465,6 +467,8 @@ def parse_call(ts: datetime, tgid, tag: str, text: str) -> Call:
     cat, sev = classify(t, pos)
     if key and key.startswith("street|") and sev < 3:
         loc = key = None     # a bare street name is only worth an incident for a serious call ("en route to Kelsey Road" is not)
+    if cat == "critical_medical" and not key:
+        cat, sev = "medical", 1     # without an address it is dispatcher chatter ("put the truck on the choking call"), not a call
     mp = _MPDS.search(t)
     acuity = mp.group(2) if mp else None
     pr = _PRIORITY.search(t)

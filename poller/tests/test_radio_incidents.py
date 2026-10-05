@@ -444,3 +444,29 @@ def test_water_rescue_apparatus_names_are_not_water_rescues():
                  "can you add Water Rescue 5-9 to the Water Rescue Call"):
         assert call(text).category != "water_rescue", text
     assert call("respond to a water rescue at 1234 southwest maple avenue").category == "water_rescue"
+
+
+@pytest.mark.parametrize("text", [
+    "engine 1 rescue 1 and amr 141 respond to cardiac arrest at 215 southwest adams avenue",
+    "kmr2-35-1 for choking 29940 southwest brown road",
+    "amr 133 for a drowning at 4822 south weston avenue at the front entrance",
+    "so a 16-year-old male feels suicidal at 1234 southeast main street",
+])
+def test_time_critical_medical_calls_are_their_own_tier(text):
+    c = parse_call(T0, 1, "WC OPS 34", text)
+    assert (c.category, c.severity) == ("critical_medical", 3)
+
+
+@pytest.mark.parametrize("text", [
+    "amr 245 code 3 psychiatric 17865 bluff road",
+    "she is not breathing normally at 2163 northeast 106th avenue",
+    "engine 34 chest pain 2163 northeast 106th avenue conscious breathing normal",
+    "there is no cardiac arrest at this time at 215 southwest adams avenue",
+])
+def test_routine_or_negated_medical_calls_are_not_critical(text):
+    assert parse_call(T0, 1, "WC OPS 34", text).category != "critical_medical"
+
+
+def test_critical_medical_without_an_address_is_routine_chatter():
+    c = parse_call(T0, 1, "WC Fire Disp", "fire can i please place the truck 6n on the choking call engine 6-7 in quarters")
+    assert (c.category, c.severity) == ("medical", 1)

@@ -59,7 +59,7 @@ export interface FeedMetaEntry {
 export type RadioIncidentCategory =
   | 'water_rescue' | 'structure_fire' | 'violence' | 'rescue' | 'hazmat' | 'gas_leak'
   | 'carbon_monoxide' | 'train_or_ped_struck' | 'crash' | 'vehicle_fire' | 'outside_fire'
-  | 'fire' | 'assault' | 'fire_alarm' | 'medical' | 'other'
+  | 'fire' | 'assault' | 'critical_medical' | 'fire_alarm' | 'medical' | 'other'
 
 export interface RadioIncident {
   id: string

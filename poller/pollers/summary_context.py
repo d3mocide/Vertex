@@ -554,7 +554,7 @@ _CATEGORY_LABEL = {
     "water_rescue": "WATER/BRIDGE RESCUE", "structure_fire": "STRUCTURE FIRE", "violence": "VIOLENCE (shooting/stabbing)",
     "rescue": "RESCUE", "hazmat": "HAZMAT", "gas_leak": "GAS LEAK", "carbon_monoxide": "CARBON MONOXIDE",
     "train_or_ped_struck": "PERSON STRUCK (train/vehicle)", "crash": "TRAFFIC CRASH", "vehicle_fire": "VEHICLE FIRE",
-    "outside_fire": "OUTSIDE/VEGETATION FIRE", "fire": "FIRE (type unclear)", "assault": "ASSAULT",
+    "outside_fire": "OUTSIDE/VEGETATION FIRE", "fire": "FIRE (type unclear)", "assault": "ASSAULT", "critical_medical": "CRITICAL MEDICAL (arrest/choking/drowning/suicidal)",
     "fire_alarm": "FIRE ALARM", "medical": "MEDICAL", "other": "OTHER",
 }
 

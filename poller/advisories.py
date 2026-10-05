@@ -34,6 +34,7 @@ CATEGORY_LABELS = {
     "crash": "Crash",
     "vehicle_fire": "Vehicle fire",
     "outside_fire": "Outside fire",
+    "critical_medical": "Critical medical call",
     "assault": "Assault",
     "fire": "Fire",
     "medical": "Medical",
@@ -100,6 +101,8 @@ def from_radio(incidents: list[dict], now: datetime, home: tuple[float, float],
         last = _parse_ts(inc.get("last_seen"))
         if last is None or now - last > max_age or inc.get("status") == "cleared":
             continue
+        if inc.get("category") == "critical_medical":
+            continue   # a few a day, one household each: on the Incidents page, but not a banner for the whole region
         if inc.get("lat") is None or inc.get("lon") is None:
             continue   # a pin you can open, or it stays on the incidents list
         dist = distance_km(home[0], home[1], inc["lat"], inc["lon"])
