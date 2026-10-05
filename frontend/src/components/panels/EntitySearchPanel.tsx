@@ -1,3 +1,4 @@
+import { trackPassesFacets } from '../../entityFacets'
 import { useState } from 'react'
 import { ALT_RANGE_DEFAULT, SPD_RANGE_DEFAULT, useCivicPick } from '../../store'
 import { getDistanceMeters } from '../../layers/geoUtils'
@@ -80,13 +81,15 @@ export function EntitySearchPanel() {
     entitySpeedRange,
     setEntitySpeedRange,
     entityFilter,
+    subFilters,
     setEntityFilter,
+    setSubFilters,
     trailsVisible,
     setTrailsVisible,
     selectEntity,
     selectedEntityId,
     entityMissionTags,
-  } = useCivicPick('tracks', 'entities', 'entitySearchQuery', 'setEntitySearchQuery', 'entityAltRange', 'setEntityAltRange', 'entitySpeedRange', 'setEntitySpeedRange', 'entityFilter', 'setEntityFilter', 'trailsVisible', 'setTrailsVisible', 'selectEntity', 'selectedEntityId', 'entityMissionTags')
+  } = useCivicPick('tracks', 'entities', 'entitySearchQuery', 'setEntitySearchQuery', 'entityAltRange', 'setEntityAltRange', 'entitySpeedRange', 'setEntitySpeedRange', 'entityFilter', 'setEntityFilter', 'subFilters', 'setSubFilters', 'trailsVisible', 'setTrailsVisible', 'selectEntity', 'selectedEntityId', 'entityMissionTags')
 
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [taggedOnly, setTaggedOnly] = useState(false)
@@ -111,7 +114,8 @@ export function EntitySearchPanel() {
     !entityFilter.adsbLocal || !entityFilter.adsbSupplement ||
     !entityFilter.aircraft || !entityFilter.vessel || !entityFilter.train || !entityFilter.bus || !entityFilter.mesh_node ||
     !entityFilter.aprs || !entityFilter.fire_incident ||
-    !entityFilter.satellite
+    !entityFilter.satellite ||
+    Object.keys(subFilters).length > 0
   )
 
   const resetFilters = () => {
@@ -121,6 +125,7 @@ export function EntitySearchPanel() {
     setTrailsVisible(true)
     setEntityFilter({ aircraft: true, adsbLocal: true, adsbSupplement: true, vessel: true, train: true, bus: true, mesh_node: true, aprs: true, fire_incident: true, satellite: true })
     setTaggedOnly(false)
+    setSubFilters({})
   }
 
   const ALT_M_TO_FT = 3.28084
@@ -136,6 +141,7 @@ export function EntitySearchPanel() {
     if (track.type === 'bus' && !entityFilter.bus) return false
     if (track.type === 'ground' && !entityFilter.aprs) return false
     if (track.type === 'hazard' && !entityFilter.fire_incident) return false
+    if (!trackPassesFacets(track, subFilters)) return false
     if (taggedOnly && !(entityMissionTags[track.uid]?.length > 0)) return false
     if (q) {
       const name = (track.callsign ?? track.uid).toLowerCase()

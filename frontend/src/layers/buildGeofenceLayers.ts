@@ -1,5 +1,6 @@
 import { PolygonLayer, LineLayer } from '@deck.gl/layers'
 import type { Layer } from '@deck.gl/core'
+import { liftPos, liftRing, terrainVersion } from './terrainElevation'
 
 export interface GeofenceItem {
   id: number
@@ -56,9 +57,10 @@ export function buildGeofenceLayers(
   if (polyData.length > 0) {
     layers.push(
       new PolygonLayer({
+        updateTriggers: { getPolygon: terrainVersion(), getPosition: terrainVersion(), getSourcePosition: terrainVersion(), getTargetPosition: terrainVersion() },
         id: 'geofence-fill',
         data: polyData,
-        getPolygon: (d: any) => d.polygon,
+        getPolygon: (d: any) => liftRing(d.polygon),
         getFillColor: (d: any) => [d.color[0], d.color[1], d.color[2], 20] as [number, number, number, number],
         stroked: true,
         getLineColor: (d: any) => [d.color[0], d.color[1], d.color[2], 180] as [number, number, number, number],

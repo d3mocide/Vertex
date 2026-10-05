@@ -1,6 +1,7 @@
 import { ScatterplotLayer, LineLayer, PolygonLayer, TextLayer } from '@deck.gl/layers'
 import type { Layer } from '@deck.gl/core'
 import type { AnnotationItem } from '../storeTypes'
+import { liftPos, liftRing, terrainVersion } from './terrainElevation'
 
 function hexToRgb(hex: string): [number, number, number] {
   const cleaned = hex.replace('#', '')
@@ -107,9 +108,10 @@ export function buildAnnotationLayers(annotations: AnnotationItem[], visible: bo
   if (polyData.length > 0) {
     layers.push(
       new PolygonLayer({
+        updateTriggers: { getPolygon: terrainVersion(), getPosition: terrainVersion(), getSourcePosition: terrainVersion(), getTargetPosition: terrainVersion() },
         id: 'annotation-polygon',
         data: polyData,
-        getPolygon: (d: any) => d.polygon,
+        getPolygon: (d: any) => liftRing(d.polygon),
         getFillColor: (d: any) => [d.color[0], d.color[1], d.color[2], 40] as [number, number, number, number],
         stroked: true,
         getLineColor: (d: any) => [d.color[0], d.color[1], d.color[2], 200] as [number, number, number, number],
@@ -125,10 +127,11 @@ export function buildAnnotationLayers(annotations: AnnotationItem[], visible: bo
   if (lineData.length > 0) {
     layers.push(
       new LineLayer({
+        updateTriggers: { getPolygon: terrainVersion(), getPosition: terrainVersion(), getSourcePosition: terrainVersion(), getTargetPosition: terrainVersion() },
         id: 'annotation-line',
         data: lineData,
-        getSourcePosition: (d: any) => d.sourcePosition,
-        getTargetPosition: (d: any) => d.targetPosition,
+        getSourcePosition: (d: any) => liftPos(d.sourcePosition) as [number, number],
+        getTargetPosition: (d: any) => liftPos(d.targetPosition) as [number, number],
         getColor: (d: any) => [d.color[0], d.color[1], d.color[2], 200] as [number, number, number, number],
         getWidth: 2,
         widthUnits: 'pixels',
@@ -142,9 +145,10 @@ export function buildAnnotationLayers(annotations: AnnotationItem[], visible: bo
   if (markerData.length > 0) {
     layers.push(
       new ScatterplotLayer({
+        updateTriggers: { getPolygon: terrainVersion(), getPosition: terrainVersion(), getSourcePosition: terrainVersion(), getTargetPosition: terrainVersion() },
         id: 'annotation-marker',
         data: markerData,
-        getPosition: (d: any) => d.position,
+        getPosition: (d: any) => liftPos(d.position) as [number, number],
         getRadius: 6,
         radiusUnits: 'pixels',
         getFillColor: (d: any) => [d.color[0], d.color[1], d.color[2], 220] as [number, number, number, number],
@@ -161,9 +165,10 @@ export function buildAnnotationLayers(annotations: AnnotationItem[], visible: bo
   if (labelData.length > 0) {
     layers.push(
       new TextLayer({
+        updateTriggers: { getPolygon: terrainVersion(), getPosition: terrainVersion(), getSourcePosition: terrainVersion(), getTargetPosition: terrainVersion() },
         id: 'annotation-label',
         data: labelData,
-        getPosition: (d: any) => d.position,
+        getPosition: (d: any) => liftPos(d.position) as [number, number],
         getText: (d: any) => d.text,
         getPixelOffset: (d: any) => d.pixelOffset,
         getSize: 11,

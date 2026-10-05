@@ -790,11 +790,11 @@ export function MapOverlay({ map }: Props) {
         const t0 = performance.now(); const out = fn(); perfMark(name, t0); return out
       }
       const layers = [
-          ...memoGroup('custom', [customLayersRef.current],
+          ...memoGroup('custom', [customLayersRef.current, tv],
             () => buildCustomLayers(customLayersRef.current)),
-          ...memoGroup('geofence', [geofencesRef.current, geofencesVisibleRef.current],
+          ...memoGroup('geofence', [geofencesRef.current, geofencesVisibleRef.current, tv],
             () => buildGeofenceLayers(geofencesRef.current, geofencesVisibleRef.current)),
-          ...memoGroup('obsRing', [],
+          ...memoGroup('obsRing', [tv],
             () => buildObservationRingLayers(DEFAULT_CENTER, OBSERVATION_RANGE_KM, true)),
           // Rebuilt only when mesh nodes change (not on every aircraft update).
           ...memoGroup('mesh', [typeVer.mesh_node, entityFilterRef.current.mesh_node, subFiltersRef.current, zoomBucket, minuteBucket, tv],
@@ -842,7 +842,7 @@ export function MapOverlay({ map }: Props) {
           // Draw preview intentionally omitted: AnnotationOverlay owns the
           // interactive drawing UX and already renders the preview via its
           // MapLibre source — rendering it here too drew it twice.
-          ...memoGroup('annotation', [annotationsRef.current, annotationsVisibleRef.current],
+          ...memoGroup('annotation', [annotationsRef.current, annotationsVisibleRef.current, tv],
             () => buildAnnotationLayers(annotationsRef.current, annotationsVisibleRef.current)),
       ]
 

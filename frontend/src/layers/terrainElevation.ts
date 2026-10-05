@@ -112,3 +112,13 @@ export function liftMsl(lon: number, lat: number, altitudeM: number): Lifted {
 export function terrainStats(): { active: boolean; exaggeration: number; cachedCells: number; pendingLookups: number } {
   return { active, exaggeration, cachedCells: heights.size + zeroCells.size, pendingLookups: misses }
 }
+
+/** Positions of an outline or path lifted onto the terrain; the same array comes back when terrain is off. */
+export function liftRing<T extends number[]>(coords: T[]): T[] {
+  return active ? coords.map(c => lift(c[0], c[1]) as unknown as T) : coords
+}
+
+/** One data position lifted onto the terrain (see `lift`). */
+export function liftPos(p: number[]): number[] {
+  return active ? lift(p[0], p[1]) : p
+}

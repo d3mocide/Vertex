@@ -64,6 +64,8 @@ function Dashboard() {
   const { activeTab, mode } = useCivicPick('activeTab', 'mode')
   // Phones: map tools (replay / zones / annotate) sit behind one button.
   const [mapToolsOpen, setMapToolsOpen] = useState(false)
+  // On phones the Layers sheet covers the other tools, so they step aside while it is open.
+  const [layersOpen, setLayersOpen] = useState(false)
   const isCritical = mode === 'critical'
 
   return (
@@ -151,10 +153,12 @@ function Dashboard() {
                     Tools
                   </button>
                   <div className={`${mapToolsOpen ? 'flex' : 'hidden'} lg:flex flex-col lg:flex-row items-start gap-2`}>
-                    <PlaybackController />
-                    <GeofenceController />
-                    <AnnotationController />
-                    <LayersController />
+                    <div className={layersOpen ? 'hidden lg:contents' : 'contents'}>
+                      <PlaybackController />
+                      <GeofenceController />
+                      <AnnotationController />
+                    </div>
+                    <LayersController onOpenChange={setLayersOpen} />
                   </div>
                 </div>
               </>
