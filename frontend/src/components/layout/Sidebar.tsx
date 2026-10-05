@@ -116,7 +116,7 @@ export function Sidebar() {
         <button
           type="button"
           onClick={() => setSidebarCollapsed((v) => !v)}
-          className="flex items-center gap-3 min-w-0 opacity-90 hover:opacity-100 transition-opacity focus:outline-none focus-visible:ring-1 focus-visible:ring-amber-gold"
+          className="flex items-center gap-3 min-w-0 opacity-90 hover:opacity-100 transition-opacity focus:outline-hidden focus-visible:ring-1 focus-visible:ring-amber-gold"
           aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
         >
@@ -134,7 +134,7 @@ export function Sidebar() {
 
           {!sidebarCollapsed && (
             <div className="flex flex-col leading-none gap-1 min-w-0 items-start">
-              <span className="text-[16px] font-black tracking-[0.05em] text-white uppercase select-none leading-none">
+              <span className="text-[16px] font-black tracking-wider text-white uppercase select-none leading-none">
                 VERTEX
               </span>
               <span className="font-mono text-[11px] tracking-[0.2em] text-amber-gold uppercase leading-none">
@@ -150,7 +150,7 @@ export function Sidebar() {
           <button
             type="button"
             onClick={() => setActiveTab('safety')}
-            className="text-on-surface-variant hover:text-amber-gold transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-amber-gold"
+            className="text-on-surface-variant hover:text-amber-gold transition-colors focus:outline-hidden focus-visible:ring-1 focus-visible:ring-amber-gold"
             aria-label="Overview"
             title="Overview"
           >
@@ -159,7 +159,7 @@ export function Sidebar() {
           <button
             type="button"
             onClick={() => setActiveTab('incidents')}
-            className={`${incColor} hover:text-amber-gold transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-amber-gold`}
+            className={`${incColor} hover:text-amber-gold transition-colors focus:outline-hidden focus-visible:ring-1 focus-visible:ring-amber-gold`}
             aria-label={`Advisories ${activeInc}`}
             title={`Advisories: ${activeInc}`}
           >
@@ -168,7 +168,7 @@ export function Sidebar() {
           <button
             type="button"
             onClick={() => setActiveTab('environment')}
-            className={`${wAlerts > 0 ? 'text-amber-gold' : 'text-on-surface-variant'} hover:text-amber-gold transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-amber-gold`}
+            className={`${wAlerts > 0 ? 'text-amber-gold' : 'text-on-surface-variant'} hover:text-amber-gold transition-colors focus:outline-hidden focus-visible:ring-1 focus-visible:ring-amber-gold`}
             aria-label={`Weather alerts ${wAlerts}`}
             title={`Weather alerts: ${wAlerts}`}
           >
@@ -177,7 +177,7 @@ export function Sidebar() {
           <button
             type="button"
             onClick={() => setActiveTab('intel')}
-            className={`${alerts.length > 0 ? 'text-amber-gold' : 'text-on-surface-variant'} hover:text-amber-gold transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-amber-gold`}
+            className={`${alerts.length > 0 ? 'text-amber-gold' : 'text-on-surface-variant'} hover:text-amber-gold transition-colors focus:outline-hidden focus-visible:ring-1 focus-visible:ring-amber-gold`}
             aria-label={`Intel alerts ${alerts.length}`}
             title={`Intel alerts: ${alerts.length}`}
           >
@@ -186,7 +186,7 @@ export function Sidebar() {
           <button
             type="button"
             onClick={() => setActiveTab('comms')}
-            className="text-on-surface-variant hover:text-amber-gold transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-amber-gold"
+            className="text-on-surface-variant hover:text-amber-gold transition-colors focus:outline-hidden focus-visible:ring-1 focus-visible:ring-amber-gold"
             aria-label="Communications"
             title="Communications"
           >
@@ -195,7 +195,7 @@ export function Sidebar() {
           <button
             type="button"
             onClick={() => setActiveTab('flightlog')}
-            className="text-on-surface-variant hover:text-amber-gold transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-amber-gold"
+            className="text-on-surface-variant hover:text-amber-gold transition-colors focus:outline-hidden focus-visible:ring-1 focus-visible:ring-amber-gold"
             aria-label="Flight Log"
             title="Flight Log"
           >
@@ -208,7 +208,7 @@ export function Sidebar() {
             <button
               type="button"
               onClick={() => toggleEntityType('aircraft_group')}
-              className={`text-cyan-adsb hover:text-white transition-all flex items-center gap-1 focus:outline-none ${entityFilter.aircraft ? 'opacity-100' : 'opacity-40'}`}
+              className={`text-cyan-adsb hover:text-white transition-all flex items-center gap-1 focus:outline-hidden ${entityFilter.aircraft ? 'opacity-100' : 'opacity-40'}`}
               title="Toggle aircraft layer"
             >
               <span className="ms text-[12px]" aria-hidden="true">flight</span>
@@ -218,7 +218,7 @@ export function Sidebar() {
             <button
               type="button"
               onClick={() => toggleEntityType('vessel')}
-              className={`text-green-ais hover:text-white transition-all flex items-center gap-1 focus:outline-none ${entityFilter.vessel ? 'opacity-100' : 'opacity-40'}`}
+              className={`text-green-ais hover:text-white transition-all flex items-center gap-1 focus:outline-hidden ${entityFilter.vessel ? 'opacity-100' : 'opacity-40'}`}
               title="Toggle vessels layer"
             >
               <span className="ms text-[12px]" aria-hidden="true">sailing</span>
@@ -228,7 +228,7 @@ export function Sidebar() {
             <button
               type="button"
               onClick={() => toggleEntityType('train')}
-              className={`text-amber-gold hover:text-white transition-all flex items-center gap-1 focus:outline-none ${entityFilter.train ? 'opacity-100' : 'opacity-40'}`}
+              className={`text-amber-gold hover:text-white transition-all flex items-center gap-1 focus:outline-hidden ${entityFilter.train ? 'opacity-100' : 'opacity-40'}`}
               title="Toggle trains layer"
             >
               <span className="ms text-[12px]" aria-hidden="true">directions_railway</span>
@@ -237,7 +237,7 @@ export function Sidebar() {
             <button
               type="button"
               onClick={() => toggleEntityType('bus')}
-              className={`text-transit-bus hover:text-white transition-all flex items-center gap-1 focus:outline-none ${entityFilter.bus ? 'opacity-100' : 'opacity-40'}`}
+              className={`text-transit-bus hover:text-white transition-all flex items-center gap-1 focus:outline-hidden ${entityFilter.bus ? 'opacity-100' : 'opacity-40'}`}
               title="Toggle buses layer"
             >
               <span className="ms text-[12px]" aria-hidden="true">directions_bus</span>
@@ -247,7 +247,7 @@ export function Sidebar() {
             <button
               type="button"
               onClick={() => toggleEntityType('aprs')}
-              className={`text-violet-space hover:text-white transition-all flex items-center gap-1 focus:outline-none ${entityFilter.aprs ? 'opacity-100' : 'opacity-40'}`}
+              className={`text-violet-space hover:text-white transition-all flex items-center gap-1 focus:outline-hidden ${entityFilter.aprs ? 'opacity-100' : 'opacity-40'}`}
               title="Toggle APRS layer"
             >
               <span className="ms text-[12px]" aria-hidden="true">sensors</span>
@@ -257,7 +257,7 @@ export function Sidebar() {
             <button
               type="button"
               onClick={() => toggleEntityType('fire_incident')}
-              className={`text-red-emergency hover:text-white transition-all flex items-center gap-1 focus:outline-none ${entityFilter.fire_incident ? 'opacity-100' : 'opacity-40'}`}
+              className={`text-red-emergency hover:text-white transition-all flex items-center gap-1 focus:outline-hidden ${entityFilter.fire_incident ? 'opacity-100' : 'opacity-40'}`}
               title="Toggle hazards layer"
             >
               <span className="ms text-[12px]" aria-hidden="true">local_fire_department</span>
@@ -267,7 +267,7 @@ export function Sidebar() {
             <button
               type="button"
               onClick={() => toggleEntityType('mesh_node')}
-              className={`text-lime-rf hover:text-white transition-all flex items-center gap-1 focus:outline-none ${entityFilter.mesh_node ? 'opacity-100' : 'opacity-40'}`}
+              className={`text-lime-rf hover:text-white transition-all flex items-center gap-1 focus:outline-hidden ${entityFilter.mesh_node ? 'opacity-100' : 'opacity-40'}`}
               title="Toggle mesh nodes layer"
             >
               <span className="ms text-[12px]" aria-hidden="true">hub</span>
@@ -280,7 +280,7 @@ export function Sidebar() {
               <button
                 type="button"
                 onClick={() => toggleEntityType('rf_sensor')}
-                className={`text-lime-rf hover:text-white transition-all flex items-center gap-1 focus:outline-none ${entityFilter.rf_sensor ? 'opacity-100' : 'opacity-40'}`}
+                className={`text-lime-rf hover:text-white transition-all flex items-center gap-1 focus:outline-hidden ${entityFilter.rf_sensor ? 'opacity-100' : 'opacity-40'}`}
                 title="Toggle RF sensors layer"
               >
                 <span className="ms text-[12px]" aria-hidden="true">sensors</span>
@@ -292,7 +292,7 @@ export function Sidebar() {
             <button
               type="button"
               onClick={() => { focusSafetyMap(); setGaugesVisible(!gaugesVisible) }}
-              className={`text-cyan-adsb hover:text-white transition-all flex items-center gap-1 focus:outline-none ${gaugesVisible ? 'opacity-100' : 'opacity-40'}`}
+              className={`text-cyan-adsb hover:text-white transition-all flex items-center gap-1 focus:outline-hidden ${gaugesVisible ? 'opacity-100' : 'opacity-40'}`}
               title="Toggle stream gauges layer"
             >
               <span className="ms text-[12px]" aria-hidden="true">waves</span>
@@ -302,7 +302,7 @@ export function Sidebar() {
             <button
               type="button"
               onClick={() => { focusSafetyMap(); setLightningVisible(!lightningVisible) }}
-              className={`text-amber-gold hover:text-white transition-all flex items-center gap-1 focus:outline-none ${lightningVisible ? 'opacity-100' : 'opacity-40'}`}
+              className={`text-amber-gold hover:text-white transition-all flex items-center gap-1 focus:outline-hidden ${lightningVisible ? 'opacity-100' : 'opacity-40'}`}
               title="Toggle lightning layer"
             >
               <span className="ms text-[12px]" aria-hidden="true">electric_bolt</span>
@@ -315,7 +315,7 @@ export function Sidebar() {
               <button
                 type="button"
                 onClick={() => toggleEntityType('satellite')}
-                className={`text-violet-space hover:text-white transition-all flex items-center gap-1 focus:outline-none ${entityFilter.satellite ? 'opacity-100' : 'opacity-40'}`}
+                className={`text-violet-space hover:text-white transition-all flex items-center gap-1 focus:outline-hidden ${entityFilter.satellite ? 'opacity-100' : 'opacity-40'}`}
                 title="Toggle satellites layer"
               >
                 <span className="ms text-[12px]" aria-hidden="true">satellite_alt</span>
@@ -327,7 +327,7 @@ export function Sidebar() {
             <button
               type="button"
               onClick={() => { focusSafetyMap(); setCamerasVisible(!camerasVisible) }}
-              className={`text-amber-gold hover:text-white transition-all flex items-center gap-1 focus:outline-none ${camerasVisible ? 'opacity-100' : 'opacity-40'}`}
+              className={`text-amber-gold hover:text-white transition-all flex items-center gap-1 focus:outline-hidden ${camerasVisible ? 'opacity-100' : 'opacity-40'}`}
               title="Toggle traffic cameras layer"
             >
               <span className="ms text-[12px]" aria-hidden="true">videocam</span>
@@ -406,7 +406,7 @@ export function Sidebar() {
           <button
             type="button"
             onClick={() => toggleEntityType('aircraft_group')}
-            className={`text-cyan-adsb hover:text-white transition-all flex items-center text-left focus:outline-none ${entityFilter.aircraft ? 'opacity-100' : 'opacity-40'}`}
+            className={`text-cyan-adsb hover:text-white transition-all flex items-center text-left focus:outline-hidden ${entityFilter.aircraft ? 'opacity-100' : 'opacity-40'}`}
             title="Toggle aircraft layer"
           >
             <span className="ms text-[14px] mr-1.5 shrink-0" aria-hidden="true">flight</span>
@@ -415,7 +415,7 @@ export function Sidebar() {
           <button
             type="button"
             onClick={() => toggleEntityType('vessel')}
-            className={`text-green-ais hover:text-white transition-all flex items-center text-left focus:outline-none ${entityFilter.vessel ? 'opacity-100' : 'opacity-40'}`}
+            className={`text-green-ais hover:text-white transition-all flex items-center text-left focus:outline-hidden ${entityFilter.vessel ? 'opacity-100' : 'opacity-40'}`}
             title="Toggle vessels layer"
           >
             <span className="ms text-[14px] mr-1.5 shrink-0" aria-hidden="true">sailing</span>
@@ -424,7 +424,7 @@ export function Sidebar() {
           <button
             type="button"
             onClick={() => toggleEntityType('train')}
-            className={`text-amber-gold hover:text-white transition-all flex items-center text-left focus:outline-none ${entityFilter.train ? 'opacity-100' : 'opacity-40'}`}
+            className={`text-amber-gold hover:text-white transition-all flex items-center text-left focus:outline-hidden ${entityFilter.train ? 'opacity-100' : 'opacity-40'}`}
             title="Toggle trains layer"
           >
             <span className="ms text-[14px] mr-1.5 shrink-0" aria-hidden="true">directions_railway</span>
@@ -433,7 +433,7 @@ export function Sidebar() {
           <button
             type="button"
             onClick={() => toggleEntityType('bus')}
-              className={`text-transit-bus hover:text-white transition-all flex items-center text-left focus:outline-none ${entityFilter.bus ? 'opacity-100' : 'opacity-40'}`}
+              className={`text-transit-bus hover:text-white transition-all flex items-center text-left focus:outline-hidden ${entityFilter.bus ? 'opacity-100' : 'opacity-40'}`}
             title="Toggle buses layer"
           >
             <span className="ms text-[14px] mr-1.5 shrink-0" aria-hidden="true">directions_bus</span>
@@ -442,7 +442,7 @@ export function Sidebar() {
           <button
             type="button"
             onClick={() => toggleEntityType('aprs')}
-            className={`text-violet-space hover:text-white transition-all flex items-center text-left focus:outline-none ${entityFilter.aprs ? 'opacity-100' : 'opacity-40'}`}
+            className={`text-violet-space hover:text-white transition-all flex items-center text-left focus:outline-hidden ${entityFilter.aprs ? 'opacity-100' : 'opacity-40'}`}
             title="Toggle APRS layer"
           >
             <span className="ms text-[14px] mr-1.5 shrink-0" aria-hidden="true">sensors</span>
@@ -451,7 +451,7 @@ export function Sidebar() {
           <button
             type="button"
             onClick={() => toggleEntityType('fire_incident')}
-            className={`text-red-emergency hover:text-white transition-all flex items-center text-left focus:outline-none ${entityFilter.fire_incident ? 'opacity-100' : 'opacity-40'}`}
+            className={`text-red-emergency hover:text-white transition-all flex items-center text-left focus:outline-hidden ${entityFilter.fire_incident ? 'opacity-100' : 'opacity-40'}`}
             title="Toggle hazards layer"
           >
             <span className="ms text-[14px] mr-1.5 shrink-0" aria-hidden="true">local_fire_department</span>
@@ -460,7 +460,7 @@ export function Sidebar() {
           <button
             type="button"
             onClick={() => toggleEntityType('mesh_node')}
-            className={`text-lime-rf hover:text-white transition-all flex items-center text-left focus:outline-none ${entityFilter.mesh_node ? 'opacity-100' : 'opacity-40'}`}
+            className={`text-lime-rf hover:text-white transition-all flex items-center text-left focus:outline-hidden ${entityFilter.mesh_node ? 'opacity-100' : 'opacity-40'}`}
             title="Toggle mesh nodes layer"
           >
             <span className="ms text-[14px] mr-1.5 shrink-0" aria-hidden="true">hub</span>
@@ -471,7 +471,7 @@ export function Sidebar() {
             <button
               type="button"
               onClick={() => toggleEntityType('rf_sensor')}
-              className={`text-lime-rf hover:text-white transition-all flex items-center text-left focus:outline-none ${entityFilter.rf_sensor ? 'opacity-100' : 'opacity-40'}`}
+              className={`text-lime-rf hover:text-white transition-all flex items-center text-left focus:outline-hidden ${entityFilter.rf_sensor ? 'opacity-100' : 'opacity-40'}`}
               title="Toggle RF sensors layer"
             >
               <span className="ms text-[14px] mr-1.5 shrink-0" aria-hidden="true">sensors</span>
@@ -481,7 +481,7 @@ export function Sidebar() {
           <button
             type="button"
             onClick={() => { focusSafetyMap(); setGaugesVisible(!gaugesVisible) }}
-            className={`text-cyan-adsb hover:text-white transition-all flex items-center text-left focus:outline-none ${gaugesVisible ? 'opacity-100' : 'opacity-40'}`}
+            className={`text-cyan-adsb hover:text-white transition-all flex items-center text-left focus:outline-hidden ${gaugesVisible ? 'opacity-100' : 'opacity-40'}`}
             title="Toggle stream gauges layer"
           >
             <span className="ms text-[14px] mr-1.5 shrink-0" aria-hidden="true">waves</span>
@@ -490,7 +490,7 @@ export function Sidebar() {
           <button
             type="button"
             onClick={() => { focusSafetyMap(); setLightningVisible(!lightningVisible) }}
-            className={`text-amber-gold hover:text-white transition-all flex items-center text-left focus:outline-none ${lightningVisible ? 'opacity-100' : 'opacity-40'}`}
+            className={`text-amber-gold hover:text-white transition-all flex items-center text-left focus:outline-hidden ${lightningVisible ? 'opacity-100' : 'opacity-40'}`}
             title="Toggle lightning layer"
           >
             <span className="ms text-[14px] mr-1.5 shrink-0" aria-hidden="true">electric_bolt</span>
@@ -499,7 +499,7 @@ export function Sidebar() {
           <button
             type="button"
             onClick={() => { focusSafetyMap(); setDispatchVisible(!dispatchVisible) }}
-            className={`text-amber-p25 hover:text-white transition-all flex items-center text-left focus:outline-none ${dispatchVisible ? 'opacity-100' : 'opacity-40'}`}
+            className={`text-amber-p25 hover:text-white transition-all flex items-center text-left focus:outline-hidden ${dispatchVisible ? 'opacity-100' : 'opacity-40'}`}
             title="Toggle dispatch incidents layer"
           >
             <span className="ms text-[14px] mr-1.5 shrink-0" aria-hidden="true">cell_tower</span>
@@ -510,7 +510,7 @@ export function Sidebar() {
             <button
               type="button"
               onClick={() => toggleEntityType('satellite')}
-              className={`text-violet-space hover:text-white transition-all flex items-center text-left focus:outline-none ${entityFilter.satellite ? 'opacity-100' : 'opacity-40'}`}
+              className={`text-violet-space hover:text-white transition-all flex items-center text-left focus:outline-hidden ${entityFilter.satellite ? 'opacity-100' : 'opacity-40'}`}
               title="Toggle satellites layer"
             >
               <span className="ms text-[14px] mr-1.5 shrink-0" aria-hidden="true">satellite_alt</span>
@@ -520,7 +520,7 @@ export function Sidebar() {
           <button
             type="button"
             onClick={() => { focusSafetyMap(); setCamerasVisible(!camerasVisible) }}
-            className={`text-amber-gold hover:text-white transition-all flex items-center text-left col-span-2 focus:outline-none mt-0.5 ${camerasVisible ? 'opacity-100' : 'opacity-40'}`}
+            className={`text-amber-gold hover:text-white transition-all flex items-center text-left col-span-2 focus:outline-hidden mt-0.5 ${camerasVisible ? 'opacity-100' : 'opacity-40'}`}
             title="Toggle traffic cameras layer"
           >
             <span className="ms text-[14px] mr-1.5 shrink-0" aria-hidden="true">videocam</span>

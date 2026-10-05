@@ -1,5 +1,6 @@
 import { PolygonLayer, LineLayer, ScatterplotLayer } from '@deck.gl/layers'
 import type { Layer } from '@deck.gl/core'
+import { liftPos, liftRing, terrainVersion } from './terrainElevation'
 
 export interface CustomLayerItem {
   id: number
@@ -99,9 +100,10 @@ export function buildCustomLayers(customLayers: CustomLayerItem[]): Layer[] {
     if (polygons.length > 0) {
       layers.push(
         new PolygonLayer({
+        updateTriggers: { getPolygon: terrainVersion(), getPosition: terrainVersion(), getSourcePosition: terrainVersion(), getTargetPosition: terrainVersion() },
           id: `custom-polygon-${layer.id}`,
           data: polygons,
-          getPolygon: (d: any) => d.polygon,
+          getPolygon: (d: any) => liftRing(d.polygon),
           getFillColor: (d: any) => [d.color[0], d.color[1], d.color[2], Math.floor(opacity * 40)] as [number, number, number, number],
           stroked: true,
           getLineColor: (d: any) => [d.color[0], d.color[1], d.color[2], Math.floor(opacity * 200)] as [number, number, number, number],
@@ -116,10 +118,11 @@ export function buildCustomLayers(customLayers: CustomLayerItem[]): Layer[] {
     if (lines.length > 0) {
       layers.push(
         new LineLayer({
+        updateTriggers: { getPolygon: terrainVersion(), getPosition: terrainVersion(), getSourcePosition: terrainVersion(), getTargetPosition: terrainVersion() },
           id: `custom-line-${layer.id}`,
           data: lines,
-          getSourcePosition: (d: any) => d.sourcePosition,
-          getTargetPosition: (d: any) => d.targetPosition,
+          getSourcePosition: (d: any) => liftPos(d.sourcePosition) as [number, number],
+          getTargetPosition: (d: any) => liftPos(d.targetPosition) as [number, number],
           getColor: (d: any) => [d.color[0], d.color[1], d.color[2], Math.floor(opacity * 200)] as [number, number, number, number],
           getWidth: lineWidth,
           widthUnits: 'pixels',
@@ -132,9 +135,10 @@ export function buildCustomLayers(customLayers: CustomLayerItem[]): Layer[] {
     if (points.length > 0) {
       layers.push(
         new ScatterplotLayer({
+        updateTriggers: { getPolygon: terrainVersion(), getPosition: terrainVersion(), getSourcePosition: terrainVersion(), getTargetPosition: terrainVersion() },
           id: `custom-point-${layer.id}`,
           data: points,
-          getPosition: (d: any) => d.position,
+          getPosition: (d: any) => liftPos(d.position) as [number, number],
           getRadius: 5,
           radiusUnits: 'pixels',
           getFillColor: (d: any) => [d.color[0], d.color[1], d.color[2], Math.floor(opacity * 220)] as [number, number, number, number],

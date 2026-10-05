@@ -491,10 +491,10 @@ function FlightMiniMap({ trailPoints, entity }: {
 
   return (
     <div className="relative w-full h-full bg-onyx-deep/60 rounded-sm overflow-hidden border border-white/5 shadow-inner">
-      <div ref={containerRef} className="absolute inset-0" />
+      <div ref={containerRef} className="w-full h-full" />
 
       {/* Bottom vignette */}
-      <div className="absolute inset-0 pointer-events-none bg-gradient-to-t from-onyx-black/50 to-transparent" />
+      <div className="absolute inset-0 pointer-events-none bg-linear-to-t from-onyx-black/50 to-transparent" />
 
       {/* Track point counter */}
       {!isEmpty && (
@@ -893,7 +893,7 @@ export function FlightLogPanel() {
           <div ref={mobileScrollRef} className="flex flex-col gap-6 p-4 pb-6 overflow-y-auto">
             {/* 1. Live Position Map — only once a flight is selected; with
                 nothing selected the page opens on the summary and the list. */}
-            <section className={`border border-white/10 p-4 bg-white/5 flex-col gap-2 bg-onyx-black/35 backdrop-blur-sm shrink-0 order-1 ${selectedEntityId ? 'flex' : 'hidden'}`}>
+            <section className={`border border-white/10 p-4 bg-white/5 flex-col gap-2 bg-onyx-black/35 backdrop-blur-xs shrink-0 order-1 ${selectedEntityId ? 'flex' : 'hidden'}`}>
               <div className="flex items-center justify-between shrink-0">
                 <h3 className="section-heading flex items-center gap-2">
                   <span className="ms text-[14px] text-cyan-adsb">map</span>
@@ -922,7 +922,7 @@ export function FlightLogPanel() {
             </section>
 
             {/* 2. Traffic Summary */}
-            <section className={`p-4 border border-white/10 bg-white/5 bg-onyx-black/35 backdrop-blur-sm shrink-0 ${selectedEntityId ? 'order-4' : 'order-1'}`}>
+            <section className={`p-4 border border-white/10 bg-white/5 bg-onyx-black/35 backdrop-blur-xs shrink-0 ${selectedEntityId ? 'order-4' : 'order-1'}`}>
               <h3 className="section-heading mb-3 flex items-center gap-2">
                 <span className="ms text-[14px] text-cyan-adsb">analytics</span>
                 Traffic Summary
@@ -943,7 +943,7 @@ export function FlightLogPanel() {
             </section>
 
             {/* 3. Aircraft Log / Air Feed */}
-            <div className="flex flex-col bg-onyx-black/35 backdrop-blur-sm border border-white/10 rounded-sm overflow-hidden shrink-0 order-3">
+            <div className="flex flex-col bg-onyx-black/35 backdrop-blur-xs border border-white/10 rounded-sm overflow-hidden shrink-0 order-3">
               {/* Search bar */}
               <div className="px-3 py-2 border-b border-white/10 shrink-0 flex items-center gap-2 bg-white/5">
                 <span className="ms text-[14px] text-on-surface-variant">search</span>
@@ -952,7 +952,7 @@ export function FlightLogPanel() {
                   placeholder="Search ID, type, etc…"
                   value={search}
                   onChange={e => setSearch(e.target.value)}
-                  className="flex-1 bg-transparent text-[12px] text-on-surface placeholder-on-surface-variant/50 focus:outline-none"
+                  className="flex-1 bg-transparent text-[12px] text-on-surface placeholder-on-surface-variant/50 focus:outline-hidden"
                 />
                 {search && (
                   <button type="button" onClick={() => setSearch('')} className="text-on-surface-variant hover:text-white transition-colors">
@@ -1056,7 +1056,7 @@ export function FlightLogPanel() {
             {/* 4. Selected Aircraft Details */}
             <div className="shrink-0 order-2">
               {selectedEntityId && (detailEntity || replayFlights[selectedEntityId]) ? (
-                <section className="p-4 space-y-4 pb-8 border border-white/10 bg-white/5 rounded-sm bg-onyx-black/35 backdrop-blur-sm">
+                <section className="p-4 stack-y-4 pb-8 border border-white/10 bg-white/5 rounded-sm bg-onyx-black/35 backdrop-blur-xs">
                   <h3 className="section-heading flex items-center gap-2">
                     <span className="ms text-[14px] text-cyan-adsb">manage_search</span>
                     Selected Aircraft
@@ -1064,7 +1064,7 @@ export function FlightLogPanel() {
 
                   <div className="grid grid-cols-1 gap-4">
                     {/* Identity card */}
-                    <div className="p-3 border border-cyan-adsb/30 bg-cyan-adsb/5 rounded-sm space-y-1.5">
+                    <div className="p-3 border border-cyan-adsb/30 bg-cyan-adsb/5 rounded-sm stack-y-1.5">
                       <div className="flex items-start justify-between border-b border-cyan-adsb/10 pb-2 mb-2">
                         <div>
                           <div className="font-mono text-[11px] text-cyan-adsb/70 uppercase tracking-widest mb-0.5">Callsign</div>
@@ -1207,7 +1207,7 @@ export function FlightLogPanel() {
                   </div>
                 </section>
               ) : selectedEntityId ? (
-                <div className="flex flex-col items-center justify-center gap-2 text-on-surface-variant/30 p-8 h-full border border-white/10 bg-white/5 rounded-sm bg-onyx-black/35 backdrop-blur-sm min-h-[300px]">
+                <div className="flex flex-col items-center justify-center gap-2 text-on-surface-variant/30 p-8 h-full border border-white/10 bg-white/5 rounded-sm bg-onyx-black/35 backdrop-blur-xs min-h-[300px]">
                   <span className="ms text-3xl animate-pulse">radar</span>
                   <span className="text-[11px] uppercase tracking-widest font-mono text-center">Loading aircraft data…</span>
                 </div>
@@ -1219,7 +1219,7 @@ export function FlightLogPanel() {
             {/* ── Left Column: Traffic Summary & Aircraft Log ── */}
             <div className="w-full lg:w-[380px] shrink-0 flex flex-col border-b lg:border-b-0 lg:border-r border-white/10 bg-onyx-black/10 lg:h-full overflow-hidden">
               {/* ── Traffic Summary ── */}
-              <section className="p-4 border-b border-white/10 bg-white/5 bg-onyx-black/35 backdrop-blur-sm shrink-0">
+              <section className="p-4 border-b border-white/10 bg-white/5 bg-onyx-black/35 backdrop-blur-xs shrink-0">
                 <h3 className="section-heading mb-3 flex items-center gap-2">
                   <span className="ms text-[14px] text-cyan-adsb">analytics</span>
                   Traffic Summary
@@ -1240,7 +1240,7 @@ export function FlightLogPanel() {
               </section>
 
               {/* ── Aircraft Log ── */}
-              <div className="flex-1 min-h-0 flex flex-col bg-onyx-black/35 backdrop-blur-sm">
+              <div className="flex-1 min-h-0 flex flex-col bg-onyx-black/35 backdrop-blur-xs">
                 {/* Search bar */}
                 <div className="px-3 py-2 border-b border-white/10 shrink-0 flex items-center gap-2 bg-white/5">
                   <span className="ms text-[14px] text-on-surface-variant">search</span>
@@ -1249,7 +1249,7 @@ export function FlightLogPanel() {
                     placeholder="Search ID, type, etc…"
                     value={search}
                     onChange={e => setSearch(e.target.value)}
-                    className="flex-1 bg-transparent text-[12px] text-on-surface placeholder-on-surface-variant/50 focus:outline-none"
+                    className="flex-1 bg-transparent text-[12px] text-on-surface placeholder-on-surface-variant/50 focus:outline-hidden"
                   />
                   {search && (
                     <button type="button" onClick={() => setSearch('')} className="text-on-surface-variant hover:text-white transition-colors">
@@ -1324,7 +1324,7 @@ export function FlightLogPanel() {
             {/* ── Right Column: Live Map & Details ── */}
             <div className="flex-1 min-w-0 flex flex-col lg:h-full lg:overflow-y-auto p-4 lg:p-6 gap-6 pb-6">
               {/* ── Live Position Map ── */}
-              <section className="border border-white/10 p-4 bg-white/5 flex flex-col gap-2 rounded-sm bg-onyx-black/35 backdrop-blur-sm shrink-0">
+              <section className="border border-white/10 p-4 bg-white/5 flex flex-col gap-2 rounded-sm bg-onyx-black/35 backdrop-blur-xs shrink-0">
                 <div className="flex items-center justify-between shrink-0">
                   <h3 className="section-heading flex items-center gap-2">
                     <span className="ms text-[14px] text-cyan-adsb">map</span>
@@ -1355,7 +1355,7 @@ export function FlightLogPanel() {
               {/* ── Selected Aircraft Details ── */}
               <div className="flex-1">
                 {selectedEntityId && (detailEntity || replayFlights[selectedEntityId]) ? (
-                  <section className="p-4 space-y-4 pb-8 border border-white/10 bg-white/5 rounded-sm bg-onyx-black/35 backdrop-blur-sm">
+                  <section className="p-4 stack-y-4 pb-8 border border-white/10 bg-white/5 rounded-sm bg-onyx-black/35 backdrop-blur-xs">
                     <h3 className="section-heading flex items-center gap-2">
                       <span className="ms text-[14px] text-cyan-adsb">manage_search</span>
                       Selected Aircraft
@@ -1364,9 +1364,9 @@ export function FlightLogPanel() {
                     {/* Grid layout for wide displays, stacks on smaller screens */}
                     <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
                       {/* Left Column: Identity & Route */}
-                      <div className="space-y-4">
+                      <div className="stack-y-4">
                         {/* Identity card */}
-                        <div className="p-3 border border-cyan-adsb/30 bg-cyan-adsb/5 rounded-sm space-y-1.5">
+                        <div className="p-3 border border-cyan-adsb/30 bg-cyan-adsb/5 rounded-sm stack-y-1.5">
                           <div className="flex items-start justify-between border-b border-cyan-adsb/10 pb-2 mb-2">
                             <div>
                               <div className="font-mono text-[11px] text-cyan-adsb/70 uppercase tracking-widest mb-0.5">Callsign</div>
@@ -1418,7 +1418,7 @@ export function FlightLogPanel() {
                       </div>
 
                       {/* Right Column: Live Position & Stats */}
-                      <div className="space-y-4">
+                      <div className="stack-y-4">
                         {/* Live position */}
                         {detailEntity && (
                           <div className="p-3 border border-white/10 bg-white/5 rounded-sm">
@@ -1513,12 +1513,12 @@ export function FlightLogPanel() {
                     </div>
                   </section>
                 ) : selectedEntityId ? (
-                  <div className="flex flex-col items-center justify-center gap-2 text-on-surface-variant/30 p-8 h-full border border-white/10 bg-white/5 rounded-sm bg-onyx-black/35 backdrop-blur-sm min-h-[300px]">
+                  <div className="flex flex-col items-center justify-center gap-2 text-on-surface-variant/30 p-8 h-full border border-white/10 bg-white/5 rounded-sm bg-onyx-black/35 backdrop-blur-xs min-h-[300px]">
                     <span className="ms text-3xl animate-pulse">radar</span>
                     <span className="text-[11px] uppercase tracking-widest font-mono text-center">Loading aircraft data…</span>
                   </div>
                 ) : (
-                  <div className="flex flex-col items-center justify-center gap-3 text-on-surface-variant/30 p-8 h-full border border-white/10 bg-white/5 rounded-sm bg-onyx-black/35 backdrop-blur-sm min-h-[300px]">
+                  <div className="flex flex-col items-center justify-center gap-3 text-on-surface-variant/30 p-8 h-full border border-white/10 bg-white/5 rounded-sm bg-onyx-black/35 backdrop-blur-xs min-h-[300px]">
                     <span className="ms text-5xl">flight</span>
                     <span className="text-[11px] uppercase tracking-[0.2em] font-mono text-center leading-relaxed">
                       Select an aircraft<br />to view flight details

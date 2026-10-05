@@ -40,7 +40,7 @@ export function Notice({ kind, children, onDismiss }: {
   return (
     <div role={kind === 'error' ? 'alert' : 'status'} className={`flex items-start gap-2 border px-3 py-2 text-xs ${tone}`}>
       <span className="ms text-[16px] leading-none mt-px" aria-hidden="true">{kind === 'error' ? 'error' : 'check_circle'}</span>
-      <div className="flex-1 min-w-0 break-words">{children}</div>
+      <div className="flex-1 min-w-0 wrap-break-word">{children}</div>
       {onDismiss && (
         <button type="button" onClick={onDismiss} aria-label="Dismiss" className="ms text-[16px] leading-none opacity-70 hover:opacity-100">
           close

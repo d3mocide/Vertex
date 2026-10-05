@@ -192,7 +192,7 @@ export function GeofencePanel() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="stack-y-4">
       {/* Panel tabs */}
       {!geofenceDrawing && !showSaveForm && (
         <div className="flex border-b border-white/10">
@@ -200,7 +200,7 @@ export function GeofencePanel() {
             <button
               key={tab}
               onClick={() => setPanelTab(tab)}
-              className={`px-3 py-2 text-[11px] font-bold tracking-widest uppercase transition-colors focus:outline-none ${panelTab === tab ? 'text-amber-gold border-b-2 border-amber-gold' : 'text-on-surface-variant hover:text-on-surface border-b-2 border-transparent'}`}
+              className={`px-3 py-2 text-[11px] font-bold tracking-widest uppercase transition-colors focus:outline-hidden ${panelTab === tab ? 'text-amber-gold border-b-2 border-amber-gold' : 'text-on-surface-variant hover:text-on-surface border-b-2 border-transparent'}`}
             >
               {tab === 'geofences' ? `Geofences (${fences.length})` : `Custom Layers (${customLayers.length})`}
             </button>
@@ -217,14 +217,14 @@ export function GeofencePanel() {
               <>
                 <button
                   onClick={() => startDraw('polygon')}
-                  className="flex items-center gap-2 px-3 py-1.5 border border-amber-gold/60 text-amber-gold text-[11px] font-bold uppercase tracking-widest hover:bg-amber-gold/10 transition-colors focus:outline-none"
+                  className="flex items-center gap-2 px-3 py-1.5 border border-amber-gold/60 text-amber-gold text-[11px] font-bold uppercase tracking-widest hover:bg-amber-gold/10 transition-colors focus:outline-hidden"
                 >
                   <span className="ms text-[14px] leading-none">pentagon</span>
                   Draw Polygon
                 </button>
                 <button
                   onClick={() => startDraw('circle')}
-                  className="flex items-center gap-2 px-3 py-1.5 border border-cyan-adsb/60 text-cyan-adsb text-[11px] font-bold uppercase tracking-widest hover:bg-cyan-adsb/10 transition-colors focus:outline-none"
+                  className="flex items-center gap-2 px-3 py-1.5 border border-cyan-adsb/60 text-cyan-adsb text-[11px] font-bold uppercase tracking-widest hover:bg-cyan-adsb/10 transition-colors focus:outline-hidden"
                 >
                   <span className="ms text-[14px] leading-none">circle</span>
                   Draw Circle
@@ -241,7 +241,7 @@ export function GeofencePanel() {
                 {geofenceDrawPoints.length >= pointsNeeded && (
                   <button
                     onClick={openSaveForm}
-                    className="flex items-center gap-2 px-3 py-1.5 border border-amber-gold text-amber-gold text-[11px] font-bold uppercase tracking-widest bg-amber-gold/10 hover:bg-amber-gold/20 transition-colors focus:outline-none"
+                    className="flex items-center gap-2 px-3 py-1.5 border border-amber-gold text-amber-gold text-[11px] font-bold uppercase tracking-widest bg-amber-gold/10 hover:bg-amber-gold/20 transition-colors focus:outline-hidden"
                   >
                     <span className="ms text-[14px] leading-none">check</span>
                     Finish
@@ -249,7 +249,7 @@ export function GeofencePanel() {
                 )}
                 <button
                   onClick={cancelDraw}
-                  className="flex items-center gap-2 px-3 py-1.5 border border-white/20 text-on-surface-variant text-[11px] uppercase tracking-widest hover:border-white/40 transition-colors focus:outline-none"
+                  className="flex items-center gap-2 px-3 py-1.5 border border-white/20 text-on-surface-variant text-[11px] uppercase tracking-widest hover:border-white/40 transition-colors focus:outline-hidden"
                 >
                   <span className="ms text-[14px] leading-none">close</span>
                   Cancel
@@ -263,7 +263,7 @@ export function GeofencePanel() {
 
           {/* Save form */}
           {showSaveForm && (
-            <div className="border border-amber-gold/30 bg-amber-gold/5 p-4 space-y-3">
+            <div className="border border-amber-gold/30 bg-amber-gold/5 p-4 stack-y-3">
               <span className="label-caps text-[11px] text-amber-gold block">
                 Save Geofence ({importedBoundary
                   ? `${importedBoundary.name} · ${importedBoundary.area_km2.toLocaleString()} km²`
@@ -274,14 +274,14 @@ export function GeofencePanel() {
                 placeholder="Zone name *"
                 value={saveName}
                 onChange={(e) => setSaveName(e.target.value)}
-                className="w-full bg-onyx-deep border border-white/10 text-on-surface placeholder-on-surface-variant text-[11px] px-3 py-1.5 focus:outline-none focus:border-amber-gold/60 transition-colors"
+                className="w-full bg-onyx-deep border border-white/10 text-on-surface placeholder-on-surface-variant text-[11px] px-3 py-1.5 focus:outline-hidden focus:border-amber-gold/60 transition-colors"
               />
               <input
                 type="text"
                 placeholder="Description (optional)"
                 value={saveDesc}
                 onChange={(e) => setSaveDesc(e.target.value)}
-                className="w-full bg-onyx-deep border border-white/10 text-on-surface placeholder-on-surface-variant text-[11px] px-3 py-1.5 focus:outline-none focus:border-amber-gold/60 transition-colors"
+                className="w-full bg-onyx-deep border border-white/10 text-on-surface placeholder-on-surface-variant text-[11px] px-3 py-1.5 focus:outline-hidden focus:border-amber-gold/60 transition-colors"
               />
               <div>
                 <span className="text-[11px] text-on-surface-variant uppercase tracking-widest">Dwell Seconds</span>
@@ -291,7 +291,7 @@ export function GeofencePanel() {
                   step={5}
                   value={saveDwellSeconds}
                   onChange={(e) => setSaveDwellSeconds(Number(e.target.value || 0))}
-                  className="w-full mt-1 bg-onyx-deep border border-white/10 text-on-surface text-[11px] px-3 py-1.5 focus:outline-none focus:border-amber-gold/60 transition-colors"
+                  className="w-full mt-1 bg-onyx-deep border border-white/10 text-on-surface text-[11px] px-3 py-1.5 focus:outline-hidden focus:border-amber-gold/60 transition-colors"
                 />
               </div>
               <div className="flex gap-1">
@@ -299,7 +299,7 @@ export function GeofencePanel() {
                   <button
                     key={zt}
                     onClick={() => setSaveType(zt)}
-                    className={`flex-1 py-1 border text-[11px] font-bold uppercase tracking-widest transition-colors focus:outline-none ${saveType === zt ? ZONE_COLORS[zt] + ' bg-current/10' : 'border-white/10 text-on-surface-variant hover:border-white/20'}`}
+                    className={`flex-1 py-1 border text-[11px] font-bold uppercase tracking-widest transition-colors focus:outline-hidden ${saveType === zt ? ZONE_COLORS[zt] + ' bg-current/10' : 'border-white/10 text-on-surface-variant hover:border-white/20'}`}
                     aria-pressed={saveType === zt}
                   >
                     {ZONE_LABELS[zt]}
@@ -310,13 +310,13 @@ export function GeofencePanel() {
                 <button
                   onClick={saveGeofence}
                   disabled={saving || !saveName.trim()}
-                  className="flex-1 flex items-center justify-center gap-1 py-1.5 bg-amber-gold/10 border border-amber-gold/60 text-amber-gold text-[12px] font-bold uppercase tracking-widest hover:bg-amber-gold/20 transition-colors focus:outline-none disabled:opacity-50"
+                  className="flex-1 flex items-center justify-center gap-1 py-1.5 bg-amber-gold/10 border border-amber-gold/60 text-amber-gold text-[12px] font-bold uppercase tracking-widest hover:bg-amber-gold/20 transition-colors focus:outline-hidden disabled:opacity-50"
                 >
                   {saving ? 'Saving…' : 'Save'}
                 </button>
                 <button
                   onClick={cancelDraw}
-                  className="px-3 py-1.5 border border-white/10 text-on-surface-variant text-[11px] uppercase tracking-widest hover:border-white/20 transition-colors focus:outline-none"
+                  className="px-3 py-1.5 border border-white/10 text-on-surface-variant text-[11px] uppercase tracking-widest hover:border-white/20 transition-colors focus:outline-hidden"
                 >
                   Cancel
                 </button>
@@ -331,14 +331,14 @@ export function GeofencePanel() {
             <div>
               <div className="flex items-center justify-between mb-2">
                 <span className="label-caps text-[11px]">Active Zones ({fences.length})</span>
-                <button onClick={loadFences} disabled={loading} className="ms text-[14px] text-on-surface-variant hover:text-on-surface transition-colors leading-none focus:outline-none" title="Refresh">
+                <button onClick={loadFences} disabled={loading} className="ms text-[14px] text-on-surface-variant hover:text-on-surface transition-colors leading-none focus:outline-hidden" title="Refresh">
                   sync
                 </button>
               </div>
               {fences.length === 0 ? (
                 <p className="text-[11px] text-on-surface-variant italic">No geofences defined.</p>
               ) : (
-                <div className="space-y-2">
+                <div className="stack-y-2">
                   {fences.map((f) => (
                     <div key={f.id} className="flex items-start gap-3 p-2 border border-white/5 bg-onyx-deep/40 hover:bg-surface-container transition-colors">
                       <span className={`mt-0.5 font-mono text-[11px] border px-1 py-0.5 uppercase tracking-widest shrink-0 ${ZONE_COLORS[f.zone_type as ZoneType] ?? ZONE_COLORS.alert}`}>
@@ -355,7 +355,7 @@ export function GeofencePanel() {
                       </div>
                       <button
                         onClick={() => deleteGeofence(f.id)}
-                        className="ms text-[16px] text-on-surface-variant hover:text-red-emergency transition-colors leading-none shrink-0 focus:outline-none"
+                        className="ms text-[16px] text-on-surface-variant hover:text-red-emergency transition-colors leading-none shrink-0 focus:outline-hidden"
                         title={`Delete ${f.name}`}
                       >
                         delete

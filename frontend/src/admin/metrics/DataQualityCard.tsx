@@ -31,7 +31,7 @@ export function DataQualityCard({ data }: { data: DataQualityData | null }) {
             <div className="w-56 min-w-0 truncate text-[12px] text-on-surface" title={`${row.label} (${row.field})`}>
               {row.label.replace(/^(\w+ ?\w*) - /, '$1 · ')}
             </div>
-            <div className="flex-1 h-1.5 bg-surface-container-highest min-w-[3rem]">
+            <div className="flex-1 h-1.5 bg-surface-container-highest min-w-12">
               <div className={`h-full ${barColor(row.pct)}`} style={{ width: `${Math.min(row.pct, 100)}%` }} />
             </div>
             <div className={`w-14 text-right font-mono text-[12px] font-bold ${textColor(row.pct)}`}>{row.pct}%</div>

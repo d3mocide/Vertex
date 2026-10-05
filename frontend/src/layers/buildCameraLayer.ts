@@ -9,7 +9,7 @@ const COLOR_SELECTED: [number, number, number, number] = [255, 184,   0, 255]
 
 function iconForZoom(zoom: number): string {
   if (zoom >= 9) return 'camera'
-  if (zoom >= 6) return 'ring'
+  if (zoom >= 6) return 'ring-3'
   return 'dot'
 }
 

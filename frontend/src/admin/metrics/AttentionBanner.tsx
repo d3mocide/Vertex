@@ -22,7 +22,7 @@ export function AttentionBanner({ overview, onGoto }: { overview: OverviewData |
   const info = overview.issues.filter((i) => i.severity === 'info')
 
   return (
-    <section className={`border ${st.border} ${st.bg} p-4 space-y-3`} role="status">
+    <section className={`border ${st.border} ${st.bg} p-4 stack-y-3`} role="status">
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
         <span className={`w-2.5 h-2.5 rounded-full ${st.dot}`} aria-hidden="true" />
         <h2 className={`font-bold text-sm uppercase tracking-widest ${st.text}`}>
@@ -34,7 +34,7 @@ export function AttentionBanner({ overview, onGoto }: { overview: OverviewData |
       </div>
 
       {actionable.length > 0 && (
-        <ul className="space-y-2">
+        <ul className="stack-y-2">
           {actionable.map((i, n) => (
             <li key={`${i.area}-${n}`} className="flex items-start gap-3 border-t border-white/10 pt-2">
               <span className={`ms text-[18px] shrink-0 ${ICON_COLOR[i.severity]}`} aria-hidden="true">{ICON[i.severity]}</span>

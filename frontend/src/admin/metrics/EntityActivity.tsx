@@ -100,7 +100,7 @@ export function EntityActivity({ data }: { data: EntityActivityData | null }) {
   const entities = data.types.filter((t) => t.group !== 'dispatch')
   const dispatch = data.types.filter((t) => t.group === 'dispatch')
   return (
-    <div className="space-y-6">
+    <div className="stack-y-6">
       <section>
         <h2 className="text-[11px] uppercase tracking-widest text-on-surface-variant mb-3">
           Map entities

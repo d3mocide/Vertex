@@ -37,7 +37,7 @@ export function RfSensorOverview({ entity, getIdentity }: OverviewProps) {
           <span className="ms text-[12px]">sensors</span>
           <span className="label-caps text-[11px]">Device</span>
         </div>
-        <div className="space-y-1">
+        <div className="stack-y-1">
           <div className="flex justify-between items-baseline gap-2">
             <span className="text-[11px] text-on-surface-variant">Model</span>
             <span className="font-mono text-[11px] text-on-surface text-right">{model}</span>

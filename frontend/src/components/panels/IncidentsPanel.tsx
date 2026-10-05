@@ -61,7 +61,7 @@ function splitBriefing(md: string): { intro: string; sections: { title: string; 
 
 const BRIEFING_MD = {
   strong: ({ ...props }) => <strong className="text-amber-gold font-bold" {...props} />,
-  ul: ({ ...props }) => <ul className="list-disc list-outside ml-4 my-1.5 space-y-1.5" {...props} />,
+  ul: ({ ...props }) => <ul className="list-disc list-outside ml-4 my-1.5 stack-y-1.5" {...props} />,
   li: ({ ...props }) => <li className="pl-1" {...props} />,
   p: ({ ...props }) => <p className="mb-2 last:mb-0" {...props} />,
 } satisfies Components
@@ -89,10 +89,10 @@ function BriefingCard() {
   )
 
   return (
-    <section className="border border-amber-gold/40 bg-amber-gold/[0.06] p-4" aria-labelledby="briefing-heading">
+    <section className="border border-amber-gold/40 bg-amber-gold/6 p-4" aria-labelledby="briefing-heading">
       <div className="flex items-center gap-2 flex-wrap">
         <span className="ms text-[18px] text-amber-gold" aria-hidden="true">psychology</span>
-        <h3 id="briefing-heading" className="section-heading !mb-0">AI Briefing</h3>
+        <h3 id="briefing-heading" className="section-heading mb-0!">AI Briefing</h3>
         {summary.posture && (
           <span className={`border px-2 py-0.5 text-[11px] font-bold uppercase tracking-widest ${postureClass(summary.posture)}`}>
             {summary.posture}
@@ -111,7 +111,7 @@ function BriefingCard() {
         {expanded && summary.dataGaps.length > 0 && (
           <div className="mt-4">
             <h4 className="section-heading mb-1.5">Data gaps</h4>
-            <ul className="list-disc list-outside ml-4 space-y-1 text-on-surface-variant">
+            <ul className="list-disc list-outside ml-4 stack-y-1 text-on-surface-variant">
               {summary.dataGaps.map((gap) => <li key={gap} className="pl-1">{gap}</li>)}
             </ul>
           </div>
@@ -124,7 +124,7 @@ function BriefingCard() {
             type="button"
             onClick={() => setExpanded((v) => !v)}
             aria-expanded={expanded}
-            className="flex items-center gap-1 h-8 whitespace-nowrap font-bold text-[11px] uppercase tracking-widest text-amber-gold hover:text-white focus:outline-none focus-visible:ring-1 focus-visible:ring-amber-gold"
+            className="flex items-center gap-1 h-8 whitespace-nowrap font-bold text-[11px] uppercase tracking-widest text-amber-gold hover:text-white focus:outline-hidden focus-visible:ring-1 focus-visible:ring-amber-gold"
           >
             <span className="ms text-[18px] leading-none" aria-hidden="true">{expanded ? 'expand_less' : 'expand_more'}</span>
             {expanded ? 'Show less' : `Full briefing · ${rest.length + (summary.dataGaps.length ? 1 : 0)} more sections`}
@@ -199,7 +199,7 @@ export function IncidentsPanel() {
         title="Incidents"
         subtitle="Dispatch, weather, traffic and system alerts"
       />
-      <div className="p-4 lg:p-6 space-y-6">
+      <div className="p-4 lg:p-6 stack-y-6">
 
       {/* Phones have no sidebar: its "Now" and "Nearby" blocks lead here. */}
       <div className="lg:hidden border border-white/10 bg-surface-container/40 p-3">
@@ -212,10 +212,10 @@ export function IncidentsPanel() {
 
       {/* 1. WEATHER ADVISORIES */}
       {weatherAlerts.length > 0 && (
-        <div id="sec-weather" className="space-y-4 scroll-mt-4">
+        <div id="sec-weather" className="stack-y-4 scroll-mt-4">
           <div className="flex items-center gap-2 mb-2">
             <span className="ms text-[18px] text-amber-gold" aria-hidden="true">cloud_alert</span>
-            <h3 className="section-heading !mb-0">Weather Advisories</h3>
+            <h3 className="section-heading mb-0!">Weather Advisories</h3>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {weatherAlerts.map((alert, idx) => {
@@ -245,10 +245,10 @@ export function IncidentsPanel() {
 
       {/* 3. PRIORITY SYSTEM EVENTS */}
       {prioritySystemEvents.length > 0 && (
-        <div id="sec-events" className="space-y-4 scroll-mt-4">
+        <div id="sec-events" className="stack-y-4 scroll-mt-4">
           <div className="flex items-center gap-2 mb-2">
             <span className="ms text-[18px] text-red-emergency" aria-hidden="true">emergency_home</span>
-            <h3 className="section-heading !mb-0">Priority System Events</h3>
+            <h3 className="section-heading mb-0!">Priority System Events</h3>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {prioritySystemEvents.map((ev, idx) => {
@@ -273,10 +273,10 @@ export function IncidentsPanel() {
 
       {/* 4. SIGNIFICANT TRAFFIC INCIDENTS */}
       {significantTraffic.length > 0 && (
-        <div id="sec-traffic" className="space-y-4 scroll-mt-4">
+        <div id="sec-traffic" className="stack-y-4 scroll-mt-4">
           <div className="flex items-center gap-2 mb-2">
             <span className="ms text-[18px] text-amber-gold" aria-hidden="true">traffic</span>
-            <h3 className="section-heading !mb-0">Significant Traffic Incidents</h3>
+            <h3 className="section-heading mb-0!">Significant Traffic Incidents</h3>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {significantTraffic.map((incident, idx) => (
@@ -333,10 +333,10 @@ export function IncidentsPanel() {
             type="button"
             onClick={() => setShowMinor((v) => !v)}
             aria-expanded={showMinor}
-            className="flex items-center gap-2 h-9 text-on-surface-variant hover:text-on-surface focus:outline-none focus-visible:ring-1 focus-visible:ring-amber-gold"
+            className="flex items-center gap-2 h-9 text-on-surface-variant hover:text-on-surface focus:outline-hidden focus-visible:ring-1 focus-visible:ring-amber-gold"
           >
             <span className="ms text-[18px]" aria-hidden="true">{showMinor ? 'expand_less' : 'expand_more'}</span>
-            <span className="label-caps !text-current">Minor traffic within 8 km · {lowImpactTraffic.length}</span>
+            <span className="label-caps text-current!">Minor traffic within 8 km · {lowImpactTraffic.length}</span>
           </button>
           {showMinor && <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 mt-3">
             {lowImpactTraffic.map((incident, idx) => (

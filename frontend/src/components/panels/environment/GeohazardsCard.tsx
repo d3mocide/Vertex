@@ -44,13 +44,13 @@ export function GeohazardsCard({ quakes, disasters }: { quakes: SystemEvent[]; d
         {strongest != null && <span className="ml-auto font-mono text-[11px] text-on-surface-variant normal-case tracking-normal">strongest M{strongest.toFixed(1)}</span>}
       </div>
 
-      <div className="space-y-1.5">
+      <div className="stack-y-1.5">
         {quakes.slice(0, 4).map((ev) => {
           const m = mag(ev)
           const place = typeof ev.details?.place === 'string' ? ev.details.place : ev.summary
           const depth = typeof ev.details?.depth_km === 'number' ? (ev.details.depth_km as number) : null
           return (
-            <div key={ev.event_id} className="border border-white/10 bg-white/[0.02] px-3 py-2">
+            <div key={ev.event_id} className="border border-white/10 bg-white/2 px-3 py-2">
               <div className="flex items-center justify-between gap-3">
                 <span className="text-[12px] font-bold text-on-surface truncate">{place}</span>
                 <span className="font-mono text-[12px] text-amber-gold shrink-0">{m != null ? `M${m.toFixed(1)}` : ev.severity.toUpperCase()}</span>
@@ -67,7 +67,7 @@ export function GeohazardsCard({ quakes, disasters }: { quakes: SystemEvent[]; d
           const d = (ev.details ?? {}) as GdacsDetails
           const tone = LEVEL_TONE[d.alert_level ?? ''] ?? 'text-on-surface-variant'
           return (
-            <div key={ev.event_id} className="border border-white/10 bg-white/[0.02] px-3 py-2">
+            <div key={ev.event_id} className="border border-white/10 bg-white/2 px-3 py-2">
               <div className="flex items-center gap-2">
                 <span className={`ms text-[14px] leading-none ${tone}`} aria-hidden="true">{KIND_ICON[d.event_type_code ?? ''] ?? 'warning'}</span>
                 <span className="text-[12px] font-bold text-on-surface truncate flex-1">{ev.summary}</span>

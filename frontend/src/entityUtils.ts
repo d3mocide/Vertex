@@ -58,7 +58,7 @@ export function entityToTrack(entity: Entity, existing?: Track): Track | null {
 
   if (isAir && entity.trail_pts && entity.trail_pts.length >= 1) {
     // Extend the trail already rendered with only the ring-buffer fixes newer
-    // than its last point. Rebuilding from "DB history + ring buffer" each
+    // than its last point. Rebuilding from "DB history + ring-3 buffer" each
     // time dropped every fix that had scrolled out of the ~150-point ring
     // since hydration, so the path cut a straight chord across that gap.
     const tsMs = (p: TrailPt) => (p[4] ? Date.parse(p[4]) : 0)

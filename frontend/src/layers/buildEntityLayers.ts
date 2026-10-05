@@ -28,7 +28,7 @@ export class StencilClearLayer extends Layer {
 // Zoom bucket helpers — mirrors the Atlas spec (FULL >= 9 / RING 6-8 / DOT < 6).
 function iconForZoom(fullName: string, zoom: number): string {
   if (zoom >= 9) return fullName
-  if (zoom >= 6) return 'ring'
+  if (zoom >= 6) return 'ring-3'
   return 'dot'
 }
 

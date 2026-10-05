@@ -127,7 +127,7 @@ export function AlertRulesSection({ open }: AlertRulesSectionProps) {
         )}
       </div>
 
-      <div className="space-y-2">
+      <div className="stack-y-2">
         {alertRules.length === 0 ? (
           <p className="text-[11px] text-on-surface-variant">No alert rules configured.</p>
         ) : (
@@ -167,13 +167,13 @@ export function AlertRulesSection({ open }: AlertRulesSectionProps) {
       </div>
 
       {formOpen && (
-      <div className="mt-4 border border-white/10 bg-black/30 p-3 space-y-2">
+      <div className="mt-4 border border-white/10 bg-black/30 p-3 stack-y-2">
         <input
           type="text"
           placeholder="Rule name"
           value={newRuleName}
           onChange={(e) => setNewRuleName(e.target.value)}
-          className="w-full bg-onyx-deep border border-white/10 text-on-surface placeholder-on-surface-variant text-[11px] px-3 py-1.5 focus:outline-none focus:border-amber-gold/60 transition-colors"
+          className="w-full bg-onyx-deep border border-white/10 text-on-surface placeholder-on-surface-variant text-[11px] px-3 py-1.5 focus:outline-hidden focus:border-amber-gold/60 transition-colors"
         />
         <div className="grid grid-cols-2 gap-2">
           {newRuleAction !== 'sitrep_delivery' && (
@@ -203,7 +203,7 @@ export function AlertRulesSection({ open }: AlertRulesSectionProps) {
             placeholder={newRuleAction === 'sitrep_delivery' ? 'Delivery webhook URL (optional)' : 'Webhook URL'}
             value={newRuleUrl}
             onChange={(e) => setNewRuleUrl(e.target.value)}
-            className="w-full bg-onyx-deep border border-white/10 text-on-surface placeholder-on-surface-variant text-[11px] px-3 py-1.5 focus:outline-none focus:border-amber-gold/60 transition-colors"
+            className="w-full bg-onyx-deep border border-white/10 text-on-surface placeholder-on-surface-variant text-[11px] px-3 py-1.5 focus:outline-hidden focus:border-amber-gold/60 transition-colors"
           />
         )}
         {newRuleAction === 'sitrep_delivery' && (
@@ -216,7 +216,7 @@ export function AlertRulesSection({ open }: AlertRulesSectionProps) {
                 max="168"
                 value={newRuleIntervalHours}
                 onChange={(e) => setNewRuleIntervalHours(e.target.value)}
-                className="w-full bg-onyx-deep border border-white/10 text-on-surface text-[11px] px-2 py-1.5 focus:outline-none focus:border-amber-gold/60 transition-colors"
+                className="w-full bg-onyx-deep border border-white/10 text-on-surface text-[11px] px-2 py-1.5 focus:outline-hidden focus:border-amber-gold/60 transition-colors"
               />
             </div>
             <div>
@@ -227,7 +227,7 @@ export function AlertRulesSection({ open }: AlertRulesSectionProps) {
                 max="168"
                 value={newRuleSitrepWindow}
                 onChange={(e) => setNewRuleSitrepWindow(e.target.value)}
-                className="w-full bg-onyx-deep border border-white/10 text-on-surface text-[11px] px-2 py-1.5 focus:outline-none focus:border-amber-gold/60 transition-colors"
+                className="w-full bg-onyx-deep border border-white/10 text-on-surface text-[11px] px-2 py-1.5 focus:outline-hidden focus:border-amber-gold/60 transition-colors"
               />
             </div>
           </div>
@@ -236,7 +236,7 @@ export function AlertRulesSection({ open }: AlertRulesSectionProps) {
         {/* Advanced suppression controls */}
         <button
           onClick={() => setShowAdvanced((v) => !v)}
-          className="text-[11px] text-on-surface-variant hover:text-amber-gold uppercase tracking-widest transition-colors focus:outline-none flex items-center gap-1"
+          className="text-[11px] text-on-surface-variant hover:text-amber-gold uppercase tracking-widest transition-colors focus:outline-hidden flex items-center gap-1"
         >
           <span className="ms text-[12px] leading-none">{showAdvanced ? 'expand_less' : 'expand_more'}</span>
           Suppression settings
@@ -251,7 +251,7 @@ export function AlertRulesSection({ open }: AlertRulesSectionProps) {
                 placeholder="0"
                 value={newRuleCooldown}
                 onChange={(e) => setNewRuleCooldown(e.target.value)}
-                className="w-full bg-onyx-deep border border-white/10 text-on-surface text-[11px] px-2 py-1.5 focus:outline-none focus:border-amber-gold/60 transition-colors"
+                className="w-full bg-onyx-deep border border-white/10 text-on-surface text-[11px] px-2 py-1.5 focus:outline-hidden focus:border-amber-gold/60 transition-colors"
               />
             </div>
             <div>
@@ -262,7 +262,7 @@ export function AlertRulesSection({ open }: AlertRulesSectionProps) {
                 placeholder="∞"
                 value={newRuleMaxPerHour}
                 onChange={(e) => setNewRuleMaxPerHour(e.target.value)}
-                className="w-full bg-onyx-deep border border-white/10 text-on-surface text-[11px] px-2 py-1.5 focus:outline-none focus:border-amber-gold/60 transition-colors"
+                className="w-full bg-onyx-deep border border-white/10 text-on-surface text-[11px] px-2 py-1.5 focus:outline-hidden focus:border-amber-gold/60 transition-colors"
               />
             </div>
           </div>
@@ -270,7 +270,7 @@ export function AlertRulesSection({ open }: AlertRulesSectionProps) {
 
         <button
           onClick={createAlertRule}
-          className="w-full py-1.5 text-[11px] font-bold uppercase tracking-widest border border-amber-gold/40 text-amber-gold hover:bg-amber-gold/10 transition-colors focus:outline-none"
+          className="w-full py-1.5 text-[11px] font-bold uppercase tracking-widest border border-amber-gold/40 text-amber-gold hover:bg-amber-gold/10 transition-colors focus:outline-hidden"
         >
           Add Rule
         </button>

@@ -64,7 +64,7 @@ export function TestsTab() {
   }
 
   return (
-    <div className="space-y-2 text-[10px]">
+    <div className="stack-y-2 text-[10px]">
       {software && (
         <div className="border border-amber-gold/60 bg-amber-gold/10 px-2 py-1 text-amber-gold">
           Software rendering detected ({gpuRenderer()}). Frame numbers from this browser say little about a real GPU.
@@ -84,7 +84,7 @@ export function TestsTab() {
               <div className="text-on-surface text-[11px] font-bold">{s.label} <span className="font-mono font-normal text-on-surface-variant">{quick ? 5 : s.seconds}s</span></div>
               <div className="text-on-surface-variant leading-snug">{s.description}</div>
             </div>
-            <button type="button" className="btn-ghost !py-0.5 !text-[9px]" disabled={busy || !mapReady} onClick={() => exec([s])}>
+            <button type="button" className="btn-ghost py-0.5! text-[9px]!" disabled={busy || !mapReady} onClick={() => exec([s])}>
               {running === s.id ? 'Running' : 'Run'}
             </button>
           </li>
@@ -135,12 +135,12 @@ export function TestsTab() {
             })}
           </div>
           <div className="flex flex-wrap gap-2 pt-1">
-            <button type="button" className="btn-ghost !py-0.5 !text-[9px]" onClick={copyResults}>{copied ? 'Copied' : 'Copy JSON'}</button>
-            <button type="button" className="btn-ghost !py-0.5 !text-[9px]" onClick={() => { saveBaseline(ordered.map(s => latest[s.id])); setBaseline(loadBaseline()) }}>Set baseline</button>
+            <button type="button" className="btn-ghost py-0.5! text-[9px]!" onClick={copyResults}>{copied ? 'Copied' : 'Copy JSON'}</button>
+            <button type="button" className="btn-ghost py-0.5! text-[9px]!" onClick={() => { saveBaseline(ordered.map(s => latest[s.id])); setBaseline(loadBaseline()) }}>Set baseline</button>
             {Object.keys(baseline).length > 0 && (
-              <button type="button" className="btn-ghost !py-0.5 !text-[9px]" onClick={() => { clearBaseline(); setBaseline({}) }}>Clear baseline</button>
+              <button type="button" className="btn-ghost py-0.5! text-[9px]!" onClick={() => { clearBaseline(); setBaseline({}) }}>Clear baseline</button>
             )}
-            <button type="button" className="btn-ghost !py-0.5 !text-[9px]" onClick={clearRuns}>Clear results</button>
+            <button type="button" className="btn-ghost py-0.5! text-[9px]!" onClick={clearRuns}>Clear results</button>
           </div>
           <div className="text-on-surface-variant leading-snug">
             fps, p95 frame ms, dropped frames, long tasks (lt). * = stopped early. Baselines persist in this browser; &quot;worse&quot; means a clearly longer frame tail, more dropped frames or more long tasks.

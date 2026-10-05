@@ -9,7 +9,7 @@ type Props = {
 export function StorageSummary({ storage, retentionDays }: Props) {
   if (!storage) {
     return (
-      <div className="border border-white/10 bg-black/30 p-4 space-y-3">
+      <div className="border border-white/10 bg-black/30 p-4 stack-y-3">
         <h3 className="text-[11px] uppercase tracking-widest text-on-surface-variant">Storage Health</h3>
         <div className="text-on-surface-variant text-xs">Loading…</div>
       </div>
@@ -34,7 +34,7 @@ export function StorageSummary({ storage, retentionDays }: Props) {
   const purgeHoursAgo = health?.last_purge_age_hours
 
   return (
-    <section className="p-4 border border-white/10 bg-black/30 space-y-4">
+    <section className="p-4 border border-white/10 bg-black/30 stack-y-4">
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {/* Overall Status */}
         <div>

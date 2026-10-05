@@ -64,11 +64,13 @@ function Dashboard() {
   const { activeTab, mode } = useCivicPick('activeTab', 'mode')
   // Phones: map tools (replay / zones / annotate) sit behind one button.
   const [mapToolsOpen, setMapToolsOpen] = useState(false)
+  // On phones the Layers sheet covers the other tools, so they step aside while it is open.
+  const [layersOpen, setLayersOpen] = useState(false)
   const isCritical = mode === 'critical'
 
   return (
     <div
-      className="dark h-full w-full overflow-hidden flex flex-col font-body text-sm antialiased bg-onyx-black text-on-surface lg:pt-safe-chrome pb-[calc(3.5rem_+_env(safe-area-inset-bottom))] lg:pb-0"
+      className="dark h-full w-full overflow-hidden flex flex-col font-body text-sm antialiased bg-onyx-black text-on-surface lg:pt-safe-chrome pb-[calc(3.5rem+env(safe-area-inset-bottom))] lg:pb-0"
       data-mode={mode}
     >
       {/* Map Background Layer */}
@@ -123,7 +125,7 @@ function Dashboard() {
                 (docked above the nav on mobile, floating on desktop) so it
                 never covers the end of a page. */}
             {activeTab !== 'safety' && (
-              <div id="page-scroll" className="absolute top-0 lg:top-24 inset-x-0 bottom-0 z-10 bg-onyx-black/40 backdrop-blur-sm overflow-y-auto pb-14 lg:pb-24">
+              <div id="page-scroll" className="absolute top-0 lg:top-24 inset-x-0 bottom-0 z-10 bg-onyx-black/40 backdrop-blur-xs overflow-y-auto pb-14 lg:pb-24">
                 {activeTab === 'infrastructure' && <InfrastructureGrid />}
                 {activeTab === 'environment'    && <EnvironmentPanel   />}
                 {activeTab === 'intel'          && <IntelPanel         />}
@@ -145,16 +147,18 @@ function Dashboard() {
                     type="button"
                     onClick={() => setMapToolsOpen((v) => !v)}
                     aria-expanded={mapToolsOpen}
-                    className={`lg:hidden h-10 px-3 flex items-center gap-2 border backdrop-blur-md font-bold text-[11px] uppercase tracking-widest transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-amber-gold ${mapToolsOpen ? 'bg-amber-gold text-onyx-black border-amber-gold' : 'bg-onyx-black/70 border-amber-gold/40 text-amber-gold'}`}
+                    className={`lg:hidden h-10 px-3 flex items-center gap-2 border backdrop-blur-md font-bold text-[11px] uppercase tracking-widest transition-colors focus:outline-hidden focus-visible:ring-1 focus-visible:ring-amber-gold ${mapToolsOpen ? 'bg-amber-gold text-onyx-black border-amber-gold' : 'bg-onyx-black/70 border-amber-gold/40 text-amber-gold'}`}
                   >
                     <span className="ms text-[18px] leading-none" aria-hidden="true">{mapToolsOpen ? 'close' : 'construction'}</span>
                     Tools
                   </button>
                   <div className={`${mapToolsOpen ? 'flex' : 'hidden'} lg:flex flex-col lg:flex-row items-start gap-2`}>
-                    <PlaybackController />
-                    <GeofenceController />
-                    <AnnotationController />
-                    <LayersController />
+                    <div className={layersOpen ? 'hidden lg:contents' : 'contents'}>
+                      <PlaybackController />
+                      <GeofenceController />
+                      <AnnotationController />
+                    </div>
+                    <LayersController onOpenChange={setLayersOpen} />
                   </div>
                 </div>
               </>
@@ -257,7 +261,7 @@ export default function App() {
         />
       </svg>
       <div className="flex flex-col items-center gap-1">
-        <span className="text-[16px] font-black tracking-[0.05em] text-white uppercase select-none">VERTEX</span>
+        <span className="text-[16px] font-black tracking-wider text-white uppercase select-none">VERTEX</span>
         <span className="font-mono text-[11px] tracking-[0.2em] text-amber-gold uppercase select-none">SITUATIONAL AWARENESS</span>
       </div>
     </div>
@@ -271,7 +275,7 @@ export default function App() {
     if (isAdmin) return <SetupWizard firstRun onClose={() => undefined} />
     return (
       <div className="w-full h-full bg-onyx-black flex items-center justify-center p-6">
-        <div className="hud-panel p-6 max-w-md text-[13px] text-on-surface-variant space-y-2">
+        <div className="hud-panel p-6 max-w-md text-[13px] text-on-surface-variant stack-y-2">
           <div className="label-caps text-amber-gold">Setup not finished</div>
           <p>Vertex has not been set up for a location yet. Enable authentication and ask an administrator to sign in and finish setup, then reload this page.</p>
         </div>

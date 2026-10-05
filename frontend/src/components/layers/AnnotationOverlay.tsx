@@ -344,7 +344,7 @@ export function AnnotationOverlay({ map }: Props) {
     annotationDrawMode === 'line'    ? drawPoints.length >= 2 :
     annotationDrawMode === 'polygon' ? drawPoints.length >= 3 : false
 
-  const btnBase = 'flex items-center justify-center w-8 h-8 border transition-colors focus:outline-none'
+  const btnBase = 'flex items-center justify-center w-8 h-8 border transition-colors focus:outline-hidden'
   const btnOn   = `${btnBase} border-amber-gold/60 text-amber-gold bg-amber-gold/10`
   const btnOff  = `${btnBase} border-white/10 text-on-surface-variant hover:border-amber-gold/40 hover:text-amber-gold`
 
@@ -409,14 +409,14 @@ export function AnnotationOverlay({ map }: Props) {
                 {isDoneEnabled && (
                   <button
                     onClick={finishDraw}
-                    className="px-2 py-0.5 text-[11px] font-bold uppercase tracking-widest border border-amber-gold/40 text-amber-gold hover:bg-amber-gold/10 transition-colors focus:outline-none"
+                    className="px-2 py-0.5 text-[11px] font-bold uppercase tracking-widest border border-amber-gold/40 text-amber-gold hover:bg-amber-gold/10 transition-colors focus:outline-hidden"
                   >
                     Done
                   </button>
                 )}
                 <button
                   onClick={cancelDraw}
-                  className="px-2 py-0.5 text-[11px] uppercase tracking-widest border border-white/10 text-on-surface-variant hover:text-red-emergency hover:border-red-emergency/40 transition-colors focus:outline-none"
+                  className="px-2 py-0.5 text-[11px] uppercase tracking-widest border border-white/10 text-on-surface-variant hover:text-red-emergency hover:border-red-emergency/40 transition-colors focus:outline-hidden"
                 >
                   Cancel
                 </button>
@@ -444,11 +444,11 @@ export function AnnotationOverlay({ map }: Props) {
                     >
                       {/* Color swatch */}
                       <div
-                        className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                        className="w-2.5 h-2.5 rounded-full shrink-0"
                         style={{ backgroundColor: ann.color }}
                       />
                       {/* Type icon */}
-                      <span className="ms text-[12px] text-on-surface-variant flex-shrink-0">
+                      <span className="ms text-[12px] text-on-surface-variant shrink-0">
                         {TYPE_ICON[ann.annotation_type]}
                       </span>
                       {/* Label / fallback */}
@@ -456,7 +456,7 @@ export function AnnotationOverlay({ map }: Props) {
                         {ann.label || <span className="text-on-surface-variant italic">unlabeled</span>}
                       </span>
                       {/* Badges */}
-                      <div className="flex items-center gap-1 flex-shrink-0">
+                      <div className="flex items-center gap-1 shrink-0">
                         {ann.tak_uid && (
                           <span className="text-[11px] text-teal-400 border border-teal-400/30 px-0.5 leading-tight">
                             TAK
@@ -471,17 +471,17 @@ export function AnnotationOverlay({ map }: Props) {
                         </span>
                       </div>
                       {/* Actions — shown on hover */}
-                      <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+                      <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                         <button
                           onClick={() => openEdit(ann)}
-                          className="w-5 h-5 flex items-center justify-center text-on-surface-variant hover:text-amber-gold focus:outline-none"
+                          className="w-5 h-5 flex items-center justify-center text-on-surface-variant hover:text-amber-gold focus:outline-hidden"
                           title="Edit"
                         >
                           <span className="ms text-[12px]">edit</span>
                         </button>
                         <button
                           onClick={() => handleDelete(ann.id)}
-                          className="w-5 h-5 flex items-center justify-center text-on-surface-variant hover:text-red-emergency focus:outline-none"
+                          className="w-5 h-5 flex items-center justify-center text-on-surface-variant hover:text-red-emergency focus:outline-hidden"
                           title="Delete"
                         >
                           <span className="ms text-[12px]">delete</span>
@@ -495,7 +495,7 @@ export function AnnotationOverlay({ map }: Props) {
           )}
         </div>
         )
-        return portalTarget ? createPortal(content, portalTarget) : <div className="absolute top-40 left-[500px] z-[30]">{content}</div>
+        return portalTarget ? createPortal(content, portalTarget) : <div className="absolute top-40 left-[500px] z-30">{content}</div>
       })()}
 
       {/* Save / Edit form modal */}
@@ -524,7 +524,7 @@ export function AnnotationOverlay({ map }: Props) {
               value={saveLabel}
               onChange={(e) => setSaveLabel(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') saveAnnotation() }}
-              className="w-full bg-onyx-deep border border-white/10 text-on-surface placeholder-on-surface-variant text-[11px] px-3 py-1.5 mb-3 focus:outline-none focus:border-amber-gold/60 transition-colors"
+              className="w-full bg-onyx-deep border border-white/10 text-on-surface placeholder-on-surface-variant text-[11px] px-3 py-1.5 mb-3 focus:outline-hidden focus:border-amber-gold/60 transition-colors"
               autoFocus
             />
 
@@ -535,7 +535,7 @@ export function AnnotationOverlay({ map }: Props) {
                   <button
                     key={c}
                     onClick={() => setSaveColor(c)}
-                    className={`w-5 h-5 rounded-full border-2 transition-all focus:outline-none ${
+                    className={`w-5 h-5 rounded-full border-2 transition-all focus:outline-hidden ${
                       saveColor === c ? 'border-white scale-110' : 'border-transparent hover:border-white/40'
                     }`}
                     style={{ backgroundColor: c }}
@@ -554,7 +554,7 @@ export function AnnotationOverlay({ map }: Props) {
                   <button
                     key={opt}
                     onClick={() => setSaveExpiry(opt)}
-                    className={`flex-1 py-0.5 text-[11px] uppercase tracking-widest border transition-colors focus:outline-none ${
+                    className={`flex-1 py-0.5 text-[11px] uppercase tracking-widest border transition-colors focus:outline-hidden ${
                       saveExpiry === opt
                         ? 'border-amber-gold/60 text-amber-gold bg-amber-gold/10'
                         : 'border-white/10 text-on-surface-variant hover:border-amber-gold/30'
@@ -570,20 +570,20 @@ export function AnnotationOverlay({ map }: Props) {
               <button
                 onClick={saveAnnotation}
                 disabled={saving}
-                className="flex-1 py-1.5 text-[11px] font-bold uppercase tracking-widest border border-amber-gold/40 text-amber-gold hover:bg-amber-gold/10 transition-colors focus:outline-none disabled:opacity-50"
+                className="flex-1 py-1.5 text-[11px] font-bold uppercase tracking-widest border border-amber-gold/40 text-amber-gold hover:bg-amber-gold/10 transition-colors focus:outline-hidden disabled:opacity-50"
               >
                 {saving ? 'Saving…' : editingAnnot ? 'Update' : 'Save'}
               </button>
               <button
                 onClick={cancelForm}
-                className="flex-1 py-1.5 text-[11px] uppercase tracking-widest border border-white/10 text-on-surface-variant hover:text-on-surface transition-colors focus:outline-none"
+                className="flex-1 py-1.5 text-[11px] uppercase tracking-widest border border-white/10 text-on-surface-variant hover:text-on-surface transition-colors focus:outline-hidden"
               >
                 {editingAnnot ? 'Cancel' : 'Discard'}
               </button>
               {editingAnnot && (
                 <button
                   onClick={() => { handleDelete(editingAnnot.id); cancelForm() }}
-                  className="py-1.5 px-2 text-[11px] uppercase tracking-widest border border-red-emergency/30 text-red-emergency hover:bg-red-emergency/10 transition-colors focus:outline-none"
+                  className="py-1.5 px-2 text-[11px] uppercase tracking-widest border border-red-emergency/30 text-red-emergency hover:bg-red-emergency/10 transition-colors focus:outline-hidden"
                   title="Delete annotation"
                 >
                   <span className="ms text-[12px]">delete</span>
@@ -603,8 +603,8 @@ export function AnnotationOverlay({ map }: Props) {
           <div className="bg-onyx-black border border-white/15 shadow-xl w-48">
             {/* Header row: color + type + label */}
             <div className="flex items-center gap-1.5 px-2.5 pt-2 pb-1.5 border-b border-white/5">
-              <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: popupAnnot.color }} />
-              <span className="ms text-[12px] text-on-surface-variant flex-shrink-0">{TYPE_ICON[popupAnnot.annotation_type]}</span>
+              <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: popupAnnot.color }} />
+              <span className="ms text-[12px] text-on-surface-variant shrink-0">{TYPE_ICON[popupAnnot.annotation_type]}</span>
               <span className="text-[11px] text-on-surface font-semibold truncate flex-1 min-w-0">
                 {popupAnnot.label || <span className="text-on-surface-variant italic font-normal">Unlabeled</span>}
               </span>
@@ -632,7 +632,7 @@ export function AnnotationOverlay({ map }: Props) {
             <div className="flex items-center px-2 py-1.5 gap-1">
               <button
                 onClick={() => openEdit(popupAnnot)}
-                className="flex-1 flex items-center justify-center gap-1 py-0.5 text-[11px] text-on-surface-variant hover:text-amber-gold uppercase tracking-widest focus:outline-none"
+                className="flex-1 flex items-center justify-center gap-1 py-0.5 text-[11px] text-on-surface-variant hover:text-amber-gold uppercase tracking-widest focus:outline-hidden"
               >
                 <span className="ms text-[11px]">edit</span>
                 Edit
@@ -640,7 +640,7 @@ export function AnnotationOverlay({ map }: Props) {
               <div className="w-px h-3 bg-white/10" />
               <button
                 onClick={() => handleDelete(popupAnnot.id)}
-                className="flex-1 flex items-center justify-center gap-1 py-0.5 text-[11px] text-on-surface-variant hover:text-red-emergency uppercase tracking-widest focus:outline-none"
+                className="flex-1 flex items-center justify-center gap-1 py-0.5 text-[11px] text-on-surface-variant hover:text-red-emergency uppercase tracking-widest focus:outline-hidden"
               >
                 <span className="ms text-[11px]">delete</span>
                 Delete
@@ -648,7 +648,7 @@ export function AnnotationOverlay({ map }: Props) {
               <div className="w-px h-3 bg-white/10" />
               <button
                 onClick={() => setPopupAnnotId(null)}
-                className="px-1.5 py-0.5 text-[11px] text-on-surface-variant hover:text-on-surface uppercase tracking-widest focus:outline-none"
+                className="px-1.5 py-0.5 text-[11px] text-on-surface-variant hover:text-on-surface uppercase tracking-widest focus:outline-hidden"
               >
                 <span className="ms text-[11px]">close</span>
               </button>

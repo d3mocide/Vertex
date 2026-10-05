@@ -1,6 +1,7 @@
 import { PolygonLayer, LineLayer } from '@deck.gl/layers'
 import type { Layer } from '@deck.gl/core'
 import { destinationPoint } from './geoUtils'
+import { liftPos, liftRing, terrainVersion } from './terrainElevation'
 
 /**
  * Build Deck.gl layers for the observation range ring (coverage area).
@@ -30,9 +31,10 @@ export function buildObservationRingLayers(
 
   return [
     new PolygonLayer({
+        updateTriggers: { getPolygon: terrainVersion(), getPosition: terrainVersion(), getSourcePosition: terrainVersion(), getTargetPosition: terrainVersion() },
       id: 'observation-ring-fill',
       data,
-      getPolygon: (d: any) => d.polygon,
+      getPolygon: (d: any) => liftRing(d.polygon),
       getFillColor: [100, 200, 255, 15] as [number, number, number, number],
       stroked: true,
       getLineColor: [100, 200, 255, 100] as [number, number, number, number],

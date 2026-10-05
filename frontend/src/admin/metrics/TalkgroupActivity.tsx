@@ -25,7 +25,7 @@ export function TalkgroupActivity({ data }: { data: TalkgroupActivityData | null
         P25 Talkgroup Activity
         <span className="ml-2 text-on-surface-variant/60 normal-case tracking-normal">last {data.window_hours}h</span>
       </h2>
-      <div className="space-y-1.5">
+      <div className="stack-y-1.5">
         {shown.map((tg) => {
           const pct = Math.round((tg.call_count / max) * 100)
           return (

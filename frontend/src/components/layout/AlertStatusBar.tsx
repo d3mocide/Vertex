@@ -166,7 +166,7 @@ export function AlertStatusBar() {
       </div>
 
       {open && (
-        <ul className="absolute left-0 right-0 lg:left-auto lg:w-[28rem] top-full z-50 max-h-[60vh] overflow-y-auto bg-onyx-deep border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.6)] divide-y divide-white/5">
+        <ul className="absolute left-0 right-0 lg:left-auto lg:w-md top-full z-50 max-h-[60vh] overflow-y-auto bg-onyx-deep border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.6)] divide-y divide-white/5">
           {items.map((a) => (
             <li key={a.id}>
               <button type="button" onClick={() => go(a)} className="w-full flex items-start gap-3 px-4 py-2.5 text-left hover:bg-white/5">

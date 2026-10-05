@@ -191,7 +191,7 @@ export default function AdminMetrics() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="stack-y-6">
       {/* Tab Navigation */}
       <div className="grid grid-cols-5 md:flex md:gap-1 border border-white/10 md:border-0 md:border-b bg-surface-container-low md:bg-transparent" role="tablist">
         {TABS.map((tab) => (
@@ -214,7 +214,7 @@ export default function AdminMetrics() {
       </div>
 
       {/* Tab Content */}
-      <div className="max-w-5xl space-y-8">
+      <div className="max-w-5xl stack-y-8">
         {/* System Health Tab */}
         {currentTab === 'system' && (
           <>

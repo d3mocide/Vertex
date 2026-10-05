@@ -25,7 +25,7 @@ export function CameraModal() {
 
   return (
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/40 backdrop-blur-xl animate-in fade-in zoom-in duration-300"
+      className="fixed inset-0 z-100 flex items-center justify-center p-6 bg-black/40 backdrop-blur-xl animate-in fade-in zoom-in duration-300"
       onClick={closeModal}
     >
       <div 
@@ -42,7 +42,7 @@ export function CameraModal() {
           <div className="flex items-center gap-4">
             <button
               onClick={() => toggleFavoriteCam(selectedCam.id)}
-              className="text-amber-gold hover:scale-110 transition-transform focus:outline-none"
+              className="text-amber-gold hover:scale-110 transition-transform focus:outline-hidden"
               aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
               title={isFavorite ? 'Remove from favorites' : 'Bookmark feed'}
             >
@@ -85,7 +85,7 @@ export function CameraModal() {
           </div>
 
           <div className="absolute bottom-4 right-4">
-            <div className="bg-onyx-black/40 backdrop-blur-sm px-2 py-1 rounded-sm border border-white/5">
+            <div className="bg-onyx-black/40 backdrop-blur-xs px-2 py-1 rounded-sm border border-white/5">
                <span className="font-mono text-[11px] text-white/40 uppercase">
                  {ldiMode ? 'Last Daylight Image' : 'Current Conditions'}
                </span>
@@ -93,7 +93,7 @@ export function CameraModal() {
           </div>
         </div>
 
-        <div className="p-3 border-t border-amber-gold-muted/30 bg-white/[0.02] flex items-center justify-between">
+        <div className="p-3 border-t border-amber-gold-muted/30 bg-white/2 flex items-center justify-between">
            <span className="font-mono text-[11px] text-on-surface-variant uppercase tracking-widest">
              Source: {selectedCam.attribution ?? 'ODOT TripCheck'} • ID: {selectedCam.id}
            </span>

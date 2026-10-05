@@ -45,11 +45,11 @@ export function ForecastStrip() {
   if (!fc || (fc.hourly.length === 0 && fc.periods.length === 0)) return null
 
   return (
-    <div className="space-y-3">
+    <div className="stack-y-3">
       {fc.hourly.length > 0 && (
         <div>
           <div className="text-[11px] font-mono uppercase tracking-widest text-on-surface-variant mb-1">Next 24 hours</div>
-          <div className="flex border border-white/10 bg-white/[0.02]">
+          <div className="flex border border-white/10 bg-white/2">
             {/* Row labels stay put while the hours scroll. */}
             <div className="shrink-0 w-11 px-1 py-2 text-right font-mono text-[10px] uppercase tracking-wider text-on-surface-variant/70 border-r border-white/10" aria-hidden="true">
               <div className="text-[11px] invisible">0</div>
@@ -76,7 +76,7 @@ export function ForecastStrip() {
       {fc.periods.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
           {fc.periods.slice(0, 4).map((p, i) => (
-            <div key={p.name} className={`${i >= 2 ? 'hidden sm:flex' : 'flex'} items-center gap-3 border border-white/10 bg-white/[0.02] px-3 py-1.5`}>
+            <div key={p.name} className={`${i >= 2 ? 'hidden sm:flex' : 'flex'} items-center gap-3 border border-white/10 bg-white/2 px-3 py-1.5`}>
               <span className="ms text-[16px] leading-none text-on-surface-variant" aria-hidden="true">{p.is_day ? 'wb_sunny' : 'bedtime'}</span>
               <div className="min-w-0 flex-1">
                 <div className="text-[12px] font-bold text-on-surface truncate">{p.name}</div>

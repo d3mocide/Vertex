@@ -40,7 +40,7 @@ function GroupCard({ g, cameras, onOpenCamera }: { g: IncidentGroup; cameras: Tr
   return (
     <article className={`flex gap-3 border p-3 relative ${hot ? 'border-amber-gold/50 bg-amber-gold/10' : 'border-white/10 bg-onyx-deep/40'}`}>
       {hot && <div className="absolute top-0 left-0 w-1 h-full bg-amber-gold" aria-hidden="true" />}
-      <div className="flex-1 min-w-0 space-y-1">
+      <div className="flex-1 min-w-0 stack-y-1">
         <div className="flex items-center gap-2 flex-wrap">
           <span className={`text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 border ${b.cls}`}>{b.text}</span>
           {inc.dist_km != null && <span className="font-mono text-[11px] text-on-surface-variant">{Math.round(inc.dist_km)} km</span>}
@@ -60,7 +60,7 @@ function GroupCard({ g, cameras, onOpenCamera }: { g: IncidentGroup; cameras: Tr
               <span className="ms text-[14px] group-open/d:rotate-90 transition-transform" aria-hidden="true">chevron_right</span>
               Also closed here · {g.members.length}
             </summary>
-            <ul className="mt-1 space-y-1">
+            <ul className="mt-1 stack-y-1">
               {g.members.map((m, i) => (
                 <li key={`${m.title}-${i}`} className="font-mono text-[11px] text-on-surface-variant leading-snug border-l border-amber-gold/40 pl-2">
                   {headline(m)}
@@ -127,7 +127,7 @@ export function IncidentsNow({ groups, cameras, onOpenCamera }: {
           <span className="text-[12px] text-on-surface">No closures or delays reported near you.</span>
         </div>
       ) : (
-        <div className="space-y-2">
+        <div className="stack-y-2">
           {visibleTop.map((g) => <GroupCard key={g.key} g={g} cameras={cameras} onOpenCamera={onOpenCamera} />)}
           {hiddenCount > 0 && (
             <button type="button" onClick={() => setAll(true)} className="font-mono text-[11px] uppercase tracking-widest text-amber-gold hover:text-white">
@@ -143,7 +143,7 @@ export function IncidentsNow({ groups, cameras, onOpenCamera }: {
                 <span className="font-mono text-amber-gold">{ongoing.reduce((n, g) => n + 1 + g.members.length, 0)}</span>
                 <span className="font-mono text-[11px] normal-case tracking-normal">· ramps and lanes, days to weeks old</span>
               </summary>
-              <div className="px-3 pb-3 space-y-2">
+              <div className="px-3 pb-3 stack-y-2">
                 {ongoing.map((g) => <GroupCard key={g.key} g={g} cameras={cameras} onOpenCamera={onOpenCamera} />)}
               </div>
             </details>

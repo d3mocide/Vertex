@@ -5,6 +5,7 @@ import { useContractAvailable } from '../../hooks/useCapabilities'
 import { getDevMap } from '../../devtools/devState'
 import { activeFacetCount, facetsFor, meshValues, trackValues, type FacetEntity } from '../../entityFacets'
 import type { SubFilters, Track } from '../../storeTypes'
+import { deleteView, loadViews, saveView, type SavedView } from '../../layers/layerViews'
 
 type Kind = 'flag' | 'entity'
 
@@ -58,7 +59,8 @@ const ALL_DEFS = GROUPS.flatMap(g => g.layers)
  * A preset is a complete picture of the map: the layers it lists are on and every other layer is off, entity types
  * included, so choosing one never leaves stray clutter behind. 'overview' matches the stock defaults.
  */
-interface Preset { id: string; label: string; icon: string; hint: string; on: string[]; sub?: SubFilters }
+interface Scene { id: string; label: string; on: string[]; sub?: SubFilters }
+interface Preset extends Scene { icon: string; hint: string }
 
 const PRESETS: Preset[] = [
   { id: 'overview', label: 'Overview', icon: 'dashboard', hint: 'Everything live, the everyday picture',
@@ -97,14 +99,14 @@ function readLayer(state: Store & { entityFilter: Record<string, boolean> }, def
 }
 
 const TRIGGER_CLASS = `relative flex items-center gap-2 px-3 py-2 hud-panel border border-amber-gold-muted text-[11px] font-mono uppercase
-  tracking-widest shadow-2xl hover:border-amber-gold/60 transition-colors focus:outline-none`
+  tracking-widest shadow-2xl hover:border-amber-gold/60 transition-colors focus:outline-hidden`
 
 function Tile({ def, on, facetCount = 0, facetOpen = false, onFacet }: {
   def: LayerDef; on: boolean; facetCount?: number; facetOpen?: boolean; onFacet?: () => void
 }) {
   const toggle = () => setLayer(def, !on)
   const border = on ? 'border-amber-gold bg-amber-gold/10' : 'border-outline-variant hover:border-white/30'
-  const focus = 'focus:outline-none focus-visible:ring-1 focus-visible:ring-amber-gold'
+  const focus = 'focus:outline-hidden focus-visible:ring-1 focus-visible:ring-amber-gold'
   return (
     <div className="flex min-w-0">
       <button
@@ -173,14 +175,14 @@ function FacetPanel({ entity, title, filters }: { entity: FacetEntity; title: st
   }
   const active = activeFacetCount(entity, filters)
   return (
-    <div className="mt-2 border border-outline-variant p-2.5 space-y-2.5" role="group" aria-label={`${title} filters`}>
+    <div className="mt-2 border border-outline-variant p-2.5 stack-y-2.5" role="group" aria-label={`${title} filters`}>
       <div className="flex items-center justify-between">
         <span className="label-caps">{title}</span>
         <button
           type="button"
           disabled={active === 0}
           onClick={() => facets.forEach(f => useCivicStore.getState().setSubFilter(f.id, []))}
-          className="text-[11px] font-bold uppercase tracking-wider text-on-surface-variant hover:text-amber-gold disabled:opacity-40 disabled:hover:text-on-surface-variant focus:outline-none"
+          className="text-[11px] font-bold uppercase tracking-wider text-on-surface-variant hover:text-amber-gold disabled:opacity-40 disabled:hover:text-on-surface-variant focus:outline-hidden"
         >
           Show all
         </button>
@@ -198,7 +200,7 @@ function FacetPanel({ entity, title, filters }: { entity: FacetEntity; title: st
                   type="button"
                   aria-pressed={picked}
                   onClick={() => toggle(facet.id, o.value)}
-                  className={`px-2 py-1 border text-[11px] font-bold tracking-wide transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-amber-gold ${picked
+                  className={`px-2 py-1 border text-[11px] font-bold tracking-wide transition-colors focus:outline-hidden focus-visible:ring-1 focus-visible:ring-amber-gold ${picked
                     ? 'border-amber-gold bg-amber-gold/10 text-amber-gold'
                     : n === 0 ? 'border-outline-variant text-on-surface-variant/50 hover:text-on-surface-variant'
                       : 'border-outline-variant text-on-surface-variant hover:text-on-surface hover:border-white/30'}`}
@@ -263,7 +265,7 @@ function ViewControls() {
         <button
           type="button"
           onClick={() => getDevMap()?.easeTo({ bearing: 0, duration: 500 })}
-          className="flex items-center gap-2 px-2 py-2 border border-outline-variant text-left text-[11px] font-bold uppercase tracking-wider text-on-surface-variant hover:text-on-surface hover:border-white/30 transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-amber-gold"
+          className="flex items-center gap-2 px-2 py-2 border border-outline-variant text-left text-[11px] font-bold uppercase tracking-wider text-on-surface-variant hover:text-on-surface hover:border-white/30 transition-colors focus:outline-hidden focus-visible:ring-1 focus-visible:ring-amber-gold"
         >
           <span className="ms text-[16px] leading-none" aria-hidden="true">explore</span>
           Reset north
@@ -278,7 +280,7 @@ function ViewControls() {
               type="button"
               onClick={() => tilt(p.pitch)}
               aria-pressed={active}
-              className={`px-2 py-1.5 border font-mono text-[11px] font-bold uppercase tracking-wider transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-amber-gold ${active
+              className={`px-2 py-1.5 border font-mono text-[11px] font-bold uppercase tracking-wider transition-colors focus:outline-hidden focus-visible:ring-1 focus-visible:ring-amber-gold ${active
                 ? 'border-amber-gold bg-amber-gold/10 text-amber-gold'
                 : 'border-outline-variant text-on-surface-variant hover:text-on-surface hover:border-white/30'}`}
             >
@@ -303,6 +305,8 @@ function LayersPanel({ onClose }: { onClose: () => void }) {
     return slice
   })) as unknown as Store & { entityFilter: Record<string, boolean>; subFilters: SubFilters }
   const [openFacet, setOpenFacet] = useState<FacetEntity | null>(null)
+  const [views, setViews] = useState<SavedView[]>(() => loadViews())
+  const [naming, setNaming] = useState<string | null>(null)   // null: not saving; text: the name being typed
   const hasContract: Record<string, boolean> = {
     'fire.danger': useContractAvailable('fire.danger'),
     'outages.areas': useContractAvailable('outages.areas'),
@@ -323,9 +327,10 @@ function LayersPanel({ onClose }: { onClose: () => void }) {
     const keys = new Set([...Object.keys(a), ...Object.keys(b)])
     return [...keys].every(k => [...(a[k] ?? [])].sort().join() === [...(b[k] ?? [])].sort().join())
   }
-  const activePreset = PRESETS.find(p => offered.every(d => readLayer(state, d) === p.on.includes(d.key)) && sameSubFilters(state.subFilters, p.sub ?? {}))
+  const allPresets: Scene[] = [...PRESETS, ...views]
+  const activePreset = allPresets.find(p => offered.every(d => readLayer(state, d) === p.on.includes(d.key)) && sameSubFilters(state.subFilters, p.sub ?? {}))
   const onCount = offered.filter(d => readLayer(state, d)).length
-  const applyPreset = (p: Preset) => {
+  const applyPreset = (p: Scene) => {
     offered.forEach(d => setLayer(d, p.on.includes(d.key)))
     useCivicStore.getState().setSubFilters(p.sub ?? {})
   }
@@ -334,7 +339,7 @@ function LayersPanel({ onClose }: { onClose: () => void }) {
     <div
       role="dialog"
       aria-label="Map layers"
-      className="fixed inset-x-2 bottom-[calc(7.25rem+env(safe-area-inset-bottom))] lg:bottom-auto lg:inset-x-auto lg:top-[calc(var(--chrome-top)+7rem)] lg:right-4 z-[45] lg:w-[400px] max-h-[58vh] lg:max-h-[calc(100vh-14rem)] flex flex-col hud-panel cursor-default"
+      className="fixed inset-x-2 bottom-[calc(7.25rem+env(safe-area-inset-bottom))] lg:bottom-auto lg:inset-x-auto lg:top-[calc(var(--chrome-top)+7rem)] lg:right-4 z-45 lg:w-[400px] max-h-[58vh] lg:max-h-[calc(100vh-14rem)] flex flex-col hud-panel cursor-default"
     >
       {/* Header and presets stay put; only the layer list scrolls. */}
       <div className="shrink-0 p-4 pb-3 border-b border-white/10">
@@ -344,7 +349,7 @@ function LayersPanel({ onClose }: { onClose: () => void }) {
             <span className="font-bold text-[11px] tracking-[0.2em] uppercase text-amber-gold">Map layers</span>
             <span className="font-mono text-[11px] text-on-surface-variant">{onCount} on</span>
           </div>
-          <button onClick={onClose} className="ms text-[20px] text-on-surface-variant hover:text-on-surface leading-none p-1 focus:outline-none" title="Close layers" aria-label="Close layers">close</button>
+          <button onClick={onClose} className="ms text-[20px] text-on-surface-variant hover:text-on-surface leading-none p-1 focus:outline-hidden" title="Close layers" aria-label="Close layers">close</button>
         </div>
         <div className="flex gap-1.5 overflow-x-auto -mx-1 px-1 pb-1" role="group" aria-label="Presets">
           {PRESETS.map((p) => {
@@ -356,7 +361,7 @@ function LayersPanel({ onClose }: { onClose: () => void }) {
                 onClick={() => applyPreset(p)}
                 aria-pressed={active}
                 title={p.hint}
-                className={`shrink-0 flex items-center gap-1.5 px-2.5 py-2 border text-[11px] font-bold uppercase tracking-wider transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-amber-gold ${active
+                className={`shrink-0 flex items-center gap-1.5 px-2.5 py-2 border text-[11px] font-bold uppercase tracking-wider transition-colors focus:outline-hidden focus-visible:ring-1 focus-visible:ring-amber-gold ${active
                   ? 'border-amber-gold text-amber-gold bg-amber-gold/10'
                   : 'border-outline-variant text-on-surface-variant hover:text-on-surface hover:border-white/30'}`}
               >
@@ -364,9 +369,66 @@ function LayersPanel({ onClose }: { onClose: () => void }) {
               </button>
             )
           })}
+          {views.map((v) => {
+            const active = activePreset?.id === v.id
+            return (
+              <div key={v.id} className={`shrink-0 flex border ${active ? 'border-amber-gold bg-amber-gold/10' : 'border-outline-variant'}`}>
+                <button
+                  type="button"
+                  onClick={() => applyPreset(v)}
+                  aria-pressed={active}
+                  title="Your saved view"
+                  className={`flex items-center gap-1.5 pl-2.5 pr-1.5 py-2 text-[11px] font-bold uppercase tracking-wider transition-colors focus:outline-hidden focus-visible:ring-1 focus-visible:ring-amber-gold ${active ? 'text-amber-gold' : 'text-on-surface-variant hover:text-on-surface'}`}
+                >
+                  <span className="ms text-[14px] leading-none" aria-hidden="true">bookmark</span>{v.label}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViews(deleteView(views, v.id))}
+                  aria-label={`Delete saved view ${v.label}`}
+                  className="px-1.5 text-on-surface-variant hover:text-red-emergency focus:outline-hidden"
+                >
+                  <span className="ms text-[14px] leading-none" aria-hidden="true">close</span>
+                </button>
+              </div>
+            )
+          })}
+          {naming === null && views.length < 12 && (
+            <button
+              type="button"
+              onClick={() => setNaming('')}
+              className="shrink-0 flex items-center gap-1.5 px-2.5 py-2 border border-dashed border-outline-variant text-[11px] font-bold uppercase tracking-wider text-on-surface-variant hover:text-amber-gold hover:border-amber-gold/60 transition-colors focus:outline-hidden focus-visible:ring-1 focus-visible:ring-amber-gold"
+            >
+              <span className="ms text-[14px] leading-none" aria-hidden="true">add</span>Save view
+            </button>
+          )}
         </div>
+        {naming !== null && (
+          <form
+            className="mt-2 flex gap-1.5"
+            onSubmit={(e) => {
+              e.preventDefault()
+              if (!naming.trim()) return
+              setViews(saveView(views, naming, offered.filter(d => readLayer(state, d)).map(d => d.key), state.subFilters))
+              setNaming(null)
+            }}
+          >
+            <input
+              autoFocus
+              value={naming}
+              maxLength={24}
+              onChange={(e) => setNaming(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); setNaming(null) } }}
+              placeholder="Name this view"
+              aria-label="Name for the saved view"
+              className="flex-1 min-w-0 bg-surface-container border border-outline-variant px-2 py-1.5 text-[12px] text-on-surface placeholder:text-on-surface-variant focus:outline-hidden focus:border-amber-gold"
+            />
+            <button type="submit" disabled={!naming.trim()} className="btn-primary px-3 py-1.5 text-[11px] disabled:opacity-40">Save</button>
+            <button type="button" onClick={() => setNaming(null)} className="btn-ghost px-3 py-1.5 text-[11px]">Cancel</button>
+          </form>
+        )}
         <p className="mt-1.5 text-[11px] text-on-surface-variant leading-snug min-h-[1.5em]">
-          {activePreset ? activePreset.hint : 'Custom mix. Pick a preset to start from a known picture.'}
+          {activePreset ? (PRESETS.find(p => p.id === activePreset.id)?.hint ?? `Your saved view, ${activePreset.on.length} layers.`) : 'Custom mix. Pick a preset or save this as your own view.'}
         </p>
       </div>
 
@@ -379,8 +441,8 @@ function LayersPanel({ onClose }: { onClose: () => void }) {
               <div className="flex items-center justify-between mb-2">
                 <h2 className="section-heading">{g.label}</h2>
                 <div className="flex gap-3 text-[11px] font-bold uppercase tracking-wider text-on-surface-variant">
-                  <button type="button" className="hover:text-amber-gold focus:outline-none" onClick={() => defs.forEach(d => setLayer(d, true))}>All</button>
-                  <button type="button" className="hover:text-amber-gold focus:outline-none" onClick={() => defs.forEach(d => setLayer(d, false))}>None</button>
+                  <button type="button" className="hover:text-amber-gold focus:outline-hidden" onClick={() => defs.forEach(d => setLayer(d, true))}>All</button>
+                  <button type="button" className="hover:text-amber-gold focus:outline-hidden" onClick={() => defs.forEach(d => setLayer(d, false))}>None</button>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-1.5">
@@ -418,8 +480,9 @@ function LayersPanel({ onClose }: { onClose: () => void }) {
   )
 }
 
-export function LayersController() {
+export function LayersController({ onOpenChange }: { onOpenChange?: (open: boolean) => void } = {}) {
   const [open, setOpen] = useState(false)
+  useEffect(() => { onOpenChange?.(open) }, [open, onOpenChange])
   const count = useCivicStore((s) => ALL_DEFS.reduce((n, d) => n + (readLayer(s as unknown as Store & { entityFilter: Record<string, boolean> }, d) ? 1 : 0), 0))
   return (
     <div className="relative">

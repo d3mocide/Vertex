@@ -23,7 +23,7 @@ export interface DocPage {
 }
 
 const gettingStarted = (
-  <div className="space-y-6">
+  <div className="stack-y-6">
     <DocHeader
       title="Getting Started with Vertex"
       subtitle="Unified Situational Awareness Platform"
@@ -80,7 +80,7 @@ const gettingStarted = (
 )
 
 const interfaceOverview = (
-  <div className="space-y-6">
+  <div className="stack-y-6">
     <DocHeader title="Interface & Navigation" subtitle="High-Density Information Display" />
 
     <DocSection title="The Top Bar">
@@ -130,7 +130,7 @@ const interfaceOverview = (
 )
 
 const mapLayers = (
-  <div className="space-y-6">
+  <div className="stack-y-6">
     <DocHeader title="Map Layers & Interaction" subtitle="Raster Imagery & Vector Data" />
 
     <DocSection title="Turning Layers On and Off">
@@ -184,7 +184,7 @@ const mapLayers = (
       <DocText>
         Icons simplify as you zoom out: a dot when far, a ring or basic icon at medium zoom, and the full icon when close. At high zoom these are used:
       </DocText>
-      <div className="overflow-hidden border border-white/10 rounded-xl bg-white/[0.02]">
+      <div className="overflow-hidden border border-white/10 rounded-xl bg-white/2">
         <table className="w-full text-left text-[11px] font-mono">
           <thead className="bg-white/5 text-amber-gold uppercase tracking-widest font-bold">
             <tr>
@@ -207,7 +207,7 @@ const mapLayers = (
               { icon: 'lightning', color: COLORS.LIGHTNING, type: 'Strike',          src: 'Lightning detection' },
               { icon: 'camera',    color: COLORS.CAMERA,    type: 'Traffic Cam',     src: 'ODOT TripCheck' },
             ].map((item, i) => (
-              <tr key={i} className="hover:bg-white/[0.02] transition-colors">
+              <tr key={i} className="hover:bg-white/2 transition-colors">
                 <td className="px-4 py-3">
                   <AtlasIcon name={item.icon} color={item.color} size={20} />
                 </td>
@@ -249,7 +249,7 @@ const mapLayers = (
 )
 
 const analysisTools = (
-  <div className="space-y-6">
+  <div className="stack-y-6">
     <DocHeader title="Tactical Analysis Tools" subtitle="Replay, Zones, & Annotations" />
 
     <DocText>
@@ -305,7 +305,7 @@ const analysisTools = (
 )
 
 const infoPanels = (
-  <div className="space-y-6">
+  <div className="stack-y-6">
     <DocHeader title="Pages & Dashboards" subtitle="What Each Page Shows" />
 
     <DocSection title="Incidents">
@@ -373,7 +373,7 @@ const infoPanels = (
 )
 
 const searchFiltering = (
-  <div className="space-y-6">
+  <div className="stack-y-6">
     <DocHeader title="Search & Filtering" subtitle="Managing High-Volume Data" />
 
     <DocSection title="Search">

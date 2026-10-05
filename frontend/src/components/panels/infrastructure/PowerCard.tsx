@@ -56,10 +56,10 @@ export function PowerCard() {
           <span className="text-[12px] text-on-surface">{current ? `No reported outages within ${data?.near_radius_km ?? 30} km in covered areas` : 'Nearby outage status unavailable'}</span>
         </div>
       ) : (
-        <div className="space-y-1.5">
+        <div className="stack-y-1.5">
           <div className="text-[12px] text-amber-gold font-bold">{nearTotal} meters out near you</div>
           {near.slice(0, 5).map((o, i) => (
-            <div key={`${o.county}-${i}`} className="border border-white/10 bg-white/[0.02] px-3 py-1.5 font-mono text-[11px]">
+            <div key={`${o.county}-${i}`} className="border border-white/10 bg-white/2 px-3 py-1.5 font-mono text-[11px]">
               <div className="flex items-center gap-3">
                 <span className="text-on-surface flex-1 truncate">{o.utility}</span>
                 <span className="text-on-surface-variant">{o.county}</span>
@@ -78,11 +78,11 @@ export function PowerCard() {
       )}
 
       {(failed || stale) && <p className="mt-2 text-[11px] text-amber-gold">Updates are unavailable or overdue. Showing last known reports.</p>}
-      <div className="mt-2 pt-2 border-t border-white/5 font-mono text-[11px] text-on-surface-variant space-y-1">
+      <div className="mt-2 pt-2 border-t border-white/5 font-mono text-[11px] text-on-surface-variant stack-y-1">
         <div>Reported coverage: {data?.coverage?.join(', ') || 'unreported'}</div>
         <details>
           <summary className="cursor-pointer">Utility totals · {data?.utilities?.length ?? 0} reporting utilities</summary>
-          <div className="mt-1 space-y-1">
+          <div className="mt-1 stack-y-1">
             {(data?.utilities ?? []).map((utility) => <div key={utility.id}>{utility.name} · {utility.state} · {utility.meters_out.toLocaleString()} meters out{utility.attribution ? ` · ${utility.attribution}` : ''}</div>)}
           </div>
         </details>

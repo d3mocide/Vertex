@@ -62,14 +62,14 @@ export function EmsActivity() {
   const flagged = feed.flags.length
 
   return (
-    <div id="sec-ems" className="space-y-3 scroll-mt-4">
+    <div id="sec-ems" className="stack-y-3 scroll-mt-4">
       <div className="flex items-center gap-2">
         <span className="ms text-on-surface-variant">monitor_heart</span>
-        <h3 className="section-heading !mb-0">EMS Patient Reports</h3>
+        <h3 className="section-heading mb-0!">EMS Patient Reports</h3>
         <span className="label-caps ml-auto">Hospital radio · 24h</span>
       </div>
 
-      <div className="border border-white/10 bg-surface-container/40 p-3 space-y-3">
+      <div className="border border-white/10 bg-surface-container/40 p-3 stack-y-3">
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
           <span className="data-value">{feed.reports} reports</span>
           {feed.reports_baseline != null && (

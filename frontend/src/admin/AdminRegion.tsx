@@ -43,7 +43,7 @@ function Fact({ label, children }: { label: string; children: React.ReactNode })
   return (
     <div className="min-w-0">
       <div className="text-[11px] uppercase tracking-widest text-on-surface-variant mb-1">{label}</div>
-      <div className="font-mono text-[13px] text-on-surface break-words">{children}</div>
+      <div className="font-mono text-[13px] text-on-surface wrap-break-word">{children}</div>
     </div>
   )
 }
@@ -89,7 +89,7 @@ export default function AdminRegion() {
   const contracts = caps ? Object.entries(caps.contracts) : []
 
   return (
-    <div className="max-w-5xl space-y-8">
+    <div className="max-w-5xl stack-y-8">
       {status?.restart_required && (
         <div className="flex gap-2 p-3 border border-amber-gold/40 bg-amber-gold/10 text-xs text-amber-gold" role="status">
           <span className="ms text-[16px] shrink-0" aria-hidden="true">restart_alt</span>
@@ -109,7 +109,7 @@ export default function AdminRegion() {
           {region.configured ? 'Change region…' : 'Run setup…'}
         </button>
       }>
-        <div className="border border-white/10 bg-black/30 p-4 space-y-4">
+        <div className="border border-white/10 bg-black/30 p-4 stack-y-4">
           <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
             <span className="text-lg font-bold text-on-surface">{region.name}</span>
             <span className="text-[12px] text-on-surface-variant">{SOURCE_TEXT[region.source]}</span>
@@ -142,11 +142,11 @@ export default function AdminRegion() {
         {packs.length === 0 ? (
           <p className="text-xs text-on-surface-variant">No region packs are installed.</p>
         ) : (
-          <div className="space-y-2">
+          <div className="stack-y-2">
             {packs.map((p) => {
               const missing = (p.keys ?? []).filter((k) => !k.present)
               return (
-                <div key={p.id} className={`border p-3 space-y-2 ${selectedIds.includes(p.id) ? 'border-amber-gold/50 bg-amber-gold/5' : 'border-white/10 bg-black/30'}`}>
+                <div key={p.id} className={`border p-3 stack-y-2 ${selectedIds.includes(p.id) ? 'border-amber-gold/50 bg-amber-gold/5' : 'border-white/10 bg-black/30'}`}>
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                     <label className="flex items-center gap-3 font-bold text-on-surface cursor-pointer">
                       <input type="checkbox" className="accent-amber-gold" disabled={!p.valid || saving} checked={selectedIds.includes(p.id)} onChange={() => setSelectedIds((ids) => ids.includes(p.id) ? ids.filter((id) => id !== p.id) : [...ids, p.id])} />

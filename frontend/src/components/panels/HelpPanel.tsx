@@ -27,7 +27,7 @@ export function HelpPanel() {
     <div className="fixed inset-0 z-50 flex items-center justify-center p-0 lg:p-8" role="dialog" aria-modal="true" aria-label="Documentation">
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+        className="absolute inset-0 bg-black/80 backdrop-blur-xs"
         onClick={() => setHelpOpen(false)}
         aria-hidden="true"
       />
@@ -96,7 +96,7 @@ export function HelpPanel() {
         {/* Content Area */}
         <div className="flex-1 flex flex-col min-w-0 bg-onyx-deep relative z-10">
           {/* Content Header (Desktop) */}
-          <div className="hidden lg:flex items-center justify-between px-8 py-4 border-b border-white/5 bg-white/[0.01] shrink-0">
+          <div className="hidden lg:flex items-center justify-between px-8 py-4 border-b border-white/5 bg-white/1 shrink-0">
             <div className="flex items-center gap-3">
               <span className="text-[11px] font-bold tracking-[0.2em] uppercase text-on-surface-variant/40">{activePage.section}</span>
               <div className="w-1 h-1 rounded-full bg-amber-gold/30" />
@@ -121,7 +121,7 @@ export function HelpPanel() {
             <div className="lg:hidden mt-12 pt-8 border-t border-white/5 flex flex-col gap-4 pb-12">
               <button 
                 onClick={() => setMobileNavOpen(true)}
-                className="w-full py-4 border border-white/10 rounded-xl flex items-center justify-center gap-2 text-amber-gold text-[12px] font-bold uppercase tracking-widest bg-white/[0.02]"
+                className="w-full py-4 border border-white/10 rounded-xl flex items-center justify-center gap-2 text-amber-gold text-[12px] font-bold uppercase tracking-widest bg-white/2"
               >
                 <span className="ms">menu</span>
                 Browse Topics

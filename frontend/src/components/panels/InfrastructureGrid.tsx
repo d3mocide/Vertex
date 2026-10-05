@@ -81,7 +81,7 @@ function CctvThumbnail({
         </span>
       </button>
       {/* Camera label overlay */}
-      <div className="absolute bottom-0 left-0 right-0 px-2 pt-5 pb-1 flex items-center justify-between bg-gradient-to-t from-black/90 via-black/60 to-transparent">
+      <div className="absolute bottom-0 left-0 right-0 px-2 pt-5 pb-1 flex items-center justify-between bg-linear-to-t from-black/90 via-black/60 to-transparent">
         <span className="text-[12px] font-semibold text-on-surface truncate mr-1">
           {cam.name}
         </span>
@@ -171,7 +171,7 @@ export function InfrastructureGrid() {
           <button
             onClick={() => setLdiMode(!ldiMode)}
             className={`
-              relative w-9 h-5 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-gold
+              relative w-9 h-5 transition-colors focus:outline-hidden focus-visible:ring-2 focus-visible:ring-amber-gold
               ${ldiMode ? 'bg-amber-gold' : 'bg-surface-container-highest border border-amber-gold-muted'}
             `}
             role="switch"

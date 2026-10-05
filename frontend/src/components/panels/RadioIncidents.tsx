@@ -210,7 +210,7 @@ function IncidentMap({ incidents, selectedId, onSelect }: {
 
   return (
     <div className="relative border border-white/10 bg-onyx-deep h-[260px] lg:h-[560px]">
-      <div ref={containerRef} className="absolute inset-0" aria-label="Incident map" role="region" />
+      <div ref={containerRef} className="w-full h-full" aria-label="Incident map" role="region" />
       <div className="absolute top-2 left-2 bg-onyx-black/80 border border-white/10 px-2 py-1 flex gap-3 text-[11px] uppercase tracking-widest text-on-surface-variant pointer-events-none">
         <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-emergency" />Life safety</span>
         <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-p25" />Serious</span>
@@ -242,14 +242,14 @@ function IncidentCard({ incident: i, now, selected, onSelect, expanded = false }
   return (
     <li ref={ref} className={`relative flex border bg-surface-container transition-colors ${selected ? 'border-amber-gold' : 'border-white/5 hover:border-white/15'} ${active ? '' : 'opacity-70'}`}>
       <span className={`w-1 shrink-0 ${severityBar(i.severity)}`} aria-hidden="true" />
-      <div className="flex-1 min-w-0 p-3 space-y-2">
-        <button onClick={onSelect} className="w-full text-left focus:outline-none" aria-pressed={selected}>
+      <div className="flex-1 min-w-0 p-3 stack-y-2">
+        <button onClick={onSelect} className="w-full text-left focus:outline-hidden" aria-pressed={selected}>
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-center gap-2 min-w-0">
               <span className={`ms text-[18px] shrink-0 ${i.severity >= 5 ? 'text-red-emergency' : i.severity >= 4 ? 'text-amber-gold' : 'text-on-surface-variant'}`} aria-hidden="true">
                 {meta.icon}
               </span>
-              <span className="label-caps !text-on-surface truncate">{i.nature ?? meta.label}</span>
+              <span className="label-caps text-on-surface! truncate">{i.nature ?? meta.label}</span>
             </div>
             <span className="font-mono text-[11px] text-on-surface-variant shrink-0">
               {hhmm(i.first_seen)}{i.last_seen !== i.first_seen && hhmm(i.last_seen) !== hhmm(i.first_seen) ? `–${hhmm(i.last_seen)}` : ''}
@@ -383,10 +383,10 @@ export function RadioIncidents() {
   const pageItems = shown.slice(current * PAGE_SIZE, (current + 1) * PAGE_SIZE).filter((i) => i.id !== selectedId)
 
   return (
-    <section ref={sectionRef} className="space-y-3 scroll-mt-4" aria-labelledby="radio-incidents-heading">
+    <section ref={sectionRef} className="stack-y-3 scroll-mt-4" aria-labelledby="radio-incidents-heading">
       <div className="flex items-end justify-between gap-3">
         <div className="min-w-0">
-          <h3 id="radio-incidents-heading" className="section-heading !mb-1 flex items-center gap-2">
+          <h3 id="radio-incidents-heading" className="section-heading mb-1! flex items-center gap-2">
             <span className="ms text-[16px]" aria-hidden="true">cell_tower</span>
             Dispatch Incidents
           </h3>
@@ -426,7 +426,7 @@ export function RadioIncidents() {
             value={zone}
             onChange={(e) => setZone(e.target.value)}
             aria-label="Filter by zone"
-            className="h-8 bg-onyx-deep border border-white/10 text-on-surface font-mono text-[11px] uppercase tracking-widest px-2 focus:outline-none focus:border-amber-gold/60"
+            className="h-8 bg-onyx-deep border border-white/10 text-on-surface font-mono text-[11px] uppercase tracking-widest px-2 focus:outline-hidden focus:border-amber-gold/60"
           >
             <option value="">All zones</option>
             {zones.map((z) => <option key={z} value={z}>{z}</option>)}
@@ -449,9 +449,9 @@ export function RadioIncidents() {
               {selected && (
                 <div className="mb-2">
                   <div className="flex items-center justify-between mb-1">
-                    <span className="label-caps !text-amber-gold">Selected</span>
+                    <span className="label-caps text-amber-gold!">Selected</span>
                     <button type="button" onClick={() => setSelectedId(null)}
-                            className="flex items-center gap-1 text-[11px] uppercase tracking-widest text-on-surface-variant hover:text-on-surface focus:outline-none">
+                            className="flex items-center gap-1 text-[11px] uppercase tracking-widest text-on-surface-variant hover:text-on-surface focus:outline-hidden">
                       <span className="ms text-[14px]" aria-hidden="true">close</span>Clear
                     </button>
                   </div>
@@ -460,7 +460,7 @@ export function RadioIncidents() {
                   </ul>
                 </div>
               )}
-              <ul className="space-y-2">
+              <ul className="stack-y-2">
                 {pageItems.map((i) => (
                   <IncidentCard
                     key={i.id}

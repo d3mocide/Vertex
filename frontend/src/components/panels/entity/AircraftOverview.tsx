@@ -148,10 +148,10 @@ export function AircraftOverview({ entity, getIdentity, trail = [] }: OverviewPr
         </div>
       </div>
 
-      <div className="space-y-3">
+      <div className="stack-y-3">
         <div>
           <span className="label-caps text-[11px] text-amber-gold-dim mb-1 block">Identity</span>
-          <div className="space-y-1">
+          <div className="stack-y-1">
             {squawk && !squawkAlert && (
               <div className="flex justify-between items-baseline gap-2">
                 <span className="text-[11px] text-on-surface-variant">Squawk</span>
@@ -169,7 +169,7 @@ export function AircraftOverview({ entity, getIdentity, trail = [] }: OverviewPr
 
         <div>
           <span className="label-caps text-[11px] text-amber-gold-dim mb-1 block">Routing</span>
-          <div className="space-y-1">
+          <div className="stack-y-1">
             {routeRows.filter(([, v]) => v != null).map(([label, val]) => (
               <div key={label} className="flex justify-between items-baseline gap-2">
                 <span className="text-[11px] text-on-surface-variant">{label}</span>

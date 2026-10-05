@@ -89,7 +89,7 @@ function RadarMiniMapCanvas({
     <div
       className={`relative w-full ${isFullHeight ? 'flex-1 min-h-0' : 'h-[420px]'} bg-onyx-deep/60 rounded-sm overflow-hidden mb-4 border border-white/5 shadow-inner`}
     >
-      <div ref={mapContainerRef} className="absolute inset-0" />
+      <div ref={mapContainerRef} className="w-full h-full" />
       
       {map && (
         <>
@@ -102,7 +102,7 @@ function RadarMiniMapCanvas({
       )}
 
       <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute inset-0 bg-gradient-to-t from-onyx-black/60 to-transparent" />
+        <div className="absolute inset-0 bg-linear-to-t from-onyx-black/60 to-transparent" />
         <div className="absolute inset-0 flex items-center justify-center opacity-20">
           <div className="w-4 h-px bg-amber-gold" />
           <div className="h-4 w-px bg-amber-gold" />

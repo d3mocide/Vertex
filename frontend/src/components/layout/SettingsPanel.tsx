@@ -29,7 +29,7 @@ export function SettingsPanel() {
     <div className="fixed inset-0 z-50" role="dialog" aria-modal="true" aria-label="Settings">
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-onyx-black/60 backdrop-blur-sm"
+        className="absolute inset-0 bg-onyx-black/60 backdrop-blur-xs"
         onClick={() => setSettingsOpen(false)}
         aria-hidden="true"
       />
@@ -47,7 +47,7 @@ export function SettingsPanel() {
           </div>
           <button
             onClick={() => setSettingsOpen(false)}
-            className="text-on-surface-variant hover:text-amber-gold transition-colors p-1 focus:outline-none focus-visible:ring-1 focus-visible:ring-amber-gold"
+            className="text-on-surface-variant hover:text-amber-gold transition-colors p-1 focus:outline-hidden focus-visible:ring-1 focus-visible:ring-amber-gold"
             aria-label="Close settings"
           >
             <span className="ms text-[22px]">close</span>
@@ -55,12 +55,12 @@ export function SettingsPanel() {
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto py-4 px-5 space-y-6">
+        <div className="flex-1 overflow-y-auto py-4 px-5 stack-y-6">
 
           {/* Account — top */}
           <section>
             <h2 className="label-caps mb-3">Account</h2>
-            <div className="space-y-3">
+            <div className="stack-y-3">
               <button
                 onClick={() => { void logout().then(() => window.location.reload()) }}
                 className="flex items-center gap-2 w-full py-2 px-3 border border-red-emergency/30 text-red-emergency/80 hover:bg-red-emergency/10 transition-colors text-[11px] font-bold uppercase tracking-widest"
@@ -93,7 +93,7 @@ export function SettingsPanel() {
           {notifPermission !== 'unsupported' && (
             <section>
               <h2 className="label-caps mb-3">Notifications</h2>
-              <div className="space-y-3">
+              <div className="stack-y-3">
                 {notifPermission === 'denied' ? (
                   <p className="text-[11px] text-on-surface-variant leading-relaxed">
                     Notifications blocked by browser. Enable them in browser site settings.
@@ -127,7 +127,7 @@ export function SettingsPanel() {
           {userRole === 'admin' && (
             <section>
               <h2 className="label-caps mb-3">Developer</h2>
-              <div className="space-y-3">
+              <div className="stack-y-3">
                 <ToggleRow
                   label="Debug Mode"
                   icon="bug_report"

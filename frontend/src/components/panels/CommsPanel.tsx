@@ -36,7 +36,7 @@ function NodeRow({ node, distM }: { node: Entity; distM: number }) {
         <span className={`ms text-[14px] ${isMesh ? 'text-lime-rf' : 'text-violet-space'} opacity-80`}>
           {isMesh ? 'hub' : 'sensors'}
         </span>
-        <div className="flex flex-col -space-y-0.5">
+        <div className="flex flex-col -stack-y-0.5">
           <span className="text-[11px] font-bold text-on-surface group-hover:text-amber-gold transition-colors truncate max-w-[120px]">
             {node.display_name || node.entity_id.split(':').pop()}
           </span>
@@ -185,7 +185,7 @@ function SpectralMonitor({ links, history, status }: { links: MeshLink[]; histor
           </div>
         </div>
 
-        <div className="space-y-3 font-mono text-[11px]">
+        <div className="stack-y-3 font-mono text-[11px]">
           {op25Online ? (
             <>
               {radio.freq_hz != null && (
@@ -242,7 +242,7 @@ function SpectralMonitor({ links, history, status }: { links: MeshLink[]; histor
           </div>
         </div>
 
-        <div className="space-y-3 font-mono text-[11px]">
+        <div className="stack-y-3 font-mono text-[11px]">
           <div className="flex justify-between items-center px-1">
             <span className="text-on-surface-variant uppercase">IGate Stations</span>
             <span className="text-[11px] font-bold text-on-surface">
@@ -288,7 +288,7 @@ function SpectralMonitor({ links, history, status }: { links: MeshLink[]; histor
               <span className="text-[11px] font-mono text-on-surface-variant uppercase">{status.connected ? 'Online' : 'Offline'}</span>
             </div>
           </div>
-          <div className="space-y-4">
+          <div className="stack-y-4">
             {status.battery_level != null && (
               <SignalMeter label="Battery" value={status.battery_level} max={100} colorClass={status.battery_level > 20 ? 'text-green-ais' : 'text-red-emergency'} />
             )}
@@ -321,7 +321,7 @@ function SpectralMonitor({ links, history, status }: { links: MeshLink[]; histor
               </div>
               <span className="text-[11px] font-mono text-on-surface-variant uppercase bg-white/5 px-1.5 rounded-full">P2P Link</span>
             </div>
-            <div className="space-y-4">
+            <div className="stack-y-4">
               <SignalMeter label="SNR (dB)" value={link.snr || 0} max={20} colorClass="text-amber-gold" history={h.snr} />
               <SignalMeter label="Link Quality" value={link.link_quality || 0} max={100} colorClass="text-cyan-ais" history={h.quality} />
             </div>
@@ -466,7 +466,7 @@ export function CommsPanel() {
             </h3>
             <div className="p-4 border border-amber-gold/30 bg-amber-gold/5 glass-panel">
               {radio.state === 'call' || radio.state === 'encrypted' ? (
-                <div className="space-y-3">
+                <div className="stack-y-3">
                   <div className="flex justify-between items-start">
                     <div>
                       <div className="font-mono text-[11px] text-amber-gold uppercase tracking-[0.2em] mb-1">LIVE TALKGROUP</div>
@@ -687,7 +687,7 @@ export function CommsPanel() {
                           placeholder="Filter messages..."
                           value={msgFilter}
                           onChange={e => setMsgFilter(e.target.value)}
-                          className="w-full bg-onyx-black/40 border border-white/10 pl-9 pr-8 py-1.5 text-[12px] text-on-surface placeholder-on-surface-variant focus:outline-none focus:border-amber-gold/50 focus:shadow-[0_0_8px_rgba(255,184,0,0.15)] transition-all"
+                          className="w-full bg-onyx-black/40 border border-white/10 pl-9 pr-8 py-1.5 text-[12px] text-on-surface placeholder-on-surface-variant focus:outline-hidden focus:border-amber-gold/50 focus:shadow-[0_0_8px_rgba(255,184,0,0.15)] transition-all"
                           autoFocus
                         />
                         {msgFilter && (
@@ -715,7 +715,7 @@ export function CommsPanel() {
                           value={newMsgText}
                           onChange={e => setNewMsgText(e.target.value)}
                           disabled={sendingMsg || !meshStatus?.connected}
-                          className="w-full bg-onyx-black/40 border border-white/10 pl-9 pr-3 py-1.5 text-[12px] text-on-surface placeholder-on-surface-variant focus:outline-none focus:border-amber-gold/50 focus:shadow-[0_0_8px_rgba(255,184,0,0.15)] transition-all disabled:opacity-50"
+                          className="w-full bg-onyx-black/40 border border-white/10 pl-9 pr-3 py-1.5 text-[12px] text-on-surface placeholder-on-surface-variant focus:outline-hidden focus:border-amber-gold/50 focus:shadow-[0_0_8px_rgba(255,184,0,0.15)] transition-all disabled:opacity-50"
                         />
                       </div>
                     )}
@@ -752,13 +752,13 @@ export function CommsPanel() {
                 </form>
 
                 {/* Message Feed — grouped by conversation */}
-                <div className="flex-1 overflow-y-auto p-4 pb-4 space-y-4 custom-scrollbar">
+                <div className="flex-1 overflow-y-auto p-4 pb-4 stack-y-4 custom-scrollbar">
                   {messageGroups.length > 0 ? (
                     messageGroups.map(group => (
                       <div key={group.key}>
                         {/* Group header — only shown in "all" view */}
                         {selectedConv === 'all' && (
-                          <div className="flex items-center gap-2 mb-2 sticky top-0 bg-onyx-deep/80 backdrop-blur-sm py-1 z-10">
+                          <div className="flex items-center gap-2 mb-2 sticky top-0 bg-onyx-deep/80 backdrop-blur-xs py-1 z-10">
                             <span className="ms text-[12px] text-amber-gold/60">forum</span>
                             <span className="font-mono text-[11px] text-amber-gold/80 uppercase tracking-widest">
                               {prettyConversationLabel(group.key, conversationNames.get(group.key))}
@@ -767,7 +767,7 @@ export function CommsPanel() {
                             <div className="flex-1 h-px bg-white/5" />
                           </div>
                         )}
-                        <div className="space-y-4">
+                        <div className="stack-y-4">
                           {group.msgs.map((msg, idx) => (
                             <div key={msg.id || `${msg.sender_key || 'unknown'}-${msg.timestamp || 'no-ts'}-${idx}`} className={`flex flex-col ${msg.outgoing ? 'items-end' : 'items-start'}`}>
                               <div className="flex items-center gap-2 mb-1 px-1">

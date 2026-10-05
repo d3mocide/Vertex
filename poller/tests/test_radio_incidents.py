@@ -361,3 +361,86 @@ def test_address_less_assault_chatter_never_joins_an_assault_elsewhere():
     inc = extract(rows_of((0, "WC Fire Disp", "engine 62 and amr 109 respond to assault at 7067 southeast blanton street cross streets are x and y"),
                           (1, "WC Fire Disp", "firepower 364 has the assault engine closed we are clear")))
     assert len(inc) == 2
+
+
+# ── Location extraction: forms found by auditing two weeks of unlocated serious calls ────────────────────────────────
+
+
+def _loc(text):
+    return locate(normalise(text))[0]
+
+
+@pytest.mark.parametrize("text, expected", [
+    # digits read one at a time with hyphens, street direction after the street (Clackamas style)
+    ("Respond to traffic accident with injuries. At 2-0-3-0-5, Maple Cutoff Northeast. Cross streets are Alder Road Northeast.", "20305 NE Maple Cutoff"),
+    ("at 2-1-4-7-9 Southeast Birch Court unit 3 cross streets are no street and Southeast 82nd Drive", "21479 SE Birch Ct"),
+    # filler between the number and the street
+    ("possible apartment fire at 5125 of the Example Ferry Road, unit 110", "5125 Example Ferry Rd"),
+    ("going to 22400, this is Sample Road for a patient", "22400 Sample Rd"),
+    ("going to 20046, that was Joan Court. 75-year-old male", "20046 Joan Ct"),
+])
+def test_address_forms_that_used_to_be_missed(text, expected):
+    assert _loc(text) == expected
+
+
+@pytest.mark.parametrize("text, expected", [
+    ("respond to traffic accidents with injuries at Alder Road Northeast and Birch Lane Northeast, working channel", "NE Alder Rd & NE Birch Ln"),
+    ("respond to traffic accident at Southeast Highway 212 and Southeast 135th Avenue. Working channel ops 24", "SE 135th Ave & SE Hwy 212"),
+    ("respond to traffic accidents with injuries at Foobar and Quux Road, working channel", "Foobar & Quux Rd"),
+])
+def test_intersections_with_trailing_directions_numbered_highways_and_a_suffixless_first_street(text, expected):
+    got = _loc(text)
+    assert got is not None
+    assert {s.strip() for s in got.split(" & ")} == {s.strip() for s in expected.split(" & ")}
+
+
+def test_cross_streets_do_not_carry_the_sentence_words_in_front_of_them():
+    got = _loc("cross streets are Alder Street and Birch Avenue working channel ops 24")
+    assert got == "Alder St & Birch Ave"
+
+
+def test_an_address_beats_the_cross_streets_even_when_its_digits_are_hyphenated():
+    assert _loc("respond at 8-8-6-5 Southeast Tiffany Court. Cross streets are Alder Street and Birch Avenue.") == "8865 SE Tiffany Ct"
+
+
+def test_a_numbered_highway_is_a_highway_not_a_street_name_with_garbage_around_it():
+    assert _loc("cardiac arrest 13640, Southings Highway 212.") == "13640 Hwy 212"
+
+
+def test_northbound_is_not_part_of_a_street_name():
+    assert _loc("we are coming from 217 northbound and highway 99") != "217 Northbound And Hwy"
+
+
+def test_a_serious_call_with_only_a_street_is_located_by_the_street():
+    c = call("potential barn fire off of Northwest Sample Creek Road. we will plant you and tap you to the residential fire")
+    assert c.location == "NW Sample Creek Rd" and c.key.startswith("street|")
+
+
+def test_a_routine_call_with_only_a_street_is_not_made_into_an_incident():
+    c = call("medic 21 responding to the fall on Sample Drive")
+    assert c.location is None and c.key is None
+    assert extract(rows_of((0, "WC OPS 35", "medic 21 responding to the fall on Sample Drive"))) == []
+
+
+def test_on_their_way_is_not_a_street():
+    assert _loc("someone is on their way out there to the structure fire") is None
+
+
+def test_street_only_calls_of_one_street_cluster_together():
+    inc = extract(rows_of((0, "WC OPS 34", "second alarm MVA on Sample Road, units are responding"),
+                          (5, "WC OPS 34", "recall the second alarm MVA on Sample Road, second alarm units can clear")))
+    assert len(inc) == 1 and len(inc[0].calls) == 2
+
+
+def test_traffic_accident_with_injuries_is_a_crash_not_a_medical_call():
+    c = call("respond to traffic accident with injuries. At 1234 Southwest Maple Avenue. Cross streets are Alder Street and Birch Avenue.")
+    assert (c.category, c.severity) == ("crash", 3)
+    c = call("chest pain, injuries to the left arm, at 1234 Southwest Maple Avenue")
+    assert c.category == "medical"
+
+
+def test_water_rescue_apparatus_names_are_not_water_rescues():
+    for text in ("Agent 331 from Water Rescue 2019.", "engine 20 out of service, water rescue, 20 responding",
+                 "can you add Water Rescue 5-9 to the Water Rescue Call"):
+        assert call(text).category != "water_rescue", text
+    assert call("respond to a water rescue at 1234 southwest maple avenue").category == "water_rescue"

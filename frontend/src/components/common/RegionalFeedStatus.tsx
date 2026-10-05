@@ -27,7 +27,7 @@ export function RegionalFeedStatus({ contracts }: { contracts: string[] }) {
   }
   if (!unavailable && issues.size === 0) return null
   return (
-    <section className="hud-panel px-4 py-3 space-y-2" role="status" aria-label="Regional feed status">
+    <section className="hud-panel px-4 py-3 stack-y-2" role="status" aria-label="Regional feed status">
       {unavailable && <p className="text-[12px] text-amber-gold">Feed freshness could not be checked. Displayed data may be out of date.</p>}
       {[...issues.entries()].map(([key, issue]) => (
         <div key={key} className="text-[12px]">

@@ -24,7 +24,7 @@ const STEPS: { id: Exclude<Step, 'done'>; label: string }[] = [
 ]
 const US_CENTER: [number, number] = [-98.5, 39.5]
 
-const input = 'w-full bg-surface-container-highest/50 border border-white/10 px-3 py-2 font-mono text-[13px] text-on-surface focus:outline-none focus:border-amber-gold'
+const input = 'w-full bg-surface-container-highest/50 border border-white/10 px-3 py-2 font-mono text-[13px] text-on-surface focus:outline-hidden focus:border-amber-gold'
 
 function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
@@ -184,8 +184,8 @@ export function SetupWizard({ firstRun, onClose }: { firstRun: boolean; onClose:
   )
 
   return (
-    <div className="fixed inset-0 z-[70] bg-onyx-black/95 overflow-y-auto" role="dialog" aria-modal="true" aria-label="Setup wizard">
-      <div className="max-w-3xl mx-auto p-4 lg:p-8 space-y-6">
+    <div className="fixed inset-0 z-70 bg-onyx-black/95 overflow-y-auto" role="dialog" aria-modal="true" aria-label="Setup wizard">
+      <div className="max-w-3xl mx-auto p-4 lg:p-8 stack-y-6">
         <header className="flex items-start justify-between gap-4">
           <div>
             <div className="label-caps text-amber-gold">{firstRun ? 'First-run setup' : 'Region setup'}</div>
@@ -216,7 +216,7 @@ export function SetupWizard({ firstRun, onClose }: { firstRun: boolean; onClose:
         {error && <div className="hud-panel p-3 border border-red-emergency/60 text-[13px] text-red-emergency" role="alert">{error}</div>}
 
         {step === 'location' && (
-          <section className="hud-panel p-4 space-y-4">
+          <section className="hud-panel p-4 stack-y-4">
             <LocationPicker lat={validPoint ? lat : null} lon={validPoint ? lon : null} onPick={setPoint} />
             <p className="text-[12px] text-on-surface-variant">Click the map, use your device location, or type coordinates. Your coordinates stay on your own server.</p>
             <div className="grid grid-cols-2 gap-3">
@@ -229,7 +229,7 @@ export function SetupWizard({ firstRun, onClose }: { firstRun: boolean; onClose:
         )}
 
         {step === 'region' && (
-          <section className="hud-panel p-4 space-y-4">
+          <section className="hud-panel p-4 stack-y-4">
             {resolved ? (
               <p className="text-[13px] text-on-surface-variant">
                 The National Weather Service places this in <strong className="text-on-surface">{resolved.city}, {resolved.state}</strong> —
@@ -249,7 +249,7 @@ export function SetupWizard({ firstRun, onClose }: { firstRun: boolean; onClose:
         )}
 
         {step === 'pack' && (
-          <section className="space-y-3">
+          <section className="stack-y-3">
             <p className="text-[13px] text-on-surface-variant">
               Select one or more packs for your monitored area. Border regions can use Oregon and Washington together. Packs add road conditions, outages, and similar local data. Weather, aircraft, vessels, earthquakes and other national feeds work everywhere.
             </p>
@@ -257,7 +257,7 @@ export function SetupWizard({ firstRun, onClose }: { firstRun: boolean; onClose:
               <label key={p.id} className={`hud-panel p-4 block cursor-pointer ${!p.valid ? 'opacity-50 cursor-not-allowed' : packIds.includes(p.id) ? 'border border-amber-gold' : ''}`}>
                 <div className="flex items-start gap-3">
                   <input type="checkbox" className="mt-1 accent-amber-gold" disabled={!p.valid} checked={packIds.includes(p.id)} onChange={() => setPackIds((ids) => ids.includes(p.id) ? ids.filter((id) => id !== p.id) : [...ids, p.id])} />
-                  <div className="min-w-0 space-y-1">
+                  <div className="min-w-0 stack-y-1">
                     <div className="font-bold text-on-surface">
                       {p.name}
                       {p.suggested && <span className="ml-2 font-mono text-[10px] uppercase tracking-widest text-green-ais">covers your monitored area</span>}
@@ -289,13 +289,13 @@ export function SetupWizard({ firstRun, onClose }: { firstRun: boolean; onClose:
         )}
 
         {step === 'keys' && (
-          <section className="hud-panel p-4 space-y-4">
+          <section className="hud-panel p-4 stack-y-4">
             {pack && pack.keys?.length ? (
               <>
                 <p className="text-[13px] text-on-surface-variant">
                   The {pack.name} selection uses these API keys. Keys are never stored in the app: add each one to your <code className="font-mono">.env</code> file and restart the backend and poller.
                 </p>
-                <ul className="space-y-2">
+                <ul className="stack-y-2">
                   {pack.keys.map((k) => (
                     <li key={k.name} className="flex flex-wrap items-center gap-x-3 gap-y-1 border border-white/10 p-3">
                       <code className="font-mono text-[13px] text-amber-gold">{k.name}</code>
@@ -316,7 +316,7 @@ export function SetupWizard({ firstRun, onClose }: { firstRun: boolean; onClose:
         )}
 
         {step === 'review' && (
-          <section className="hud-panel p-4 space-y-4">
+          <section className="hud-panel p-4 stack-y-4">
             <dl className="grid grid-cols-[8rem_1fr] gap-y-2 text-[13px]">
               <dt className="label-caps">Region</dt><dd className="text-on-surface">{name}</dd>
               <dt className="label-caps">Center</dt><dd className="font-mono text-on-surface">{lat?.toFixed(4)}, {lon?.toFixed(4)}</dd>
@@ -338,7 +338,7 @@ export function SetupWizard({ firstRun, onClose }: { firstRun: boolean; onClose:
         )}
 
         {step === 'done' && (
-          <section className="hud-panel p-6 space-y-4">
+          <section className="hud-panel p-6 stack-y-4">
             <div className="flex items-center gap-2 text-green-ais"><span className="ms" aria-hidden="true">check_circle</span><strong>Region saved</strong></div>
             {savedStatus?.poller.state === 'waiting' && <p className="text-[13px] text-on-surface-variant">The poller was waiting for this and will start collecting data within a few seconds.</p>}
             {savedStatus?.restart_required && (

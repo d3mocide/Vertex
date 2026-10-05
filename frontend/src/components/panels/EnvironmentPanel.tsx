@@ -110,11 +110,11 @@ export function EnvironmentPanel() {
   const statusBlock = alertCount === 0 && activeHazards.length === 0 ? (
     <div className="hud-panel px-4 py-3 bg-onyx-deep/40 flex items-center gap-3" role="status">
       <span className="ms text-[18px] leading-none text-green-ais" aria-hidden="true">check_circle</span>
-      <span className="label-caps !text-green-ais">ALL CLEAR</span>
+      <span className="label-caps text-green-ais!">ALL CLEAR</span>
       <span className="text-[12px] text-on-surface-variant">No NWS alerts for this region</span>
     </div>
   ) : (
-    <section aria-label="Weather advisories" className="space-y-3">
+    <section aria-label="Weather advisories" className="stack-y-3">
       {weather.alerts.map((alert, i) => <WeatherAlertCard key={i} alert={alert} />)}
       {activeHazards.length > 0 && (
         <div className="flex items-center gap-2 flex-wrap" role="list" aria-label="Active hazards">
@@ -146,7 +146,7 @@ export function EnvironmentPanel() {
         type="button"
         onClick={() => setRadarOpen((v) => !v)}
         aria-expanded={radarOpen}
-        className="w-full flex items-center gap-2 px-4 py-3 text-left focus:outline-none"
+        className="w-full flex items-center gap-2 px-4 py-3 text-left focus:outline-hidden"
       >
         <span className="ms text-[16px] leading-none text-sky-400" aria-hidden="true">radar</span>
         <span className="label-caps">RADAR</span>
@@ -166,7 +166,7 @@ export function EnvironmentPanel() {
       />
 
       <div className="flex-1 overflow-y-auto min-h-0 pb-24">
-        <div className="p-4 lg:p-6 space-y-4">
+        <div className="p-4 lg:p-6 stack-y-4">
           <RegionalFeedStatus contracts={['fire.danger', 'roadwx.stations']} />
           {statusBlock}
           <StatTiles items={tiles} />

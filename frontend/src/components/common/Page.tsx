@@ -83,7 +83,7 @@ export function StatTiles({ items, className = '' }: { items: Stat[]; className?
         )
         const cls = `text-left p-3 border bg-surface-container/60 ${s.active ? 'border-amber-gold' : 'border-white/10'}`
         return s.onClick ? (
-          <button key={s.label} type="button" onClick={s.onClick} aria-pressed={s.active} className={`${cls} hover:border-amber-gold/60 transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-amber-gold`}>
+          <button key={s.label} type="button" onClick={s.onClick} aria-pressed={s.active} className={`${cls} hover:border-amber-gold/60 transition-colors focus:outline-hidden focus-visible:ring-1 focus-visible:ring-amber-gold`}>
             {body}
           </button>
         ) : (
@@ -125,7 +125,7 @@ export function Chip({ active, onClick, children, activeClass = 'bg-amber-gold t
       type="button"
       onClick={onClick}
       aria-pressed={active}
-      className={`h-8 px-3 border font-mono text-[11px] uppercase tracking-widest transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-amber-gold ${
+      className={`h-8 px-3 border font-mono text-[11px] uppercase tracking-widest transition-colors focus:outline-hidden focus-visible:ring-1 focus-visible:ring-amber-gold ${
         active ? activeClass : 'border-white/10 text-on-surface-variant hover:text-on-surface hover:border-white/30'
       }`}
     >

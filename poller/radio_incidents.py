@@ -70,6 +70,7 @@ def normalise(text: str) -> str:
     """Lower-case, spell numbers as digits, collapse whitespace, drop punctuation noise."""
     t = text.lower()
     t = re.sub(r"(\d),(\d{3})\b", r"\1\2", t)          # 12,345 -> 12345
+    t = re.sub(r"\b\d(?:-\d){2,6}\b", lambda m: m.group(0).replace("-", ""), t)   # "2-0-3-0-5" read digit by digit -> 20305
     t = _NUM_RUN.sub(lambda m: " " + _words_to_digits(m.group(0)) + " ", t)
     for word, ordinal in _ORDINALS.items():
         t = re.sub(rf"\b{word}\b", ordinal, t)
@@ -88,7 +89,8 @@ def normalise(text: str) -> str:
 # incidents those words suggest. Patterns therefore describe the *incident* ("been shot", "stabbing wound",
 # "structure collapse", "miscellaneous fire at ...") and negated mentions are discarded (see _negated()).
 _NATURES: list[tuple[str, int, re.Pattern]] = [
-    ("water_rescue", 5, re.compile(r"water rescue|in the water|person in (the )?water|jumper (?:on|off|from|at|near) (?:the |a )?(?:\w+ )?(?:bridge|overpass)|on the railing|fireboat|swift ?water")),
+    # "Water Rescue 20" and "water rescue call" are apparatus, not an incident.
+    ("water_rescue", 5, re.compile(r"water rescue(?!\s*\d)(?! call)|in the water|person in (the )?water|jumper (?:on|off|from|at|near) (?:the |a )?(?:\w+ )?(?:bridge|overpass)|on the railing|fireboat|swift ?water")),
     # "(?! alarm)": "commercial fire alarm" is an alarm, not a fire; "(?!\w)": "residential firelight" is not a fire.
     ("structure_fire", 5, re.compile(r"(?:structure|house|apartment|residential|commercial|working) fire(?! alarm)(?!\w)|fire in (a|the) (building|house|apartment|unit)|smoke (in|from) (the |a )?(building|house|apartment|residence)")),
     ("violence", 4, re.compile(
@@ -155,7 +157,10 @@ def classify(t: str, anchor: int | None = None) -> tuple[str, int]:
     before = [m for m in matches if m[0] <= anchor]
     if before:
         # Nearest before the address; ties go to the more specific (earlier-listed) pattern.
-        _, _, _, cat, sev = min(before, key=lambda m: (anchor - m[0], m[2]))
+        # "traffic accident with injuries at ..." is a crash: the vague medical word nearest the address does not win
+        # over a real incident nature within a clause of it.
+        near = [m for m in before if m[3] != "medical" and anchor - m[0] <= 90]
+        _, _, _, cat, sev = min(near or before, key=lambda m: (anchor - m[0], m[2]))
         return cat, sev
     return classify(t)
 
@@ -172,21 +177,33 @@ _SUFFIX = {
     "street": "St", "st": "St", "avenue": "Ave", "ave": "Ave", "boulevard": "Blvd", "blvd": "Blvd",
     "road": "Rd", "rd": "Rd", "drive": "Dr", "dr": "Dr", "way": "Way", "highway": "Hwy", "hwy": "Hwy",
     "parkway": "Pkwy", "court": "Ct", "ct": "Ct", "place": "Pl", "lane": "Ln", "ln": "Ln",
-    "terrace": "Ter", "circle": "Cir", "loop": "Loop", "freeway": "Fwy",
+    "terrace": "Ter", "circle": "Cir", "loop": "Loop", "freeway": "Fwy", "cutoff": "Cutoff",
 }
 _DIR_RE = r"(?:north ?east|north ?west|south ?east|south ?west|northeast|northwest|southeast|southwest|north|south|east|west|ne|nw|se|sw)"
 _SUFFIX_RE = "|".join(sorted(_SUFFIX, key=len, reverse=True))
 # A street: optional direction, then either one numbered token ("70th", "2")
 # or 1-3 word tokens that are not directions, then a suffix.
-_WORD = rf"(?!(?:{_DIR_RE})\b)[a-z][a-z0-9']*"
+# Words that are never part of a street name: "217 northbound and highway 99", "on their way", "we're at ...".
+_NOT_NAME = r"northbound|southbound|eastbound|westbound|we|re|their|his|her|our|my|your|its|this|that|these|those|side|same"
+_WORD = rf"(?!(?:{_DIR_RE}|{_NOT_NAME})\b)[a-z][a-z0-9']*"
 _NAME = rf"(?:\d{{1,3}}(?:st|nd|rd|th)?|martin luther king(?: jr)?|{_WORD}(?:\s+{_WORD}){{0,2}}?)"
 
 
 def _street_re(i: int) -> str:
-    return rf"(?:(?P<d{i}>{_DIR_RE})\s+)?(?P<n{i}>{_NAME})\s+(?P<s{i}>{_SUFFIX_RE})\b"
+    # Clackamas County reads the direction after the street ("Hubbard Cutoff Northeast"); it only counts there when
+    # what follows ends the street ("... and ...", cross streets, a unit, the end), so it never steals the next
+    # street's own direction.
+    return (rf"(?:(?P<d{i}>{_DIR_RE})\s+)?(?P<n{i}>{_NAME})\s+(?P<s{i}>{_SUFFIX_RE})\b"
+            rf"(?:\s+(?P<t{i}>{_DIR_RE})\b(?=\s+(?:and|at)\b|\s*&|\s+cross\b|\s+unit\b|\s+working\b|\s*$))?")
 
 
-_ADDR_RE = re.compile(r"\b(?P<num>\d{2,6})\s+" + _street_re(1))
+def _dir(m: re.Match, i: int) -> str | None:
+    """The direction of street i: the leading one if heard, else the trailing one."""
+    g = m.groupdict()
+    return g.get(f"d{i}") or g.get(f"t{i}")
+
+
+_ADDR_RE = re.compile(r"\b(?P<num>\d{2,6})\s+(?:(?:of\s+(?:the\s+)?|this\s+is\s+|that\s+was\s+|that\s+is\s+))?" + _street_re(1))
 # "X and Y", "X & Y", "X at Y", or two streets read back-to-back (commas are
 # stripped by normalise) — the latter only when both carry a direction.
 _INTERSECTION_RE = re.compile(r"\b" + _street_re(1) + r"\s+(?:and\s+|&\s+|at\s+)?" + _street_re(2))
@@ -202,14 +219,33 @@ _ADDR_BARE_RE = re.compile(
     r"(?=\s+(?:cross streets?|unit\b|ops?\b|working|talk ?group|respon\w*|please|tucker\w*|switch|stand ?by|behind|next to|near|across|in the|apartments?)|\s*$)")
 # Portland shorthand "southeast 202 in burnside" = SE 202nd & Burnside.
 _NUM_IN_RE = re.compile(r"\b(?P<d1>" + _DIR_RE + r")\s+(?P<n1>\d{1,3})\s+(?:in|and|at)\s+(?:(?P<d2>" + _DIR_RE + r")\s+)?(?P<n2>" + _WORD + r")\b")
+# "at Cruzway and Bangui Road": the first street was heard without its suffix.
+_AT_BARE_AND_RE = re.compile(r"\bat\s+(?P<n1>" + _WORD + r")\s+and\s+" + _street_re(2))
+# "off of Northwest Dairy Creek Road", "on Corey Road": a street without a house number, trusted only after a place word.
+_STREET_ONLY_RE = re.compile(r"\b(?:on|off(?: of)?|along|near)\s+(?:the\s+)?" + _street_re(1))
 _LANDMARK_RE = re.compile(r"\b(?:on|at|off) (?:the )?(?:(\w+) )?(bridge|overpass|river|waterfront|max (?:platform|station)|transit (?:center|station)|light rail)\b")
 _HIGHWAY_RE = re.compile(r"\b(?:i|interstate)\s*-?\s*(5|84|205|405)\b|\b(?:east|west|north|south)bound\s+(?:i\s*-?\s*)?(?P<bd>5|84|205|405)\b|\b(?:highway|hwy|us|or)\s*-?\s*(26|30|217|99e|99w|43|213|224|8|10)\b|\bsunset highway\b")
 _NOT_STREET = {"alpha", "bravo", "charlie", "delta", "echo", "omega", "ops", "op", "unit", "priority", "code", "engine", "medic", "truck"}
 _STOP_NAME = re.compile(r"^(on|at|in|to|the|and|of|a|respond|responding|unit|ops|is|for|with)\b")
 
 
-def _street(d: str | None, name: str, suffix: str) -> str | None:
-    name = name.strip()
+# Words an ASR'd sentence puts in front of a street name ("injuries at Ellen Road", "cross streets are Leonard Street").
+_LEAD_WORDS = frozenset({"streets", "street", "cross", "ross", "are", "is", "and", "at", "on", "in", "to", "of", "by", "for", "near",
+                         "off", "the", "a", "an", "respond", "responding", "response", "injuries", "injury", "accident",
+                         "accidents", "crash", "unit", "working", "channel", "ops", "no", "from", "with", "address", "medical", "code", "alarm"})
+
+
+def _street(d: str | None, name: str, suffix: str, lead: bool = False) -> str | None:
+    """Display form of a street. `lead=True` also drops sentence words glued to the front of a name (for cross streets and
+    intersections, where nothing else anchors the match); an address's own street is never trimmed, so "122 responding
+    river road" is not read as an address."""
+    words = name.strip().split()
+    while lead and len(words) > 1 and words[0] in _LEAD_WORDS:
+        words.pop(0)
+    name = " ".join(words)
+    hwy = next((h for h in (re.fullmatch(r"hwy(\d{1,3}[a-z]?)", w) for w in reversed(words)) if h), None)
+    if hwy:     # "Southeast Highway 212" arrives here as name "hwy212" (see locate), possibly after a garbled word
+        return " ".join(p for p in (_DIR.get(re.sub(r"\s+", " ", d or "").strip(), "") if d else "", f"Hwy {hwy.group(1).upper()}") if p)
     if _STOP_NAME.match(name) or (len(name) < 2 and not name.isdigit()):
         return None
     # "70" + "Avenue" -> "70th"
@@ -241,36 +277,46 @@ _SPLIT_NUM_RE = re.compile(r"\b(\d{2,4})-(\d{1,2})(?=\s+" + _DIR_RE + r"\b)")
 def locate(t: str) -> tuple[str | None, str | None, int | None]:
     """Return (display_location, cluster_key, match_position) from normalised text."""
     t = _SPLIT_NUM_RE.sub(lambda m: m.group(1) + m.group(2), t)   # same length or shorter; position is only a hint
+    raw = t
+    # "southeast highway 212 and southeast 135th avenue": read a numbered highway as a street named hwy212.
+    t = re.sub(r"\b(?:highway|hwy)\s+(\d{1,3}[a-z]?)\b", r"hwy\1 hwy", t)
     m = _ADDR_RE.search(t)
     if m:
-        street = _street(m.group("d1"), m.group("n1"), m.group("s1"))
+        street = _street(_dir(m, 1), m.group("n1"), m.group("s1"))
         if street:
-            return f"{m.group('num')} {street}", _address_key(m.group("num"), m.group("d1"), m.group("n1")), m.start()
+            return f"{m.group('num')} {street}", _address_key(m.group("num"), _dir(m, 1), m.group("n1")), m.start()
     for m in _INTERSECTION_RE.finditer(t):
         between = t[m.end("s1"):m.start("n2")]
-        if not re.search(r"\b(and|&|at)\b", between) and not (m.group("d1") and m.group("d2")):
+        if not re.search(r"\b(and|&|at)\b", between) and not (_dir(m, 1) and _dir(m, 2)):
             continue
-        a = _street(m.group("d1"), m.group("n1"), m.group("s1"))
-        b = _street(m.group("d2"), m.group("n2"), m.group("s2"))
+        a = _street(_dir(m, 1), m.group("n1"), m.group("s1"), True)
+        b = _street(_dir(m, 2), m.group("n2"), m.group("s2"), True)
         if a and b and a != b:
             return f"{a} & {b}", " & ".join(sorted([a.lower(), b.lower()])), m.start()
     m = _INTERSECTION_BARE_RE.search(t)
     if m:
-        a = _street(m.group("d1"), m.group("n1"), m.group("s1"))
-        b = _street(m.group("d2"), m.group("n2"), "")
+        a = _street(_dir(m, 1), m.group("n1"), m.group("s1"), True)
+        b = _street(_dir(m, 2), m.group("n2"), "", True)
         if a and b and a != b:
             return f"{a} & {b}", " & ".join(sorted([a.lower(), b.lower()])), m.start()
     m = _NUM_IN_RE.search(t)
     if m:
-        a = _street(m.group("d1"), m.group("n1"), "ave")
-        b = _street(m.group("d2"), m.group("n2"), "")
+        a = _street(_dir(m, 1), m.group("n1"), "ave")
+        b = _street(_dir(m, 2), m.group("n2"), "")
         if a and b and not _STOP_NAME.match(m.group("n2")) and m.group("n2") not in _NOT_STREET:
             return f"{a} & {b}", " & ".join(sorted([a.lower(), b.lower()])), m.start()
     m = _ADDR_BARE_RE.search(t)
     if m:
-        street = _street(m.group("d1"), m.group("n1"), "")
+        street = _street(_dir(m, 1), m.group("n1"), "")
         if street:
-            return f"{m.group('num')} {street}", _address_key(m.group("num"), m.group("d1"), m.group("n1")), m.start()
+            return f"{m.group('num')} {street}", _address_key(m.group("num"), _dir(m, 1), m.group("n1")), m.start()
+    m = _AT_BARE_AND_RE.search(t)
+    if m:
+        a = _street(None, m.group("n1"), "", True)
+        b = _street(_dir(m, 2), m.group("n2"), m.group("s2"), True)
+        if a and b and a != b and m.group("n1") not in _NOT_STREET:
+            return f"{a} & {b}", " & ".join(sorted([a.lower(), b.lower()])), m.start()
+    t = raw
     m = _LANDMARK_RE.search(t)
     if m:
         name = f"{m.group(1)} {m.group(2)}" if m.group(1) and m.group(1) not in ("the", "a") else m.group(2)
@@ -284,6 +330,12 @@ def locate(t: str) -> tuple[str | None, str | None, int | None]:
         else:
             hw = "US 26 (Sunset Hwy)"
         return hw, None, m.start()  # highways are too long to cluster on alone
+    m = _STREET_ONLY_RE.search(t)
+    if m:
+        street = _street(_dir(m, 1), m.group("n1"), m.group("s1"), True)
+        if street and m.group("n1") not in _NOT_STREET:
+            # A street with no number: fine to show and to cluster on a street + direction + name stem within a call's gap.
+            return street, f"street|{_DIR.get(_dir(m, 1) or '', '')}|{_address_key('0', None, m.group('n1')).split('|')[2]}", m.start()
     return None, None, None
 
 
@@ -411,6 +463,8 @@ def parse_call(ts: datetime, tgid, tag: str, text: str) -> Call:
     t = normalise(text)
     loc, key, pos = locate(t)
     cat, sev = classify(t, pos)
+    if key and key.startswith("street|") and sev < 3:
+        loc = key = None     # a bare street name is only worth an incident for a serious call ("en route to Kelsey Road" is not)
     mp = _MPDS.search(t)
     acuity = mp.group(2) if mp else None
     pr = _PRIORITY.search(t)

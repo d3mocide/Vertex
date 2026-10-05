@@ -45,7 +45,7 @@ export function MessageSignsCard() {
       {messages.length === 0 ? (
         <div className="text-[12px] text-on-surface-variant py-1">No warnings on the signs near you.</div>
       ) : (
-        <div className="space-y-1.5">
+        <div className="stack-y-1.5">
           {messages.slice(0, 6).map((s) => (
             <div key={s.id} className="border border-amber-gold/30 bg-amber-gold/5 px-3 py-1.5">
               <div className="font-mono text-[12px] font-bold text-amber-gold leading-snug">{s.page1.join(' · ')}</div>
@@ -64,9 +64,9 @@ export function MessageSignsCard() {
             <span className="ms text-[14px] group-open:rotate-90 transition-transform" aria-hidden="true">chevron_right</span>
             Speed advisories &amp; travel times ({speed.length + travel.length})
           </summary>
-          <div className="mt-1 space-y-1">
+          <div className="mt-1 stack-y-1">
             {[...speed, ...travel].map((s) => (
-              <div key={s.id} className="flex items-center gap-3 font-mono text-[11px] border border-white/10 bg-white/[0.02] px-3 py-1">
+              <div key={s.id} className="flex items-center gap-3 font-mono text-[11px] border border-white/10 bg-white/2 px-3 py-1">
                 <span className="text-on-surface-variant w-28 shrink-0 truncate">{s.kind === 'speed' ? 'speed' : s.route} · {Math.round(s.dist_km)} km</span>
                 <span className="text-on-surface">{s.text.replace(/TRAVEL TIME TO:\s*\/?\s*/i, '')}</span>
               </div>

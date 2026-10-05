@@ -42,13 +42,13 @@ export function EnvBar() {
         transition-all duration-500
         ${hasSevere && mode === 'critical'
           ? 'bg-red-emergency/5 border-red-emergency/20 backdrop-blur-md'
-          : 'bg-white/[0.02] backdrop-blur-md border-white/5 shadow-inner'}
+          : 'bg-white/2 backdrop-blur-md border-white/5 shadow-inner'}
       `}
       role="region"
       aria-label="Environmental sensor data"
     >
       {/* Subtle top light for depth */}
-      <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-white/5 to-transparent pointer-events-none" />
+      <div className="absolute top-0 inset-x-0 h-px bg-linear-to-r from-transparent via-white/5 to-transparent pointer-events-none" />
 
       {/* Desktop: full ticker bar */}
       <div className="flex items-center gap-6 h-full overflow-x-auto">
@@ -155,7 +155,7 @@ export function EnvChips() {
     <button
       type="button"
       onClick={() => setActiveTab('environment')}
-      className="flex items-center gap-2.5 h-9 px-2.5 border border-white/10 bg-black/30 font-mono text-[12px] text-on-surface min-w-0 focus:outline-none focus-visible:ring-1 focus-visible:ring-amber-gold"
+      className="flex items-center gap-2.5 h-9 px-2.5 border border-white/10 bg-black/30 font-mono text-[12px] text-on-surface min-w-0 focus:outline-hidden focus-visible:ring-1 focus-visible:ring-amber-gold"
       aria-label={`Conditions: ${weather.temp_f != null ? Math.round(weather.temp_f) + ' degrees' : 'temperature unknown'}, AQI ${weather.aqi ?? 'unknown'}, ${alertCount ? alertCount + ' NWS alerts' : 'no NWS alerts'}. Open environment.`}
     >
       <span>{weather.temp_f != null ? `${Math.round(weather.temp_f)}°` : '—'}</span>

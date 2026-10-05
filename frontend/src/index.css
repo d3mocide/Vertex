@@ -1,6 +1,340 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import 'tailwindcss';
+
+@custom-variant dark (&:is(.dark *));
+
+@theme {
+  --color-onyx-black: #050505;
+  --color-onyx-deep: #0a0a0a;
+  --color-amber-gold: #ffb800;
+  --color-transit-bus: #ffe584;
+  --color-amber-gold-dim: #b88600;
+  --color-amber-gold-muted: #4d3800;
+  --color-on-surface: #f2f2f2;
+  --color-on-surface-variant: #8c8c8c;
+  --color-outline-variant: #333333;
+  --color-surface: #050505;
+  --color-surface-container: #0f0f0f;
+  --color-surface-container-low: #080808;
+  --color-surface-container-high: #141414;
+  --color-surface-container-highest: #1a1a1a;
+  --color-cyan-adsb: #00bfff;
+  --color-cyan-adsb-muted: #004d6b;
+  --color-green-ais: #00c853;
+  --color-green-ais-muted: #00401a;
+  --color-amber-p25: #ff8f00;
+  --color-amber-p25-muted: #4d2b00;
+  --color-red-emergency: #c62828;
+  --color-red-emergency-muted: #4a0000;
+  --color-violet-space: #9e6cff;
+  --color-violet-space-muted: #3d1b8e;
+  --color-lime-rf: #76dd00;
+  --color-lime-rf-muted: #254000;
+
+  --radius: 0rem;
+  --radius-sm: 0rem;
+  --radius-md: 0rem;
+  --radius-lg: 0rem;
+  --radius-xl: 0rem;
+  --radius-2xl: 0rem;
+  --radius-full: 9999px;
+
+  --font-body: Inter, system-ui, sans-serif;
+  --font-mono: 'Roboto Mono', monospace;
+
+  --shadow-gold-glow: 0 0 20px rgba(255, 184, 0, 0.25);
+  --shadow-gold-sm: 0 0 8px rgba(255, 184, 0, 0.4);
+  --shadow-red-glow: 0 0 20px rgba(198, 40, 40, 0.4);
+
+  /* Tailwind 3's text sizes carried fixed line heights, which smaller text nested inside them inherited (11px labels in a
+     text-sm panel sat on 20px lines). Version 4 made them ratios, which tightened every such label; keep the old values. */
+  --text-xs--line-height: 1rem;
+  --text-sm--line-height: 1.25rem;
+  --text-base--line-height: 1.5rem;
+  --text-lg--line-height: 1.75rem;
+  --text-xl--line-height: 1.75rem;
+  --text-2xl--line-height: 2rem;
+  --text-3xl--line-height: 2.25rem;
+  --text-4xl--line-height: 2.5rem;
+
+  --animate-pulse-slow: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  --animate-ping-slow: ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+/*
+  The default border color has changed to `currentcolor` in Tailwind CSS v4,
+  so we've added these compatibility styles to make sure everything still
+  looks the same as it did with Tailwind CSS v3.
+
+  If we ever want to remove these styles, we need to add an explicit border
+  color utility to any element that depends on these defaults.
+*/
+@layer base {
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--color-gray-200, currentcolor);
+  }
+}
+
+/* space-y as Tailwind 3 had it, under its own name (a second rule for space-y itself would stack with the built-in one).
+   Version 4's space-y puts the gap on the bottom margin of each child but the last, which stacks
+   with a child's own mt-* (the sign-in button's mt-2 on top of space-y-4 became 24px instead of 16px). The v3 rule, a top
+   margin on every sibling after the first, also outranks a child's own mt-*, as it always did here. */
+@utility stack-y-* {
+  & > :not([hidden]) ~ :not([hidden]) {
+    margin-top: calc(var(--spacing) * --value(number));
+    margin-bottom: 0;
+  }
+}
+
+/* Tailwind 3 preflight behaviours that version 4 dropped. */
+@layer base {
+  button:not(:disabled),
+  [role='button']:not(:disabled) {
+    cursor: pointer;
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    color: var(--color-gray-400);
+  }
+}
+
+@utility no-scrollbar {
+  /* Hide scrollbars on horizontally-scrolling chip rows (still swipeable). */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+@utility pt-safe {
+  /* iOS safe-area helpers — require viewport-fit=cover in index.html to resolve.
+     On non-notched devices / desktop the env() values are 0, so these are no-ops. */
+  padding-top: var(--safe-top);
+}
+
+@utility pt-safe-chrome {
+  /* Where the app chrome starts (--chrome-top, defined on :root). */
+  padding-top: var(--chrome-top);
+}
+
+@utility h-safe-chrome {
+  height: var(--chrome-top);
+}
+
+@utility pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+@utility pl-safe {
+  padding-left: env(safe-area-inset-left, 0px);
+}
+
+@utility pr-safe {
+  padding-right: env(safe-area-inset-right, 0px);
+}
+
+@utility safe-area-inset-bottom {
+  /* Bottom nav: lift content above the home indicator while the bar's own
+     background fills the inset (no black gutter). */
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+@utility hud-panel {
+  /* Glassmorphism panels */
+  @apply bg-white/3 border border-white/10 backdrop-blur-md rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.4)];
+}
+
+@utility hud-panel-glow {
+  box-shadow:
+    0 0 15px rgba(255, 184, 0, 0.15),
+    inset 0 0 10px rgba(255, 184, 0, 0.05);
+}
+
+@utility glass-morphism {
+  @apply bg-white/3 border border-white/10 backdrop-blur-md rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.4)];
+}
+
+@utility map-overlay-card {
+  background-color: rgba(5, 5, 5, 0.85);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid #ffb800;
+}
+
+@utility sidebar-panel {
+  /* Sidebar */
+  @apply bg-white/3 backdrop-blur-md border-r border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.4)];
+}
+
+@utility label-caps {
+  /* Typography utilities */
+  @apply font-bold text-[11px] tracking-widest uppercase text-on-surface-variant;
+}
+
+@utility data-value {
+  @apply font-mono text-[11px] text-amber-gold;
+}
+
+@utility nav-link {
+  /* Navigation links */
+  @apply tracking-widest uppercase text-[11px] font-bold text-on-surface-variant
+           hover:text-amber-gold transition-colors h-full flex items-center cursor-pointer
+           focus:outline-hidden focus-visible:ring-1 focus-visible:ring-amber-gold;
+}
+
+@utility nav-link-active {
+  @apply tracking-widest uppercase text-[11px] font-bold text-amber-gold
+           border-b border-amber-gold h-full flex items-center cursor-pointer
+           focus:outline-hidden focus-visible:ring-1 focus-visible:ring-amber-gold;
+}
+
+@utility incident-card {
+  /* Incident / news cards */
+  @apply bg-surface-container/60 border border-amber-gold-muted p-3
+           hover:border-amber-gold transition-colors cursor-pointer
+           focus:outline-hidden focus-visible:ring-1 focus-visible:ring-amber-gold;
+}
+
+@utility section-heading {
+  /* Section headings */
+  @apply font-bold text-[11px] tracking-widest text-amber-gold uppercase
+           flex items-center gap-2 mb-3;
+}
+
+@utility btn-primary {
+  /* Amber primary button */
+  @apply bg-amber-gold text-onyx-black font-bold text-[11px] py-2 px-4
+           uppercase tracking-[0.15em] hover:bg-white transition-colors
+           focus:outline-hidden focus-visible:ring-2 focus-visible:ring-amber-gold;
+}
+
+@utility btn-ghost {
+  /* Ghost button */
+  @apply border border-amber-gold text-amber-gold font-bold text-[11px]
+           uppercase tracking-widest px-3 py-1 hover:bg-amber-gold hover:text-onyx-black
+           transition-all focus:outline-hidden focus-visible:ring-1 focus-visible:ring-amber-gold;
+}
+
+@utility ms {
+  /* Material Symbols baseline */
+  font-family: 'Material Symbols Outlined';
+  font-weight: normal;
+  font-style: normal;
+  line-height: 1;
+  display: inline-block;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  -webkit-font-feature-settings: 'liga';
+  font-feature-settings: 'liga';
+  user-select: none;
+  vertical-align: middle;
+}
+
+@utility ms-fill {
+  /* Filled variant of Material Symbols */
+  font-variation-settings: 'FILL' 1;
+}
+
+@utility btn-danger {
+  /* Danger / destructive button */
+  @apply bg-red-emergency text-white font-bold text-[11px] py-2 px-4
+           uppercase tracking-[0.15em] transition-colors
+           focus:outline-hidden focus-visible:ring-2 focus-visible:ring-red-emergency;
+  box-shadow: 0 0 20px rgba(198, 40, 40, 0.4);
+  &:hover {
+    background-color: #e23535;
+  }
+}
+
+@utility divider-v {
+  /* Dot divider */
+  @apply w-px h-3 bg-amber-gold-muted/50 shrink-0;
+}
+
+@utility live-ring {
+  /* Live pulse ring */
+  @apply absolute inset-0 rounded-full animate-ping-slow
+           border border-amber-gold/40;
+}
+
+@utility cctv-thumb {
+  /* CCTV thumbnail */
+  @apply bg-surface-container border border-amber-gold-muted overflow-hidden
+           relative cursor-pointer hover:border-amber-gold transition-colors;
+  aspect-ratio: 16/9;
+}
+
+@utility status-pill {
+  /* Status pill */
+  @apply font-mono text-[9px] lg:text-[11px] uppercase tracking-widest px-1.5 py-0.5 font-bold;
+}
+
+@utility aircraft-marker {
+  /* Map Markers */
+  @apply relative w-6 h-6 flex items-center justify-center;
+}
+
+@utility aircraft-marker-dot {
+  @apply w-2.5 h-2.5 rounded-full bg-cyan-adsb border border-white shadow-[0_0_10px_rgba(0,191,255,0.6)];
+}
+
+@utility aircraft-marker-ring {
+  @apply absolute inset-0 rounded-full border border-cyan-adsb/40;
+}
+
+@utility aircraft-marker-pulse {
+  @apply absolute inset-0 rounded-full bg-cyan-adsb/20 animate-ping-slow;
+}
+
+@utility tl-green {
+  /* Traffic light bar states */
+  @apply bg-green-ais text-onyx-black;
+}
+
+@utility tl-yellow {
+  @apply bg-amber-gold text-onyx-black;
+}
+
+@utility tl-red {
+  @apply bg-red-emergency text-white;
+}
+
+@utility tactical-input {
+  /* Tactical text field */
+  @apply w-full bg-black/60 border border-white/10 text-on-surface text-xs px-3 py-2
+           placeholder:text-on-surface-variant/50 focus:outline-hidden focus:border-amber-gold/60 transition-colors;
+}
+
+@utility tactical-select {
+  /* Tactical dropdown style */
+  @apply bg-black/60 border border-white/10 text-on-surface text-xs px-2 py-1.5 
+           focus:outline-hidden focus:border-amber-gold/60 appearance-none pr-8 transition-colors;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23FFB800' stroke-width='2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.5rem center;
+  background-size: 1rem;
+}
+
+@utility map-tooltip-card {
+  @apply p-2 w-[280px] max-w-[calc(100vw-32px)] bg-surface-container-highest
+           border border-outline-variant shadow-2xl backdrop-blur-md text-on-surface;
+  overflow-wrap: anywhere;
+}
+
+@utility map-tooltip-heading {
+  @apply flex items-start gap-2 text-[11px] font-mono font-bold text-on-surface mb-2
+           border-b border-outline-variant pb-1.5;
+}
+
+@utility map-tooltip-heading-block {
+  @apply mb-2 border-b border-outline-variant pb-1.5;
+}
 
 @layer base {
   html, body, #root {
@@ -112,7 +446,8 @@
   .maplibregl-map    { position: absolute; inset: 0; }
 }
 
-/* Where the app chrome starts below the top of the screen.
+@layer utilities {
+  /* Where the app chrome starts below the top of the screen.
    --safe-top is the status-bar inset, kept overridable so headless checks can
    simulate an iPhone. Normally the chrome gets 8px of breathing room, only
    where there is an inset (min(x, inset × 100) is 0 when the inset is 0).
@@ -120,305 +455,145 @@
    Liquid Glass blur over the top of the web view reaching ~35-40pt past the
    status bar. It is system chrome — no CSS or meta tag turns it off — so the
    chrome starts below it and the blur falls on the solid status band. */
-:root {
-  --safe-top: env(safe-area-inset-top, 0px);
-  --edge-clear: min(8px, calc(var(--safe-top) * 100));
-  --chrome-top: calc(var(--safe-top) + var(--edge-clear));
-}
-html.ios-pwa {
-  /* Next to no gap: the header row starts just under the status bar, like
+  :root {
+    --safe-top: env(safe-area-inset-top, 0px);
+    --edge-clear: min(8px, calc(var(--safe-top) * 100));
+    --chrome-top: calc(var(--safe-top) + var(--edge-clear));
+  }
+  html.ios-pwa {
+    /* Next to no gap: the header row starts just under the status bar, like
      native title bars. The iOS 27 blur fades out ~35pt below the 62pt status bar
      (measured on the user's iPhone, 2026-09-27), so the top of the header
      row sits in its faint tail — the user preferred that to 26-40px of
      empty band. The row's own 48px height centres the logo below most of it. */
-  --edge-clear: 5px;   /* the user's pick: a small bump off the status bar */
-}
+    --edge-clear: 5px; /* the user's pick: a small bump off the status bar */
+  }
 
-/* MapLibre control override — must live outside @layer so it wins over
+  /* MapLibre control override — must live outside @layer so it wins over
    un-layered MapLibre stylesheet rules (cascade layers spec: un-layered
    author styles beat layered styles of any kind). */
-@media (max-width: 1023px) {
-  .maplibregl-ctrl-bottom-right {
-    bottom: auto !important;
-    /* Drop the zoom/compass control clear of the full top chrome stack:
+  @media (max-width: 1023px) {
+    .maplibregl-ctrl-bottom-right {
+      bottom: auto !important;
+      /* Drop the zoom/compass control clear of the full top chrome stack:
        status-bar safe area + advisory bar + header + env bar. Using the
        safe-area inset keeps the zoom-in button visible under the notch /
        Dynamic Island instead of hiding behind the env bar. */
-    top: calc(var(--chrome-top) + 7.5rem) !important;
-    right: calc(env(safe-area-inset-right, 0px) + 0.5rem) !important;
+      top: calc(var(--chrome-top) + 7.5rem) !important;
+      right: calc(env(safe-area-inset-right, 0px) + 0.5rem) !important;
+    }
   }
 }
-
 
 @layer utilities {
-  /* Hide scrollbars on horizontally-scrolling chip rows (still swipeable). */
-  .no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
-  .no-scrollbar::-webkit-scrollbar { display: none; }
-  /* iOS safe-area helpers — require viewport-fit=cover in index.html to resolve.
-     On non-notched devices / desktop the env() values are 0, so these are no-ops. */
-  .pt-safe { padding-top: var(--safe-top); }
-  /* Where the app chrome starts (--chrome-top, defined on :root). */
-  .pt-safe-chrome { padding-top: var(--chrome-top); }
-  .h-safe-chrome { height: var(--chrome-top); }
-  .pb-safe { padding-bottom: env(safe-area-inset-bottom, 0px); }
-  .pl-safe { padding-left: env(safe-area-inset-left, 0px); }
-  .pr-safe { padding-right: env(safe-area-inset-right, 0px); }
-
-  /* Bottom nav: lift content above the home indicator while the bar's own
-     background fills the inset (no black gutter). */
-  .safe-area-inset-bottom { padding-bottom: env(safe-area-inset-bottom, 0px); }
-}
-
-@layer components {
-  /* Glassmorphism panels */
-  .hud-panel {
-    @apply bg-white/[0.03] border border-white/10 backdrop-blur-md rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.4)];
+  /* Live dot pulse (used in header/login) */
+  @keyframes pulse-dot {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.35;
+    }
   }
 
-  .HUD-panel-glow {
-    box-shadow: 0 0 15px rgba(255, 184, 0, 0.15), inset 0 0 10px rgba(255, 184, 0, 0.05);
+  /* Waveform animation for audio bars */
+  @keyframes waveform {
+    0%,
+    100% {
+      transform: scaleY(0.3);
+    }
+    50% {
+      transform: scaleY(1);
+    }
+  }
+  .wave-bar {
+    animation: waveform 1.2s ease-in-out infinite;
+    transform-origin: bottom;
+  }
+  .wave-bar:nth-child(1) {
+    animation-delay: 0s;
+  }
+  .wave-bar:nth-child(2) {
+    animation-delay: 0.1s;
+  }
+  .wave-bar:nth-child(3) {
+    animation-delay: 0.2s;
+  }
+  .wave-bar:nth-child(4) {
+    animation-delay: 0.3s;
+  }
+  .wave-bar:nth-child(5) {
+    animation-delay: 0.4s;
+  }
+  .wave-bar:nth-child(6) {
+    animation-delay: 0.2s;
+  }
+  .wave-bar:nth-child(7) {
+    animation-delay: 0.1s;
+  }
+  .wave-bar:nth-child(8) {
+    animation-delay: 0s;
   }
 
-  .glass-morphism {
-    @apply bg-white/[0.03] border border-white/10 backdrop-blur-md rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.4)];
+  @keyframes pulse-fast {
+    0% {
+      transform: scale(0.9);
+      opacity: 0.8;
+    }
+    50% {
+      transform: scale(1.1);
+      opacity: 1;
+    }
+    100% {
+      transform: scale(0.9);
+      opacity: 0.8;
+    }
   }
 
-
-  .map-overlay-card {
-    background-color: rgba(5, 5, 5, 0.85);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
-    border: 1px solid #FFB800;
+  .pulse-fast {
+    animation: pulse-fast 1.2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
   }
 
-  /* Sidebar */
-  .sidebar-panel {
-    @apply bg-white/[0.03] backdrop-blur-md border-r border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.4)];
+  @keyframes spin-slow {
+    from {
+      transform: rotate(0deg);
+    }
+    to {
+      transform: rotate(360deg);
+    }
   }
 
-  /* Typography utilities */
-  .label-caps {
-    @apply font-bold text-[11px] tracking-widest uppercase text-on-surface-variant;
+  .animate-spin-slow {
+    animation: spin-slow 8s linear infinite;
   }
 
-  .data-value {
-    @apply font-mono text-[11px] text-amber-gold;
+  @keyframes alert-marquee {
+    0% {
+      transform: translateX(0%);
+    }
+    100% {
+      transform: translateX(-50%);
+    }
   }
 
-  /* Navigation links */
-  .nav-link {
-    @apply tracking-widest uppercase text-[11px] font-bold text-on-surface-variant
-           hover:text-amber-gold transition-colors h-full flex items-center cursor-pointer
-           focus:outline-none focus-visible:ring-1 focus-visible:ring-amber-gold;
-  }
-
-  .nav-link-active {
-    @apply tracking-widest uppercase text-[11px] font-bold text-amber-gold
-           border-b border-amber-gold h-full flex items-center cursor-pointer
-           focus:outline-none focus-visible:ring-1 focus-visible:ring-amber-gold;
-  }
-
-  /* Incident / news cards */
-  .incident-card {
-    @apply bg-surface-container/60 border border-amber-gold-muted p-3
-           hover:border-amber-gold transition-colors cursor-pointer
-           focus:outline-none focus-visible:ring-1 focus-visible:ring-amber-gold;
-  }
-
-  /* Section headings */
-  .section-heading {
-    @apply font-bold text-[11px] tracking-widest text-amber-gold uppercase
-           flex items-center gap-2 mb-3;
-  }
-
-  /* Amber primary button */
-  .btn-primary {
-    @apply bg-amber-gold text-onyx-black font-bold text-[11px] py-2 px-4
-           uppercase tracking-[0.15em] hover:bg-white transition-colors
-           focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-gold;
-  }
-
-  /* Ghost button */
-  .btn-ghost {
-    @apply border border-amber-gold text-amber-gold font-bold text-[11px]
-           uppercase tracking-widest px-3 py-1 hover:bg-amber-gold hover:text-onyx-black
-           transition-all focus:outline-none focus-visible:ring-1 focus-visible:ring-amber-gold;
-  }
-
-  /* Material Symbols baseline */
-  .ms {
-    font-family: 'Material Symbols Outlined';
-    font-weight: normal;
-    font-style: normal;
-    line-height: 1;
-    display: inline-block;
-    white-space: nowrap;
-    word-wrap: normal;
-    direction: ltr;
-    -webkit-font-feature-settings: 'liga';
-    font-feature-settings: 'liga';
-    user-select: none;
-    vertical-align: middle;
-  }
-
-  /* Filled variant of Material Symbols */
-  .ms-fill {
-    font-variation-settings: 'FILL' 1;
-  }
-
-  /* Danger / destructive button */
-  .btn-danger {
-    @apply bg-red-emergency text-white font-bold text-[11px] py-2 px-4
-           uppercase tracking-[0.15em] transition-colors
-           focus:outline-none focus-visible:ring-2 focus-visible:ring-red-emergency;
-    box-shadow: 0 0 20px rgba(198,40,40,0.4);
-  }
-  .btn-danger:hover { background-color: #e23535; }
-
-  /* Dot divider */
-  .divider-v {
-    @apply w-px h-3 bg-amber-gold-muted/50 shrink-0;
-  }
-
-  /* Live pulse ring */
-  .live-ring {
-    @apply absolute inset-0 rounded-full animate-ping-slow
-           border border-amber-gold/40;
-  }
-
-  /* CCTV thumbnail */
-  .cctv-thumb {
-    @apply bg-surface-container border border-amber-gold-muted overflow-hidden
-           relative cursor-pointer hover:border-amber-gold transition-colors;
-    aspect-ratio: 16/9;
-  }
-
-  /* Status pill */
-  .status-pill {
-    @apply font-mono text-[9px] lg:text-[11px] uppercase tracking-widest px-1.5 py-0.5 font-bold;
-  }
-
-  /* Map Markers */
-  .aircraft-marker {
-    @apply relative w-6 h-6 flex items-center justify-center;
-  }
-
-
-  .aircraft-marker-dot {
-    @apply w-2.5 h-2.5 rounded-full bg-cyan-adsb border border-white shadow-[0_0_10px_rgba(0,191,255,0.6)];
-  }
-
-  .aircraft-marker-ring {
-    @apply absolute inset-0 rounded-full border border-cyan-adsb/40;
-  }
-
-  .aircraft-marker-pulse {
-    @apply absolute inset-0 rounded-full bg-cyan-adsb/20 animate-ping-slow;
-  }
-
-  /* Traffic light bar states */
-
-  .tl-green  { @apply bg-green-ais text-onyx-black; }
-  .tl-yellow { @apply bg-amber-gold text-onyx-black; }
-  .tl-red    { @apply bg-red-emergency text-white; }
-
-  /* Tactical text field */
-  .tactical-input {
-    @apply w-full bg-black/60 border border-white/10 text-on-surface text-xs px-3 py-2
-           placeholder:text-on-surface-variant/50 focus:outline-none focus:border-amber-gold/60 transition-colors;
-  }
-
-  /* Tactical dropdown style */
-  .tactical-select {
-    @apply bg-black/60 border border-white/10 text-on-surface text-xs px-2 py-1.5 
-           focus:outline-none focus:border-amber-gold/60 appearance-none pr-8 transition-colors;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23FFB800' stroke-width='2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
-    background-repeat: no-repeat;
-    background-position: right 0.5rem center;
-    background-size: 1rem;
-  }
-}
-
-/* Live dot pulse (used in header/login) */
-@keyframes pulse-dot {
-  0%, 100% { opacity: 1; }
-  50%       { opacity: 0.35; }
-}
-
-/* Waveform animation for audio bars */
-@keyframes waveform {
-  0%, 100% { transform: scaleY(0.3); }
-  50%       { transform: scaleY(1); }
-}
-.wave-bar { animation: waveform 1.2s ease-in-out infinite; transform-origin: bottom; }
-.wave-bar:nth-child(1) { animation-delay: 0s; }
-.wave-bar:nth-child(2) { animation-delay: 0.1s; }
-.wave-bar:nth-child(3) { animation-delay: 0.2s; }
-.wave-bar:nth-child(4) { animation-delay: 0.3s; }
-.wave-bar:nth-child(5) { animation-delay: 0.4s; }
-.wave-bar:nth-child(6) { animation-delay: 0.2s; }
-.wave-bar:nth-child(7) { animation-delay: 0.1s; }
-.wave-bar:nth-child(8) { animation-delay: 0s; }
-
-@keyframes pulse-fast {
-  0%   { transform: scale(0.9); opacity: 0.8; }
-  50%  { transform: scale(1.1); opacity: 1;   }
-  100% { transform: scale(0.9); opacity: 0.8; }
-}
-
-.pulse-fast {
-  animation: pulse-fast 1.2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-}
-
-@keyframes spin-slow {
-  from { transform: rotate(0deg); }
-  to   { transform: rotate(360deg); }
-}
-
-.animate-spin-slow {
-  animation: spin-slow 8s linear infinite;
-}
-
-@keyframes alert-marquee {
-  0% {
-    transform: translateX(0%);
-  }
-  100% {
-    transform: translateX(-50%);
-  }
-}
-
-/* Two copies of the message back to back at their natural width, moved by
+  /* Two copies of the message back to back at their natural width, moved by
    one copy (-50%): a seamless loop. Only used when the message overflows the
    bar (AlertStatusBar measures it); a forced 200% width left a bar-wide gap
    of empty space after short messages. */
-.alert-marquee-track {
-  display: inline-flex;
-  width: max-content;
-  white-space: nowrap;
-  will-change: transform;
-  animation: alert-marquee 45s linear infinite;
-}
-
-.alert-marquee-item {
-  display: inline-flex;
-  align-items: center;
-  padding-right: 3rem;
-}
-
-
-/* Shared map hover cards: neutral surfaces, square edges and bounded text. */
-@layer components {
-  .map-tooltip-card {
-    @apply p-2 w-[280px] max-w-[calc(100vw-32px)] bg-surface-container-highest
-           border border-outline-variant shadow-2xl backdrop-blur-md text-on-surface;
-    overflow-wrap: anywhere;
+  .alert-marquee-track {
+    display: inline-flex;
+    width: max-content;
+    white-space: nowrap;
+    will-change: transform;
+    animation: alert-marquee 45s linear infinite;
   }
-  .map-tooltip-heading {
-    @apply flex items-start gap-2 text-[11px] font-mono font-bold text-on-surface mb-2
-           border-b border-outline-variant pb-1.5;
+
+  .alert-marquee-item {
+    display: inline-flex;
+    align-items: center;
+    padding-right: 3rem;
   }
-  .map-tooltip-heading-block {
-    @apply mb-2 border-b border-outline-variant pb-1.5;
-  }
+
+  /* Shared map hover cards: neutral surfaces, square edges and bounded text. */
 }

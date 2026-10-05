@@ -53,10 +53,10 @@ export function StreamGaugeOverview({ entity, getIdentity }: OverviewProps) {
         </div>
       </div>
 
-      <div className="space-y-3 mt-3">
+      <div className="stack-y-3 mt-3">
         <div>
           <span className="label-caps text-[11px] text-amber-gold-dim mb-1 block">Station</span>
-          <div className="space-y-1">
+          <div className="stack-y-1">
             {siteName && (
               <div className="flex justify-between items-baseline gap-2">
                 <span className="text-[11px] text-on-surface-variant">Name</span>

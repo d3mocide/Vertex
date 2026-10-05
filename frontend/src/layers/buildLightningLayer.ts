@@ -16,7 +16,7 @@ const LIGHTNING_RGB: [number, number, number] = [255, 233, 77]
 
 function iconForZoom(zoom: number): string {
   if (zoom >= 9) return 'lightning'
-  if (zoom >= 6) return 'ring'
+  if (zoom >= 6) return 'ring-3'
   return 'dot'
 }
 

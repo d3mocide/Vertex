@@ -6,6 +6,11 @@ const server = await createServer({ server: { middlewareMode: true }, appType: '
 try {
   const t = await server.ssrLoadModule('/src/layers/terrainElevation.ts')
 
+  // Terrain off: outlines and positions come back untouched (same arrays), so the flat map is unchanged.
+  const ring = [[-122.7, 45.4], [-122.6, 45.4], [-122.6, 45.5]]
+  assert.equal(t.liftRing(ring), ring)
+  assert.equal(t.liftPos(ring[0]), ring[0])
+
   // Terrain off: positions are the plain [lon, lat], so the flat map is unchanged.
   assert.deepEqual(t.lift(-122.7, 45.4), [-122.7, 45.4])
   assert.deepEqual(t.liftMsl(-122.7, 45.4, 3000), [-122.7, 45.4])
@@ -38,6 +43,12 @@ try {
   for (let i = 0; i < 50; i++) t.lift(-122.7, 45.4)
   assert.equal(queries, before, 'a repeat lookup in the same cell comes from the cache')
   assert.equal(t.lift(-122.7, 45.4)[2], z)
+
+  // Outlines and positions follow the ground one vertex at a time.
+  const lifted = t.liftRing(ring)
+  assert.equal(lifted.length, 3)
+  assert.ok(lifted.every(p => p.length === 3 && p[2] > 0))
+  assert.deepEqual(t.liftPos(ring[1]), t.lift(...ring[1]))
 
   // Aircraft: altitude scales with the exaggeration, but never goes below the ground.
   assert.equal(t.liftMsl(-122.7, 45.4, 3000)[2], 6000)

@@ -14,7 +14,7 @@ export function AqiGauge({ aqi }: { aqi: number | undefined }) {
   return (
     <div className="hud-panel p-4 bg-onyx-deep/40 relative overflow-hidden group">
       <div
-        className="absolute -right-8 -top-8 w-24 h-24 blur-[40px] opacity-15 pointer-events-none transition-colors duration-1000"
+        className="absolute -right-8 -top-8 w-24 h-24 blur-2xl opacity-15 pointer-events-none transition-colors duration-1000"
         style={{ backgroundColor: color }}
       />
 
@@ -24,7 +24,7 @@ export function AqiGauge({ aqi }: { aqi: number | undefined }) {
       </div>
 
       <div className="flex items-center gap-5 mb-4">
-        <span className="font-mono text-5xl font-black tracking-tighter drop-shadow-sm leading-none" style={{ color }}>
+        <span className="font-mono text-5xl font-black tracking-tighter drop-shadow-xs leading-none" style={{ color }}>
           {aqi}
         </span>
         <div className="flex flex-col">

@@ -209,7 +209,7 @@ export function EntityDetail() {
 
   return (
     <aside
-      className="absolute top-0 lg:top-28 left-0 lg:left-auto right-0 lg:right-4 hud-panel w-full lg:w-80 z-[60] flex flex-col max-h-[55vh] lg:max-h-[calc(100vh-8rem)]"
+      className="absolute top-0 lg:top-28 left-0 lg:left-auto right-0 lg:right-4 hud-panel w-full lg:w-80 z-60 flex flex-col max-h-[55vh] lg:max-h-[calc(100vh-8rem)]"
       aria-label={`Entity detail: ${entity.display_name ?? entity.entity_id}`}
       role="complementary"
     >
@@ -230,7 +230,7 @@ export function EntityDetail() {
           </div>
           <button
             onClick={() => selectEntity(null)}
-            className="text-on-surface-variant hover:text-amber-gold transition-colors shrink-0 p-0.5 focus:outline-none focus-visible:ring-1 focus-visible:ring-amber-gold"
+            className="text-on-surface-variant hover:text-amber-gold transition-colors shrink-0 p-0.5 focus:outline-hidden focus-visible:ring-1 focus-visible:ring-amber-gold"
             aria-label="Close entity detail"
           >
             <span className="ms text-[18px] leading-none">close</span>
@@ -263,7 +263,7 @@ export function EntityDetail() {
       </div>
 
       {/* Scrollable Content */}
-      <div className="overflow-y-auto overflow-x-hidden p-3 space-y-4 flex-1 custom-scrollbar">
+      <div className="overflow-y-auto overflow-x-hidden p-3 stack-y-4 flex-1 custom-scrollbar">
         
         {activeTab === 'overview' && (
           <>
@@ -296,7 +296,7 @@ export function EntityDetail() {
                   {(batteryLevel != null || nodeSnr != null) && (
                     <div>
                       <span className="label-caps text-[11px] text-amber-gold-dim mb-2 block">Radio / Power</span>
-                      <div className="space-y-2">
+                      <div className="stack-y-2">
                         {batteryLevel != null && (
                           <div>
                             <div className="flex justify-between mb-0.5">
@@ -326,7 +326,7 @@ export function EntityDetail() {
                     {meshNeighbors.length === 0 ? (
                       <p className="text-[11px] text-on-surface-variant/50 italic">No active links</p>
                     ) : (
-                      <ul className="space-y-1">
+                      <ul className="stack-y-1">
                         {meshNeighbors.map((lnk, i) => {
                           const peerId = lnk.node_a === selectedEntityId ? lnk.node_b : lnk.node_a
                           const peer = entities[peerId]
@@ -386,7 +386,7 @@ export function EntityDetail() {
           if (typeof wx.gust_mph === 'number') rows.push(['Gust', `${wx.gust_mph} mph`])
           if (typeof wx.rain_in === 'number') rows.push(['Rain (1h)', `${(wx.rain_in as number).toFixed(2)}"`])
           return (
-            <div className="space-y-1">
+            <div className="stack-y-1">
               <span className="label-caps text-[11px] text-sky-400/80 mb-2 block">Station Conditions</span>
               {rows.map(([label, val]) => (
                 <div key={label} className="flex justify-between items-baseline gap-2">
@@ -399,7 +399,7 @@ export function EntityDetail() {
         })()}
 
         {activeTab === 'weather' && entity.entity_type === 'aircraft' && (
-          <div className="space-y-4">
+          <div className="stack-y-4">
             {!originWx && !destinationWx ? (
               <div className="text-center p-4">
                 <span className="ms text-[24px] text-on-surface-variant/50 mb-2 block">cloud_off</span>
@@ -413,7 +413,7 @@ export function EntityDetail() {
                       <span className="ms text-[14px]">flight_takeoff</span>
                       <span className="label-caps text-[11px]">Origin METAR ({origin})</span>
                     </div>
-                    <div className="bg-[#0a0a0a] border border-white/10 p-2 font-mono text-[11px] text-[#00ffcc] leading-relaxed whitespace-pre-wrap break-words rounded-sm shadow-inner">
+                    <div className="bg-onyx-deep border border-white/10 p-2 font-mono text-[11px] text-[#00ffcc] leading-relaxed whitespace-pre-wrap wrap-break-word rounded-sm shadow-inner">
                       &gt; {originWx}
                     </div>
                   </div>
@@ -425,7 +425,7 @@ export function EntityDetail() {
                       <span className="ms text-[14px]">flight_land</span>
                       <span className="label-caps text-[11px]">Destination METAR ({destination})</span>
                     </div>
-                    <div className="bg-[#0a0a0a] border border-white/10 p-2 font-mono text-[11px] text-[#00ffcc] leading-relaxed whitespace-pre-wrap break-words rounded-sm shadow-inner">
+                    <div className="bg-onyx-deep border border-white/10 p-2 font-mono text-[11px] text-[#00ffcc] leading-relaxed whitespace-pre-wrap wrap-break-word rounded-sm shadow-inner">
                       &gt; {destinationWx}
                     </div>
                   </div>
@@ -436,7 +436,7 @@ export function EntityDetail() {
         )}
 
         {activeTab === 'tags' && (
-          <div className="space-y-4">
+          <div className="stack-y-4">
             {/* Source Tags */}
             {entity.tags && entity.tags.length > 0 && (
               <div>
@@ -474,7 +474,7 @@ export function EntityDetail() {
                       </span>
                       <button
                         onClick={() => handleDeleteTag(t.id)}
-                        className="text-on-surface-variant hover:text-red-emergency transition-colors leading-none p-0.5 ml-1 focus:outline-none"
+                        className="text-on-surface-variant hover:text-red-emergency transition-colors leading-none p-0.5 ml-1 focus:outline-hidden"
                         aria-label={`Remove tag ${t.tag}`}
                       >
                         <span className="ms text-[12px]">close</span>
@@ -485,7 +485,7 @@ export function EntityDetail() {
               )}
 
               {/* Tag Editor */}
-              <div className="space-y-2 bg-white/5 p-2 border border-white/10 rounded-sm">
+              <div className="stack-y-2 bg-white/5 p-2 border border-white/10 rounded-sm">
                 <div className="flex gap-1 relative">
                   <button 
                     onClick={() => setShowColorPicker(!showColorPicker)}
@@ -500,13 +500,13 @@ export function EntityDetail() {
                     value={tagInput}
                     onChange={(e) => setTagInput(e.target.value)}
                     onKeyDown={(e) => { if (e.key === 'Enter') handleAddTag() }}
-                    className="flex-1 min-w-0 bg-transparent border-b text-on-surface placeholder-on-surface-variant text-[11px] px-1 focus:outline-none transition-colors"
+                    className="flex-1 min-w-0 bg-transparent border-b text-on-surface placeholder-on-surface-variant text-[11px] px-1 focus:outline-hidden transition-colors"
                     style={{ borderBottomColor: tagInput.trim() ? tagColor : 'rgba(255,255,255,0.2)' }}
                   />
                   <button
                     onClick={handleAddTag}
                     disabled={tagSaving || !tagInput.trim()}
-                    className="text-amber-gold hover:text-white px-1 transition-colors focus:outline-none disabled:opacity-30 disabled:hover:text-amber-gold"
+                    className="text-amber-gold hover:text-white px-1 transition-colors focus:outline-hidden disabled:opacity-30 disabled:hover:text-amber-gold"
                     aria-label="Add tag"
                   >
                     <span className="ms text-[16px] leading-none">add_circle</span>
@@ -519,7 +519,7 @@ export function EntityDetail() {
                       <button
                         key={c}
                         onClick={() => { setTagColor(c); setShowColorPicker(false); }}
-                        className="w-4 h-4 rounded-full transition-transform hover:scale-110 focus:outline-none"
+                        className="w-4 h-4 rounded-full transition-transform hover:scale-110 focus:outline-hidden"
                         style={{
                           backgroundColor: c,
                           boxShadow: tagColor === c ? `0 0 0 2px #050505, 0 0 0 3px ${c}` : 'none',
