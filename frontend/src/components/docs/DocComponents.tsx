@@ -48,7 +48,7 @@ export function AtlasIcon({
  */
 export function DocHeader({ title, subtitle }: { title: string; subtitle?: string }) {
   return (
-    <div className="mb-8 border-l-4 border-amber-gold pl-6 py-2 bg-gradient-to-r from-amber-gold/5 to-transparent animate-in fade-in slide-in-from-left-4 duration-700">
+    <div className="mb-8 border-l-4 border-amber-gold pl-6 py-2 bg-linear-to-r from-amber-gold/5 to-transparent animate-in fade-in slide-in-from-left-4 duration-700">
       <h1 className="text-2xl font-black tracking-[0.15em] uppercase text-white drop-shadow-[0_2px_10px_rgba(255,184,0,0.2)]">
         {title}
       </h1>
@@ -77,7 +77,7 @@ export function DocSection({ title, children, delay = 0 }: { title: string; chil
         </h2>
         <div className="h-px w-8 bg-white/10" />
       </div>
-      <div className="space-y-4 text-on-surface-variant leading-relaxed">
+      <div className="stack-y-4 text-on-surface-variant leading-relaxed">
         {children}
       </div>
     </section>
@@ -100,7 +100,7 @@ export function DocText({ children, className = "" }: { children: React.ReactNod
  */
 export function DocCard({ icon, title, description, badge }: { icon: string | React.ReactNode; title: string; description: string; badge?: string }) {
   return (
-    <div className="group relative p-4 bg-white/[0.03] border border-white/5 hover:border-amber-gold/40 hover:bg-white/[0.05] transition-all duration-300 rounded-xl overflow-hidden">
+    <div className="group relative p-4 bg-white/3 border border-white/5 hover:border-amber-gold/40 hover:bg-white/5 transition-all duration-300 rounded-xl overflow-hidden">
       <div className="absolute top-0 right-0 p-2 opacity-10 group-hover:opacity-20 transition-opacity">
         {typeof icon === 'string' ? (
           <span className="ms text-4xl">{icon}</span>
@@ -148,7 +148,7 @@ export function DocGrid({ children }: { children: React.ReactNode }) {
  */
 export function DocList({ items }: { items: (string | React.ReactNode)[] }) {
   return (
-    <ul className="space-y-3 pl-2">
+    <ul className="stack-y-3 pl-2">
       {items.map((item, i) => (
         <li key={i} className="flex gap-3 text-[13px] text-on-surface-variant/90">
           <span className="ms text-amber-gold text-[16px] shrink-0 translate-y-0.5">double_arrow</span>
@@ -189,7 +189,7 @@ export function DocCallout({ title, children, type = 'info' }: { title: string; 
 export function DocCode({ code }: { code: string }) {
   return (
     <div className="my-4 rounded-xl overflow-hidden border border-white/5 bg-onyx-black shadow-inner">
-      <div className="flex items-center justify-between px-4 py-2 bg-white/[0.03] border-b border-white/5">
+      <div className="flex items-center justify-between px-4 py-2 bg-white/3 border-b border-white/5">
         <div className="flex gap-1.5">
           <div className="w-2 h-2 rounded-full bg-red-500/30" />
           <div className="w-2 h-2 rounded-full bg-amber-500/30" />

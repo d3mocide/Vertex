@@ -42,9 +42,9 @@ export function SceneTab() {
   const totalItems = scene ? scene.layers.reduce((a, l) => a + (l.count ?? 0), 0) : 0
 
   return (
-    <div className="space-y-1.5 text-[10px]">
+    <div className="stack-y-1.5 text-[10px]">
       <SectionLabel>Renderer</SectionLabel>
-      <div className={`font-mono break-words ${isSoftwareRenderer(gpu) ? 'text-red-emergency' : 'text-amber-gold'}`}>{gpu}</div>
+      <div className={`font-mono wrap-break-word ${isSoftwareRenderer(gpu) ? 'text-red-emergency' : 'text-amber-gold'}`}>{gpu}</div>
       {isSoftwareRenderer(gpu) && <div className="text-on-surface-variant">Software rendering: frame times here are not GPU numbers.</div>}
       <Row label="devicePixelRatio" value={window.devicePixelRatio} />
       <Row label="CPU threads" value={navigator.hardwareConcurrency ?? '—'} />

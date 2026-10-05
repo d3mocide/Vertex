@@ -55,7 +55,7 @@ export function AprsOverview({ entity, getIdentity }: OverviewProps) {
 
       {/* Weather data card — only for weather stations with wx data */}
       {wx && (
-        <div className="bg-white/5 border border-white/10 rounded-sm p-2 mb-3 space-y-2">
+        <div className="bg-white/5 border border-white/10 rounded-sm p-2 mb-3 stack-y-2">
           <span className="label-caps text-[11px] text-sky-400/80 block">Live Conditions</span>
           <div className="grid grid-cols-2 gap-2">
             {typeof wx.temp_f === 'number' && (
@@ -161,14 +161,14 @@ export function AprsOverview({ entity, getIdentity }: OverviewProps) {
         </div>
       </div>
 
-      <div className="space-y-3 mt-3">
+      <div className="stack-y-3 mt-3">
         <div>
           <span className="label-caps text-[11px] text-amber-gold-dim mb-1 block">Identity</span>
-          <div className="space-y-1">
+          <div className="stack-y-1">
             {identityRows.filter(([, v]) => v != null).map(([label, val]) => (
               <div key={label} className="flex justify-between items-baseline gap-2">
                 <span className="text-[11px] text-on-surface-variant shrink-0">{label}</span>
-                <span className="font-mono text-[11px] text-on-surface text-right break-words">{val}</span>
+                <span className="font-mono text-[11px] text-on-surface text-right wrap-break-word">{val}</span>
               </div>
             ))}
           </div>

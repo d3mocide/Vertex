@@ -32,7 +32,7 @@ function toMeshNodePoint(e: Entity, nowMs: number): MeshNodePoint | null {
 
 function iconForZoom(zoom: number): string {
   if (zoom >= 9) return 'mesh'
-  if (zoom >= 6) return 'ring'
+  if (zoom >= 6) return 'ring-3'
   return 'dot'
 }
 

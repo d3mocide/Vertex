@@ -47,7 +47,7 @@ function PasswordField({ value, onChange, label, id }: { value: string; onChange
   const [shown, setShown] = useState(false)
   const [copied, setCopied] = useState(false)
   return (
-    <div className="space-y-1.5">
+    <div className="stack-y-1.5">
       <div className="flex gap-2">
         <input
           id={id}
@@ -225,11 +225,11 @@ export default function AdminUsers() {
   const lastSignIn = users.map((u) => u.last_login).filter(Boolean).sort().slice(-1)[0] ?? null
 
   return (
-    <div className="max-w-4xl space-y-6">
+    <div className="max-w-4xl stack-y-6">
       {notice && <Notice kind={notice.kind} onDismiss={() => setNotice(null)}>{notice.text}</Notice>}
 
       {issuedKey && (
-        <div className="border border-amber-gold/50 bg-amber-gold/5 p-4 space-y-2">
+        <div className="border border-amber-gold/50 bg-amber-gold/5 p-4 stack-y-2">
           <div className="label-caps text-amber-gold">API key for {issuedKey.username} — copy it now</div>
           <p className="text-[11px] text-on-surface-variant">It is shown only once. Send it as the <span className="font-mono">X-API-Key</span> header.</p>
           <div className="flex items-stretch gap-2">
@@ -251,7 +251,7 @@ export default function AdminUsers() {
         }
       >
         {showCreate && (
-          <form onSubmit={createUser} className="border border-amber-gold/30 bg-surface-container p-4 mb-4 space-y-4">
+          <form onSubmit={createUser} className="border border-amber-gold/30 bg-surface-container p-4 mb-4 stack-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <label className="block">
                 <span className="block label-caps mb-1.5">Username</span>
@@ -341,7 +341,7 @@ export default function AdminUsers() {
                     </div>
 
                     {resetFor === u.id && (
-                      <form onSubmit={(e) => submitReset(e, u)} className="px-3 pb-3 space-y-2 border-t border-white/5 pt-3 bg-white/[0.02]">
+                      <form onSubmit={(e) => submitReset(e, u)} className="px-3 pb-3 stack-y-2 border-t border-white/5 pt-3 bg-white/2">
                         <div className="label-caps">New password for {u.username}</div>
                         <PasswordField id={`reset-${u.id}`} label={`New password for ${u.username}`} value={resetPassword} onChange={setResetPassword} />
                         <div className="flex justify-end gap-2">

@@ -29,12 +29,12 @@ export function MobileNav() {
     <>
       {/* More Drawer Overlay */}
       {showMore && (
-        <div className="fixed inset-0 z-[60] lg:hidden">
+        <div className="fixed inset-0 z-60 lg:hidden">
           <div 
-            className="absolute inset-0 bg-onyx-black/80 backdrop-blur-sm"
+            className="absolute inset-0 bg-onyx-black/80 backdrop-blur-xs"
             onClick={() => setShowMore(false)}
           />
-          <div className="absolute bottom-0 left-0 right-0 bg-onyx-deep border-t border-white/10 p-6 pb-[4.25rem] animate-in slide-in-from-bottom duration-300">
+          <div className="absolute bottom-0 left-0 right-0 bg-onyx-deep border-t border-white/10 p-6 pb-17 animate-in slide-in-from-bottom duration-300">
             <div className="flex items-center justify-between mb-6">
               <span className="label-caps text-amber-gold">// OPS CHANNELS</span>
               <button onClick={() => setShowMore(false)} className="text-on-surface-variant">
@@ -50,7 +50,7 @@ export function MobileNav() {
                   className={`flex items-center gap-3 p-4 border transition-colors ${
                     activeTab === tab.id 
                       ? 'bg-amber-gold/10 border-amber-gold text-amber-gold' 
-                      : 'bg-white/[0.03] border-white/5 text-on-surface-variant hover:text-white'
+                      : 'bg-white/3 border-white/5 text-on-surface-variant hover:text-white'
                   }`}
                 >
                   <span className="ms text-[20px]">{tab.icon}</span>
@@ -69,7 +69,7 @@ export function MobileNav() {
                 <button
                   key={a.label}
                   onClick={() => { setShowMore(false); a.run() }}
-                  className="flex flex-col items-center gap-1.5 py-3 border bg-white/[0.03] border-white/5 text-on-surface-variant hover:text-white transition-colors"
+                  className="flex flex-col items-center gap-1.5 py-3 border bg-white/3 border-white/5 text-on-surface-variant hover:text-white transition-colors"
                 >
                   <span className="ms text-[20px]" aria-hidden="true">{a.icon}</span>
                   <span className="text-[11px] font-bold tracking-widest uppercase">{a.label}</span>
@@ -81,16 +81,16 @@ export function MobileNav() {
       )}
 
       <nav
-        className="fixed bottom-0 left-0 right-0 z-50 lg:hidden flex bg-white/[0.03] border-t border-white/[0.06] backdrop-blur-md shadow-[0_-4px_30px_rgba(0,0,0,0.5)] pb-safe"
+        className="fixed bottom-0 left-0 right-0 z-50 lg:hidden flex bg-white/3 border-t border-white/6 backdrop-blur-md shadow-[0_-4px_30px_rgba(0,0,0,0.5)] pb-safe"
         aria-label="Mobile navigation"
       >
         {/* Glass reflection — mirrors the header so the bar reads as one piece
             of chrome while the live map shows through to the bottom edge. */}
-        <div className="absolute inset-0 bg-gradient-to-t from-white/5 to-transparent pointer-events-none" aria-hidden="true" />
+        <div className="absolute inset-0 bg-linear-to-t from-white/5 to-transparent pointer-events-none" aria-hidden="true" />
 
         {/* Amber accent line along the top edge — mirrors the header underline. */}
         <div
-          className="absolute left-0 right-0 top-[-1px] h-px pointer-events-none"
+          className="absolute left-0 right-0 -top-px h-px pointer-events-none"
           style={{ background: 'linear-gradient(90deg, transparent, #FFB800 20%, #FFB800 80%, transparent)', opacity: 0.35 }}
           aria-hidden="true"
         />
@@ -101,7 +101,7 @@ export function MobileNav() {
             <button
               key={tab.id}
               onClick={() => handleTabClick(tab.id)}
-              className={`relative flex-1 h-14 flex flex-col items-center justify-center gap-0.5 transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-amber-gold ${
+              className={`relative flex-1 h-14 flex flex-col items-center justify-center gap-0.5 transition-colors focus:outline-hidden focus-visible:ring-1 focus-visible:ring-amber-gold ${
                 active ? 'text-amber-gold' : 'text-on-surface-variant hover:text-on-surface'
               }`}
               aria-current={active ? 'page' : undefined}
@@ -124,7 +124,7 @@ export function MobileNav() {
         {/* More Button */}
         <button
           onClick={() => setShowMore(!showMore)}
-          className={`relative flex-1 h-14 flex flex-col items-center justify-center gap-0.5 transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-amber-gold ${
+          className={`relative flex-1 h-14 flex flex-col items-center justify-center gap-0.5 transition-colors focus:outline-hidden focus-visible:ring-1 focus-visible:ring-amber-gold ${
             showMore ? 'text-amber-gold' : 'text-on-surface-variant hover:text-on-surface'
           }`}
           aria-label="More options"

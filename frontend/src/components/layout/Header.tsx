@@ -29,7 +29,7 @@ function NotificationsDropdown({ events, onClose }: { events: SystemEvent[]; onC
     >
       <div className="flex items-center justify-between px-4 py-2 border-b border-white/10">
         <span className="font-bold text-[11px] tracking-[0.2em] uppercase text-amber-gold">EVENTS</span>
-        <button onClick={onClose} className="text-on-surface-variant hover:text-on-surface transition-colors p-0.5 focus:outline-none" aria-label="Close">
+        <button onClick={onClose} className="text-on-surface-variant hover:text-on-surface transition-colors p-0.5 focus:outline-hidden" aria-label="Close">
           <span className="ms text-[16px]">close</span>
         </button>
       </div>
@@ -74,19 +74,19 @@ export function Header({ flush = false }: { flush?: boolean } = {}) {
         border-b flex justify-between items-center gap-2 w-full px-3 sm:px-4 lg:px-6 h-12 lg:h-14 shrink-0
         transition-all duration-500 relative overflow-visible z-50
         ${flush
-          ? (mode === 'critical' ? 'border-red-emergency/20' : 'border-white/[0.06]')
+          ? (mode === 'critical' ? 'border-red-emergency/20' : 'border-white/6')
           : mode === 'critical'
             ? 'bg-red-emergency/5 border-red-emergency/20 backdrop-blur-md'
-            : 'bg-white/[0.03] border-white/[0.06] backdrop-blur-md shadow-[0_4px_30px_rgba(0,0,0,0.5)]'}
+            : 'bg-white/3 border-white/6 backdrop-blur-md shadow-[0_4px_30px_rgba(0,0,0,0.5)]'}
       `}
     >
       {/* Glass reflection effect */}
-      {!flush && <div className="absolute inset-0 bg-gradient-to-b from-white/5 to-transparent pointer-events-none" />}
+      {!flush && <div className="absolute inset-0 bg-linear-to-b from-white/5 to-transparent pointer-events-none" />}
 
       {/* Amber gradient underline */}
       {mode !== 'critical' && (
         <div
-          className="absolute left-0 right-0 bottom-[-1px] h-px pointer-events-none"
+          className="absolute left-0 right-0 -bottom-px h-px pointer-events-none"
           style={{ background: 'linear-gradient(90deg, transparent, #FFB800 20%, #FFB800 80%, transparent)', opacity: 0.35 }}
           aria-hidden="true"
         />
@@ -146,7 +146,7 @@ export function Header({ flush = false }: { flush?: boolean } = {}) {
           <div className="relative" ref={notifRef}>
             <button
               onClick={() => setNotificationsOpen((o) => !o)}
-              className={`hover:text-amber-gold transition-colors p-2 lg:p-1 focus:outline-none focus-visible:ring-1 focus-visible:ring-amber-gold relative ${notificationsOpen ? 'text-amber-gold' : ''}`}
+              className={`hover:text-amber-gold transition-colors p-2 lg:p-1 focus:outline-hidden focus-visible:ring-1 focus-visible:ring-amber-gold relative ${notificationsOpen ? 'text-amber-gold' : ''}`}
               aria-label={`Notifications${systemEvents.length > 0 ? ` (${systemEvents.length})` : ''}`}
               aria-expanded={notificationsOpen}
             >
@@ -161,7 +161,7 @@ export function Header({ flush = false }: { flush?: boolean } = {}) {
           </div>
           <button
             onClick={() => exportDashboardSnapshot()}
-            className="hidden lg:block hover:text-amber-gold transition-colors p-2 lg:p-1 focus:outline-none focus-visible:ring-1 focus-visible:ring-amber-gold"
+            className="hidden lg:block hover:text-amber-gold transition-colors p-2 lg:p-1 focus:outline-hidden focus-visible:ring-1 focus-visible:ring-amber-gold"
             aria-label="Export snapshot"
             title="Export map snapshot"
           >
@@ -169,7 +169,7 @@ export function Header({ flush = false }: { flush?: boolean } = {}) {
           </button>
           <button
             onClick={() => setHelpOpen(true)}
-            className="hidden lg:block hover:text-amber-gold transition-colors p-2 lg:p-1 focus:outline-none focus-visible:ring-1 focus-visible:ring-amber-gold"
+            className="hidden lg:block hover:text-amber-gold transition-colors p-2 lg:p-1 focus:outline-hidden focus-visible:ring-1 focus-visible:ring-amber-gold"
             aria-label="Documentation"
             title="Documentation"
           >
@@ -177,7 +177,7 @@ export function Header({ flush = false }: { flush?: boolean } = {}) {
           </button>
           <button
             onClick={() => setSettingsOpen(true)}
-            className="hover:text-amber-gold transition-colors p-2 lg:p-1 focus:outline-none focus-visible:ring-1 focus-visible:ring-amber-gold"
+            className="hover:text-amber-gold transition-colors p-2 lg:p-1 focus:outline-hidden focus-visible:ring-1 focus-visible:ring-amber-gold"
             aria-label="Settings"
           >
             <span className="ms text-[18px]">settings</span>

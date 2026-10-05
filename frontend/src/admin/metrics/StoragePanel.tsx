@@ -21,17 +21,17 @@ export function StoragePanel({ storage, retentionDays, setRetentionDays, onSave,
   const formatBytes = (b: number) => b >= 1_073_741_824 ? `${(b / 1_073_741_824).toFixed(1)} GB` : `${Math.round(b / 1_048_576)} MB`
 
   return (
-    <section className="p-4 border border-white/10 bg-black/30 space-y-4">
+    <section className="p-4 border border-white/10 bg-black/30 stack-y-4">
       <h3 className="text-[11px] uppercase tracking-widest text-on-surface-variant">Data Retention Policy</h3>
 
         {/* Retention slider */}
-      <div className="space-y-3">
+      <div className="stack-y-3">
         <div className="flex items-center justify-between">
           <span className="text-xs text-on-surface-variant">Keep observations for</span>
           <span className="font-mono text-amber-gold font-bold text-sm">{retentionDays}d</span>
         </div>
 
-        <div className="space-y-1.5">
+        <div className="stack-y-1.5">
           <input
             type="range" min={1} max={365} step={1}
             value={retentionDays}
@@ -46,7 +46,7 @@ export function StoragePanel({ storage, retentionDays, setRetentionDays, onSave,
         </div>
 
         {estimate && (
-          <div className="border-t border-white/10 pt-3 space-y-1">
+          <div className="border-t border-white/10 pt-3 stack-y-1">
             <div className="flex items-center justify-between">
               <span className="text-[11px] text-on-surface-variant uppercase tracking-widest">Settles at</span>
               <span className="font-mono text-sm font-bold text-on-surface">

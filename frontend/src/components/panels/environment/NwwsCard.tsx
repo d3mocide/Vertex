@@ -91,15 +91,15 @@ export function NwwsProducts() {
   if (shown.length === 0) return null
 
   return (
-    <div className="space-y-2">
+    <div className="stack-y-2">
       {shown.map((p) => {
         const isOpen = expanded === p.code
         const color = CODE_COLORS[p.code] ?? 'text-gray-400'
         const icon = CODE_ICONS[p.code] ?? 'article'
         return (
-          <div key={p.code} className="border border-white/10 bg-white/[0.02]">
+          <div key={p.code} className="border border-white/10 bg-white/2">
             <button
-              className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-white/[0.03] transition-colors"
+              className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-white/3 transition-colors"
               onClick={() => setExpanded(isOpen ? null : p.code)}
               aria-expanded={isOpen}
             >
@@ -115,7 +115,7 @@ export function NwwsProducts() {
 
             {isOpen && p.text && (
               <div className="border-t border-white/5 px-3 py-2">
-                <pre className="font-mono text-[11px] text-on-surface-variant whitespace-pre-wrap break-words leading-relaxed max-h-72 overflow-y-auto">
+                <pre className="font-mono text-[11px] text-on-surface-variant whitespace-pre-wrap wrap-break-word leading-relaxed max-h-72 overflow-y-auto">
                   {readable(p.text)}
                 </pre>
               </div>

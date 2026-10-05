@@ -359,8 +359,8 @@ export default function AdminDebug() {
   }
 
   return (
-    <div className="space-y-6 max-w-5xl">
-      <section className="space-y-3">
+    <div className="stack-y-6 max-w-5xl">
+      <section className="stack-y-3">
         <h2 className="text-[11px] uppercase tracking-widest text-on-surface-variant">Remote Feed Diagnostics</h2>
         <p className="text-xs text-on-surface-variant">
           Run on-demand probes for remote ingestion feeds to detect silent failures before they impact operators.
@@ -466,7 +466,7 @@ export default function AdminDebug() {
 
       {result && (
         <>
-          <section className="space-y-2">
+          <section className="stack-y-2">
             <h3 className="text-[11px] uppercase tracking-widest text-on-surface-variant">Probe Target</h3>
             <div className="p-3 border border-white/10 bg-surface-container-low text-xs text-on-surface">
               <div>Type: <span className="text-on-surface uppercase">{result.source.type}</span></div>
@@ -475,7 +475,7 @@ export default function AdminDebug() {
             </div>
           </section>
 
-          <section className="space-y-2">
+          <section className="stack-y-2">
             <h3 className="text-[11px] uppercase tracking-widest text-on-surface-variant">Probe Checks</h3>
             <div className="border border-white/10 bg-surface-container-low">
               {result.checks.length === 0 ? (
@@ -489,15 +489,15 @@ export default function AdminDebug() {
           {(result.ws || result.storage) && (
             <section className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {result.ws && (
-                <div className="space-y-2">
+                <div className="stack-y-2">
                   <h3 className="text-[11px] uppercase tracking-widest text-on-surface-variant">WebSocket Event Types</h3>
-                  <div className="border border-white/10 bg-surface-container-low p-3 space-y-2">
+                  <div className="border border-white/10 bg-surface-container-low p-3 stack-y-2">
                     <div className="flex items-center gap-2">
                       <StatusPill ok={result.ws.connected} />
                       <span className="text-xs text-on-surface">WS Connection</span>
                     </div>
                     {result.ws.error && <p className="text-xs text-red-400">{result.ws.error}</p>}
-                    <div className="space-y-1">
+                    <div className="stack-y-1">
                       {Object.keys(result.ws.event_counts).length === 0 && (
                         <p className="text-xs text-on-surface-variant">No events observed in probe window.</p>
                       )}
@@ -515,9 +515,9 @@ export default function AdminDebug() {
               )}
 
               {result.storage && (
-                <div className="space-y-2">
+                <div className="stack-y-2">
                   <h3 className="text-[11px] uppercase tracking-widest text-on-surface-variant">Persisted Message State</h3>
-                  <div className="border border-white/10 bg-surface-container-low p-3 text-xs space-y-2">
+                  <div className="border border-white/10 bg-surface-container-low p-3 text-xs stack-y-2">
                     <div className="flex justify-between">
                       <span className="text-on-surface-variant">Total messages</span>
                       <span className="text-on-surface font-mono">{result.storage.total_messages}</span>
@@ -538,13 +538,13 @@ export default function AdminDebug() {
             </section>
           )}
 
-          <section className="space-y-2">
+          <section className="stack-y-2">
             <h3 className="text-[11px] uppercase tracking-widest text-on-surface-variant">Recommendations</h3>
             <div className="border border-white/10 bg-surface-container-low p-3">
               {result.recommendations.length === 0 ? (
                 <p className="text-xs text-emerald-300">No immediate issues detected.</p>
               ) : (
-                <ul className="space-y-1 text-xs text-on-surface list-disc pl-5">
+                <ul className="stack-y-1 text-xs text-on-surface list-disc pl-5">
                   {result.recommendations.map((r, i) => (
                     <li key={i}>{r}</li>
                   ))}

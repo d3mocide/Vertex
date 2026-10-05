@@ -203,7 +203,7 @@ export function Map() {
       role="main"
       aria-label="Situational awareness map"
     >
-      <div ref={containerRef} className="absolute inset-0" />
+      <div ref={containerRef} className="w-full h-full" />
       {map && (
         <>
           <TerrainLayer          map={map} />

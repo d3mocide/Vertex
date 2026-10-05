@@ -28,7 +28,7 @@ export function NetworkTab() {
   const since = Math.round((Date.now() - stats.since) / 1000)
 
   return (
-    <div className="space-y-1.5 text-[10px]">
+    <div className="stack-y-1.5 text-[10px]">
       <SectionLabel>WebSocket · live</SectionLabel>
       <Row label="messages / s" value={rate.msgs} />
       <Row label="data / s" value={`${rate.kbps} KB`} />
@@ -40,7 +40,7 @@ export function NetworkTab() {
       <SectionLabel divider>By message type</SectionLabel>
       {types.length === 0 && <div className="text-on-surface-variant">No messages since the tools were opened.</div>}
       {types.map(([type, t]) => <Row key={type} label={type} value={`${t.n} · ${Math.round(t.bytes / 1024)} KB`} />)}
-      <button type="button" onClick={() => { resetWsStats(); prev.current = null; setStats(readWsStats()) }} className="btn-ghost !py-0.5 !text-[9px]">Reset</button>
+      <button type="button" onClick={() => { resetWsStats(); prev.current = null; setStats(readWsStats()) }} className="btn-ghost py-0.5! text-[9px]!">Reset</button>
     </div>
   )
 }

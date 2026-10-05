@@ -76,7 +76,7 @@ export function BoundarySearch({ onUse }: { onUse: (candidate: BoundaryCandidate
   }
 
   return (
-    <div className="border border-white/10 bg-onyx-deep/40 p-3 space-y-2">
+    <div className="border border-white/10 bg-onyx-deep/40 p-3 stack-y-2">
       <span className="label-caps block">Find Boundary</span>
       <form
         className="flex gap-2"
@@ -88,12 +88,12 @@ export function BoundarySearch({ onUse }: { onUse: (candidate: BoundaryCandidate
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           aria-label="City, county or ZIP code"
-          className="flex-1 min-w-0 bg-onyx-deep border border-white/10 text-on-surface placeholder-on-surface-variant text-[11px] px-3 py-1.5 focus:outline-none focus:border-amber-gold/60 transition-colors"
+          className="flex-1 min-w-0 bg-onyx-deep border border-white/10 text-on-surface placeholder-on-surface-variant text-[11px] px-3 py-1.5 focus:outline-hidden focus:border-amber-gold/60 transition-colors"
         />
         <button
           type="submit"
           disabled={busy || query.trim().length < 2}
-          className="flex items-center gap-1 px-3 py-1.5 border border-amber-gold/60 text-amber-gold text-[11px] font-bold uppercase tracking-widest hover:bg-amber-gold/10 transition-colors focus:outline-none disabled:opacity-50"
+          className="flex items-center gap-1 px-3 py-1.5 border border-amber-gold/60 text-amber-gold text-[11px] font-bold uppercase tracking-widest hover:bg-amber-gold/10 transition-colors focus:outline-hidden disabled:opacity-50"
         >
           <span className={`ms text-[14px] leading-none ${busy ? 'animate-pulse' : ''}`} aria-hidden="true">travel_explore</span>
           {busy ? 'Searching' : 'Search'}
@@ -107,7 +107,7 @@ export function BoundarySearch({ onUse }: { onUse: (candidate: BoundaryCandidate
       )}
 
       {results && results.length > 0 && (
-        <ul className="space-y-1">
+        <ul className="stack-y-1">
           {results.map((c) => (
             <li key={c.id} className="flex items-center gap-3 p-2 border border-white/5 hover:bg-surface-container transition-colors">
               <svg width={40} height={40} viewBox="0 0 40 40" className="shrink-0 bg-onyx-black border border-white/5" aria-hidden="true">
@@ -121,7 +121,7 @@ export function BoundarySearch({ onUse }: { onUse: (candidate: BoundaryCandidate
               </div>
               <button
                 onClick={() => onUse(c)}
-                className="px-2 py-1 border border-amber-gold/60 text-amber-gold text-[11px] font-bold uppercase tracking-widest hover:bg-amber-gold/10 transition-colors focus:outline-none"
+                className="px-2 py-1 border border-amber-gold/60 text-amber-gold text-[11px] font-bold uppercase tracking-widest hover:bg-amber-gold/10 transition-colors focus:outline-hidden"
               >
                 Use
               </button>

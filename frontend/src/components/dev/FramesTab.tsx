@@ -75,7 +75,7 @@ export function FramesTab() {
   const phaseNames = Object.keys(phases)
 
   return (
-    <div className="space-y-2 text-[10px]">
+    <div className="stack-y-2 text-[10px]">
       <SectionLabel>Live · last 5 s</SectionLabel>
       <div className="flex items-baseline justify-between">
         <span className={`font-mono text-[22px] leading-none ${TONE_TEXT[t]}`}>{snap.fps.toFixed(0)}<span className="text-[10px] text-on-surface-variant"> fps</span></span>
@@ -94,7 +94,7 @@ export function FramesTab() {
           {phaseNames.map((name) => (
             <Row key={name} label={name} value={`${(phases[name].total / phases[name].n).toFixed(2)} ms · max ${phases[name].max.toFixed(1)}`} />
           ))}
-          <button type="button" onClick={resetPhases} className="btn-ghost !py-0.5 !text-[9px]">Reset</button>
+          <button type="button" onClick={resetPhases} className="btn-ghost py-0.5! text-[9px]!">Reset</button>
         </>
       )}
 
@@ -103,7 +103,7 @@ export function FramesTab() {
         {DURATIONS.map((d) => <Chip key={d} active={seconds === d} onClick={() => setSeconds(d)}>{d}s</Chip>)}
       </ChipRow>
       <input
-        className="tactical-input !py-1 font-mono"
+        className="tactical-input py-1! font-mono"
         value={label}
         onChange={(e) => setLabel(e.target.value)}
         aria-label="Recording label"
@@ -125,7 +125,7 @@ export function FramesTab() {
           <Row label="dropped / hitches" value={`${last.droppedPct}% / ${last.hitches}`} />
           <Row label="long tasks" value={`${last.longTasks.count} (max ${last.longTasks.maxMs} ms)`} />
           <Row label="layer rebuild p50 / p95" value={`${last.layerBuildMs.p50} / ${last.layerBuildMs.p95} ms`} />
-          <button type="button" onClick={copyLast} className="btn-ghost !py-0.5 !text-[9px]">{copied ? 'Copied' : 'Copy JSON'}</button>
+          <button type="button" onClick={copyLast} className="btn-ghost py-0.5! text-[9px]!">{copied ? 'Copied' : 'Copy JSON'}</button>
         </>
       )}
     </div>

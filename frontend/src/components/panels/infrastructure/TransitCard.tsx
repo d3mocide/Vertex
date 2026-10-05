@@ -11,7 +11,7 @@ export function TransitCard() {
   const routes = caps?.contracts['transit.routes']
   if (!routes || (Object.values(routes.provider_statuses ?? {}).length > 0 && Object.values(routes.provider_statuses ?? {}).every(p => p.reason === 'outside_coverage')) || routes.reason === 'no_pack' || routes.reason === 'not_in_pack') return null
   return (
-    <section className="hud-panel p-4 space-y-3">
+    <section className="hud-panel p-4 stack-y-3">
       <h2 className="section-heading flex items-center gap-2"><span className="ms" aria-hidden="true">directions_bus</span>Local Transit</h2>
       <p className="text-[12px] text-on-surface-variant">Vehicles are limited to the monitoring area. Route schedules can be available without live positions.</p>
       <div className="flex gap-3">

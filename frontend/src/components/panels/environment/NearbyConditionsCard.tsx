@@ -67,9 +67,9 @@ export function NearbyConditionsCard() {
       {stations.length > 0 && (
         <div className="mb-4">
           <div className="text-[11px] font-mono uppercase tracking-widest text-on-surface-variant mb-1">Airport stations</div>
-          <div className="space-y-1">
+          <div className="stack-y-1">
             {stations.map((s) => (
-              <div key={s.id} className="flex items-center gap-3 border border-white/10 bg-white/[0.02] px-3 py-1.5">
+              <div key={s.id} className="flex items-center gap-3 border border-white/10 bg-white/2 px-3 py-1.5">
                 <span className="font-mono text-[12px] font-bold text-on-surface w-11 shrink-0">{s.id}</span>
                 <span className="text-[11px] text-on-surface-variant truncate flex-1">{s.condition || s.name}</span>
                 <span className="font-mono text-[12px] text-amber-gold w-10 text-right">{fmt(s.temp_f, '°')}</span>
@@ -85,12 +85,12 @@ export function NearbyConditionsCard() {
       {rwis.length > 0 && (
         <div>
           <div className="text-[11px] font-mono uppercase tracking-widest text-on-surface-variant mb-1">Road weather · ODOT</div>
-          <div className="space-y-1">
+          <div className="stack-y-1">
             {rwis.slice(0, RWIS_SHOWN).map((r) => {
               const icy = r.surface_f != null && r.surface_f <= ICE_SURFACE_F
               const lowVis = r.visibility_m != null && r.visibility_m < LOW_VIS_M
               return (
-                <div key={`${r.id}-${r.name}`} className="border border-white/10 bg-white/[0.02] px-3 py-1.5">
+                <div key={`${r.id}-${r.name}`} className="border border-white/10 bg-white/2 px-3 py-1.5">
                   <div className="flex items-center gap-2">
                     <span className="text-[12px] font-bold text-on-surface truncate flex-1">{r.name}</span>
                     {icy && <span className="text-[10px] font-bold uppercase tracking-wider border border-amber-gold/60 text-amber-gold px-1">Ice risk</span>}

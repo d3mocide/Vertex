@@ -13,7 +13,7 @@ function Card({ title, tone, headline, children }: { title: string; tone: Tone; 
         <span className="text-[11px] uppercase tracking-widest text-on-surface-variant truncate">{title}</span>
       </div>
       <div className={`font-mono text-xl font-bold ${TONE_TEXT[tone]}`}>{headline}</div>
-      {children && <div className="space-y-0.5 text-[11px] text-on-surface-variant font-mono">{children}</div>}
+      {children && <div className="stack-y-0.5 text-[11px] text-on-surface-variant font-mono">{children}</div>}
     </div>
   )
 }

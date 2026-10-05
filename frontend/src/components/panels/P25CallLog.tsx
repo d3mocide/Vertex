@@ -83,7 +83,7 @@ export function P25CallLog() {
           return (
             <li key={c.id} className="px-3 py-2.5 border-b border-white/5 last:border-b-0">
               <div className="flex items-baseline gap-3">
-                <span className="font-mono text-[12px] text-on-surface-variant shrink-0 w-[5.5rem]">{hhmmss(c.started_at)}</span>
+                <span className="font-mono text-[12px] text-on-surface-variant shrink-0 w-22">{hhmmss(c.started_at)}</span>
                 <span className="flex-1 min-w-0 text-[13px] font-semibold text-on-surface truncate">
                   {c.tag || `TG ${c.tgid}`}
                 </span>

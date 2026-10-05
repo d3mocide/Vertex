@@ -13,7 +13,7 @@ export function AnnotationController() {
         className={`
           relative flex items-center gap-2 px-3 py-2
           hud-panel border border-amber-gold-muted text-[11px] font-mono uppercase tracking-widest shadow-2xl
-          hover:border-amber-gold/60 transition-colors focus:outline-none
+          hover:border-amber-gold/60 transition-colors focus:outline-hidden
           ${open || annotationDrawMode ? 'text-amber-gold border-amber-gold' : 'text-on-surface-variant'}
         `}
         aria-expanded={open}
@@ -22,7 +22,7 @@ export function AnnotationController() {
         <span className="ms text-[16px] leading-none">{annotationsVisible ? 'edit_note' : 'visibility_off'}</span>
         ANNOTATE
       </button>
-      <div id="annotation-toolbar-portal" className="fixed top-[calc(var(--chrome-top)+10rem)] left-2 z-[40] lg:absolute lg:top-full lg:mt-2 lg:left-0" />
+      <div id="annotation-toolbar-portal" className="fixed top-[calc(var(--chrome-top)+10rem)] left-2 z-40 lg:absolute lg:top-full lg:mt-2 lg:left-0" />
     </div>
   )
 }

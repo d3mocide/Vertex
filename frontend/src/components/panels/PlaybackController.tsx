@@ -143,7 +143,7 @@ export function PlaybackController() {
           className={`
             relative flex items-center gap-2 px-3 py-2
             hud-panel border border-amber-gold-muted text-[11px] font-mono uppercase tracking-widest shadow-2xl
-            hover:border-amber-gold/60 transition-colors focus:outline-none
+            hover:border-amber-gold/60 transition-colors focus:outline-hidden
             ${open ? 'text-amber-gold border-amber-gold' : 'text-on-surface-variant'}
           `}
           aria-expanded={open}
@@ -156,17 +156,17 @@ export function PlaybackController() {
 
       {/* Load panel — shown when trigger clicked and not yet in replay mode */}
       {open && !replayMode && (
-        <div className="absolute top-full mt-2 left-0 z-[40] w-[calc(100vw-1rem)] sm:w-80 hud-panel p-4 space-y-4 shadow-2xl cursor-default">
+        <div className="absolute top-full mt-2 left-0 z-40 w-[calc(100vw-1rem)] sm:w-80 hud-panel p-4 stack-y-4 shadow-2xl cursor-default">
           <div className="flex items-center justify-between">
             <span className="font-bold text-[11px] tracking-[0.2em] uppercase text-amber-gold">Load History</span>
-            <button onClick={() => setOpen(false)} className="ms text-[16px] text-on-surface-variant hover:text-on-surface leading-none focus:outline-none">close</button>
+            <button onClick={() => setOpen(false)} className="ms text-[16px] text-on-surface-variant hover:text-on-surface leading-none focus:outline-hidden">close</button>
           </div>
 
           {/* Mode toggle */}
           <div className="flex border border-white/10 divide-x divide-white/10">
             <button
               onClick={() => setUseAbsolute(false)}
-              className={`flex-1 py-1 text-[11px] font-mono uppercase tracking-widest transition-colors focus:outline-none ${
+              className={`flex-1 py-1 text-[11px] font-mono uppercase tracking-widest transition-colors focus:outline-hidden ${
                 !useAbsolute ? 'bg-amber-gold/10 text-amber-gold' : 'text-on-surface-variant hover:text-on-surface'
               }`}
               aria-pressed={!useAbsolute}
@@ -175,7 +175,7 @@ export function PlaybackController() {
             </button>
             <button
               onClick={() => setUseAbsolute(true)}
-              className={`flex-1 py-1 text-[11px] font-mono uppercase tracking-widest transition-colors focus:outline-none ${
+              className={`flex-1 py-1 text-[11px] font-mono uppercase tracking-widest transition-colors focus:outline-hidden ${
                 useAbsolute ? 'bg-amber-gold/10 text-amber-gold' : 'text-on-surface-variant hover:text-on-surface'
               }`}
               aria-pressed={useAbsolute}
@@ -193,7 +193,7 @@ export function PlaybackController() {
                   <button
                     key={opt.hours}
                     onClick={() => setWindowHours(opt.hours)}
-                    className={`px-2 py-1 border text-[11px] font-mono uppercase tracking-widest transition-colors focus:outline-none ${
+                    className={`px-2 py-1 border text-[11px] font-mono uppercase tracking-widest transition-colors focus:outline-hidden ${
                       windowHours === opt.hours
                         ? 'border-amber-gold text-amber-gold bg-amber-gold/10'
                         : 'border-white/10 text-on-surface-variant hover:border-white/20'
@@ -207,23 +207,23 @@ export function PlaybackController() {
             </div>
           ) : (
             /* Absolute date/time range pickers */
-            <div className="space-y-2">
-              <div className="space-y-1">
+            <div className="stack-y-2">
+              <div className="stack-y-1">
                 <label className="label-caps text-[11px] block">Start</label>
                 <input
                   type="datetime-local"
                   value={absStart}
                   onChange={(e) => setAbsStart(e.target.value)}
-                  className="w-full bg-surface-container border border-white/10 text-on-surface font-mono text-[11px] px-2 py-1.5 focus:outline-none focus:border-amber-gold/60"
+                  className="w-full bg-surface-container border border-white/10 text-on-surface font-mono text-[11px] px-2 py-1.5 focus:outline-hidden focus:border-amber-gold/60"
                 />
               </div>
-              <div className="space-y-1">
+              <div className="stack-y-1">
                 <label className="label-caps text-[11px] block">End</label>
                 <input
                   type="datetime-local"
                   value={absEnd}
                   onChange={(e) => setAbsEnd(e.target.value)}
-                  className="w-full bg-surface-container border border-white/10 text-on-surface font-mono text-[11px] px-2 py-1.5 focus:outline-none focus:border-amber-gold/60"
+                  className="w-full bg-surface-container border border-white/10 text-on-surface font-mono text-[11px] px-2 py-1.5 focus:outline-hidden focus:border-amber-gold/60"
                 />
               </div>
               <p className="text-[11px] text-on-surface-variant">Max 30-day window</p>
@@ -237,7 +237,7 @@ export function PlaybackController() {
           <button
             onClick={loadReplay}
             disabled={loading}
-            className="w-full flex items-center justify-center gap-2 py-2 bg-amber-gold/10 border border-amber-gold/60 text-amber-gold text-[11px] font-bold uppercase tracking-widest hover:bg-amber-gold/20 transition-colors focus:outline-none disabled:opacity-50"
+            className="w-full flex items-center justify-center gap-2 py-2 bg-amber-gold/10 border border-amber-gold/60 text-amber-gold text-[11px] font-bold uppercase tracking-widest hover:bg-amber-gold/20 transition-colors focus:outline-hidden disabled:opacity-50"
           >
             {loading
               ? <><span className="ms text-[14px] animate-spin leading-none">progress_activity</span> Loading…</>
@@ -249,7 +249,7 @@ export function PlaybackController() {
 
       {/* Playback controls — shown when in replay mode */}
       {replayMode && replayData && (
-        <div className="fixed bottom-[calc(6.5rem_+_env(safe-area-inset-bottom))] left-0 right-0 lg:bottom-24 lg:left-1/2 lg:-translate-x-1/2 lg:w-[520px] lg:max-w-[calc(100vw-2rem)] z-30 hud-panel p-4 space-y-3 pointer-events-auto cursor-default">
+        <div className="fixed bottom-[calc(6.5rem+env(safe-area-inset-bottom))] left-0 right-0 lg:bottom-24 lg:left-1/2 lg:-translate-x-1/2 lg:w-[520px] lg:max-w-[calc(100vw-2rem)] z-30 hud-panel p-4 stack-y-3 pointer-events-auto cursor-default">
           {/* Header row */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -266,7 +266,7 @@ export function PlaybackController() {
                   <button
                     key={s}
                     onClick={() => setReplaySpeed(s)}
-                    className={`px-2 py-0.5 font-mono text-[11px] uppercase transition-colors focus:outline-none ${
+                    className={`px-2 py-0.5 font-mono text-[11px] uppercase transition-colors focus:outline-hidden ${
                       replaySpeed === s ? 'bg-amber-gold text-onyx-black font-bold' : 'text-on-surface-variant hover:text-on-surface'
                     }`}
                     aria-pressed={replaySpeed === s}
@@ -277,7 +277,7 @@ export function PlaybackController() {
               </div>
               <button
                 onClick={exitReplay}
-                className="ms text-[16px] text-on-surface-variant hover:text-red-emergency transition-colors leading-none focus:outline-none"
+                className="ms text-[16px] text-on-surface-variant hover:text-red-emergency transition-colors leading-none focus:outline-hidden"
                 title="Exit replay"
               >
                 close
@@ -340,7 +340,7 @@ export function PlaybackController() {
               {/* Step back 1 min */}
               <button
                 onClick={() => setReplayCurrentTs(Math.max(startMs, replayCurrentTs - 60_000))}
-                className="ms text-[18px] text-on-surface-variant hover:text-on-surface transition-colors leading-none focus:outline-none"
+                className="ms text-[18px] text-on-surface-variant hover:text-on-surface transition-colors leading-none focus:outline-hidden"
                 title="Back 1 min"
               >
                 replay_10
@@ -348,7 +348,7 @@ export function PlaybackController() {
               {/* Play / Pause */}
               <button
                 onClick={() => setReplayPlaying(!replayPlaying)}
-                className="ms text-[24px] text-amber-gold hover:text-amber-gold/80 transition-colors leading-none focus:outline-none"
+                className="ms text-[24px] text-amber-gold hover:text-amber-gold/80 transition-colors leading-none focus:outline-hidden"
                 aria-label={replayPlaying ? 'Pause' : 'Play'}
               >
                 {replayPlaying ? 'pause_circle' : 'play_circle'}
@@ -356,7 +356,7 @@ export function PlaybackController() {
               {/* Step forward 1 min */}
               <button
                 onClick={() => setReplayCurrentTs(Math.min(endMs, replayCurrentTs + 60_000))}
-                className="ms text-[18px] text-on-surface-variant hover:text-on-surface transition-colors leading-none focus:outline-none"
+                className="ms text-[18px] text-on-surface-variant hover:text-on-surface transition-colors leading-none focus:outline-hidden"
                 title="Forward 1 min"
               >
                 forward_10

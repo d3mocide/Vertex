@@ -231,7 +231,7 @@ export function ChannelsPanel({
           <button
             key={tab}
             onClick={() => setChannelTab(tab)}
-            className={`flex-1 px-2 py-2 text-[11px] font-bold tracking-widest uppercase transition-colors focus:outline-none ${channelTab === tab ? 'text-amber-gold border-b-2 border-amber-gold' : 'text-on-surface-variant hover:text-on-surface border-b-2 border-transparent'}`}
+            className={`flex-1 px-2 py-2 text-[11px] font-bold tracking-widest uppercase transition-colors focus:outline-hidden ${channelTab === tab ? 'text-amber-gold border-b-2 border-amber-gold' : 'text-on-surface-variant hover:text-on-surface border-b-2 border-transparent'}`}
           >
             {tab === 'streams' ? 'STREAMS' : tab === 'talkgroups' ? `TGs (${managedTalkgroups.length})` : `REC (${recordings.length})`}
           </button>
@@ -244,7 +244,7 @@ export function ChannelsPanel({
         <nav className="max-h-64 overflow-y-auto">
           <button
             onClick={() => onSelectSource('live')}
-            className={`w-full px-4 py-2.5 flex items-center gap-3 text-left transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-amber-gold ${liveMode ? 'bg-amber-gold-muted/30 text-amber-gold border-l-2 border-amber-gold' : 'text-on-surface-variant hover:bg-surface-container border-l-2 border-transparent'}`}
+            className={`w-full px-4 py-2.5 flex items-center gap-3 text-left transition-colors focus:outline-hidden focus-visible:ring-1 focus-visible:ring-amber-gold ${liveMode ? 'bg-amber-gold-muted/30 text-amber-gold border-l-2 border-amber-gold' : 'text-on-surface-variant hover:bg-surface-container border-l-2 border-transparent'}`}
             aria-pressed={liveMode}
           >
             <span className="ms text-[18px] leading-none" aria-hidden="true">headphones</span>
@@ -267,7 +267,7 @@ export function ChannelsPanel({
                 <button
                   key={stream.id}
                   onClick={() => onSelectSource(stream.id)}
-                  className={`w-full px-4 py-2.5 flex items-center gap-3 text-left transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-amber-gold ${isSelected ? 'bg-amber-gold-muted/30 text-amber-gold border-l-2 border-amber-gold' : 'text-on-surface-variant hover:bg-surface-container border-l-2 border-transparent'}`}
+                  className={`w-full px-4 py-2.5 flex items-center gap-3 text-left transition-colors focus:outline-hidden focus-visible:ring-1 focus-visible:ring-amber-gold ${isSelected ? 'bg-amber-gold-muted/30 text-amber-gold border-l-2 border-amber-gold' : 'text-on-surface-variant hover:bg-surface-container border-l-2 border-transparent'}`}
                   aria-pressed={isSelected}
                 >
                   <span className="ms text-[18px] leading-none" aria-hidden="true">radio</span>
@@ -319,7 +319,7 @@ export function ChannelsPanel({
                     <button
                       key={ch.tgid}
                       onClick={() => registerTalkgroup(ch)}
-                      className="w-full px-4 py-2 flex items-center gap-3 text-left text-on-surface-variant hover:bg-surface-container transition-colors focus:outline-none border-l-2 border-transparent"
+                      className="w-full px-4 py-2 flex items-center gap-3 text-left text-on-surface-variant hover:bg-surface-container transition-colors focus:outline-hidden border-l-2 border-transparent"
                     >
                       <span className="ms text-[14px] leading-none" aria-hidden="true">add_circle</span>
                       <div className="flex-1 min-w-0">
@@ -377,12 +377,12 @@ export function ChannelsPanel({
                             if (e.key === 'Enter') commitEdit(tg)
                             if (e.key === 'Escape') setEditingTgid(null)
                           }}
-                          className="w-full bg-onyx-deep border border-amber-gold/60 text-on-surface text-[11px] px-1 py-0.5 focus:outline-none"
+                          className="w-full bg-onyx-deep border border-amber-gold/60 text-on-surface text-[11px] px-1 py-0.5 focus:outline-hidden"
                         />
                       ) : (
                         <button
                           onClick={() => startEdit(tg)}
-                          className="text-[11px] font-bold uppercase truncate w-full text-left hover:text-amber-gold transition-colors focus:outline-none"
+                          className="text-[11px] font-bold uppercase truncate w-full text-left hover:text-amber-gold transition-colors focus:outline-hidden"
                           title="Click to rename"
                         >
                           {tg.name}
@@ -397,7 +397,7 @@ export function ChannelsPanel({
                       title={listening ? 'Playing live on this device — click to mute' : 'Muted on this device — click to play live'}
                       aria-pressed={listening}
                       aria-label={`Listen to ${tg.name}`}
-                      className={`shrink-0 ms text-[16px] leading-none transition-colors focus:outline-none ${listening ? 'text-amber-gold' : 'text-on-surface-variant/30 hover:text-on-surface-variant'}`}
+                      className={`shrink-0 ms text-[16px] leading-none transition-colors focus:outline-hidden ${listening ? 'text-amber-gold' : 'text-on-surface-variant/30 hover:text-on-surface-variant'}`}
                       style={listening ? { fontVariationSettings: "'FILL' 1" } : undefined}
                     >
                       {listening ? 'headphones' : 'headset_off'}
@@ -407,7 +407,7 @@ export function ChannelsPanel({
                     <button
                       onClick={() => toggleScan(tg)}
                       title={tg.scan_enabled ? 'Scan enabled (shared, all users) — click to disable' : 'Scan disabled (shared, all users) — click to enable'}
-                      className={`shrink-0 ms text-[16px] leading-none transition-colors focus:outline-none ${tg.scan_enabled ? 'text-green-ais' : 'text-on-surface-variant/30'}`}
+                      className={`shrink-0 ms text-[16px] leading-none transition-colors focus:outline-hidden ${tg.scan_enabled ? 'text-green-ais' : 'text-on-surface-variant/30'}`}
                       style={{ fontVariationSettings: "'FILL' 1" }}
                     >
                       {tg.scan_enabled ? 'toggle_on' : 'toggle_off'}
@@ -417,7 +417,7 @@ export function ChannelsPanel({
 
                     <button
                       onClick={() => deleteTg(tg)}
-                      className="shrink-0 ms text-[14px] text-on-surface-variant/30 hover:text-red-emergency transition-colors leading-none focus:outline-none"
+                      className="shrink-0 ms text-[14px] text-on-surface-variant/30 hover:text-red-emergency transition-colors leading-none focus:outline-hidden"
                     >
                       delete
                     </button>
@@ -452,7 +452,7 @@ export function ChannelsPanel({
                 >
                   <button
                     onClick={() => playRecording(rec)}
-                    className={`shrink-0 ms text-[20px] leading-none transition-colors focus:outline-none ${isPlaying ? 'text-amber-gold' : 'text-on-surface-variant hover:text-amber-gold'}`}
+                    className={`shrink-0 ms text-[20px] leading-none transition-colors focus:outline-hidden ${isPlaying ? 'text-amber-gold' : 'text-on-surface-variant hover:text-amber-gold'}`}
                     style={{ fontVariationSettings: "'FILL' 1" }}
                     aria-label={isPlaying ? 'Pause recording' : 'Play recording'}
                   >

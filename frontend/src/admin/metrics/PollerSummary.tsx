@@ -41,7 +41,7 @@ export function PollerSummary({ pollers }: { pollers: PollerEntry[] }) {
   const problems = pollers.filter((p) => p.status !== 'ok')
 
   return (
-    <section className="space-y-3">
+    <section className="stack-y-3">
       <h2 className="text-[11px] uppercase tracking-widest text-on-surface-variant">
         Pollers
         <span className={`ml-2 normal-case tracking-normal font-normal ${problems.length ? 'text-amber-gold' : ''}`}>

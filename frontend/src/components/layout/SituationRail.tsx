@@ -28,7 +28,7 @@ function RailSection({ title, icon, aside, children }: { title: string; icon: st
     <section>
       <div className="flex items-center gap-2 mb-2">
         <span className="ms text-[16px] text-amber-gold leading-none" aria-hidden="true">{icon}</span>
-        <h3 className="section-heading !mb-0">{title}</h3>
+        <h3 className="section-heading mb-0!">{title}</h3>
         {aside && <div className="ml-auto">{aside}</div>}
       </div>
       {children}
@@ -80,7 +80,7 @@ export function SituationRail({ parts = ['now', 'nearby', 'headlines'] }: { part
     .slice(0, 3)
 
   return (
-    <div className="space-y-6">
+    <div className="stack-y-6">
       {parts.includes('now') && <RailSection
         title="Now"
         icon={level === 'red' ? 'emergency_home' : level === 'amber' ? 'warning' : 'check_circle'}
@@ -92,7 +92,7 @@ export function SituationRail({ parts = ['now', 'nearby', 'headlines'] }: { part
             All clear — no advisories near you.
           </p>
         ) : (
-          <ul className="space-y-1.5">
+          <ul className="stack-y-1.5">
             {items.slice(0, 3).map((a) => (
               <li key={a.id}>
                 <button type="button" onClick={() => openAdvisory(a)}
@@ -162,7 +162,7 @@ export function SituationRail({ parts = ['now', 'nearby', 'headlines'] }: { part
         {headlines.length === 0 ? (
           <p className="text-[12px] text-on-surface-variant">No local stories right now.</p>
         ) : (
-          <ul className="space-y-2.5">
+          <ul className="stack-y-2.5">
             {headlines.map((n) => (
               <li key={n.id ?? n.link}>
                 <a href={n.link} target="_blank" rel="noreferrer noopener" className="block group">

@@ -252,7 +252,7 @@ const labelLeft: Record<LayerKey, string> = { html: '8px', body: '34%', root: '6
 export function InsetBands({ metrics }: { metrics: Metrics }) {
   const { insets, layers } = metrics
   return (
-      <div className="fixed inset-0 z-[90] pointer-events-none" aria-hidden="true">
+      <div className="fixed inset-0 z-90 pointer-events-none" aria-hidden="true">
         {insets.top > 0 && (
           <div
             className="absolute top-0 left-0 right-0 bg-amber-gold/20 border-b border-amber-gold/60 flex items-center justify-center"
@@ -307,7 +307,7 @@ export function InsetBands({ metrics }: { metrics: Metrics }) {
 export function LayoutBody({ metrics }: { metrics: Metrics }) {
   const { insets, layers } = metrics
   return (
-    <div className="space-y-1.5 text-[10px]">
+    <div className="stack-y-1.5 text-[10px]">
             <SectionLabel>Mode</SectionLabel>
             <Row label="iOS ver"     value={metrics.iosVer} />
             <Row label="nav.standalone" value={String(metrics.navStandalone)} />

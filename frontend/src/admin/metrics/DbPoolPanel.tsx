@@ -18,12 +18,12 @@ export function DbPoolPanel({ pool }: { pool: DbPoolData | null }) {
   const pct = Math.round(pool.utilization * 100)
 
   return (
-    <section className="space-y-3">
+    <section className="stack-y-3">
       <h2 className="text-[11px] uppercase tracking-widest text-on-surface-variant">
         Database connections
         <span className="ml-2 normal-case tracking-normal font-normal">one backend worker, a snapshot: brief spikes are normal</span>
       </h2>
-      <div className="border border-white/10 bg-black/30 p-3 space-y-3">
+      <div className="border border-white/10 bg-black/30 p-3 stack-y-3">
         <div className="flex flex-wrap items-baseline gap-x-8 gap-y-1 font-mono text-[12px] text-on-surface-variant">
           <span><span className={`text-lg font-bold ${critical ? 'text-red-emergency' : warn ? 'text-amber-gold' : 'text-on-surface'}`}>{pool.checked_out}</span> in use</span>
           <span><span className="text-on-surface">{pool.checked_in}</span> idle</span>

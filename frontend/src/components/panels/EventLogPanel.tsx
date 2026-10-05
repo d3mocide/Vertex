@@ -116,9 +116,9 @@ function EventRow({ row }: { row: LogRow }) {
         disabled={!hasDetails}
         onClick={() => setExpanded((v) => !v)}
         aria-expanded={hasDetails ? expanded : undefined}
-        className="w-full flex items-center gap-3 px-3 lg:px-4 py-2.5 text-left enabled:hover:bg-surface-container transition-colors focus:outline-none focus-visible:bg-surface-container"
+        className="w-full flex items-center gap-3 px-3 lg:px-4 py-2.5 text-left enabled:hover:bg-surface-container transition-colors focus:outline-hidden focus-visible:bg-surface-container"
       >
-        <span className="font-mono text-[12px] text-on-surface-variant w-[4.5rem] shrink-0">
+        <span className="font-mono text-[12px] text-on-surface-variant w-18 shrink-0">
           {/* AM/PM is in the hour heading above; keep the column one line. */}
           {new Date(row.ts).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', second: '2-digit' }).replace(/\s?[AP]M$/i, '')}
         </span>
@@ -230,7 +230,7 @@ export function EventLogPanel() {
           <div className="relative">
             <button
               onClick={() => setShowSitrepMenu((v) => !v)}
-              className={`flex items-center gap-1.5 h-9 lg:h-auto px-2.5 py-1.5 border text-[11px] font-bold uppercase tracking-widest transition-colors focus:outline-none ${
+              className={`flex items-center gap-1.5 h-9 lg:h-auto px-2.5 py-1.5 border text-[11px] font-bold uppercase tracking-widest transition-colors focus:outline-hidden ${
                 showSitrepMenu
                   ? 'bg-amber-gold text-onyx-black border-amber-gold'
                   : 'border-amber-gold/40 text-amber-gold hover:bg-amber-gold/10'
@@ -242,14 +242,14 @@ export function EventLogPanel() {
 
             {showSitrepMenu && (
               <div className="absolute right-0 top-full mt-1 w-48 bg-onyx-deep border border-white/10 z-30 shadow-xl">
-                <div className="p-3 space-y-2">
+                <div className="p-3 stack-y-2">
                   <div className="text-[11px] text-on-surface-variant uppercase tracking-widest">Time window</div>
                   <div className="flex gap-1">
                     {[6, 12, 24, 48, 72].map((h) => (
                       <button
                         key={h}
                         onClick={() => setSitrepHours(h)}
-                        className={`flex-1 py-1 text-[11px] font-mono border transition-colors focus:outline-none ${
+                        className={`flex-1 py-1 text-[11px] font-mono border transition-colors focus:outline-hidden ${
                           sitrepHours === h
                             ? 'bg-amber-gold text-onyx-black border-amber-gold'
                             : 'border-white/10 text-on-surface-variant hover:border-white/30'
@@ -265,7 +265,7 @@ export function EventLogPanel() {
                   <button
                     onClick={handleExportSitRep}
                     disabled={sitrepExporting}
-                    className="w-full py-1.5 bg-amber-gold/10 border border-amber-gold/60 text-amber-gold text-[12px] font-bold uppercase tracking-widest hover:bg-amber-gold/20 transition-colors focus:outline-none disabled:opacity-50"
+                    className="w-full py-1.5 bg-amber-gold/10 border border-amber-gold/60 text-amber-gold text-[12px] font-bold uppercase tracking-widest hover:bg-amber-gold/20 transition-colors focus:outline-hidden disabled:opacity-50"
                   >
                     {sitrepExporting ? 'Generating…' : 'Download .md'}
                   </button>
@@ -276,7 +276,7 @@ export function EventLogPanel() {
         }
       />
 
-      <div className="p-4 lg:p-6 space-y-3">
+      <div className="p-4 lg:p-6 stack-y-3">
         <div className="relative">
           <span className="ms absolute left-3 top-1/2 -translate-y-1/2 text-[18px] text-on-surface-variant pointer-events-none leading-none" aria-hidden="true">search</span>
           <input
@@ -285,7 +285,7 @@ export function EventLogPanel() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             aria-label="Search events"
-            className="w-full h-10 bg-onyx-deep/40 border border-white/10 text-on-surface placeholder-on-surface-variant text-[14px] lg:text-[13px] pl-10 pr-3 focus:outline-none focus:border-amber-gold/60 transition-colors"
+            className="w-full h-10 bg-onyx-deep/40 border border-white/10 text-on-surface placeholder-on-surface-variant text-[14px] lg:text-[13px] pl-10 pr-3 focus:outline-hidden focus:border-amber-gold/60 transition-colors"
           />
         </div>
 

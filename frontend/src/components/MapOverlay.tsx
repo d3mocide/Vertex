@@ -324,7 +324,7 @@ export function MapOverlay({ map }: Props) {
 
     // Unified SA Tooltip Bridge
     const tooltip = document.createElement('div')
-    tooltip.className = 'absolute pointer-events-none z-[100] opacity-0 transition-opacity duration-150'
+    tooltip.className = 'absolute pointer-events-none z-100 opacity-0 transition-opacity duration-150'
     container.appendChild(tooltip)
 
     // Deck picking is a GPU readback — throttle it so fast mouse movement
@@ -408,7 +408,7 @@ export function MapOverlay({ map }: Props) {
                   <span class="ms shrink-0 text-[16px] ${tooltipColor}">${tooltipIcon}</span>
                   <span class="min-w-0 font-mono font-bold text-on-surface uppercase tracking-wider text-[11px] break-all">${escHtml(t.callsign || t.uid)}</span>
                 </div>
-                <div class="mt-1 pl-6 text-[11px] text-on-surface-variant font-mono break-words">${sourceLabel}</div>
+                <div class="mt-1 pl-6 text-[11px] text-on-surface-variant font-mono wrap-break-word">${sourceLabel}</div>
               </div>
               <div class="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-[11px] text-on-surface-variant font-mono">
                  ${isAir ? `<span>ALT:</span><span class="text-on-surface text-right">${Math.round(t.altMeters * ALT_M_TO_FT).toLocaleString()} FT</span>` : ''}
@@ -432,9 +432,9 @@ export function MapOverlay({ map }: Props) {
             <div class="map-tooltip-card">
               <div class="map-tooltip-heading">
                  <span class="ms shrink-0 text-[16px] text-amber-gold">videocam</span>
-                 <span class="min-w-0 break-words">${escHtml(cam.name)}</span>
+                 <span class="min-w-0 wrap-break-word">${escHtml(cam.name)}</span>
               </div>
-              <div class="space-y-1">
+              <div class="stack-y-1">
                 ${cam.road ? `<div class="text-[11px] text-on-surface flex items-center gap-1.5"><span class="ms text-[12px] text-on-surface-variant">add_road</span> ${escHtml(cam.road)}</div>` : ''}
                 <div class="text-[11px] text-on-surface-variant font-mono flex flex-wrap gap-x-3 gap-y-1 justify-between">
                   <span>${cam.road ? 'Traffic Cam' : escHtml((cam as any).provider || 'Regional Network')}</span>
@@ -457,9 +457,9 @@ export function MapOverlay({ map }: Props) {
             <div class="map-tooltip-card">
               <div class="map-tooltip-heading">
                  <span class="ms shrink-0 text-[16px] ${color}">crisis_alert</span>
-                 <span class="min-w-0 break-words uppercase">${escHtml(ev.event_type)}</span>
+                 <span class="min-w-0 wrap-break-word uppercase">${escHtml(ev.event_type)}</span>
               </div>
-              <div class="space-y-1">
+              <div class="stack-y-1">
                 <div class="text-[11px] text-on-surface">${escHtml(ev.summary)}</div>
                 <div class="text-[11px] text-on-surface-variant font-mono flex flex-wrap gap-x-3 gap-y-1 justify-between mt-1 pt-1 border-t border-outline-variant">
                   <span class="uppercase">${escHtml(ev.severity)}</span>
@@ -478,7 +478,7 @@ export function MapOverlay({ map }: Props) {
             <div class="map-tooltip-card">
               <div class="map-tooltip-heading">
                 <span class="ms shrink-0 text-[16px] ${tone}">cell_tower</span>
-                <span class="min-w-0 break-words">${escHtml(label)}</span>
+                <span class="min-w-0 wrap-break-word">${escHtml(label)}</span>
               </div>
               <div class="text-[12px] text-on-surface">${escHtml(inc.location ?? 'Location not stated')}${inc.city ? `<span class="text-on-surface-variant"> · ${escHtml(inc.city)}</span>` : ''}</div>
               ${inc.unit_summary ? `<div class="text-[11px] text-amber-p25 font-mono mt-0.5">${escHtml(inc.unit_summary)}</div>` : ''}
@@ -493,7 +493,7 @@ export function MapOverlay({ map }: Props) {
             <div class="map-tooltip-card">
               <div class="map-tooltip-heading">
                 <span class="ms shrink-0 text-[16px] text-on-surface-variant">waves</span>
-                <span class="min-w-0 break-words">${escHtml(gauge.name)}</span>
+                <span class="min-w-0 wrap-break-word">${escHtml(gauge.name)}</span>
               </div>
               <div class="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-[11px] text-on-surface-variant font-mono">
                 <span>STAGE:</span><span class="text-right text-on-surface uppercase">${escHtml(gauge.stage)}</span>
@@ -508,7 +508,7 @@ export function MapOverlay({ map }: Props) {
             <div class="map-tooltip-card">
               <div class="map-tooltip-heading">
                 <span class="ms shrink-0 text-[16px] ${node.stale ? 'text-on-surface-variant' : 'text-green-ais'}">hub</span>
-                <span class="min-w-0 break-words">${escHtml(node.name)}</span>
+                <span class="min-w-0 wrap-break-word">${escHtml(node.name)}</span>
               </div>
               <div class="flex items-center gap-1.5">
                 <div class="w-1.5 h-1.5 rounded-full ${node.stale ? 'bg-outline-variant' : 'bg-green-ais pulse-fast'}"></div>
@@ -523,7 +523,7 @@ export function MapOverlay({ map }: Props) {
             <div class="map-tooltip-card">
               <div class="map-tooltip-heading">
                 <span class="ms shrink-0 text-[16px] text-on-surface-variant">verified_user</span>
-                <span class="min-w-0 break-words">${escHtml(geofence.name)}</span>
+                <span class="min-w-0 wrap-break-word">${escHtml(geofence.name)}</span>
               </div>
               <div class="text-[11px] text-on-surface-variant font-mono uppercase tracking-tighter">${escHtml(geofence.zone_type)} Zone</div>
             </div>

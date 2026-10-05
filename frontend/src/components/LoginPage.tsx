@@ -134,7 +134,7 @@ function Field({
         className={[
           'w-full bg-onyx-black border border-outline-variant',
           'font-mono text-[12px] text-on-surface px-3 py-2.5',
-          'outline-none transition-[border-color,box-shadow] duration-150',
+          'outline-hidden transition-[border-color,box-shadow] duration-150',
           'focus:border-amber-gold focus:[box-shadow:0_0_8px_rgba(255,184,0,0.4)]',
         ].join(' ')}
       />
@@ -195,7 +195,7 @@ function SetupView({ onDone }: { onDone: () => void }) {
         No accounts exist yet. Create the admin account to get started.
       </p>
 
-      <form onSubmit={submit} noValidate className="space-y-4">
+      <form onSubmit={submit} noValidate className="stack-y-4">
         <div>
           <Field id="su-username" label="Username" type="text" autoComplete="username" autoFocus value={username} onChange={setUsername} />
           <FieldError msg={usernameErr} />
@@ -259,7 +259,7 @@ function LoginView({ onLogin }: { onLogin: () => void }) {
 
   return (
     <Shell>
-      <form onSubmit={submit} className="space-y-4">
+      <form onSubmit={submit} className="stack-y-4">
         <Field id="login-username" label="Username" type="text" autoComplete="username" autoFocus value={username} onChange={setUsername} />
         <Field id="login-password" label="Password" type="password" autoComplete="current-password" value={password} onChange={setPassword} />
 

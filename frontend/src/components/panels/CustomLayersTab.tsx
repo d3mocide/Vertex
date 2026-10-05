@@ -154,7 +154,7 @@ export function CustomLayersTab() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="stack-y-4">
       {/* Drop zone */}
       <div
         onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
@@ -177,27 +177,27 @@ export function CustomLayersTab() {
 
       {/* Import form — shown after file is parsed */}
       {layerImportGeoJson && (
-        <div className="border border-amber-gold/30 bg-amber-gold/5 p-3 space-y-2">
+        <div className="border border-amber-gold/30 bg-amber-gold/5 p-3 stack-y-2">
           <span className="label-caps text-[11px] text-amber-gold block">Name this layer</span>
           <input
             type="text"
             placeholder="Layer name *"
             value={layerImportName}
             onChange={(e) => setLayerImportName(e.target.value)}
-            className="w-full bg-onyx-deep border border-white/10 text-on-surface placeholder-on-surface-variant text-[11px] px-3 py-1.5 focus:outline-none focus:border-amber-gold/60 transition-colors"
+            className="w-full bg-onyx-deep border border-white/10 text-on-surface placeholder-on-surface-variant text-[11px] px-3 py-1.5 focus:outline-hidden focus:border-amber-gold/60 transition-colors"
           />
           {layerImportError && <p className="text-[11px] text-red-emergency">{layerImportError}</p>}
           <div className="flex gap-2">
             <button
               onClick={saveCustomLayer}
               disabled={layerSaving || !layerImportName.trim()}
-              className="flex-1 py-1.5 bg-amber-gold/10 border border-amber-gold/60 text-amber-gold text-[11px] font-bold uppercase tracking-widest hover:bg-amber-gold/20 transition-colors focus:outline-none disabled:opacity-50"
+              className="flex-1 py-1.5 bg-amber-gold/10 border border-amber-gold/60 text-amber-gold text-[11px] font-bold uppercase tracking-widest hover:bg-amber-gold/20 transition-colors focus:outline-hidden disabled:opacity-50"
             >
               {layerSaving ? 'Saving…' : 'Add to Map'}
             </button>
             <button
               onClick={() => { setLayerImportGeoJson(null); setLayerImportName(''); setLayerImportError(null) }}
-              className="px-3 py-1.5 border border-white/10 text-on-surface-variant text-[11px] uppercase tracking-widest hover:border-white/20 transition-colors focus:outline-none"
+              className="px-3 py-1.5 border border-white/10 text-on-surface-variant text-[11px] uppercase tracking-widest hover:border-white/20 transition-colors focus:outline-hidden"
             >
               Cancel
             </button>
@@ -213,13 +213,13 @@ export function CustomLayersTab() {
       {customLayers.length === 0 ? (
         <p className="text-[11px] text-on-surface-variant italic">No custom layers imported yet.</p>
       ) : (
-        <div className="space-y-2">
+        <div className="stack-y-2">
           {customLayers.map((layer) => (
             <div key={layer.id} className="flex items-center gap-3 p-2 border border-white/5 bg-onyx-deep/40 hover:bg-surface-container transition-colors">
               <button
                 onClick={() => toggleLayerVisibility(layer)}
                 title={layer.visible ? 'Visible — click to hide' : 'Hidden — click to show'}
-                className={`ms text-[18px] leading-none transition-colors focus:outline-none shrink-0 ${layer.visible ? 'text-amber-gold' : 'text-on-surface-variant/30'}`}
+                className={`ms text-[18px] leading-none transition-colors focus:outline-hidden shrink-0 ${layer.visible ? 'text-amber-gold' : 'text-on-surface-variant/30'}`}
                 style={{ fontVariationSettings: layer.visible ? "'FILL' 1" : "'FILL' 0" }}
               >
                 {layer.visible ? 'visibility' : 'visibility_off'}
@@ -234,7 +234,7 @@ export function CustomLayersTab() {
               </div>
               <button
                 onClick={() => deleteCustomLayer(layer.id)}
-                className="ms text-[16px] text-on-surface-variant hover:text-red-emergency transition-colors leading-none shrink-0 focus:outline-none"
+                className="ms text-[16px] text-on-surface-variant hover:text-red-emergency transition-colors leading-none shrink-0 focus:outline-hidden"
                 title={`Delete ${layer.name}`}
               >
                 delete

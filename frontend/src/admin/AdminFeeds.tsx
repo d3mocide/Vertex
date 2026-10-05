@@ -84,7 +84,7 @@ function RadioTab() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="stack-y-4">
       <div className="border border-white/10">
         {items.map((s) => (
           <div key={s.id} className="flex items-center gap-3 px-3 py-2 border-b border-white/5 last:border-0 hover:bg-white/5">
@@ -101,8 +101,8 @@ function RadioTab() {
         {items.length === 0 && <p className="px-3 py-4 text-xs text-on-surface-variant/60">No streams configured.</p>}
       </div>
       <form onSubmit={create} className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-        <input value={name} onChange={(e) => setName(e.target.value)} required placeholder="Name" className="bg-black/60 border border-white/10 text-on-surface text-xs px-2 py-1.5 focus:outline-none focus:border-amber-gold/60" />
-        <input value={url} onChange={(e) => setUrl(e.target.value)} required placeholder="Stream URL" className="bg-black/60 border border-white/10 text-on-surface text-xs px-2 py-1.5 focus:outline-none focus:border-amber-gold/60" />
+        <input value={name} onChange={(e) => setName(e.target.value)} required placeholder="Name" className="bg-black/60 border border-white/10 text-on-surface text-xs px-2 py-1.5 focus:outline-hidden focus:border-amber-gold/60" />
+        <input value={url} onChange={(e) => setUrl(e.target.value)} required placeholder="Stream URL" className="bg-black/60 border border-white/10 text-on-surface text-xs px-2 py-1.5 focus:outline-hidden focus:border-amber-gold/60" />
         <select value={format} onChange={(e) => setFormat(e.target.value)} className="tactical-select">
           <option value="mp3">mp3</option>
           <option value="aac">aac</option>
@@ -157,7 +157,7 @@ function NewsTab() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="stack-y-4">
       <div className="border border-white/10">
         {items.map((f) => (
           <div key={f.id} className="flex items-center gap-3 px-3 py-2 border-b border-white/5 last:border-0 hover:bg-white/5">
@@ -173,8 +173,8 @@ function NewsTab() {
         {items.length === 0 && <p className="px-3 py-4 text-xs text-on-surface-variant/60">No feeds configured.</p>}
       </div>
       <form onSubmit={create} className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-        <input value={name} onChange={(e) => setName(e.target.value)} required placeholder="Feed name" className="bg-black/60 border border-white/10 text-on-surface text-xs px-2 py-1.5 focus:outline-none focus:border-amber-gold/60" />
-        <input value={url} onChange={(e) => setUrl(e.target.value)} required placeholder="RSS URL" className="bg-black/60 border border-white/10 text-on-surface text-xs px-2 py-1.5 focus:outline-none focus:border-amber-gold/60" />
+        <input value={name} onChange={(e) => setName(e.target.value)} required placeholder="Feed name" className="bg-black/60 border border-white/10 text-on-surface text-xs px-2 py-1.5 focus:outline-hidden focus:border-amber-gold/60" />
+        <input value={url} onChange={(e) => setUrl(e.target.value)} required placeholder="RSS URL" className="bg-black/60 border border-white/10 text-on-surface text-xs px-2 py-1.5 focus:outline-hidden focus:border-amber-gold/60" />
         <button type="submit" disabled={saving} className="sm:col-span-2 py-1.5 text-[11px] font-bold uppercase tracking-widest border border-amber-gold/40 text-amber-gold hover:bg-amber-gold/10 transition-colors disabled:opacity-50">
           {saving ? 'Adding…' : 'Add Feed'}
         </button>
@@ -228,7 +228,7 @@ function PollersTab() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="stack-y-4">
       <div className="border border-white/10">
         {items.map((p) => (
           <div key={p.id} className="flex items-center gap-3 px-3 py-2 border-b border-white/5 last:border-0 hover:bg-white/5">
@@ -248,8 +248,8 @@ function PollersTab() {
         <select value={type} onChange={(e) => setType(e.target.value as PollerType)} className="tactical-select">
           {POLLER_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
         </select>
-        <input value={name} onChange={(e) => setName(e.target.value)} required placeholder="Name" className="bg-black/60 border border-white/10 text-on-surface text-xs px-2 py-1.5 focus:outline-none focus:border-amber-gold/60" />
-        <input value={url} onChange={(e) => setUrl(e.target.value)} required placeholder="URL / host" className="bg-black/60 border border-white/10 text-on-surface text-xs px-2 py-1.5 focus:outline-none focus:border-amber-gold/60" />
+        <input value={name} onChange={(e) => setName(e.target.value)} required placeholder="Name" className="bg-black/60 border border-white/10 text-on-surface text-xs px-2 py-1.5 focus:outline-hidden focus:border-amber-gold/60" />
+        <input value={url} onChange={(e) => setUrl(e.target.value)} required placeholder="URL / host" className="bg-black/60 border border-white/10 text-on-surface text-xs px-2 py-1.5 focus:outline-hidden focus:border-amber-gold/60" />
         <button type="submit" disabled={saving} className="sm:col-span-3 py-1.5 text-[11px] font-bold uppercase tracking-widest border border-amber-gold/40 text-amber-gold hover:bg-amber-gold/10 transition-colors disabled:opacity-50">
           {saving ? 'Adding…' : 'Add Source'}
         </button>
@@ -301,7 +301,7 @@ function ZonesTab() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="stack-y-4">
       <div className="border border-white/10">
         {items.map((z) => (
           <div key={z.id} className="flex items-center gap-3 px-3 py-2 border-b border-white/5 last:border-0 hover:bg-white/5">
@@ -319,7 +319,7 @@ function ZonesTab() {
           onChange={(e) => setCode(e.target.value)}
           required
           placeholder="NWS zone code, e.g. ORZ006"
-          className="flex-1 bg-black/60 border border-white/10 text-on-surface text-xs px-2 py-1.5 focus:outline-none focus:border-amber-gold/60 font-mono uppercase"
+          className="flex-1 bg-black/60 border border-white/10 text-on-surface text-xs px-2 py-1.5 focus:outline-hidden focus:border-amber-gold/60 font-mono uppercase"
         />
         <button type="submit" disabled={saving} className="px-4 py-1.5 text-[11px] font-bold uppercase tracking-widest border border-amber-gold/40 text-amber-gold hover:bg-amber-gold/10 transition-colors disabled:opacity-50">
           {saving ? '…' : 'Add'}
@@ -336,7 +336,7 @@ function RegionsTab() {
   const regions = useRegions()
 
   return (
-    <div className="space-y-3">
+    <div className="stack-y-3">
       <p className="text-[11px] text-on-surface-variant uppercase tracking-widest">
         Regions are defined in <span className="text-on-surface-variant font-mono">sources.yml</span>. Edit that file to add or modify regions.
       </p>
@@ -351,7 +351,7 @@ function RegionsTab() {
                 <span className="text-[11px] uppercase tracking-wider text-on-surface-variant/60">disabled</span>
               )}
             </div>
-            <div className="ml-4 font-mono text-[11px] text-on-surface-variant space-y-0.5">
+            <div className="ml-4 font-mono text-[11px] text-on-surface-variant stack-y-0.5">
               <div>
                 Lat {r.bbox.min_lat} → {r.bbox.max_lat} &nbsp;|&nbsp; Lon {r.bbox.min_lon} → {r.bbox.max_lon}
               </div>
@@ -380,7 +380,7 @@ export default function AdminFeeds() {
   const [tab, setTab] = useState<Tab>('radio')
 
   return (
-    <div className="space-y-6">
+    <div className="stack-y-6">
       {/* Tab Navigation */}
       <div className="grid grid-cols-5 md:flex md:gap-1 border border-white/10 md:border-0 md:border-b bg-surface-container-low md:bg-transparent" role="tablist">
         {TABS.map(({ id, label, icon }) => (
@@ -403,7 +403,7 @@ export default function AdminFeeds() {
       </div>
 
       {/* Tab Content */}
-      <div className="max-w-5xl space-y-8">
+      <div className="max-w-5xl stack-y-8">
         {tab === 'radio'   && <RadioTab />}
         {tab === 'news'    && <NewsTab />}
         {tab === 'pollers' && <PollersTab />}

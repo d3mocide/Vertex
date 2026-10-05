@@ -19,7 +19,7 @@ const ago = (iso: string) => {
 
 function Chip({ label, value, tone = 'text-on-surface', hint }: { label: string; value: string | number; tone?: string; hint?: string }) {
   return (
-    <div className="border border-white/10 bg-white/[0.02] px-3 py-2 min-w-0">
+    <div className="border border-white/10 bg-white/2 px-3 py-2 min-w-0">
       <div className="text-[11px] font-mono text-on-surface-variant uppercase tracking-widest">{label}</div>
       <div className={`mt-1 text-[18px] font-black leading-none ${tone}`}>{value}</div>
       {hint && <div className="mt-1 font-mono text-[11px] text-on-surface-variant">{hint}</div>}
@@ -94,7 +94,7 @@ export function FireSmokeCard({ localFires, regionalFires, aqi, aqiLabel }: {
       </div>
 
       {(localOpen.length > 0 || regionalOpen.length > 0) && (
-        <div className="mt-4 space-y-1.5">
+        <div className="mt-4 stack-y-1.5">
           {localOpen.slice(0, 3).map(renderFireRow)}
           {regionalOpen.slice(0, 4).map(renderFireRow)}
         </div>
@@ -106,16 +106,16 @@ export function FireSmokeCard({ localFires, regionalFires, aqi, aqiLabel }: {
             100% contained · {containedFires.length} reported incidents
           </summary>
           <p className="mt-2 text-[11px] text-on-surface-variant">Reported containment does not establish that a fire is extinguished.</p>
-          <div className="mt-2 space-y-1.5">{containedFires.map(renderFireRow)}</div>
+          <div className="mt-2 stack-y-1.5">{containedFires.map(renderFireRow)}</div>
         </details>
       )}
 
       {spots.length > 0 && (
         <div className="mt-4">
           <div className="text-[11px] font-mono uppercase tracking-widest text-on-surface-variant mb-1">Satellite detections · last 24 h</div>
-          <div className="space-y-1">
+          <div className="stack-y-1">
             {spots.slice(0, 4).map((s, i) => (
-              <div key={`${s.lat}-${s.lon}-${i}`} className="flex items-center gap-3 border border-white/10 bg-white/[0.02] px-3 py-1.5 font-mono text-[11px]">
+              <div key={`${s.lat}-${s.lon}-${i}`} className="flex items-center gap-3 border border-white/10 bg-white/2 px-3 py-1.5 font-mono text-[11px]">
                 <span className="text-on-surface w-14">{Math.round(s.dist_km)} km</span>
                 <span className="text-on-surface-variant flex-1 truncate">{s.lat.toFixed(3)}, {s.lon.toFixed(3)}</span>
                 {s.frp != null && <span className="text-on-surface-variant">{Math.round(s.frp)} MW</span>}

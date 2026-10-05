@@ -29,22 +29,22 @@ export function GenericOverview({ entity, getIdentity }: OverviewProps) {
         </div>
       </div>
 
-      <div className="space-y-3 mt-3">
+      <div className="stack-y-3 mt-3">
         <div>
           <span className="label-caps text-[11px] text-amber-gold-dim mb-1 block">Identity</span>
-          <div className="space-y-1">
+          <div className="stack-y-1">
             <div className="flex justify-between items-baseline gap-2">
               <span className="text-[11px] text-on-surface-variant shrink-0">Type</span>
-              <span className="font-mono text-[11px] text-on-surface text-right break-words">{entity.entity_type}</span>
+              <span className="font-mono text-[11px] text-on-surface text-right wrap-break-word">{entity.entity_type}</span>
             </div>
             <div className="flex justify-between items-baseline gap-2">
               <span className="text-[11px] text-on-surface-variant shrink-0">Source</span>
-              <span className="font-mono text-[11px] text-on-surface text-right break-words">{entity.source}</span>
+              <span className="font-mono text-[11px] text-on-surface text-right wrap-break-word">{entity.source}</span>
             </div>
             {identityEntries.map(([label, val]) => (
               <div key={label} className="flex justify-between items-baseline gap-2">
                 <span className="text-[11px] text-on-surface-variant shrink-0 capitalize">{label.replace(/_/g, ' ')}</span>
-                <span className="font-mono text-[11px] text-on-surface text-right break-words">{String(val)}</span>
+                <span className="font-mono text-[11px] text-on-surface text-right wrap-break-word">{String(val)}</span>
               </div>
             ))}
           </div>

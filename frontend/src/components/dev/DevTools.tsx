@@ -98,7 +98,7 @@ export function DevTools() {
     <>
       {tab === 'layout' && <InsetBands metrics={layout} />}
 
-      <div className={`fixed z-[91] w-[340px] max-w-[94vw] pointer-events-auto ${CORNER_CLASS[corner]}`}>
+      <div className={`fixed z-91 w-[340px] max-w-[94vw] pointer-events-auto ${CORNER_CLASS[corner]}`}>
         <div className="bg-onyx-deep/95 border border-amber-gold backdrop-blur-md max-h-[84vh] flex flex-col">
           <div className="flex items-center justify-between gap-2 px-2 h-7 border-b border-amber-gold/40 shrink-0">
             <span className="font-bold text-[10px] tracking-widest uppercase text-amber-gold">Dev Tools</span>
@@ -126,7 +126,7 @@ export function DevTools() {
                   role="tab"
                   aria-selected={tab === t.id}
                   onClick={() => setTab(t.id)}
-                  className={`h-8 border font-mono text-[10px] uppercase tracking-wider transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-amber-gold ${
+                  className={`h-8 border font-mono text-[10px] uppercase tracking-wider transition-colors focus:outline-hidden focus-visible:ring-1 focus-visible:ring-amber-gold ${
                     tab === t.id
                       ? 'bg-amber-gold text-onyx-black border-amber-gold font-bold'
                       : 'border-white/10 text-on-surface-variant hover:text-on-surface hover:border-white/30'

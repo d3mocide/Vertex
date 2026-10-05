@@ -52,7 +52,7 @@ function StoryCard({ story, read, onOpen, compact = false }: {
       ? 'border-amber-gold bg-amber-gold-muted/20'
       : 'border-white/10 bg-surface-container/40 hover:border-amber-gold/50'} ${read ? 'opacity-55' : ''}`}>
       <a href={story.link} target="_blank" rel="noreferrer noopener" onClick={onOpen}
-         className="block p-3 focus:outline-none focus-visible:ring-1 focus-visible:ring-amber-gold">
+         className="block p-3 focus:outline-hidden focus-visible:ring-1 focus-visible:ring-amber-gold">
         <h4 className={`leading-snug text-on-surface ${compact ? 'text-[13px] font-medium' : 'text-[15px] lg:text-[14px] font-semibold'}`}>
           {urgent && <span className="ms ms-fill text-[16px] leading-none text-amber-gold align-[-3px] mr-1" aria-hidden="true">priority_high</span>}
           {story.title}
@@ -123,7 +123,7 @@ export function IntelPanel() {
         subtitle={`${stories.length} stories · ${unread} unread local`}
         status={<StatusDot label="Live" />}
       />
-      <div className="flex-1 overflow-y-auto p-4 lg:p-6 pb-6 space-y-5" role="feed" aria-label="Local news">
+      <div className="flex-1 overflow-y-auto p-4 lg:p-6 pb-6 stack-y-5" role="feed" aria-label="Local news">
         <div className="flex flex-col gap-3">
           <label className="relative block">
             <span className="sr-only">Search stories</span>
@@ -160,7 +160,7 @@ export function IntelPanel() {
         {agency.length > 0 && topic === 'all' && !q && (
           <section>
             <SectionTitle>Agency notices</SectionTitle>
-            <ul className="space-y-2">
+            <ul className="stack-y-2">
               {agency.map((a, i) => (
                 <li key={i} className="border border-white/10 bg-surface-container/40 p-3">
                   <div className="text-[13px] font-semibold text-on-surface">{a.title}</div>

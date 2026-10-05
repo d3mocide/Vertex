@@ -63,7 +63,7 @@ export default function AdminApp() {
         <div className="flex items-center justify-between px-4 h-12">
           <div className="flex items-center gap-2.5">
             <ScopeMark size={20} />
-            <span className="text-[14px] font-black tracking-[0.05em] uppercase">Vertex</span>
+            <span className="text-[14px] font-black tracking-wider uppercase">Vertex</span>
             <span className="font-mono text-[10px] tracking-[0.2em] text-amber-gold uppercase">Admin</span>
           </div>
           <a href="/" className="flex items-center gap-1 text-[11px] uppercase tracking-widest text-on-surface-variant hover:text-on-surface">
@@ -96,7 +96,7 @@ export default function AdminApp() {
         <div className="flex items-center gap-3 px-4 h-16 border-b border-white/10">
           <ScopeMark size={28} />
           <div className="flex flex-col leading-none gap-1">
-            <span className="text-[16px] font-black tracking-[0.05em] uppercase">Vertex</span>
+            <span className="text-[16px] font-black tracking-wider uppercase">Vertex</span>
             <span className="font-mono text-[9px] tracking-[0.2em] text-amber-gold uppercase">Admin console</span>
           </div>
         </div>
@@ -129,10 +129,10 @@ export default function AdminApp() {
       {/* Content */}
       <main id="admin-main" className="flex-1 min-w-0 overflow-y-auto overscroll-contain">
         <header className="hidden md:flex items-baseline gap-4 px-6 h-16 border-b border-white/10 bg-onyx-deep/80">
-          <h1 className="self-center text-[16px] font-black uppercase tracking-[0.05em]">{current.label}</h1>
+          <h1 className="self-center text-[16px] font-black uppercase tracking-wider">{current.label}</h1>
           <p className="self-center text-[12px] text-on-surface-variant">{current.blurb}</p>
         </header>
-        <div className="px-4 pt-4 pb-[calc(2rem_+_env(safe-area-inset-bottom))] md:p-6">
+        <div className="px-4 pt-4 pb-[calc(2rem+env(safe-area-inset-bottom))] md:p-6">
           {active === 'metrics' && <AdminMetrics />}
           {active === 'users' && <AdminUsers />}
           {active === 'feeds' && <AdminFeeds />}

@@ -72,7 +72,7 @@ export function FeedTable({ feeds }: { feeds: FeedRow[] }) {
   }
 
   return (
-    <section className="space-y-3">
+    <section className="stack-y-3">
       <h2 className="text-[11px] uppercase tracking-widest text-on-surface-variant">
         Data sources
         <span className="ml-2 normal-case tracking-normal font-normal">

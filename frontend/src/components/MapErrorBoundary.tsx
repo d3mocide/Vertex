@@ -26,16 +26,16 @@ export class MapErrorBoundary extends Component<{ children: ReactNode }, State> 
     if (!this.state.error) return this.props.children
     return (
       <div className="h-full w-full flex items-center justify-center bg-onyx-black p-6">
-        <div className="hud-panel border border-amber-gold/30 max-w-md w-full p-5 space-y-3" role="alert">
+        <div className="hud-panel border border-amber-gold/30 max-w-md w-full p-5 stack-y-3" role="alert">
           <div className="flex items-center gap-2">
             <span className="ms text-amber-gold" aria-hidden="true">map</span>
-            <h2 className="section-heading !mb-0">The map could not start</h2>
+            <h2 className="section-heading mb-0!">The map could not start</h2>
           </div>
           <p className="text-[13px] text-on-surface-variant leading-relaxed">
             The rest of the dashboard is unaffected. This is usually a graphics problem or a map layer failing.
             Turning off 3D terrain fixes the most common cause.
           </p>
-          <p className="font-mono text-[11px] text-on-surface-variant break-words">{this.state.error.message}</p>
+          <p className="font-mono text-[11px] text-on-surface-variant wrap-break-word">{this.state.error.message}</p>
           <div className="flex flex-wrap gap-2">
             <button type="button" className="btn-primary" onClick={() => this.retry(true)}>Turn off 3D terrain and retry</button>
             <button type="button" className="btn-ghost" onClick={() => this.retry(false)}>Retry</button>

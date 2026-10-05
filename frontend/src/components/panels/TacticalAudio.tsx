@@ -344,7 +344,7 @@ export function TacticalAudio() {
     <aside
       // Mobile: a flat bar docked directly above the bottom nav (the page
       // scroller reserves its height). Desktop: the floating console pill.
-      className={`fixed lg:absolute inset-x-0 bottom-[calc(3.5rem_+_env(safe-area-inset-bottom))] lg:inset-x-auto lg:bottom-6 lg:left-1/2 lg:-translate-x-1/2 z-40 flex flex-col justify-end items-end w-full lg:w-[1040px] lg:max-w-[98vw] pointer-events-none transition-all duration-300 ${isCritical ? 'lg:scale-105 origin-bottom' : 'scale-100 origin-bottom'}`}
+      className={`fixed lg:absolute inset-x-0 bottom-[calc(3.5rem+env(safe-area-inset-bottom))] lg:inset-x-auto lg:bottom-6 lg:left-1/2 lg:-translate-x-1/2 z-40 flex flex-col justify-end items-end w-full lg:w-[1040px] lg:max-w-[98vw] pointer-events-none transition-all duration-300 ${isCritical ? 'lg:scale-105 origin-bottom' : 'scale-100 origin-bottom'}`}
       aria-label="Tactical audio console"
     >
       {/* Pop-up Channels Panel */}
@@ -366,7 +366,7 @@ export function TacticalAudio() {
       )}
 
       {/* Main Bottom Bar */}
-      <div className="bg-onyx-deep/90 lg:bg-white/[0.03] border-t lg:border border-white/10 backdrop-blur-md lg:rounded-full h-12 w-full flex items-center px-3 lg:px-5 pointer-events-auto relative lg:shadow-[0_8px_32px_rgba(0,0,0,0.4)]">
+      <div className="bg-onyx-deep/90 lg:bg-white/3 border-t lg:border border-white/10 backdrop-blur-md lg:rounded-full h-12 w-full flex items-center px-3 lg:px-5 pointer-events-auto relative lg:shadow-[0_8px_32px_rgba(0,0,0,0.4)]">
 
         {/* Left Section */}
         <div className="flex flex-1 items-center gap-2 min-w-0 mr-2 lg:mr-[150px]">
@@ -440,7 +440,7 @@ export function TacticalAudio() {
           <button
             onClick={() => skipChannel(-1)}
             disabled={liveMode || visibleTalkgroups.length === 0}
-            className="hidden lg:flex text-on-surface-variant hover:text-amber-gold transition-colors focus:outline-none disabled:opacity-30"
+            className="hidden lg:flex text-on-surface-variant hover:text-amber-gold transition-colors focus:outline-hidden disabled:opacity-30"
             aria-label="Previous channel"
           >
             <span className="ms text-[18px]">skip_previous</span>
@@ -449,7 +449,7 @@ export function TacticalAudio() {
           <button
             onClick={toggle}
             disabled={loading}
-            className={`w-10 h-10 rounded-full border border-amber-gold flex items-center justify-center transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-white ${loading ? 'bg-amber-gold-muted text-onyx-black cursor-wait opacity-80' : playing ? 'bg-amber-gold text-onyx-black hover:bg-amber-400 hover:scale-105 shadow-[0_0_20px_rgba(255,184,0,0.4)]' : 'text-amber-gold hover:bg-amber-gold/10'}`}
+            className={`w-10 h-10 rounded-full border border-amber-gold flex items-center justify-center transition-all focus:outline-hidden focus-visible:ring-2 focus-visible:ring-white ${loading ? 'bg-amber-gold-muted text-onyx-black cursor-wait opacity-80' : playing ? 'bg-amber-gold text-onyx-black hover:bg-amber-400 hover:scale-105 shadow-[0_0_20px_rgba(255,184,0,0.4)]' : 'text-amber-gold hover:bg-amber-gold/10'}`}
             aria-label={playing ? 'Pause' : 'Play'}
           >
             <span className="ms text-[24px] leading-none ml-0.5" style={{ fontVariationSettings: "'FILL' 1" }}>
@@ -460,7 +460,7 @@ export function TacticalAudio() {
           <button
             onClick={() => (liveMode ? playerRef.current!.skip() : skipChannel(1))}
             disabled={liveMode ? !liveCall : visibleTalkgroups.length === 0}
-            className="hidden lg:flex text-on-surface-variant hover:text-amber-gold transition-colors focus:outline-none disabled:opacity-30"
+            className="hidden lg:flex text-on-surface-variant hover:text-amber-gold transition-colors focus:outline-hidden disabled:opacity-30"
             aria-label={liveMode ? 'Skip this call' : 'Next channel'}
           >
             <span className="ms text-[18px]">skip_next</span>
@@ -505,7 +505,7 @@ export function TacticalAudio() {
           <button
             onClick={() => setShowChannels(!showChannels)}
             aria-label="Channels"
-            className={`flex items-center gap-1.5 px-3 py-2 lg:py-1.5 lg:rounded-full border border-amber-gold/30 text-[11px] font-bold tracking-widest uppercase transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-amber-gold ${showChannels ? 'bg-amber-gold text-onyx-black border-amber-gold' : 'text-amber-gold hover:bg-amber-gold/10 hover:border-amber-gold/50'}`}
+            className={`flex items-center gap-1.5 px-3 py-2 lg:py-1.5 lg:rounded-full border border-amber-gold/30 text-[11px] font-bold tracking-widest uppercase transition-colors focus:outline-hidden focus-visible:ring-1 focus-visible:ring-amber-gold ${showChannels ? 'bg-amber-gold text-onyx-black border-amber-gold' : 'text-amber-gold hover:bg-amber-gold/10 hover:border-amber-gold/50'}`}
           >
             <span className="ms text-[14px] leading-none">format_list_bulleted</span>
             <span className="hidden md:inline text-[11px]">CHANNELS</span>

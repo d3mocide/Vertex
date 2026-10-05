@@ -53,7 +53,7 @@ function gaugeIconSize(zoom: number): number {
 
 function gaugeIconName(zoom: number): string {
   if (zoom >= 9) return 'stream'
-  if (zoom >= 6) return 'ring'
+  if (zoom >= 6) return 'ring-3'
   return 'dot'
 }
 

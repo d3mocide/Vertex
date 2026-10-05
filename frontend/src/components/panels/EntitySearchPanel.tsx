@@ -162,7 +162,7 @@ export function EntitySearchPanel() {
   })
 
   return (
-    <div className="absolute bottom-[3.5rem] left-2 right-2 lg:bottom-auto lg:top-28 lg:right-auto lg:left-4 z-30 lg:w-80 hud-panel overflow-hidden max-h-[50vh] lg:max-h-none">
+    <div className="absolute bottom-14 left-2 right-2 lg:bottom-auto lg:top-28 lg:right-auto lg:left-4 z-30 lg:w-80 hud-panel overflow-hidden max-h-[50vh] lg:max-h-none">
       {/* Search input */}
       <div className="flex items-center gap-2 px-3 py-2 border-b border-white/5">
         <span className="ms text-[14px] text-on-surface-variant leading-none shrink-0">search</span>
@@ -171,13 +171,13 @@ export function EntitySearchPanel() {
           placeholder="Callsign / ICAO / MMSI…"
           value={entitySearchQuery}
           onChange={(e) => setEntitySearchQuery(e.target.value)}
-          className="flex-1 bg-transparent text-on-surface placeholder-on-surface-variant text-[12px] focus:outline-none"
+          className="flex-1 bg-transparent text-on-surface placeholder-on-surface-variant text-[12px] focus:outline-hidden"
           aria-label="Search entities"
         />
         <button
           onClick={() => setFiltersOpen((v) => !v)}
           title="Toggle filters"
-          className={`ms text-[16px] leading-none shrink-0 transition-colors focus:outline-none ${filtersOpen || isFiltered ? 'text-amber-gold' : 'text-on-surface-variant hover:text-on-surface'}`}
+          className={`ms text-[16px] leading-none shrink-0 transition-colors focus:outline-hidden ${filtersOpen || isFiltered ? 'text-amber-gold' : 'text-on-surface-variant hover:text-on-surface'}`}
           aria-expanded={filtersOpen}
           aria-label="Toggle filter options"
         >
@@ -187,12 +187,12 @@ export function EntitySearchPanel() {
 
       {/* Expandable filters */}
       {filtersOpen && (
-        <div className="px-3 py-3 border-b border-white/5 space-y-4 bg-onyx-deep/60">
+        <div className="px-3 py-3 border-b border-white/5 stack-y-4 bg-onyx-deep/60">
           {/* Tagged only */}
           <div>
             <button
               onClick={() => setTaggedOnly((v) => !v)}
-              className={`flex items-center gap-1.5 px-2 py-1 border text-[11px] uppercase tracking-widest font-bold transition-colors focus:outline-none ${
+              className={`flex items-center gap-1.5 px-2 py-1 border text-[11px] uppercase tracking-widest font-bold transition-colors focus:outline-hidden ${
                 taggedOnly
                   ? 'text-amber-gold border-amber-gold/60 bg-amber-gold/10'
                   : 'text-on-surface-variant border-white/10 hover:border-white/20'
@@ -208,7 +208,7 @@ export function EntitySearchPanel() {
             <span className="label-caps text-[11px]">Filter Detail</span>
             <button
               onClick={() => setAdvancedOpen((v) => !v)}
-              className={`flex items-center gap-1 px-2 py-1 border text-[11px] uppercase tracking-widest font-bold transition-colors focus:outline-none ${
+              className={`flex items-center gap-1 px-2 py-1 border text-[11px] uppercase tracking-widest font-bold transition-colors focus:outline-hidden ${
                 advancedOpen || advancedFiltered
                   ? 'text-amber-gold border-amber-gold/60 bg-amber-gold/10'
                   : 'text-on-surface-variant border-white/10 hover:border-white/20'
@@ -225,7 +225,7 @@ export function EntitySearchPanel() {
           <div>
             <button
               onClick={() => setTrailsVisible(!trailsVisible)}
-              className={`flex items-center gap-1.5 px-2 py-1 border text-[11px] uppercase tracking-widest font-bold transition-colors focus:outline-none ${
+              className={`flex items-center gap-1.5 px-2 py-1 border text-[11px] uppercase tracking-widest font-bold transition-colors focus:outline-hidden ${
                 trailsVisible
                   ? 'text-amber-gold border-amber-gold/60 bg-amber-gold/10'
                   : 'text-on-surface-variant border-white/10 hover:border-white/20'
@@ -250,7 +250,7 @@ export function EntitySearchPanel() {
                 <button
                   key={t}
                   onClick={() => setEntityFilter({ [t]: !entityFilter[t] })}
-                  className={`flex items-center gap-1 px-2 py-1 border text-[11px] uppercase tracking-widest font-bold transition-colors focus:outline-none ${
+                  className={`flex items-center gap-1 px-2 py-1 border text-[11px] uppercase tracking-widest font-bold transition-colors focus:outline-hidden ${
                     entityFilter[t]
                       ? `${TYPE_COLOR[t]} border-current bg-current/10`
                       : 'text-on-surface-variant border-white/10 hover:border-white/20'
@@ -263,7 +263,7 @@ export function EntitySearchPanel() {
               ))}
               <button
                 onClick={() => setEntityFilter({ train: !entityFilter.train })}
-                className={`flex items-center gap-1 px-2 py-1 border text-[11px] uppercase tracking-widest font-bold transition-colors focus:outline-none ${
+                className={`flex items-center gap-1 px-2 py-1 border text-[11px] uppercase tracking-widest font-bold transition-colors focus:outline-hidden ${
                   entityFilter.train
                     ? 'text-amber-gold border-amber-gold/60 bg-amber-gold/10'
                     : 'text-on-surface-variant border-white/10 hover:border-white/20'
@@ -275,7 +275,7 @@ export function EntitySearchPanel() {
               </button>
               <button
                 onClick={() => setEntityFilter({ bus: !entityFilter.bus })}
-                className={`flex items-center gap-1 px-2 py-1 border text-[11px] uppercase tracking-widest font-bold transition-colors focus:outline-none ${
+                className={`flex items-center gap-1 px-2 py-1 border text-[11px] uppercase tracking-widest font-bold transition-colors focus:outline-hidden ${
                   entityFilter.bus
                     ? 'text-transit-bus border-transit-bus/60 bg-transit-bus/10'
                     : 'text-on-surface-variant border-white/10 hover:border-white/20'
@@ -287,7 +287,7 @@ export function EntitySearchPanel() {
               </button>
               <button
                 onClick={() => setEntityFilter({ mesh_node: !entityFilter.mesh_node })}
-                className={`flex items-center gap-1 px-2 py-1 border text-[11px] uppercase tracking-widest font-bold transition-colors focus:outline-none ${
+                className={`flex items-center gap-1 px-2 py-1 border text-[11px] uppercase tracking-widest font-bold transition-colors focus:outline-hidden ${
                   entityFilter.mesh_node
                     ? 'text-amber-p25 border-amber-p25/60 bg-amber-p25/10'
                     : 'text-on-surface-variant border-white/10 hover:border-white/20'
@@ -299,7 +299,7 @@ export function EntitySearchPanel() {
               </button>
               <button
                 onClick={() => setEntityFilter({ satellite: !entityFilter.satellite })}
-                className={`flex items-center gap-1 px-2 py-1 border text-[11px] uppercase tracking-widest font-bold transition-colors focus:outline-none ${
+                className={`flex items-center gap-1 px-2 py-1 border text-[11px] uppercase tracking-widest font-bold transition-colors focus:outline-hidden ${
                   entityFilter.satellite
                     ? 'text-violet-space border-violet-space/60 bg-violet-space/10'
                     : 'text-on-surface-variant border-white/10 hover:border-white/20'
@@ -321,7 +321,7 @@ export function EntitySearchPanel() {
                   <div className="flex flex-wrap gap-2">
                     <button
                       onClick={() => setEntityFilter({ adsbLocal: !entityFilter.adsbLocal })}
-                      className={`flex items-center gap-1 px-2 py-1 border text-[11px] uppercase tracking-widest font-bold transition-colors focus:outline-none ${
+                      className={`flex items-center gap-1 px-2 py-1 border text-[11px] uppercase tracking-widest font-bold transition-colors focus:outline-hidden ${
                         entityFilter.adsbLocal
                           ? 'text-cyan-adsb border-cyan-adsb/60 bg-cyan-adsb/10'
                           : 'text-on-surface-variant border-white/10 hover:border-white/20'
@@ -333,7 +333,7 @@ export function EntitySearchPanel() {
                     </button>
                     <button
                       onClick={() => setEntityFilter({ adsbSupplement: !entityFilter.adsbSupplement })}
-                      className={`flex items-center gap-1 px-2 py-1 border text-[11px] uppercase tracking-widest font-bold transition-colors focus:outline-none ${
+                      className={`flex items-center gap-1 px-2 py-1 border text-[11px] uppercase tracking-widest font-bold transition-colors focus:outline-hidden ${
                         entityFilter.adsbSupplement
                           ? 'text-amber-gold border-amber-gold/60 bg-amber-gold/10'
                           : 'text-on-surface-variant border-white/10 hover:border-white/20'
@@ -368,7 +368,7 @@ export function EntitySearchPanel() {
           {isFiltered && (
             <button
               onClick={resetFilters}
-              className="text-[11px] text-amber-gold hover:text-amber-gold/80 uppercase tracking-widest transition-colors focus:outline-none"
+              className="text-[11px] text-amber-gold hover:text-amber-gold/80 uppercase tracking-widest transition-colors focus:outline-hidden"
             >
               Reset all filters
             </button>
@@ -409,7 +409,7 @@ export function EntitySearchPanel() {
                 <button
                   key={track.uid}
                   onClick={() => selectEntity(isSelected ? null : track.uid)}
-                  className={`w-full flex items-center gap-2 px-3 py-2 text-left transition-colors focus:outline-none ${
+                  className={`w-full flex items-center gap-2 px-3 py-2 text-left transition-colors focus:outline-hidden ${
                     isSelected ? 'bg-amber-gold/10' : 'hover:bg-surface-container'
                   }`}
                   aria-pressed={isSelected}

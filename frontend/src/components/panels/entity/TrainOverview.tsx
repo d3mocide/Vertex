@@ -94,14 +94,14 @@ export function TrainOverview({ entity, getIdentity }: OverviewProps) {
         </div>
       </div>
 
-      <div className="space-y-3 mt-3">
+      <div className="stack-y-3 mt-3">
 
         {/* ── Amtrak identity ──────────────────────────────────────── */}
         {isAmtrak && (
           <>
             <div>
               <span className="label-caps text-[11px] text-amber-gold-dim mb-1 block">Train</span>
-              <div className="space-y-1">
+              <div className="stack-y-1">
                 {([
                   ['Number', trainNumber],
                   ['Name',   trainName],
@@ -119,7 +119,7 @@ export function TrainOverview({ entity, getIdentity }: OverviewProps) {
             {(origin || destination || entity.status) && (
               <div>
                 <span className="label-caps text-[11px] text-amber-gold-dim mb-1 block">Route</span>
-                <div className="space-y-1.5">
+                <div className="stack-y-1.5">
                   {(origin || destination) && (
                     <div className="flex items-center gap-2 font-mono text-[11px]">
                       <span className="text-on-surface-variant shrink-0">{origin ?? '?'}</span>
@@ -150,7 +150,7 @@ export function TrainOverview({ entity, getIdentity }: OverviewProps) {
           <>
             <div>
               <span className="label-caps text-[11px] text-amber-gold-dim mb-1 block">Vehicle</span>
-              <div className="space-y-1">
+              <div className="stack-y-1">
                 {([
                   ['ID',     vehicleLabel],
                   ['Route',  routeLabel],
