@@ -491,7 +491,7 @@ function FlightMiniMap({ trailPoints, entity }: {
 
   return (
     <div className="relative w-full h-full bg-onyx-deep/60 rounded-sm overflow-hidden border border-white/5 shadow-inner">
-      <div ref={containerRef} className="absolute inset-0" />
+      <div ref={containerRef} className="w-full h-full" />
 
       {/* Bottom vignette */}
       <div className="absolute inset-0 pointer-events-none bg-linear-to-t from-onyx-black/50 to-transparent" />

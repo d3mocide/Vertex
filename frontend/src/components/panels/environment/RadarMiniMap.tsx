@@ -89,7 +89,7 @@ function RadarMiniMapCanvas({
     <div
       className={`relative w-full ${isFullHeight ? 'flex-1 min-h-0' : 'h-[420px]'} bg-onyx-deep/60 rounded-sm overflow-hidden mb-4 border border-white/5 shadow-inner`}
     >
-      <div ref={mapContainerRef} className="absolute inset-0" />
+      <div ref={mapContainerRef} className="w-full h-full" />
       
       {map && (
         <>

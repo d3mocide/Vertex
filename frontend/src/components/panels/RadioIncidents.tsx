@@ -27,6 +27,7 @@ export const CATEGORY: Record<RadioIncidentCategory, { label: string; icon: stri
   hazmat:              { label: 'Hazmat / spill',        icon: 'science',               group: 'hazard' },
   crash:               { label: 'Traffic crash',         icon: 'car_crash',             group: 'traffic' },
   assault:             { label: 'Assault',               icon: 'personal_injury',       group: 'medical' },
+  critical_medical:    { label: 'Critical medical',      icon: 'cardiology',            group: 'life' },
   medical:             { label: 'Medical',               icon: 'emergency',             group: 'medical' },
   other:               { label: 'Other',                 icon: 'radio',                 group: 'other' },
 }
@@ -210,7 +211,7 @@ function IncidentMap({ incidents, selectedId, onSelect }: {
 
   return (
     <div className="relative border border-white/10 bg-onyx-deep h-[260px] lg:h-[560px]">
-      <div ref={containerRef} className="absolute inset-0" aria-label="Incident map" role="region" />
+      <div ref={containerRef} className="w-full h-full" aria-label="Incident map" role="region" />
       <div className="absolute top-2 left-2 bg-onyx-black/80 border border-white/10 px-2 py-1 flex gap-3 text-[11px] uppercase tracking-widest text-on-surface-variant pointer-events-none">
         <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-emergency" />Life safety</span>
         <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-p25" />Serious</span>
