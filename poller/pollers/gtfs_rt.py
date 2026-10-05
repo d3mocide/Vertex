@@ -1,5 +1,6 @@
 """Shared GTFS engine for reviewed, locally scoped regional agency feeds."""
 import asyncio
+from array import array
 import csv
 import hashlib
 import io
@@ -12,6 +13,8 @@ import zipfile
 from datetime import datetime, timezone
 
 import httpx
+
+from child_process import run_in_child
 from redis.exceptions import RedisError
 from google.transit import gtfs_realtime_pb2
 
@@ -26,6 +29,19 @@ from .transit_path import motion_path
 logger = logging.getLogger(__name__)
 
 MAX_ZIP_BYTES = 50 * 1024 * 1024
+
+# A region's shape geometry is over a million coordinate pairs. As nested lists of floats that cost ~175 MB of the
+# poller's memory for one agency; as flat float arrays it is ~20 MB. Shapes are held packed and only the few that
+# active vehicles use are expanded for each poll.
+
+
+def pack_lines(lines):
+    return [array('d', [c for point in line for c in point]) for line in lines]
+
+
+def unpack_lines(lines):
+    """Packed lines back to lists of (lon, lat); lines already in list form (older callers, tests) pass through."""
+    return [list(zip(line[0::2], line[1::2])) if isinstance(line, array) else line for line in lines]
 MAX_EXPANDED_BYTES = 300 * 1024 * 1024
 MAX_ROWS = 8_000_000
 
@@ -149,6 +165,32 @@ def read_static(content, box, modes, source):
         return routes, trips, local, {'type': 'FeatureCollection', 'features': features}, paths
 
 
+def static_job(url, box, modes, source):
+    """Download and parse an agency's schedule. Runs in a child process: the zip, the parsed CSV rows and the
+    intermediate shapes peak at ~500 MB, and a heap that large is never handed back by glibc once the work is done
+    (the poller sat at ~850 MB afterwards). A child frees it all by exiting, and its CPU-bound parsing no longer
+    holds the poller's GIL, which starved Redis reads past their 5 s timeout. Shape lines come back packed."""
+    async def fetch():
+        async with httpx.AsyncClient(timeout=90, headers={'User-Agent': 'Vertex/1.0'}) as client:
+            return await download(client, url, MAX_ZIP_BYTES)
+    content = asyncio.run(fetch())
+    routes, trips, local, shapes, paths = read_static(content, box, modes, source)
+    del content
+    return routes, trips, local, shapes, {sid: pack_lines(lines) for sid, lines in paths.items()}
+
+
+async def run_static_job(*args):
+    return await run_in_child(static_job, *args)
+
+
+def _shape_lines(paths, unpacked, shape_id):
+    if not paths or shape_id not in paths:
+        return None
+    if shape_id not in unpacked:
+        unpacked[shape_id] = unpack_lines(paths[shape_id])
+    return unpacked[shape_id]
+
+
 def normalize_vehicles(message, routes, trips, local, source, box, now=None, paths=None, previous_positions=None):
     now = time.time() if now is None else now
     if not message.IsInitialized() or message.header.incrementality != gtfs_realtime_pb2.FeedHeader.FULL_DATASET:
@@ -157,6 +199,7 @@ def normalize_vehicles(message, routes, trips, local, source, box, now=None, pat
     if not message.header.HasField('timestamp') or not -30 <= now-message.header.timestamp <= 90:
         raise ValueError('GTFS feed timestamp missing, stale or future')
     entities, current_positions = [], {}
+    unpacked = {}      # shapes expanded during this snapshot, shared by every vehicle on the same shape
     for e in message.entity:
         if not e.HasField('vehicle') or not e.vehicle.HasField('position'): continue
         v, pos = e.vehicle, e.vehicle.position
@@ -195,7 +238,7 @@ def normalize_vehicles(message, routes, trips, local, source, box, now=None, pat
             current_positions[position_key] = (pos.longitude, pos.latitude, ts, speed_mps)
         shape_id = trip.get('shape_id', '') if trip.get('route_id') == rid else ''
         path = motion_path(pos.longitude, pos.latitude, bearing, speed_mps,
-                           (paths or {}).get(shape_id), is_bus) if shape_id and ts is not None else None
+                           _shape_lines(paths, unpacked, shape_id), is_bus) if shape_id and ts is not None else None
         identity = {'vehicle_id': vid, 'vehicle_label': v.vehicle.label or vid, 'route_id': rid,
                     'route_short_name': info['short_name'], 'route_long_name': info['long_name'],
                     'route_type': info['type'], 'trip_id': v.trip.trip_id, 'agency_id': info['agency_id'],
@@ -264,11 +307,20 @@ class GtfsRtPoller(BasePoller):
             self.interval = max(15, getattr(settings, self.source['interval_setting']))
 
     async def setup(self):
+        await self._restore()
+        if not self.static_ts:
+            # The first attempt can lose to start-up load (a Redis read over its 5 s timeout). Rebuilding the whole
+            # schedule is expensive, so give the cache one more try before doing it.
+            await asyncio.sleep(15)
+            await self._restore()
+
+    async def _restore(self):
         # Cache only the bounded parsed index, never credentials or requests.
         self.cache_key = 'cache:transit:' + self.source['name'] + ':index'
         self.paths_key = 'cache:transit:' + self.source['name'] + ':paths'
         self.cache_signature = hashlib.sha256(json.dumps([3, self.source['static_url'], self.box, sorted(self.modes)], sort_keys=True).encode()).hexdigest()
         r = await get_bus()
+        step, started = 'index', time.monotonic()
         try:
             raw = await r.get(self.cache_key)
             if raw:
@@ -278,9 +330,10 @@ class GtfsRtPoller(BasePoller):
                     # A regional path hash can be tens of MB. Restore in small
                     # pages so one large response cannot time out startup.
                     paths, cursor = {}, 0
+                    step = 'paths'
                     while True:
                         cursor, page = await r.hscan(self.paths_key, cursor=cursor, count=64)
-                        paths.update({sid.decode() if isinstance(sid, bytes) else sid: json.loads(lines)
+                        paths.update({sid.decode() if isinstance(sid, bytes) else sid: pack_lines(json.loads(lines))
                                       for sid, lines in page.items()})
                         if not cursor: break
                     self.routes, self.trips, self.local = cached['routes'], cached['trips'], set(cached['local'])
@@ -289,7 +342,8 @@ class GtfsRtPoller(BasePoller):
         except (RedisError, ValueError, TypeError, KeyError) as exc:
             # Cache restoration is optional; the poll loop can rebuild it.
             # Keep a failed warm start from terminating unrelated feed tasks.
-            logger.warning('[%s] transit cache restore failed (%s); rebuilding', self.name, type(exc).__name__)
+            logger.warning('[%s] transit cache restore failed reading the %s after %.1fs (%s); rebuilding', self.name, step,
+                           time.monotonic() - started, type(exc).__name__)
             self.static_ts = 0
 
     async def poll(self):
@@ -297,15 +351,15 @@ class GtfsRtPoller(BasePoller):
         async with httpx.AsyncClient(timeout=90, headers={'User-Agent': 'Vertex/1.0'}) as client:
             if (time.monotonic()-self.static_ts > 86400 or not self.static_ts) and time.monotonic() >= self.static_retry_at:
                 try:
-                    content = await download(client, source['static_url'], MAX_ZIP_BYTES)
-                    routes, trips, local, shapes, paths = await asyncio.to_thread(read_static, content, self.box, self.modes, source)
+                    routes, trips, local, shapes, paths = await run_static_job(source['static_url'], self.box, self.modes, source)
                     r = await get_bus()
                     pipe = r.pipeline(transaction=True)
                     pipe.delete(self.paths_key)
                     path_items = list(paths.items())
                     for offset in range(0, len(path_items), 100):
                         batch = path_items[offset:offset+100]
-                        pipe.hset(self.paths_key, mapping={sid: json.dumps(lines) for sid, lines in batch})
+                        pipe.hset(self.paths_key, mapping={sid: json.dumps(unpack_lines(lines))
+                                                           for sid, lines in batch})
                     pipe.expire(self.paths_key, 172800)
                     await pipe.execute()
                     self.routes, self.trips, self.local, self.paths = routes, trips, local, paths

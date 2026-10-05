@@ -30,6 +30,9 @@ services:
   redis:
     image: redis:7-alpine@sha256:858f009f9709ce576febc734aa78b8f6d624b82571f9ddb6bda4377c833b3499
     restart: unless-stopped
+    # Never swap Redis: on a small host its pages end up in swap, and a read that waits on swap-in outlasts the
+    # clients' 5 s socket timeout (backend and poller logged "Timeout reading from redis").
+    memswap_limit: 256m
     deploy:
       resources:
         limits:
@@ -171,6 +174,7 @@ services:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-vertex}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@db:5432/${POSTGRES_DB:-vertex}
       # Cap glibc malloc arenas: with many threads, each arena retains freed
       # memory. (The poller also trims its heap every 5 minutes; see main.py.)
+      # The image preloads jemalloc (poller/Dockerfile), which makes both of these largely moot.
       MALLOC_ARENA_MAX: "2"
     depends_on:
       db:

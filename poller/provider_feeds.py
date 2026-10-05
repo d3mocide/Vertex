@@ -77,6 +77,20 @@ def merge(feed, snapshots):
     return sorted(rows, key=lambda row: row.get("dist_km", float("inf")))
 
 
+# Camera image hosts that serve https. The page's Content Security Policy only loads https images, and these hosts
+# answer plain http with a redirect to https anyway, so the cameras showed blank until the address was upgraded.
+_HTTPS_HOSTS = ("tripcheck.com", "wsdot.com", "wsdot.wa.gov")
+
+
+def _https(url):
+    if not isinstance(url, str) or not url.startswith("http://"):
+        return url
+    host = (urlsplit(url).hostname or "").lower()
+    if any(host == h or host.endswith("." + h) for h in _HTTPS_HOSTS):
+        return "https://" + url[len("http://"):]
+    return url
+
+
 def provenance(data, pid, ts):
     if not isinstance(data, list):
         if isinstance(data, dict) and data.get("type") == "FeatureCollection":
@@ -101,6 +115,9 @@ def provenance(data, pid, ts):
             row["id"] = f"{pid}:{row['id']}"
         if row.get("group"):
             row["group"] = f"{pid}:{row['group']}"
+        for key in ("url", "ldi_url"):
+            if key in row:
+                row[key] = _https(row[key])
         rows.append(row)
     return rows
 

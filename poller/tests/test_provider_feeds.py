@@ -168,3 +168,17 @@ def test_outage_contract_merges_attributed_utilities_and_preserves_coverage():
     assert sum(row['meters_out'] for row in merged['utilities'])==12
     assert a['near'][0]['provider_id']=='oregon-odin' and a['utilities'][0]['attribution']=='Oregon ODIN'
     assert feeds.merge('utility:outages',[a])['utilities'][0]['meters_out']==5
+
+
+def test_camera_image_urls_on_https_hosts_are_upgraded_and_other_urls_left_alone():
+    rows = feeds.provenance([
+        {"id": "1", "url": "http://www.tripcheck.com/roadcams/cams/a.jpg", "ldi_url": "http://www.tripcheck.com/roadcams/cams/a.jpg"},
+        {"id": "2", "url": "http://images.wsdot.com/b.jpg"},
+        {"id": "3", "url": "http://example.org/c.jpg"},
+        {"id": "4", "url": "https://www.tripcheck.com/d.jpg"},
+        {"id": "5"},
+    ], "odot-tripcheck", "2026-10-05T00:00:00Z")
+    assert rows[0]["url"] == rows[0]["ldi_url"] == "https://www.tripcheck.com/roadcams/cams/a.jpg"
+    assert rows[1]["url"] == "https://images.wsdot.com/b.jpg"
+    assert rows[2]["url"] == "http://example.org/c.jpg" and rows[3]["url"].startswith("https://")
+    assert "url" not in rows[4]

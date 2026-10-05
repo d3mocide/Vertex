@@ -19,6 +19,15 @@ the direct manifests. Frontend production installs use the npm lockfile.
 satisfied by its production lock. The dependency-audit CI job runs this check so
 a PR cannot pass while changing only a direct manifest.
 
+## System packages in images
+
+Beyond the lockfiles, the poller image installs two Debian packages with `apt-get`: `curl` and `ca-certificates`
+(fetching the aircraft and airport data at build time) and `libjemalloc2`, the allocator the poller process runs
+under (`LD_PRELOAD`, see `poller/Dockerfile`). jemalloc is a long-established allocator (used by Redis, Firefox and
+others) taken from the pinned Debian base image's own repository, so it follows the base image's security updates.
+It exists because glibc's allocator fragmented the poller's heap to 850-1000 MB with about 125 MB of live data; under
+jemalloc the same workload runs at about 250 MB. Remove it by deleting the `LD_PRELOAD` line if it ever misbehaves.
+
 ## Regenerating Python locks
 
 Use Python 3.12 and the audited pip-tools release:

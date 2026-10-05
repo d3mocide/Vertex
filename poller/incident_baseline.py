@@ -26,6 +26,12 @@ def _window_counts(incidents, start: datetime, end: datetime) -> Counter:
     return c
 
 
+def compute_baseline(rows, hospital_tags, now: datetime, earliest: datetime | None, baseline_days: int) -> dict:
+    """Extract incidents from `rows` and compare. A module-level function so it can run in a child process."""
+    from radio_incidents import extract
+    return baseline_report(extract(rows, hospital_tags), now, earliest, baseline_days=baseline_days)
+
+
 def baseline_report(incidents, now: datetime, earliest: datetime | None, *, baseline_days: int = 14,
                     min_baseline_days: int = 5, z: float = 3.0, min_count: int = 4) -> dict:
     """Per-category count over the last 24 h, the usual count, and a flag when it is unusually high.

@@ -1,4 +1,5 @@
 import asyncio
+import os
 import logging
 import time
 import warnings
@@ -56,34 +57,92 @@ def _rss_mb() -> float:
     return next((int(l.split()[1]) for l in open("/proc/self/status") if l.startswith("VmRSS")), 0) / 1024
 
 
+def _deep_size(obj, seen: set, budget: list) -> int:
+    """Approximate retained size of a container: shallow sizes summed through dicts, lists, sets, tuples and
+    deques, stopping after `budget[0]` objects (a huge container is then an under-estimate, flagged by the caller)."""
+    import sys
+    from collections import deque
+    stack, total = [obj], 0
+    while stack and budget[0] > 0:
+        o = stack.pop()
+        if id(o) in seen:
+            continue
+        seen.add(id(o))
+        budget[0] -= 1
+        total += sys.getsizeof(o)
+        if isinstance(o, dict):
+            stack.extend(o.keys())
+            stack.extend(o.values())
+        elif isinstance(o, (list, tuple, set, frozenset, deque)):
+            stack.extend(o)
+    return total
+
+
+_CENSUS_MODULES = {"bus", "db", "geocoder", "geo_tags", "street_names", "radio_incidents", "pollers", "enrichment"}
+
+
+def _census() -> None:
+    """Cheap attribution (no tracemalloc): which object types dominate the live heap, and which poller attributes
+    and module-level containers are large."""
+    import gc
+    import sys
+    from collections import Counter
+    from pollers.base import BasePoller
+
+    objs = gc.get_objects()
+    sizes: Counter = Counter()
+    counts: Counter = Counter()
+    for o in objs:
+        t = type(o).__name__
+        counts[t] += 1
+        sizes[t] += sys.getsizeof(o)
+    logger.info("[memprofile] %d live objects; shallow size by type: %s", len(objs),
+                ", ".join(f"{t} {sizes[t] / 2**20:.0f}MB/{counts[t]}" for t, _ in sizes.most_common(8)))
+
+    rows, seen = [], set()
+    for o in objs:
+        if isinstance(o, BasePoller):
+            owner = type(o).__name__
+        elif isinstance(o, type(sys)) and o.__name__.split(".")[0] in _CENSUS_MODULES:
+            owner = o.__name__
+        else:
+            continue
+        for name, val in list(vars(o).items()):
+            if isinstance(val, (bytes, bytearray)):
+                if len(val) > 2**20:
+                    rows.append((len(val), f"{owner}.{name}", type(val).__name__, len(val), False))
+            elif isinstance(val, (dict, list, set, tuple)) and len(val) >= 200:
+                budget = [200_000]
+                rows.append((_deep_size(val, seen, budget), f"{owner}.{name}", type(val).__name__, len(val), budget[0] <= 0))
+    for size, where, kind, n, capped in sorted(rows, reverse=True)[:15]:
+        logger.info("[memprofile] %8.1f MB%s  %s (%s, %d)", size / 2**20, "+" if capped else " ", where, kind, n)
+    logger.info("[memprofile] asyncio tasks: %d", len(asyncio.all_tasks()))
+
+
 async def _memprofile_loop(minutes: int):
-    """Diagnostic only (POLLER_MEMPROFILE_MINUTES > 0): log the top live
-    allocation sites every `minutes`, plus traced-vs-RSS so heap
-    fragmentation from transient spikes shows up as the gap between them."""
+    """Diagnostic only (POLLER_MEMPROFILE_MINUTES > 0): every `minutes`, log which poller attributes hold the
+    memory (see _census). With POLLER_MEMPROFILE_TRACE=1 it also logs the top tracemalloc allocation sites; that
+    mode roughly doubles memory and can push a small host over the edge, so it is off by default."""
     import tracemalloc
 
     while True:
         await asyncio.sleep(minutes * 60)
-        snap = tracemalloc.take_snapshot().filter_traces([
-            tracemalloc.Filter(False, tracemalloc.__file__),
-            tracemalloc.Filter(False, "<frozen importlib._bootstrap>"),
-        ])
-        traced, peak = tracemalloc.get_traced_memory()
-        rss_kb = next((int(l.split()[1]) for l in open("/proc/self/status") if l.startswith("VmRSS")), 0)
-        logger.info("[memprofile] traced %.0f MB (peak %.0f MB), RSS %.0f MB",
-                    traced / 2**20, peak / 2**20, rss_kb / 1024)
-        for stat in snap.statistics("filename")[:15]:
-            logger.info("[memprofile] %8.1f MB  %7d blocks  %s",
-                        stat.size / 2**20, stat.count, stat.traceback[0].filename.replace("/usr/local/lib/python3.12/", ""))
-        for stat in snap.statistics("lineno")[:10]:
-            frame = stat.traceback[0]
-            logger.info("[memprofile] line %8.1f MB  %s:%d", stat.size / 2**20,
-                        frame.filename.replace("/usr/local/lib/python3.12/", ""), frame.lineno)
+        _census()
+        if tracemalloc.is_tracing():
+            snap = tracemalloc.take_snapshot().filter_traces([
+                tracemalloc.Filter(False, tracemalloc.__file__),
+                tracemalloc.Filter(False, "<frozen importlib._bootstrap>"),
+            ])
+            traced, peak = tracemalloc.get_traced_memory()
+            logger.info("[memprofile] traced %.0f MB (peak %.0f MB), RSS %.0f MB", traced / 2**20, peak / 2**20, _rss_mb())
+            for stat in snap.statistics("filename")[:15]:
+                logger.info("[memprofile] %8.1f MB  %7d blocks  %s",
+                            stat.size / 2**20, stat.count, stat.traceback[0].filename.replace("/usr/local/lib/python3.12/", ""))
         # How much of RSS is freed-but-retained heap? glibc hands it back on trim.
         import ctypes
         before = _rss_mb()
         ctypes.CDLL("libc.so.6").malloc_trim(0)
-        logger.info("[memprofile] malloc_trim: RSS %.0f MB -> %.0f MB", before, _rss_mb())
+        logger.info("[memprofile] RSS %.0f MB, after malloc_trim %.0f MB", before, _rss_mb())
 
 
 async def _malloc_trim_loop(interval_s: int = 300):
@@ -100,8 +159,10 @@ async def _malloc_trim_loop(interval_s: int = 300):
     except (OSError, AttributeError):
         logger.info("malloc_trim unavailable — periodic heap trimming disabled")
         return
+    delay = 45      # first trim soon after start-up: pollers restoring caches leave hundreds of MB of freed heap
     while True:
-        await asyncio.sleep(interval_s)
+        await asyncio.sleep(delay)
+        delay = interval_s
         try:
             trim(0)
         except Exception as exc:
@@ -120,11 +181,28 @@ async def _purge_loop():
             await asyncio.sleep(3600)   # retry in an hour rather than hammering a failing DB
 
 
+_START_STAGGER_S = 0.25
+
+
+async def _start_after(delay: float, poller):
+    await asyncio.sleep(delay)
+    await poller.run()
+
+
 async def main():
     if settings.poller_memprofile_minutes > 0:
-        import tracemalloc
-        tracemalloc.start()
-        logger.warning("[memprofile] tracemalloc enabled — diagnostic mode, expect extra memory/CPU")
+        logger.warning("[memprofile] memory census every %d min — diagnostic mode", settings.poller_memprofile_minutes)
+        if os.environ.get("POLLER_MEMPROFILE_TRACE"):
+            import tracemalloc
+            tracemalloc.start()
+            logger.warning("[memprofile] tracemalloc enabled — expect roughly double the memory and extra CPU")
+    if os.environ.get("POLLER_LOOP_DEBUG"):
+        # Names any callback that holds the event loop for over 0.5 s ("Executing <Task ...> took 6.1 seconds"):
+        # a stalled loop is what makes Redis reads exceed their 5 s socket timeout. Diagnostic only; slows the loop.
+        loop = asyncio.get_running_loop()
+        loop.set_debug(True)
+        loop.slow_callback_duration = 0.5
+        logging.getLogger("asyncio").setLevel(logging.WARNING)
     await init_db()
 
     # Heartbeats left by an earlier run: a poller that no longer runs (its
@@ -176,7 +254,9 @@ async def main():
     if settings.mqtt_enabled:
         pollers.append(MqttSubscriberPoller())
 
-    tasks = [asyncio.create_task(p.run()) for p in pollers]
+    # Staggered: 30-odd pollers all starting in the same instant saturate the event loop (and the container's 1 CPU)
+    # for ~20 s, long enough for Redis reads to hit their 5 s timeout and caches to fail to restore.
+    tasks = [asyncio.create_task(_start_after(i * _START_STAGGER_S, p)) for i, p in enumerate(pollers)]
     if settings.poller_memprofile_minutes > 0:
         tasks.append(asyncio.create_task(_memprofile_loop(settings.poller_memprofile_minutes)))
     tasks.append(asyncio.create_task(_purge_loop()))

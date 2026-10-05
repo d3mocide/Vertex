@@ -4,6 +4,7 @@ import logging
 import httpx
 
 from bus import get_bus
+from child_process import run_in_child
 from config import settings
 from .base import BasePoller
 
@@ -50,6 +51,24 @@ def _to_geojson(elements: list[dict]) -> dict:
     return {"type": "FeatureCollection", "features": features}
 
 
+def fetch_rail_geojson(query: str) -> tuple[str, int]:
+    """Download and convert the rail tracks; returns (compact GeoJSON text, segment count). Runs in a child process:
+    the Overpass response can be tens of MB of JSON, and parsing it left the poller's heap enlarged for good."""
+    with httpx.Client(timeout=120) as client:
+        resp = client.post(
+            _OVERPASS_URL,
+            content=f"data={query}",
+            headers={
+                "Content-Type": "application/x-www-form-urlencoded",
+                "User-Agent": "Vertex/1.0 (Situational Awareness Dashboard)",
+            },
+        )
+        resp.raise_for_status()
+        data = resp.json()
+    geojson = _to_geojson(data.get("elements", []))
+    return json.dumps(geojson, separators=(',', ':')), len(geojson["features"])
+
+
 class RailInfrastructurePoller(BasePoller):
     """Periodically fetches OSM rail tracks for all configured regions and caches in Redis."""
 
@@ -57,6 +76,12 @@ class RailInfrastructurePoller(BasePoller):
     interval = 43200  # Poll every 12 hours (infrastructure changes very rarely)
 
     async def poll(self):
+        # Restarts must not re-download what is still fresh: the tracks change a few times a year.
+        r = await get_bus()
+        remaining = await r.ttl(_REDIS_KEY)
+        if remaining and remaining > 0 and (_CACHE_TTL_S + 3600 - remaining) < self.interval:
+            logger.info("[rail_infra] cached tracks are %d h old — not refreshing yet", (_CACHE_TTL_S + 3600 - remaining) // 3600)
+            return
         logger.info("[rail_infra] starting OSM rail tracks refresh")
         
         # Calculate a bounding box that covers all enabled regions
@@ -75,23 +100,8 @@ class RailInfrastructurePoller(BasePoller):
         query = _build_query(bbox_str)
 
         try:
-            async with httpx.AsyncClient(timeout=120) as client:
-                resp = await client.post(
-                    _OVERPASS_URL,
-                    content=f"data={query}",
-                    headers={
-                        "Content-Type": "application/x-www-form-urlencoded",
-                        "User-Agent": "Vertex/1.0 (Situational Awareness Dashboard)",
-                    },
-                )
-                resp.raise_for_status()
-                data = resp.json()
-                
-            geojson = _to_geojson(data.get("elements", []))
-            count = len(geojson["features"])
-            
-            r = await get_bus()
-            await r.set(_REDIS_KEY, json.dumps(geojson, separators=(',', ':')), ex=_CACHE_TTL_S + 3600)
+            payload, count = await run_in_child(fetch_rail_geojson, query)
+            await r.set(_REDIS_KEY, payload, ex=_CACHE_TTL_S + 3600)
             logger.info("[rail_infra] cached %d rail track segments (bbox: %s)", count, bbox_str)
             
         except Exception as exc:

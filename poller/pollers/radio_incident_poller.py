@@ -19,7 +19,8 @@ from db import get_pool
 from geocoder import Geocoder
 from geo_tags import geofences_for_points
 from advisories import distance_km
-from incident_baseline import baseline_report
+from child_process import run_in_child
+from incident_baseline import compute_baseline
 from radio_incidents import extract
 from .base import BasePoller
 
@@ -75,7 +76,8 @@ class RadioIncidentPoller(BasePoller):
     def __init__(self):
         self._last_hash = ""
         self._baseline: dict | None = None
-        self._baseline_at: datetime | None = None
+        # The first baseline waits a minute and a half, so it does not compete with the pollers' start-up.
+        self._baseline_at: datetime | None = datetime.now(timezone.utc) - _BASELINE_EVERY + timedelta(seconds=90)
 
     async def setup(self):
         if settings.geocoder_url:
@@ -108,10 +110,8 @@ class RadioIncidentPoller(BasePoller):
                 now - timedelta(days=_BASELINE_DAYS + 2))
             hospital = tuple(t.strip() for t in settings.radio_hospital_tags.split(",") if t.strip())
 
-            def work() -> dict:
-                return baseline_report(extract([tuple(r) for r in rows], hospital), now, earliest,
-                                       baseline_days=_BASELINE_DAYS)
-            self._baseline = await asyncio.to_thread(work)
+            self._baseline = await run_in_child(compute_baseline, [tuple(r) for r in rows], hospital, now, earliest,
+                                                _BASELINE_DAYS)
         except Exception as exc:
             logger.warning("[radio_incidents] dispatch baseline failed: %s", exc)
 

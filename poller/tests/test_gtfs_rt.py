@@ -223,7 +223,8 @@ async def test_schedule_refresh_failure_keeps_index_and_continues_live_feed(monk
     collector = g.GtfsRtPoller('trimet-transit')
     collector.static_ts = g.time.monotonic()-90000
     m = message(); del m.entity[:]; m.header.timestamp=int(g.time.time())
-    monkeypatch.setattr(g, 'download', AsyncMock(side_effect=[RuntimeError('Unavailable'), m.SerializeToString()]))
+    monkeypatch.setattr(g, 'run_static_job', AsyncMock(side_effect=RuntimeError('Unavailable')))   # the schedule is built in a child process
+    monkeypatch.setattr(g, 'download', AsyncMock(return_value=m.SerializeToString()))
     redis = SimpleNamespace(smembers=AsyncMock(return_value=set()), delete=AsyncMock(), sadd=AsyncMock())
     monkeypatch.setattr(g, 'get_bus', AsyncMock(return_value=redis))
     feed=AsyncMock(); monkeypatch.setattr(g, 'set_feed', feed)
@@ -238,6 +239,20 @@ async def test_cache_timeout_falls_back_without_terminating_startup(monkeypatch)
     collector = g.GtfsRtPoller()
     redis = SimpleNamespace(get=AsyncMock(side_effect=TimeoutError('cache response timeout')))
     monkeypatch.setattr(g, 'get_bus', AsyncMock(return_value=redis))
+    pause = AsyncMock(); monkeypatch.setattr(g.asyncio, 'sleep', pause)
     await collector.setup()
     assert collector.static_ts == 0
     assert collector.paths == {}
+    assert redis.get.await_count == 2 and pause.await_count == 1   # one retry after a pause, then fall back to a rebuild
+
+
+def test_packed_shapes_round_trip_and_old_list_form_still_works():
+    from pollers import gtfs_rt
+    lines = [[[-122.5, 45.5], [-122.4, 45.6], [-122.3, 45.7]], [[-122.0, 45.0], [-121.9, 45.1]]]
+    packed = gtfs_rt.pack_lines(lines)
+    assert all(isinstance(p, gtfs_rt.array) for p in packed)
+    assert [[list(pt) for pt in line] for line in gtfs_rt.unpack_lines(packed)] == lines
+    assert gtfs_rt.unpack_lines(lines) == lines            # lines that were never packed pass through
+    assert gtfs_rt._shape_lines(None, {}, "x") is None and gtfs_rt._shape_lines({"a": packed}, {}, "b") is None
+    cache = {}
+    assert gtfs_rt._shape_lines({"a": packed}, cache, "a") is gtfs_rt._shape_lines({"a": packed}, cache, "a")

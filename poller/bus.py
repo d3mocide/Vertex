@@ -26,7 +26,12 @@ _entity_cache_ops = 0
 async def get_bus() -> Redis:
     global _redis
     if _redis is None:
-        _redis = Redis.from_url(settings.redis_url, decode_responses=True)
+        # redis-py's default read timeout is 5 s. The poller's event loop is legitimately saturated for longer than
+        # that when its ~30 pollers start together on one CPU, which made cache restores and first polls fail with
+        # "Timeout reading from redis" although Redis answered in milliseconds. A dead connection is still caught:
+        # TCP keepalive is on and idle connections are pinged every 30 s.
+        _redis = Redis.from_url(settings.redis_url, decode_responses=True,
+                                socket_timeout=20, socket_connect_timeout=5, health_check_interval=30)
     return _redis
 
 

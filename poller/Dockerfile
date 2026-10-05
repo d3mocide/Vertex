@@ -13,9 +13,14 @@ ARG AIRPORTS_DB_SHA256="5cb29a038a92dbdb94d4fcdd90ce116b2b47394f456d9c43e373d683
 ARG AIRLINES_DB_SHA256="39be1a432e8b04ebc12860c29281c974a9cb52169c82b2456a835d66ab1548a1"
 ARG NAVAIDS_DB_SHA256="57fb332b75be1173c45fd97447611eb3fba07b2c508c2f330961b9a8976e24cb"
 
+# jemalloc replaces glibc's allocator for the whole process. The poller's transient work (schedules, JSON feeds,
+# transcripts) fragmented glibc's heap so badly that it sat at 850-1000 MB of a 1 GiB limit with ~125 MB of live
+# data, and malloc_trim could not give it back; under jemalloc it runs at ~250 MB. The symlink keeps LD_PRELOAD
+# independent of the CPU architecture (amd64 / arm64 install the library in different directories).
 RUN apt-get update \
-	&& apt-get install -y --no-install-recommends curl ca-certificates \
-	&& rm -rf /var/lib/apt/lists/*
+	&& apt-get install -y --no-install-recommends curl ca-certificates libjemalloc2 \
+	&& rm -rf /var/lib/apt/lists/* \
+	&& ln -s "$(ls /usr/lib/*/libjemalloc.so.2 | head -n 1)" /usr/local/lib/libjemalloc.so.2
 
 RUN mkdir -p /data \
 	&& echo "data fetch ${DATA_CACHEBUST}" \
@@ -37,6 +42,9 @@ COPY --chown=vertex:vertex requirements.lock .
 RUN pip install --no-cache-dir -r requirements.lock
 
 COPY --chown=vertex:vertex . .
+
+ENV LD_PRELOAD=/usr/local/lib/libjemalloc.so.2 \
+    MALLOC_CONF=background_thread:true,dirty_decay_ms:3000,muzzy_decay_ms:3000
 
 USER vertex
 
