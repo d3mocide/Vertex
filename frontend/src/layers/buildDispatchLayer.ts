@@ -30,6 +30,7 @@ export const DISPATCH_GLYPH: Record<RadioIncidentCategory, string> = {
   fire: 'dispatch_fire', fire_alarm: 'dispatch_fire',
   gas_leak: 'dispatch_hazard', carbon_monoxide: 'dispatch_hazard', hazmat: 'dispatch_hazard',
   crash: 'dispatch_traffic',
+  critical_medical: 'dispatch_life',
   assault: 'dispatch_medical', medical: 'dispatch_medical',
   other: 'dispatch_other',
 }

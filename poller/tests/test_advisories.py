@@ -33,6 +33,7 @@ def test_radio_needs_near_recent_located_and_significant():
     assert _radio([_inc(5, status="cleared")]) == []
     assert _radio([_inc(3, cat="crash", where=(45.43, -122.70))]) == []   # routine, ~6 km
     assert _radio([_inc(1, cat="medical", units=5, calls=9)]) == []
+    assert _radio([_inc(3, cat="critical_medical", units=4, calls=5)]) == []   # on the Incidents page, never a banner
 
 
 def test_zone_extends_near_but_not_indefinitely():
