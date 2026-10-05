@@ -87,6 +87,7 @@ export interface RadioIncident {
   lat: number | null
   lon: number | null
   geofences: string[]          // "<name> (<zone_type>)"
+  approx?: boolean             // pin is the cross-street intersection, not the address (not in the map data)
   dist_km?: number | null      // from home (REGION_LAT/LON)
   // Deterministic enrichment (poller radio_incidents.py / geocoder)
   city?: string | null         // from the map: dispatch names the street, not the city

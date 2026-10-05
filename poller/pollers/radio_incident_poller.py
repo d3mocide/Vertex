@@ -54,7 +54,11 @@ async def load_incidents(pool, since: datetime, geocoder=None, live_lookups: int
     if geocoder is not None and geocoder.enabled:
         for inc in incidents:
             entry = await geocoder.lookup(inc.location, cache_only=geocoder.lookups >= live_lookups)
+            if not entry and inc.cross_streets and inc.location and " & " not in inc.location:
+                # The address is not in the map data, but its cross streets usually are.
+                entry = await geocoder.lookup(inc.cross_streets, cache_only=geocoder.lookups >= live_lookups, approx=True)
             if entry:
+                inc.approx = bool(entry.get("approx"))
                 inc.lat, inc.lon = entry["lat"], entry["lon"]
                 inc.location_corrected = entry.get("corrected")
                 inc.city = entry.get("city")

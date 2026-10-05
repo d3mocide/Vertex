@@ -120,8 +120,12 @@ class Geocoder:
         entry = await self.lookup(location, cache_only)
         return (entry["lat"], entry["lon"]) if entry else None
 
-    async def lookup(self, location: str | None, cache_only: bool = False) -> dict | None:
+    async def lookup(self, location: str | None, cache_only: bool = False, approx: bool = False) -> dict | None:
         """Resolve a location to {"lat", "lon", "how", "corrected", "city"}, or None.
+
+        With `approx`, `location` is an incident's cross streets ("A & B"), used when its address is not in the map
+        data: the intersection is within about a block of the address. Those entries are cached apart from addresses
+        and come back with `approx` true, so a view can say the pin is not at the door.
 
         `corrected` is set when the street name heard on the radio was
         replaced by a real street (see street_names.py) to get the match.
@@ -130,7 +134,7 @@ class Geocoder:
         """
         if not self.enabled or not is_geocodable(location):
             return None
-        key = cache_key(location)
+        key = ("x|" if approx else "") + cache_key(location)
         entry = await self._cached(key)
         if entry is None:
             if cache_only:
@@ -153,7 +157,9 @@ class Geocoder:
                 await self.redis.hset(_CACHE_KEY, key, json.dumps(entry))
             except Exception as exc:
                 logger.debug("[geocoder] reverse lookup failed for %r: %s", location, exc)
-        return entry if entry.get("lat") is not None else None
+        if entry.get("lat") is None:
+            return None
+        return {**entry, "approx": True} if approx else entry
 
     async def _reverse_city(self, lat: float, lon: float) -> str | None:
         """City (or town / unincorporated place) containing a point."""

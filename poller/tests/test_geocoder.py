@@ -153,6 +153,19 @@ def test_intersection_uses_street_geometries_and_postgis():
     assert g_calls[0][0] == line and g_calls[0][2] == 40
 
 
+def test_cross_streets_place_an_incident_whose_address_is_missing_and_are_marked_approximate():
+    line = {"type": "LineString", "coordinates": [[-122.68, 45.52], [-122.67, 45.52]]}
+
+    class Pool:
+        async def fetchrow(self, sql, a, b, tol):
+            return {"lat": 45.52, "lon": -122.675}
+
+    g, _ = make(lambda r: httpx.Response(200, json=[{"lat": "45.52", "lon": "-122.675", "geojson": line}]), Pool())
+    entry = run(g.lookup("NW 9th Ave & NW Lovejoy St", approx=True))
+    assert entry["approx"] is True and (entry["lat"], entry["lon"]) == (45.52, -122.675)
+    # The same pair looked up as a plain intersection is a separate cache entry and is not marked approximate.
+    assert "approx" not in run(g.lookup("NW 9th Ave & NW Lovejoy St"))
+
 # ── Fuzzy street-name corrections ────────────────────────────────────────────
 
 import street_names

@@ -504,6 +504,8 @@ class Incident:
     markers: list[str] = field(default_factory=list)
     # Real street name when the one heard on the radio was ASR-garbled.
     location_corrected: str | None = None
+    # The pin is the intersection of the cross streets, not the address (which the map data lacks).
+    approx: bool = False
 
     @property
     def summary_quote(self) -> str:
@@ -541,6 +543,7 @@ class Incident:
             "timeline": self.timeline(),
             "lat": self.lat,
             "lon": self.lon,
+            "approx": self.approx,
             "geofences": self.geofences,
             "city": self.city,
             "cross_streets": self.cross_streets,
