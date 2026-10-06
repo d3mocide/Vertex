@@ -311,3 +311,12 @@ def test_active_incident_shows_how_recent_the_radio_traffic_is_and_stale_ones_ar
 def test_a_contained_incident_goes_stale_like_any_other():
     from pollers.summary_context import incident_status
     assert incident_status(_incident("contained", [("contained", 18 * 60)], last_seen_ago_min=18 * 60), NOW) == "no radio update for 18h — likely resolved"
+
+
+def test_score_matches_a_named_fire_even_when_the_street_differs():
+    from pollers.summary import score_briefing
+    text = ("**BOTTOM LINE:** Posture NORMAL. An active commercial fire at NW Preakless Ter & NW Laval Rd.\n"
+            "### Key Developments\n- x")
+    facts = {"must_cover": [{"severity": 5, "location": "NW Spartan Way", "category": "structure_fire"}]}
+    m = score_briefing(text, facts)
+    assert m["life_safety_in_bottom_line"] is True and m["must_cover_coverage"] == 1.0

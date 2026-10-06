@@ -124,12 +124,13 @@ _CATEGORY_WORDS = {
 
 
 def _mentions(text: str, location: str | None, category: str | None = None) -> bool:
-    """Does the briefing mention this item — by a distinctive location word, else by its type?"""
+    """Does the briefing mention this item — by a distinctive location word or by its type?
+
+    Either is enough: the geocoder's corrected street often differs from the cross streets the
+    briefing quotes, so a location-only test scored a named fire as missing."""
     words = [w for w in re.findall(r"[a-z0-9-]+", (location or "").lower())
              if w not in _LOC_NOISE and len(w) >= 4 and not w.isdigit()]
-    if words:
-        return any(w in text for w in words)
-    return any(k in text for k in _CATEGORY_WORDS.get(category or "", ()))
+    return any(w in text for w in words) or any(k in text for k in _CATEGORY_WORDS.get(category or "", ()))
 
 
 def _section(text: str, name: str) -> str:
@@ -354,6 +355,7 @@ class AISummaryPoller(BasePoller):
             "ts": now.isoformat(),
             "summary": text,
             "metrics": metrics,
+            "must_cover": [m["label"] for m in facts.get("must_cover") or []],
             "reasoning": reasoning[:_MAX_REASONING_CHARS],
             "posture": _posture(text),
             "window_hours": window_hours,
