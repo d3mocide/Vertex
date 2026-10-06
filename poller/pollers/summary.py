@@ -58,10 +58,10 @@ OUTPUT FORMAT — Markdown, exactly these sections in this order, no preamble or
 **BOTTOM LINE:** Posture NORMAL, ELEVATED or HIGH, then 2–3 sentences: the single most important thing and why. Name any life-safety incident here by type and area.
 
 ### Changes Since Last Briefing
-- New, escalated, easing and resolved items. For a first briefing write "First briefing — baseline established."
+- At most 3 short bullets: what is new, escalated or easing since the last briefing. Do not list resolved routine calls. For a first briefing write "First briefing — baseline established."
 
 ### Key Developments
-- Local first, most important first: **Domain** — what, where, when, impact.
+- At most 6 bullets, local first, most important first: **Domain** — what, where, when, impact. One line each; the full incident list is on the Incidents page, so do not enumerate routine calls.
 
 ### Compound Risks
 - **Risk name** (confidence High/Medium/Low) — chain; evidence; what would confirm or rule it out. Write "None identified." if none survive scrutiny.
@@ -70,7 +70,7 @@ OUTPUT FORMAT — Markdown, exactly these sections in this order, no preamble or
 - Forecast-driven watch items with expected timing.
 
 ### Recommended Actions
-- Specific actions, each tied to a trigger or threshold.
+- At most 3 specific actions, each tied to a trigger or threshold.
 
 ### Data Gaps
 - Feeds that were unavailable or stale and how that limits this assessment. Omit this section if there are none."""

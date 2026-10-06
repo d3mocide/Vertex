@@ -2556,3 +2556,9 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 - The admin Sitrep table showed "life safety missed in the bottom line" on several briefings. Reading them, the bottom line named the incident (a Hillsboro commercial fire, a Greens Ave fire and an I-205 entrapment) but quoted the intersection while the geocoder's corrected street was a different one, and `_mentions` (`poller/pollers/summary.py`) only fell back to the incident type when there were no location words at all. It now counts a location word or a type word as a mention, which also lifts the must-cover, radio and traffic coverage figures that use it.
 - Each history entry now stores `must_cover` (the checklist labels the briefing was scored against), so a future miss can be audited without rebuilding the prompt. Regression test added (25 tests in `poller/tests/test_summary_context.py` pass).
 - Next: tune the ornith briefing against live snapshots, classifying each serious radio incident and traffic disruption as covered, dropped by the model, or never in the prompt.
+
+## 2026-10-06 — Briefing length caps (a radio card inside the briefing was tried and dropped)
+
+- A deterministic radio-incident card inside the briefing was built and removed the same day: 68 serious incidents in 24 h made an hourly recap read like a textbook, and the critical-medical row showed the prompt's long label instead of the Incidents page's short one. The full incident list stays on the Incidents page.
+- Instead the prompt (`poller/pollers/summary.py`) now caps Changes Since Last Briefing at 3 bullets (no resolved routine calls), Key Developments at 6 one-line bullets, and Recommended Actions at 3. The rest of the prompt is unchanged.
+- First on-demand briefing after the change (ornith): 129 s, 3.6k completion tokens, format ok, posture NORMAL, all caps respected, radio coverage 1.0. 25 summary tests pass.
