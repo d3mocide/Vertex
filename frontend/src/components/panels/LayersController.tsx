@@ -5,82 +5,9 @@ import { useContractAvailable } from '../../hooks/useCapabilities'
 import { getDevMap } from '../../devtools/devState'
 import { activeFacetCount, facetsFor, meshValues, trackValues, type FacetEntity } from '../../entityFacets'
 import type { SubFilters, Track } from '../../storeTypes'
+import { ALL_DEFS, GROUPS, PRESETS, type LayerDef, type Scene } from '../../layers/layerCatalog'
+import { DISPATCH_FILTERS } from '../../layers/dispatchFilter'
 import { deleteView, loadViews, saveView, type SavedView } from '../../layers/layerViews'
-
-type Kind = 'flag' | 'entity'
-
-interface LayerDef {
-  key: string
-  kind: Kind
-  label: string
-  icon: string
-  /** Regional data contract that must have a provider before the layer is offered. */
-  contract?: string
-}
-
-interface GroupDef { id: string; label: string; layers: LayerDef[] }
-
-const GROUPS: GroupDef[] = [
-  { id: 'live', label: 'Live traffic', layers: [
-    { key: 'aircraft', kind: 'entity', label: 'Aircraft', icon: 'flight' },
-    { key: 'vessel', kind: 'entity', label: 'Vessels', icon: 'sailing' },
-    { key: 'bus', kind: 'entity', label: 'Buses', icon: 'directions_bus' },
-    { key: 'train', kind: 'entity', label: 'Trains', icon: 'directions_railway' },
-    { key: 'railTracksVisible', kind: 'flag', label: 'Rail tracks', icon: 'route' },
-    { key: 'mesh_node', kind: 'entity', label: 'Mesh nodes', icon: 'hub' },
-    { key: 'aprs', kind: 'entity', label: 'APRS', icon: 'sensors' },
-    { key: 'camerasVisible', kind: 'flag', label: 'Cameras', icon: 'videocam', contract: 'traffic.cameras' },
-    { key: 'trailsVisible', kind: 'flag', label: 'Trails', icon: 'timeline' },
-  ] },
-  { id: 'weather', label: 'Weather', layers: [
-    { key: 'radarVisible', kind: 'flag', label: 'Radar', icon: 'radar' },
-    { key: 'goesVisible', kind: 'flag', label: 'Infrared', icon: 'satellite_alt' },
-    { key: 'smokeVisible', kind: 'flag', label: 'Visible sat', icon: 'filter_drama' },
-    { key: 'nwsAlertsVisible', kind: 'flag', label: 'NWS alerts', icon: 'notification_important' },
-    { key: 'lightningVisible', kind: 'flag', label: 'Lightning', icon: 'bolt' },
-    { key: 'lightningDensityVisible', kind: 'flag', label: 'Strike density', icon: 'electric_bolt' },
-  ] },
-  { id: 'hazards', label: 'Hazards', layers: [
-    { key: 'fire_incident', kind: 'entity', label: 'Fire incidents', icon: 'local_fire_department' },
-    { key: 'firePerimetersVisible', kind: 'flag', label: 'Fire perimeters', icon: 'fire_truck' },
-    { key: 'fireDangerVisible', kind: 'flag', label: 'Fire danger', icon: 'whatshot', contract: 'fire.danger' },
-    { key: 'gaugesVisible', kind: 'flag', label: 'Stream gauges', icon: 'water' },
-    { key: 'outagesVisible', kind: 'flag', label: 'Power outages', icon: 'power_off', contract: 'outages.areas' },
-  ] },
-  { id: 'ops', label: 'Operations', layers: [
-    { key: 'dispatchVisible', kind: 'flag', label: 'Dispatch', icon: 'cell_tower' },
-    { key: 'geofencesVisible', kind: 'flag', label: 'Zone monitor', icon: 'verified_user' },
-  ] },
-]
-
-const ALL_DEFS = GROUPS.flatMap(g => g.layers)
-
-/**
- * A preset is a complete picture of the map: the layers it lists are on and every other layer is off, entity types
- * included, so choosing one never leaves stray clutter behind. 'overview' matches the stock defaults.
- */
-interface Scene { id: string; label: string; on: string[]; sub?: SubFilters }
-interface Preset extends Scene { icon: string; hint: string }
-
-const PRESETS: Preset[] = [
-  { id: 'overview', label: 'Overview', icon: 'dashboard', hint: 'Everything live, the everyday picture',
-    on: ['aircraft', 'vessel', 'bus', 'train', 'mesh_node', 'aprs', 'fire_incident', 'trailsVisible', 'railTracksVisible',
-      'lightningVisible', 'gaugesVisible', 'dispatchVisible', 'geofencesVisible'] },
-  { id: 'weather', label: 'Weather watch', icon: 'thunderstorm', hint: 'Radar, alerts, lightning, stream gauges and weather stations',
-    on: ['radarVisible', 'nwsAlertsVisible', 'lightningVisible', 'gaugesVisible', 'aprs'], sub: { 'aprs.station': ['weather'] } },
-  { id: 'fire', label: 'Fire', icon: 'local_fire_department', hint: 'Incidents, perimeters, danger, smoke, red-flag alerts, fire calls and firefighting, rescue and medical aircraft',
-    on: ['fire_incident', 'firePerimetersVisible', 'fireDangerVisible', 'smokeVisible', 'nwsAlertsVisible', 'dispatchVisible', 'aircraft'],
-    sub: { 'aircraft.who': ['fire', 'rescue', 'medical'] } },
-  { id: 'incidents', label: 'Incidents', icon: 'emergency', hint: 'Radio dispatch, fire incidents, alerts, outages, your zones and emergency-service aircraft',
-    on: ['dispatchVisible', 'fire_incident', 'nwsAlertsVisible', 'outagesVisible', 'geofencesVisible', 'aircraft'],
-    sub: { 'aircraft.who': ['medical', 'rescue', 'fire', 'law_enforcement', 'alert'] } },
-  { id: 'traffic', label: 'Traffic & transit', icon: 'traffic', hint: 'Buses, trains, rail, cameras and crash calls',
-    on: ['bus', 'train', 'railTracksVisible', 'camerasVisible', 'dispatchVisible'] },
-  { id: 'airsea', label: 'Air & marine', icon: 'flight', hint: 'Aircraft in the air and vessels, with their trails',
-    on: ['aircraft', 'vessel', 'trailsVisible'], sub: { 'aircraft.state': ['airborne'] } },
-  { id: 'comms', label: 'Radio & mesh', icon: 'cell_tower', hint: 'Mesh nodes, APRS stations and radio dispatch',
-    on: ['mesh_node', 'aprs', 'dispatchVisible'] },
-]
 
 type Store = Record<string, unknown>
 
@@ -98,6 +25,15 @@ function readLayer(state: Store & { entityFilter: Record<string, boolean> }, def
   return Boolean(def.kind === 'entity' ? state.entityFilter[def.key] : state[def.key])
 }
 
+function useOfferedLayers() {
+  const available: Record<string, boolean> = {
+    'fire.danger': useContractAvailable('fire.danger'),
+    'outages.areas': useContractAvailable('outages.areas'),
+    'traffic.cameras': useContractAvailable('traffic.cameras'),
+  }
+  return ALL_DEFS.filter(d => !d.contract || available[d.contract])
+}
+
 const TRIGGER_CLASS = `relative flex items-center gap-2 px-3 py-2 hud-panel border border-amber-gold-muted text-[11px] font-mono uppercase
   tracking-widest shadow-2xl hover:border-amber-gold/60 transition-colors focus:outline-hidden`
 
@@ -105,7 +41,7 @@ function Tile({ def, on, facetCount = 0, facetOpen = false, onFacet }: {
   def: LayerDef; on: boolean; facetCount?: number; facetOpen?: boolean; onFacet?: () => void
 }) {
   const toggle = () => setLayer(def, !on)
-  const border = on ? 'border-amber-gold bg-amber-gold/10' : 'border-outline-variant hover:border-white/30'
+  const border = on ? 'border-amber-gold/40 bg-amber-gold/5' : 'border-outline-variant hover:border-white/30'
   const focus = 'focus:outline-hidden focus-visible:ring-1 focus-visible:ring-amber-gold'
   return (
     <div className="flex min-w-0">
@@ -113,11 +49,12 @@ function Tile({ def, on, facetCount = 0, facetOpen = false, onFacet }: {
         type="button"
         onClick={toggle}
         aria-pressed={on}
-        className={`flex-1 min-w-0 flex items-center gap-2 px-2 py-2 border text-left text-[11px] font-bold uppercase tracking-wider transition-colors ${focus} ${border} ${on ? 'text-on-surface' : 'text-on-surface-variant hover:text-on-surface'}`}
+        className={`flex-1 min-w-0 flex items-center gap-1.5 px-2 py-2 border text-left text-[11px] font-bold uppercase tracking-wider transition-colors ${focus} ${border} ${on ? 'text-on-surface' : 'text-on-surface-variant hover:text-on-surface'}`}
       >
         <span className={`ms text-[16px] leading-none ${on ? 'text-amber-gold' : ''}`} aria-hidden="true">{def.icon}</span>
         <span className="truncate">{def.label}</span>
-        {facetCount > 0 && <span className="font-mono text-amber-gold" title="Sub-filters active">{facetCount}</span>}
+        {facetCount > 0 && <span className="hidden sm:inline font-mono text-amber-gold" title="Sub-filters active">{facetCount}</span>}
+        {on && <span className="ms hidden sm:inline-block ml-auto text-[14px] text-amber-gold" aria-hidden="true">check</span>}
       </button>
       {onFacet && (
         <button
@@ -306,12 +243,10 @@ function LayersPanel({ onClose }: { onClose: () => void }) {
   })) as unknown as Store & { entityFilter: Record<string, boolean>; subFilters: SubFilters }
   const [openFacet, setOpenFacet] = useState<FacetEntity | null>(null)
   const [views, setViews] = useState<SavedView[]>(() => loadViews())
+  const [selectedSceneId, setSelectedSceneId] = useState<string | null>(null)
   const [naming, setNaming] = useState<string | null>(null)   // null: not saving; text: the name being typed
-  const hasContract: Record<string, boolean> = {
-    'fire.danger': useContractAvailable('fire.danger'),
-    'outages.areas': useContractAvailable('outages.areas'),
-    'traffic.cameras': useContractAvailable('traffic.cameras'),
-  }
+  const offered = useOfferedLayers()
+  const [dispatchFiltersOpen, setDispatchFiltersOpen] = useState(false)
   const radarOpacity = useCivicStore((s) => s.radarOpacity)
   const setRadarOpacity = useCivicStore((s) => s.setRadarOpacity)
 
@@ -321,18 +256,24 @@ function LayersPanel({ onClose }: { onClose: () => void }) {
     return () => document.removeEventListener('keydown', onKey)
   }, [onClose])
 
-  const available = (def: LayerDef) => !def.contract || hasContract[def.contract]
-  const offered = ALL_DEFS.filter(available)
+  const available = (def: LayerDef) => offered.some(d => d.key === def.key)
   const sameSubFilters = (a: SubFilters, b: SubFilters) => {
     const keys = new Set([...Object.keys(a), ...Object.keys(b)])
     return [...keys].every(k => [...(a[k] ?? [])].sort().join() === [...(b[k] ?? [])].sort().join())
   }
   const allPresets: Scene[] = [...PRESETS, ...views]
-  const activePreset = allPresets.find(p => offered.every(d => readLayer(state, d) === p.on.includes(d.key)) && sameSubFilters(state.subFilters, p.sub ?? {}))
+  const matchesScene = (p: Scene) => offered.every(d => readLayer(state, d) === p.on.includes(d.key)) && sameSubFilters(state.subFilters, p.sub ?? {})
+  const activePreset = allPresets.find(p => p.id === selectedSceneId && matchesScene(p)) ?? allPresets.find(matchesScene)
   const onCount = offered.filter(d => readLayer(state, d)).length
   const applyPreset = (p: Scene) => {
-    offered.forEach(d => setLayer(d, p.on.includes(d.key)))
-    useCivicStore.getState().setSubFilters(p.sub ?? {})
+    setSelectedSceneId(p.id)
+    const entityFilter = { ...useCivicStore.getState().entityFilter }
+    const flags: Record<string, boolean> = {}
+    for (const d of offered) {
+      if (d.kind === 'entity') entityFilter[d.key as keyof typeof entityFilter] = p.on.includes(d.key)
+      else flags[d.key] = p.on.includes(d.key)
+    }
+    useCivicStore.setState({ ...flags, entityFilter, subFilters: p.sub ?? {} })
   }
 
   return (
@@ -347,59 +288,40 @@ function LayersPanel({ onClose }: { onClose: () => void }) {
           <div className="flex items-center gap-2">
             <span className="ms text-[16px] text-amber-gold leading-none" aria-hidden="true">layers</span>
             <span className="font-bold text-[11px] tracking-[0.2em] uppercase text-amber-gold">Map layers</span>
-            <span className="font-mono text-[11px] text-on-surface-variant">{onCount} on</span>
+            <span className="font-mono text-[11px] text-on-surface-variant">{onCount} enabled</span>
           </div>
           <button onClick={onClose} className="ms text-[20px] text-on-surface-variant hover:text-on-surface leading-none p-1 focus:outline-hidden" title="Close layers" aria-label="Close layers">close</button>
         </div>
-        <div className="flex gap-1.5 overflow-x-auto -mx-1 px-1 pb-1" role="group" aria-label="Presets">
-          {PRESETS.map((p) => {
-            const active = activePreset?.id === p.id
-            return (
-              <button
-                key={p.id}
-                type="button"
-                onClick={() => applyPreset(p)}
-                aria-pressed={active}
-                title={p.hint}
-                className={`shrink-0 flex items-center gap-1.5 px-2.5 py-2 border text-[11px] font-bold uppercase tracking-wider transition-colors focus:outline-hidden focus-visible:ring-1 focus-visible:ring-amber-gold ${active
-                  ? 'border-amber-gold text-amber-gold bg-amber-gold/10'
-                  : 'border-outline-variant text-on-surface-variant hover:text-on-surface hover:border-white/30'}`}
-              >
-                <span className="ms text-[14px] leading-none" aria-hidden="true">{p.icon}</span>{p.label}
-              </button>
-            )
-          })}
-          {views.map((v) => {
-            const active = activePreset?.id === v.id
-            return (
-              <div key={v.id} className={`shrink-0 flex border ${active ? 'border-amber-gold bg-amber-gold/10' : 'border-outline-variant'}`}>
-                <button
-                  type="button"
-                  onClick={() => applyPreset(v)}
-                  aria-pressed={active}
-                  title="Your saved view"
-                  className={`flex items-center gap-1.5 pl-2.5 pr-1.5 py-2 text-[11px] font-bold uppercase tracking-wider transition-colors focus:outline-hidden focus-visible:ring-1 focus-visible:ring-amber-gold ${active ? 'text-amber-gold' : 'text-on-surface-variant hover:text-on-surface'}`}
-                >
-                  <span className="ms text-[14px] leading-none" aria-hidden="true">bookmark</span>{v.label}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setViews(deleteView(views, v.id))}
-                  aria-label={`Delete saved view ${v.label}`}
-                  className="px-1.5 text-on-surface-variant hover:text-red-emergency focus:outline-hidden"
-                >
-                  <span className="ms text-[14px] leading-none" aria-hidden="true">close</span>
-                </button>
-              </div>
-            )
-          })}
-          {naming === null && views.length < 12 && (
-            <button
-              type="button"
-              onClick={() => setNaming('')}
-              className="shrink-0 flex items-center gap-1.5 px-2.5 py-2 border border-dashed border-outline-variant text-[11px] font-bold uppercase tracking-wider text-on-surface-variant hover:text-amber-gold hover:border-amber-gold/60 transition-colors focus:outline-hidden focus-visible:ring-1 focus-visible:ring-amber-gold"
+        <div className="flex items-end gap-2">
+          <div className="flex-1 min-w-0">
+            <label htmlFor="map-layer-scene" className="label-caps block mb-1">Layer mix</label>
+            <select
+              id="map-layer-scene"
+              value={activePreset?.id ?? 'custom'}
+              onChange={(e) => {
+                const scene = allPresets.find(p => p.id === e.target.value)
+                if (scene) applyPreset(scene)
+              }}
+              className="w-full bg-surface-container border border-outline-variant px-2 py-2 text-[12px] text-on-surface focus:outline-hidden focus:border-amber-gold"
             >
-              <span className="ms text-[14px] leading-none" aria-hidden="true">add</span>Save view
+              <option value="custom" disabled>Custom mix</option>
+              <optgroup label="Presets">
+                {PRESETS.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
+              </optgroup>
+              {views.length > 0 && <optgroup label="Saved layer mixes">
+                {views.map(v => <option key={v.id} value={v.id}>{v.label}</option>)}
+              </optgroup>}
+            </select>
+          </div>
+          {naming === null && views.length < 12 && (
+            <button type="button" onClick={() => setNaming('')} className="btn-ghost px-2 py-2" aria-label="Save layer mix">
+              Save mix
+            </button>
+          )}
+          {activePreset && views.some(v => v.id === activePreset.id) && (
+            <button type="button" onClick={() => setViews(deleteView(views, activePreset.id))}
+              className="btn-ghost px-2 py-2" aria-label={`Delete saved layer mix ${activePreset.label}`}>
+              <span className="ms text-[16px]" aria-hidden="true">delete</span>
             </button>
           )}
         </div>
@@ -409,7 +331,9 @@ function LayersPanel({ onClose }: { onClose: () => void }) {
             onSubmit={(e) => {
               e.preventDefault()
               if (!naming.trim()) return
-              setViews(saveView(views, naming, offered.filter(d => readLayer(state, d)).map(d => d.key), state.subFilters))
+              const saved = saveView(views, naming, offered.filter(d => readLayer(state, d)).map(d => d.key), state.subFilters)
+              setViews(saved)
+              setSelectedSceneId(saved.find(v => v.label.toLowerCase() === naming.trim().toLowerCase())?.id ?? null)
               setNaming(null)
             }}
           >
@@ -419,8 +343,8 @@ function LayersPanel({ onClose }: { onClose: () => void }) {
               maxLength={24}
               onChange={(e) => setNaming(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); setNaming(null) } }}
-              placeholder="Name this view"
-              aria-label="Name for the saved view"
+              placeholder="Name this layer mix"
+              aria-label="Name for the saved layer mix"
               className="flex-1 min-w-0 bg-surface-container border border-outline-variant px-2 py-1.5 text-[12px] text-on-surface placeholder:text-on-surface-variant focus:outline-hidden focus:border-amber-gold"
             />
             <button type="submit" disabled={!naming.trim()} className="btn-primary px-3 py-1.5 text-[11px] disabled:opacity-40">Save</button>
@@ -428,11 +352,25 @@ function LayersPanel({ onClose }: { onClose: () => void }) {
           </form>
         )}
         <p className="mt-1.5 text-[11px] text-on-surface-variant leading-snug min-h-[1.5em]">
-          {activePreset ? (PRESETS.find(p => p.id === activePreset.id)?.hint ?? `Your saved view, ${activePreset.on.length} layers.`) : 'Custom mix. Pick a preset or save this as your own view.'}
+          {activePreset ? (PRESETS.find(p => p.id === activePreset.id)?.hint ?? `Saved layers and filters. Camera and opacity are unchanged.`) : 'Custom mix. Choose a preset or save these layers and filters.'}
         </p>
       </div>
 
       <div className="flex-1 min-h-0 overflow-y-auto p-4 pt-3">
+        <details className="mb-4 border-b border-white/10 pb-3">
+          <summary className="text-[11px] font-bold text-on-surface cursor-pointer focus-visible:outline-amber-gold">
+            Enabled layers <span className="font-mono text-amber-gold">{onCount}</span>
+          </summary>
+          <div className="flex flex-wrap gap-1 mt-2" aria-label="Enabled layers">
+            {offered.filter(d => readLayer(state, d)).map(d => (
+              <button key={d.key} type="button" onClick={() => setLayer(d, false)}
+                className="btn-ghost px-2 py-1" aria-label={`Hide ${d.label}`}>
+                {d.label}<span className="ms ml-1 text-[12px]" aria-hidden="true">close</span>
+              </button>
+            ))}
+          </div>
+          <p className="text-[11px] text-on-surface-variant mt-2">Enabled layers may have no data in the current map area.</p>
+        </details>
         {GROUPS.map((g) => {
           const defs = g.layers.filter(available)
           if (defs.length === 0) return null
@@ -463,6 +401,31 @@ function LayersPanel({ onClose }: { onClose: () => void }) {
               {openFacet && defs.some(d => d.key === openFacet) && (
                 <FacetPanel entity={openFacet} title={`${defs.find(d => d.key === openFacet)?.label ?? ''} types`} filters={state.subFilters} />
               )}
+              {g.id === 'ops' && Boolean(state.dispatchVisible) && (
+                <div className="mt-2">
+                  <button type="button" className="btn-ghost w-full text-left px-2 py-1.5"
+                    aria-expanded={dispatchFiltersOpen} onClick={() => setDispatchFiltersOpen(v => !v)}>
+                    Dispatch: {(state.subFilters['dispatch.category'] ?? []).length === 0 ? 'All categories'
+                      : DISPATCH_FILTERS.filter(f => state.subFilters['dispatch.category']?.includes(f.value)).map(f => f.label).join(', ')}
+                    <span className="ms float-right text-[16px]" aria-hidden="true">{dispatchFiltersOpen ? 'expand_less' : 'tune'}</span>
+                  </button>
+                  {dispatchFiltersOpen && <div className="border border-outline-variant p-2 mt-1" role="group" aria-label="Dispatch categories">
+                    <div className="flex flex-wrap gap-1">
+                      <button type="button" className="btn-ghost" onClick={() => useCivicStore.getState().setSubFilter('dispatch.category', [])}
+                        aria-pressed={(state.subFilters['dispatch.category'] ?? []).length === 0}>All</button>
+                      {DISPATCH_FILTERS.map(f => {
+                        const selected = state.subFilters['dispatch.category'] ?? []
+                        const picked = selected.includes(f.value)
+                        return <button key={f.value} type="button" aria-pressed={picked}
+                          className={`btn-ghost ${picked ? 'bg-amber-gold/10' : 'text-on-surface-variant border-outline-variant'}`}
+                          onClick={() => useCivicStore.getState().setSubFilter('dispatch.category', picked
+                            ? selected.filter(v => v !== f.value) : [...selected, f.value])}>{f.label}</button>
+                      })}
+                    </div>
+                    <p className="text-[11px] text-on-surface-variant mt-2">No selection shows all significant incidents. Select categories to narrow the map.</p>
+                  </div>}
+                </div>
+              )}
               {g.id === 'weather' && Boolean(state.radarVisible) && (
                 <Slider label="Opacity" value={radarOpacity} min={0.1} max={1} step={0.05}
                   format={(v) => `${Math.round(v * 100)}%`} onChange={setRadarOpacity} />
@@ -483,14 +446,15 @@ function LayersPanel({ onClose }: { onClose: () => void }) {
 export function LayersController({ onOpenChange }: { onOpenChange?: (open: boolean) => void } = {}) {
   const [open, setOpen] = useState(false)
   useEffect(() => { onOpenChange?.(open) }, [open, onOpenChange])
-  const count = useCivicStore((s) => ALL_DEFS.reduce((n, d) => n + (readLayer(s as unknown as Store & { entityFilter: Record<string, boolean> }, d) ? 1 : 0), 0))
+  const offered = useOfferedLayers()
+  const count = useCivicStore((s) => offered.reduce((n, d) => n + (readLayer(s as unknown as Store & { entityFilter: Record<string, boolean> }, d) ? 1 : 0), 0))
   return (
     <div className="relative">
       <button
         onClick={() => setOpen((v) => !v)}
         className={`${TRIGGER_CLASS} ${open ? 'text-amber-gold border-amber-gold' : 'text-on-surface-variant'}`}
         aria-expanded={open}
-        title="Map layers"
+        title={`${count} layers enabled; open to inspect or change`}
       >
         <span className="ms text-[16px] leading-none">layers</span>
         LAYERS

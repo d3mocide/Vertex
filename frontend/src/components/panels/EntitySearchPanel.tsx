@@ -83,13 +83,10 @@ export function EntitySearchPanel() {
     entityFilter,
     subFilters,
     setEntityFilter,
-    setSubFilters,
-    trailsVisible,
-    setTrailsVisible,
     selectEntity,
     selectedEntityId,
     entityMissionTags,
-  } = useCivicPick('tracks', 'entities', 'entitySearchQuery', 'setEntitySearchQuery', 'entityAltRange', 'setEntityAltRange', 'entitySpeedRange', 'setEntitySpeedRange', 'entityFilter', 'setEntityFilter', 'subFilters', 'setSubFilters', 'trailsVisible', 'setTrailsVisible', 'selectEntity', 'selectedEntityId', 'entityMissionTags')
+  } = useCivicPick('tracks', 'entities', 'entitySearchQuery', 'setEntitySearchQuery', 'entityAltRange', 'setEntityAltRange', 'entitySpeedRange', 'setEntitySpeedRange', 'entityFilter', 'setEntityFilter', 'subFilters', 'selectEntity', 'selectedEntityId', 'entityMissionTags')
 
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [taggedOnly, setTaggedOnly] = useState(false)
@@ -103,29 +100,14 @@ export function EntitySearchPanel() {
     !entityFilter.adsbLocal || !entityFilter.adsbSupplement
   )
 
-  const isFiltered = (
-    taggedOnly ||
-    entitySearchQuery !== '' ||
-    entityAltRange[0] !== ALT_RANGE_DEFAULT[0] ||
-    entityAltRange[1] !== ALT_RANGE_DEFAULT[1] ||
-    entitySpeedRange[0] !== SPD_RANGE_DEFAULT[0] ||
-    entitySpeedRange[1] !== SPD_RANGE_DEFAULT[1] ||
-    !trailsVisible ||
-    !entityFilter.adsbLocal || !entityFilter.adsbSupplement ||
-    !entityFilter.aircraft || !entityFilter.vessel || !entityFilter.train || !entityFilter.bus || !entityFilter.mesh_node ||
-    !entityFilter.aprs || !entityFilter.fire_incident ||
-    !entityFilter.satellite ||
-    Object.keys(subFilters).length > 0
-  )
+  const isFiltered = taggedOnly || entitySearchQuery !== '' || advancedFiltered
 
   const resetFilters = () => {
     setEntitySearchQuery('')
     setEntityAltRange(ALT_RANGE_DEFAULT)
     setEntitySpeedRange(SPD_RANGE_DEFAULT)
-    setTrailsVisible(true)
-    setEntityFilter({ aircraft: true, adsbLocal: true, adsbSupplement: true, vessel: true, train: true, bus: true, mesh_node: true, aprs: true, fire_incident: true, satellite: true })
+    setEntityFilter({ adsbLocal: true, adsbSupplement: true })
     setTaggedOnly(false)
-    setSubFilters({})
   }
 
   const ALT_M_TO_FT = 3.28084
@@ -222,95 +204,9 @@ export function EntitySearchPanel() {
             </button>
           </div>
 
-          <div>
-            <button
-              onClick={() => setTrailsVisible(!trailsVisible)}
-              className={`flex items-center gap-1.5 px-2 py-1 border text-[11px] uppercase tracking-widest font-bold transition-colors focus:outline-hidden ${
-                trailsVisible
-                  ? 'text-amber-gold border-amber-gold/60 bg-amber-gold/10'
-                  : 'text-on-surface-variant border-white/10 hover:border-white/20'
-              }`}
-              aria-pressed={trailsVisible}
-            >
-              <span className="ms text-[12px] leading-none">timeline</span>
-              {trailsVisible ? 'History trails on' : 'History trails off'}
-            </button>
-            {!trailsVisible && (
-              <div className="mt-1 text-[11px] text-on-surface-variant font-mono">
-                Selected CoT trails remain visible on click.
-              </div>
-            )}
-          </div>
-
-          {/* Type toggles */}
-          <div>
-            <span className="label-caps text-[11px] block mb-2">Entity Types</span>
-            <div className="flex flex-wrap gap-2">
-              {(['aircraft', 'vessel', 'aprs', 'fire_incident'] as const).map((t) => (
-                <button
-                  key={t}
-                  onClick={() => setEntityFilter({ [t]: !entityFilter[t] })}
-                  className={`flex items-center gap-1 px-2 py-1 border text-[11px] uppercase tracking-widest font-bold transition-colors focus:outline-hidden ${
-                    entityFilter[t]
-                      ? `${TYPE_COLOR[t]} border-current bg-current/10`
-                      : 'text-on-surface-variant border-white/10 hover:border-white/20'
-                  }`}
-                  aria-pressed={entityFilter[t]}
-                >
-                  <span className="ms text-[12px] leading-none">{TYPE_ICON[t]}</span>
-                  {t === 'aircraft' ? 'Air' : t === 'vessel' ? 'Sea' : t === 'aprs' ? 'APRS' : 'Fire'}
-                </button>
-              ))}
-              <button
-                onClick={() => setEntityFilter({ train: !entityFilter.train })}
-                className={`flex items-center gap-1 px-2 py-1 border text-[11px] uppercase tracking-widest font-bold transition-colors focus:outline-hidden ${
-                  entityFilter.train
-                    ? 'text-amber-gold border-amber-gold/60 bg-amber-gold/10'
-                    : 'text-on-surface-variant border-white/10 hover:border-white/20'
-                }`}
-                aria-pressed={entityFilter.train}
-              >
-                <span className="ms text-[12px] leading-none">directions_railway</span>
-                Train
-              </button>
-              <button
-                onClick={() => setEntityFilter({ bus: !entityFilter.bus })}
-                className={`flex items-center gap-1 px-2 py-1 border text-[11px] uppercase tracking-widest font-bold transition-colors focus:outline-hidden ${
-                  entityFilter.bus
-                    ? 'text-transit-bus border-transit-bus/60 bg-transit-bus/10'
-                    : 'text-on-surface-variant border-white/10 hover:border-white/20'
-                }`}
-                aria-pressed={entityFilter.bus}
-              >
-                <span className="ms text-[12px] leading-none">directions_bus</span>
-                Bus
-              </button>
-              <button
-                onClick={() => setEntityFilter({ mesh_node: !entityFilter.mesh_node })}
-                className={`flex items-center gap-1 px-2 py-1 border text-[11px] uppercase tracking-widest font-bold transition-colors focus:outline-hidden ${
-                  entityFilter.mesh_node
-                    ? 'text-amber-p25 border-amber-p25/60 bg-amber-p25/10'
-                    : 'text-on-surface-variant border-white/10 hover:border-white/20'
-                }`}
-                aria-pressed={entityFilter.mesh_node}
-              >
-                <span className="ms text-[12px] leading-none">hub</span>
-                Mesh
-              </button>
-              <button
-                onClick={() => setEntityFilter({ satellite: !entityFilter.satellite })}
-                className={`flex items-center gap-1 px-2 py-1 border text-[11px] uppercase tracking-widest font-bold transition-colors focus:outline-hidden ${
-                  entityFilter.satellite
-                    ? 'text-violet-space border-violet-space/60 bg-violet-space/10'
-                    : 'text-on-surface-variant border-white/10 hover:border-white/20'
-                }`}
-                aria-pressed={entityFilter.satellite}
-              >
-                <span className="ms text-[12px] leading-none">satellite_alt</span>
-                Sat
-              </button>
-            </div>
-          </div>
+          <p className="text-[11px] text-on-surface-variant leading-snug">
+            Choose entity types and trails in Layers. These controls narrow the enabled entities.
+          </p>
 
           {advancedOpen && (
             <>
@@ -370,7 +266,7 @@ export function EntitySearchPanel() {
               onClick={resetFilters}
               className="text-[11px] text-amber-gold hover:text-amber-gold/80 uppercase tracking-widest transition-colors focus:outline-hidden"
             >
-              Reset all filters
+              Reset search filters
             </button>
           )}
         </div>

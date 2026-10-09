@@ -1,5 +1,6 @@
 import { IconLayer } from '@deck.gl/layers'
-import type { RadioIncident, RadioIncidentCategory } from '../storeTypes'
+import type { RadioIncident, RadioIncidentCategory, SubFilters } from '../storeTypes'
+import { dispatchPassesFilters } from './dispatchFilter'
 import { getAtlasIcons } from './atlasIcons'
 import { lift, terrainVersion } from './terrainElevation'
 
@@ -39,11 +40,12 @@ export function dispatchColor(sev: number): [number, number, number] {
   return sev >= 5 ? RED_EMERGENCY : AMBER_P25
 }
 
-export function buildDispatchLayers(incidents: RadioIncident[], visible: boolean, nowMs: number, zoom: number) {
+export function buildDispatchLayers(incidents: RadioIncident[], visible: boolean, nowMs: number, zoom: number, filters: SubFilters = {}) {
   if (!visible) return []
   const data = incidents.filter((i) =>
     i.lat != null && i.lon != null && i.severity >= 3
-    && nowMs - Date.parse(i.last_seen) < WINDOW_MS && i.status !== 'cleared')
+    && nowMs - Date.parse(i.last_seen) < WINDOW_MS && i.status !== 'cleared'
+    && dispatchPassesFilters(i, filters))
   if (data.length === 0) return []
 
   const atlas = getAtlasIcons()

@@ -18,12 +18,15 @@ const RATE = 8000
 const GAP_MS = 2500          // no frames this long ends a call (backup to "end")
 const LABEL_WAIT_MS = 1500   // still no talkgroup: decide as unknown
 const MAX_HOLD_MS = 90_000   // a call held longer than this is stale: drop it
-const LEAD_S = 0.15          // jitter buffer at the start of each call
+const LEAD_S = 0.9           // cover observed intra-call delivery gaps up to 755 ms
+const BOOST = 2              // +6 dB before peak compression; volume remains 0–1
 // Upsample and schedule only this far ahead of playback. A held call can
 // carry a minute of backlog; converting it in one go blocked the page for a
 // second or more on a phone and clipped the start of the call.
 const AHEAD_S = 1.0
 const TICK_MS = 100
+const CONVERT_SAMPLES = 1600 // at most 200 ms of input per conversion
+const PUMP_BUDGET_MS = 6     // yield between slices of a held call's backlog
 
 export type LiveCall = {
   id: number
@@ -58,6 +61,7 @@ export class P25LivePlayer {
 
   private ctx: AudioContext | null = null
   private gain: GainNode | null = null
+  private input: GainNode | null = null
   private ws: WebSocket | null = null
   private timer: ReturnType<typeof setInterval> | null = null
   private retry: ReturnType<typeof setTimeout> | null = null
@@ -83,7 +87,18 @@ export class P25LivePlayer {
     if (!this.ctx) {
       this.ctx = new AudioContext()
       this.gain = this.ctx.createGain()
+      const boost = this.ctx.createGain()
+      boost.gain.value = BOOST
+      const peaks = this.ctx.createDynamicsCompressor()
+      peaks.threshold.value = -3
+      peaks.knee.value = 0
+      peaks.ratio.value = 20
+      peaks.attack.value = 0.003
+      peaks.release.value = 0.1
+      boost.connect(peaks)
+      peaks.connect(this.gain)
       this.gain.connect(this.ctx.destination)
+      this.input = boost
     }
     this.gain!.gain.value = this.volume
     void this.ctx.resume()
@@ -111,8 +126,8 @@ export class P25LivePlayer {
   }
 
   setVolume(v: number) {
-    this.volume = v
-    if (this.gain) this.gain.gain.value = v
+    this.volume = Math.max(0, Math.min(1, v))
+    if (this.gain && this.ctx) this.gain.gain.setTargetAtTime(this.volume, this.ctx.currentTime, 0.015)
   }
 
   /** Drop the playing call and move on to the next held one. */
@@ -237,7 +252,12 @@ export class P25LivePlayer {
       else this.decide(c)
     }
     const before = this.queue.length
-    this.queue = this.queue.filter((c) => Date.now() - c.startedAt < MAX_HOLD_MS)
+    this.queue = this.queue.filter((c) => {
+      if (Date.now() - c.startedAt < MAX_HOLD_MS) return true
+      c.decision = 'skip'
+      c.chunks = []
+      return false
+    })
     if (this.queue.length !== before) this.emit()
     this.pump()
   }
@@ -259,12 +279,21 @@ export class P25LivePlayer {
       this.currentDelayed = Date.now() - next.startedAt > 1500
       this.up = new Upsampler(RATE, ctx.sampleRate)
       this.flushed = false
-      this.nextFrame = Math.ceil((ctx.currentTime + LEAD_S) * ctx.sampleRate)
+      // Completed held calls already have their audio; they need no network cushion.
+      this.nextFrame = Math.ceil((ctx.currentTime + (next.ended ? 0.05 : LEAD_S)) * ctx.sampleRate)
       this.emit()
     }
     const c = this.current!
     const horizon = (ctx.currentTime + AHEAD_S) * ctx.sampleRate
-    while (c.chunks.length && this.nextFrame < horizon) this.schedule(ctx, this.up!.push(c.chunks.shift()!))
+    const began = performance.now()
+    while (c.chunks.length && this.nextFrame < horizon) {
+      const chunk = c.chunks[0]
+      const input = chunk.subarray(0, CONVERT_SAMPLES)
+      if (input.length === chunk.length) c.chunks.shift()
+      else c.chunks[0] = chunk.subarray(input.length)
+      this.schedule(ctx, this.up!.push(input))
+      if (performance.now() - began >= PUMP_BUDGET_MS) break
+    }
     if (c.ended && c.chunks.length === 0 && !this.flushed) {
       this.flushed = true
       this.schedule(ctx, this.up!.flush())
@@ -277,9 +306,11 @@ export class P25LivePlayer {
     buf.copyToChannel(samples, 0)
     const src = ctx.createBufferSource()
     src.buffer = buf
-    src.connect(this.gain!)
+    src.connect(this.input!)
     const now = Math.ceil(ctx.currentTime * ctx.sampleRate)
-    if (this.nextFrame < now) this.nextFrame = now + Math.round(0.05 * ctx.sampleRate)   // underrun
+    // Rebuild the jitter cushion after starvation instead of repeatedly
+    // resuming with only 50 ms of headroom and stuttering on the next burst.
+    if (this.nextFrame < now) this.nextFrame = now + Math.round(LEAD_S * ctx.sampleRate)
     src.start(this.nextFrame / ctx.sampleRate)
     this.nextFrame += samples.length
     this.sources.add(src)

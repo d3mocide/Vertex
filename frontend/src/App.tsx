@@ -140,7 +140,9 @@ function Dashboard() {
 
             {activeTab === 'safety' && (
               <>
-                <EntitySearchPanel />
+                <div className={layersOpen ? 'hidden lg:contents' : 'contents'}>
+                  <EntitySearchPanel />
+                </div>
                 <EntityDetail />
                 <div className="absolute top-2 lg:top-28 left-2 lg:left-[352px] flex flex-col lg:flex-row items-start gap-2 z-30 pointer-events-none *:pointer-events-auto">
                   <button
