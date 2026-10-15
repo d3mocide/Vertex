@@ -80,6 +80,18 @@ docs/design/      Design-system and icon-atlas reference pages
 
 ## Key Commands
 
+### Environment (`.env`)
+
+```bash
+scripts/envtool.py check                  # misspelt/unknown keys, missing required keys, lines that repeat a default
+scripts/envtool.py example --write        # keep .env.example complete after adding a Settings field
+python3 -m unittest discover -s scripts -p 'test_envtool.py'
+```
+
+A new `Settings` field in `poller/`, `backend/` or `transcription/` config needs no `.env` entry; run
+`envtool.py example --write` so `.env.example` lists it. A setting whose *presence* the code checks
+(`model_fields_set`) must say so in its comment.
+
 ### Validation (run before every commit)
 
 ```bash

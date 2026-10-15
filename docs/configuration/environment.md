@@ -8,6 +8,27 @@ Start by copying `.env.example` to `.env`.
 cp .env.example .env
 ```
 
+## Keeping `.env` small and correct
+
+Almost every setting has a sensible default in the code, so a `.env` only needs what is yours: secrets, your own
+hardware's addresses, and the few choices you made. `scripts/envtool.py` (Python 3, no installs) keeps it that way.
+It reads the settings from the code and `docker-compose*.yml`, and prints key names only, never values.
+
+```bash
+scripts/envtool.py check                          # unknown/misspelt keys, missing required keys, lines that repeat a default
+scripts/envtool.py minimize                       # dry run: what would be dropped
+scripts/envtool.py minimize --write               # drop them (the original is saved as .env.bak-<time>; delete it afterwards)
+scripts/envtool.py minimize --out /tmp/new.env    # write the result somewhere else instead
+scripts/envtool.py verify --env .env --other /tmp/new.env   # prove two files configure the stack identically (needs docker)
+scripts/envtool.py example --write                # list any setting `.env.example` does not describe, in a generated block
+```
+
+`minimize` only removes a line when it can prove nothing changes: the value equals the code default for every
+service that reads it. It never removes a setting whose mere **presence** the code checks (for example `REGION_LAT`,
+`NWS_OFFICE`, `NWS_ALERT_ZONES`: setting them pins the value over the setup wizard), anything it does not recognise,
+or anything docker-compose requires. `verify` loads each service's real `Settings` from both files in a clean
+environment and compares `docker compose config`; run it before trusting a rewritten `.env`.
+
 ## Core Infrastructure
 
 | Variable | Purpose | Notes |
