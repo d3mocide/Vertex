@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { API_BASE, ALERTS_POLL_MS, NEWS_POLL_MS, WEATHER_POLL_MS, CAMERAS_POLL_MS } from '../config'
+import { API_BASE, ALERTS_POLL_MS, NEWS_POLL_MS, WEATHER_POLL_MS, NWR_POLL_MS, CAMERAS_POLL_MS } from '../config'
 import { useCivicPick } from '../store'
 import { authHeaders, clearToken } from '../auth'
 import type { TrafficFlowSensor, UtilityStatus, RadioIncidentFeed, AdvisoryFeed, FeedMetaEntry } from '../storeTypes'
@@ -66,7 +66,11 @@ export function useAlerts() {
       if (Array.isArray(alerts)) {
         setWeather({ alerts: alerts as Parameters<typeof setWeather>[0]['alerts'] })
       }
-      // Weather Radio via Tocsin: one poll feeds the Environment card and the map outlines. Disabled = {enabled:false}.
+    }
+
+    // Weather Radio via Tocsin: feeds the Environment card and the map outlines. Its own, faster cadence: the last
+    // broadcast changes every few seconds and an alert must not wait on the 10-minute weather poll.
+    const pollNwr = async () => {
       const nwr = await fetchJson<Parameters<typeof setNwr>[0]>(`${API_BASE}/nwr`)
       if (nwr) setNwr(nwr)
     }
@@ -124,6 +128,7 @@ export function useAlerts() {
     pollAlerts()
     pollNews()
     pollWeather()
+    pollNwr()
     pollCameras()
     pollFlow()
     pollIncidents()
@@ -138,6 +143,7 @@ export function useAlerts() {
       setInterval(pollAlerts,  ALERTS_POLL_MS),
       setInterval(pollNews,    NEWS_POLL_MS),
       setInterval(pollWeather, WEATHER_POLL_MS),
+      setInterval(pollNwr, NWR_POLL_MS),
       setInterval(pollCameras, CAMERAS_POLL_MS),
       setInterval(pollFlow,    30000), // 30s for flow
       setInterval(pollIncidents, 30000), // 30s for incidents

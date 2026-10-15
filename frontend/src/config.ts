@@ -52,6 +52,7 @@ export const HEALTH_POLL_MS   = 15_000
 export const ALERTS_POLL_MS   = 2 * 60_000   // 2 min (WS is primary)
 export const NEWS_POLL_MS     = 5 * 60_000   // 5 min (WS is primary)
 export const WEATHER_POLL_MS  = 10 * 60_000  // 10 min (WS is primary)
+export const NWR_POLL_MS      = 15_000        // Weather Radio status: last broadcast and alerts, polled (not on the WS)
 export const CAMERAS_POLL_MS  = 10 * 60_000  // 10 min (WS is primary)
 export const RADAR_REFRESH_MS = 5 * 60_000  // IEM NEXRAD updates every ~5 min
 

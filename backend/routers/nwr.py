@@ -76,5 +76,7 @@ async def nwr_stream():
         finally:
             await resp.aclose()
 
+    # X-Accel-Buffering: nginx (and most proxies) must pass a live stream straight through, not collect it.
     return StreamingResponse(_iter(), media_type=resp.headers.get("content-type", "audio/ogg"),
+                             headers={"Cache-Control": "no-store", "X-Accel-Buffering": "no"},
                              background=BackgroundTask(client.aclose))

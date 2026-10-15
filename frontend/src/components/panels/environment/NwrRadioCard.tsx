@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { API_BASE } from '../../../config'
 import { useCivicStore } from '../../../store'
 
@@ -6,33 +6,83 @@ const STREAM_ORIGIN = API_BASE.replace(/\/api\/v1\/?$/, '')
 
 /** Live NOAA Weather Radio from Tocsin: play the broadcast, see the last thing the announcer said and whether the
  *  receiver hears the channel. Renders nothing unless Tocsin is configured. */
+const MAX_RETRIES = 5
+const RETRY_MS = 3000
+
+type Phase = 'idle' | 'connecting' | 'playing' | 'retry' | 'failed'
+
 export function NwrRadioCard() {
   const status = useCivicStore((s) => s.nwr)       // polled once for the whole app (hooks/useAlerts.ts)
-  const [playing, setPlaying] = useState(false)
-  const [failed, setFailed] = useState(false)
+  const [listening, setListening] = useState(false)      // what the listener asked for
+  const [phase, setPhase] = useState<Phase>('idle')         // what the audio element is actually doing
+  const [failMessage, setFailMessage] = useState('')
   const audioRef = useRef<HTMLAudioElement | null>(null)
+  const wantRef = useRef(false)
+  const retriesRef = useRef(0)
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const streamUrl = status?.stream_url ?? null
+
+  // The stream is only opened on demand and fully closed on stop, so an idle card holds no connection.
+  const close = () => {
+    if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null }
+    const el = audioRef.current
+    if (!el) return
+    el.pause()
+    el.removeAttribute('src')
+    el.load()
+  }
+
+  const open = () => {
+    const el = audioRef.current
+    if (!el || !streamUrl) return
+    el.src = `${STREAM_ORIGIN}${streamUrl}?t=${Date.now()}`     // a fresh connection each time, never a cached one
+    setPhase(retriesRef.current ? 'retry' : 'connecting')
+    el.play().catch(() => { /* a real failure arrives as the element's own error event */ })
+  }
+
+  const giveUp = (message: string) => {
+    wantRef.current = false
+    close()
+    setListening(false)
+    setFailMessage(message)
+    setPhase('failed')
+  }
+
+  // The element reports the stream ended or broke (Tocsin or Icecast restarted, a network blip): reconnect a few times.
+  const lost = () => {
+    const el = audioRef.current
+    if (!wantRef.current || !el?.getAttribute('src')) return   // we closed it ourselves: not an error
+    if (el.error?.code === 4) { giveUp("This browser can't play the Ogg stream"); return }
+    close()
+    if (retriesRef.current >= MAX_RETRIES) { giveUp('Stream unavailable'); return }
+    retriesRef.current += 1
+    setPhase('retry')
+    timerRef.current = setTimeout(open, RETRY_MS)
+  }
+
+  const toggle = () => {
+    if (wantRef.current) {
+      wantRef.current = false
+      retriesRef.current = 0
+      close()
+      setListening(false)
+      setPhase('idle')
+      return
+    }
+    wantRef.current = true
+    retriesRef.current = 0
+    setFailMessage('')
+    setListening(true)
+    open()
+  }
+
+  useEffect(() => () => { wantRef.current = false; close() }, [])   // leaving the page stops the stream
 
   if (!status?.enabled) return null
 
   const onAir = !!status.reachable && !!status.stream_url
   const stream = status.streams?.find((s) => s.on_air)
   const live = (status.alerts ?? []).filter((a) => !a.test)
-
-  // The stream is only opened on demand and closed on pause, so an idle card holds no connection.
-  const toggle = () => {
-    const el = audioRef.current
-    if (!el) return
-    if (playing) {
-      el.pause()
-      el.removeAttribute('src')
-      el.load()
-      setPlaying(false)
-      return
-    }
-    setFailed(false)
-    el.src = `${STREAM_ORIGIN}${status.stream_url}`
-    el.play().then(() => setPlaying(true)).catch(() => { setFailed(true); setPlaying(false) })
-  }
 
   return (
     <section className="hud-panel bg-onyx-deep/40 p-4" aria-label="NOAA Weather Radio">
@@ -46,10 +96,10 @@ export function NwrRadioCard() {
       </div>
 
       <div className="flex items-center gap-3 mt-3">
-        <button type="button" className="btn-ghost h-9 px-3 flex items-center gap-1.5" onClick={toggle} disabled={!onAir}
-                aria-label={playing ? 'Stop weather radio' : 'Play weather radio'}>
-          <span className="ms text-[18px] leading-none" aria-hidden="true">{playing ? 'stop' : 'play_arrow'}</span>
-          <span className="text-[11px] font-bold uppercase tracking-widest">{playing ? 'Stop' : 'Listen'}</span>
+        <button type="button" className="btn-ghost h-9 px-3 flex items-center gap-1.5" onClick={toggle} disabled={!listening && !onAir}
+                aria-label={listening ? 'Stop weather radio' : 'Play weather radio'}>
+          <span className="ms text-[18px] leading-none" aria-hidden="true">{listening ? 'stop' : 'play_arrow'}</span>
+          <span className="text-[11px] font-bold uppercase tracking-widest">{listening ? 'Stop' : 'Listen'}</span>
         </button>
         <div className="flex flex-col min-w-0">
           <span className="font-mono text-[11px] text-on-surface">
@@ -62,7 +112,12 @@ export function NwrRadioCard() {
           </span>
         </div>
       </div>
-      {failed && <p className="mt-2 font-mono text-[11px] text-red-emergency">Stream unavailable</p>}
+      {phase === 'failed' && <p className="mt-2 font-mono text-[11px] text-red-emergency" role="alert">{failMessage}</p>}
+      {(phase === 'connecting' || phase === 'retry') && (
+        <p className="mt-2 font-mono text-[11px] text-on-surface-variant" aria-live="polite">
+          {phase === 'retry' ? `Reconnecting… (${retriesRef.current}/${MAX_RETRIES})` : 'Connecting…'}
+        </p>
+      )}
 
       {status.last_spoken?.text && (
         <div className="mt-3 border-l-2 border-outline-variant pl-3">
@@ -71,7 +126,8 @@ export function NwrRadioCard() {
         </div>
       )}
       <audio ref={audioRef} preload="none" className="hidden" aria-hidden="true"
-             onEnded={() => setPlaying(false)} onError={() => { if (playing) { setFailed(true); setPlaying(false) } }} />
+             onPlaying={() => { retriesRef.current = 0; setPhase('playing') }}
+             onError={lost} onEnded={lost} />
     </section>
   )
 }

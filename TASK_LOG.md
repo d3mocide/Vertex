@@ -5,6 +5,12 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 
 ---
 
+## 2026-10-14 — Weather Radio card: stale text and false "Stream unavailable"
+
+- Reported: while listening the card said the feed failed, and the last-broadcast text did not update. Causes: (1) moving the NWR status into the shared store put its poll on the 10-minute weather cadence (the poller's feed was current; the page just did not re-read it) — now its own `NWR_POLL_MS` = 15 s poll in `useAlerts`; (2) `/api/v1/nwr/stream` fell under nginx's generic `/api/` location (buffered, 60 s read timeout) while the P25 audio has an unbuffered long-timeout one — added the same location and `X-Accel-Buffering: no` / `Cache-Control: no-store` on the relay; (3) the card's state came from the `play()` promise and an unguarded `error` event, so it could disagree with what the audio element was doing — it now follows the element's own events (`playing`, `error`, `ended`), reconnects up to 5 times 3 s apart on a drop (`Reconnecting… n/5`), reports "This browser can't play the Ogg stream" for an unsupported-format error, ignores the error its own `src` removal causes, opens each connection fresh, and stops the stream when the page is left.
+- Verified: nginx config valid, the new route reaches the backend, the relay returns Ogg with the no-buffer headers, zero-error TypeScript. Not verified in a browser (no test login).
+
+
 ## 2026-10-14 — `scripts/envtool.py`: check, minimize, verify and complete `.env`
 
 - Problem: a local `.env` of 114 keys / 294 lines, 63 of which just repeat a code default, against a `.env.example` that omitted 17 settings the code reads. New tool [scripts/envtool.py](scripts/envtool.py) (stdlib only, prints key names never values) reads the three `Settings` classes with `ast` plus every `docker-compose*.yml`: `check` (unknown/misspelt keys with did-you-mean, missing compose-required keys, redundant lines, overridden keys, undocumented/stale example entries, frontend build variables compose never passes), `minimize` (drops only provably redundant lines, keeps each key's comment, regenerates section banners, idempotent, timestamped backup on `--write`, `--out` to write elsewhere), `verify` (loads each service's real `Settings` in its container from two files in a clean environment and compares them, plus `docker compose config`), and `example --write` (a marked, regenerable block in `.env.example` for any setting it does not describe).
