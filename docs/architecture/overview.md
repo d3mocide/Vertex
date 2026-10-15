@@ -56,7 +56,7 @@ Current poller coverage (one async worker per source; the list below groups them
 | Fire and hazards | USFS/USGS fire points, NIFC/WFIGS perimeters, NASA FIRMS hotspots, ODF fire danger, lightning strikes |
 | News | Aggregated RSS and Atom feeds |
 | Alerts | FlashAlert, NWS CAP, county RSS |
-| P25 | OP25 metadata, per-call audio recorder (`p25_recorder`), and radio incident extraction |
+| P25 | OP25 metadata, per-call audio recorder and live relay (`p25_recorder`, in the separate `radio` service), and radio incident extraction |
 | Transit | Amtrak, TriMet GTFS-RT |
 | MeshCore | MeshCore bridge WebSocket |
 | Seismic | USGS earthquake feed |

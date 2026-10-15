@@ -199,6 +199,51 @@ services:
       - p25_audio:/data/audio
       - poller_cache:/data/cache       # METAR / flight-route caches (root fs is read-only)
 
+  # Live P25 audio relay + call recorder. Its own process: on the poller's shared event loop the OP25 audio
+  # websocket went unread whenever another poller held the loop, so audio reached the browser late and in bursts.
+  radio:
+    init: true
+    read_only: true
+    cap_drop: ["ALL"]
+    security_opt: ["no-new-privileges:true"]
+    tmpfs:
+      - /tmp:size=64m,noexec,nosuid,nodev
+    build:
+      context: ./poller
+      args:
+        AIRCRAFT_DB_URL: ${AIRCRAFT_DB_URL:-https://raw.githubusercontent.com/wiedehopf/tar1090-db/655afe27950658a4124d15d75766538b1ae9ea3b/aircraft.csv.gz}
+        AIRPORTS_DB_URL: ${AIRPORTS_DB_URL:-https://raw.githubusercontent.com/davidmegginson/ourairports-data/f31ef57d6e9b67764b3c2ec2336a10bcaa4e28b6/airports.csv}
+        AIRLINES_DB_URL: ${AIRLINES_DB_URL:-https://raw.githubusercontent.com/jpatokal/openflights/7d1a611e070295dba776d6afb86e57d0d1aa1cef/data/airlines.dat}
+        NAVAIDS_DB_URL: ${NAVAIDS_DB_URL:-https://raw.githubusercontent.com/davidmegginson/ourairports-data/f31ef57d6e9b67764b3c2ec2336a10bcaa4e28b6/navaids.csv}
+        DATA_CACHEBUST: ${DATA_CACHEBUST:-static}
+    command: ["python", "-u", "radio_main.py"]
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+          cpus: '0.5'
+        reservations:
+          memory: 64m
+          cpus: '0.25'
+    env_file: ${VERTEX_ENV_FILE:-.env}
+    environment:
+      REDIS_URL: redis://:${REDIS_PASSWORD:?Set REDIS_PASSWORD in .env}@redis:6379
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-vertex}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@db:5432/${POSTGRES_DB:-vertex}
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    dns:
+      - 1.1.1.1
+      - 1.0.0.1
+    networks:
+      - internal
+    volumes:
+      - ./poller:/app:ro
+      - p25_audio:/data/audio
+
   frontend:
     init: true
     read_only: true

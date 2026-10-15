@@ -5,6 +5,14 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 
 ---
 
+## 2026-10-14 — P25 live audio: recorder and relay moved to a `radio` service
+
+- User reported long calls stuttering/cutting off when traffic queued up. Captured the OP25 audio websockets at three points for 20 min each (on the OP25 host, from the Vertex VM straight to it, and at the Redis `p25:live` relay). Host and VM captures matched frame for frame (the network adds nothing), but the relay showed 213 in-call gaps over 0.4 s against 51 at the source, and frames up to 17 s late (p99 10-16 s) with identical frame counts. Redis publish is under 1 ms; the delay was the recorder's websocket reads waiting behind ~30 pollers on the poller's single event loop (`poller/bus.py` already notes that loop saturating).
+- New `radio` compose service from the poller image (`poller/radio_main.py`, `CMD python -u radio_main.py`): runs `P25AudioRecorder` alone, opens a bare Postgres pool via the new `open_pool()` in [poller/db.py](poller/db.py) (schema migrations stay in the poller's `init_db`), shares the `p25_audio` volume, 256 MB / 0.5 CPU. `radio_sources()` is where a second radio feed goes. Removed the recorder from [poller/main.py](poller/main.py). The poller code is a bind mount, so `docker compose up -d poller` does not recreate it: use `docker compose restart poller` after code changes (a first attempt left both processes publishing).
+- Re-measured after the split (17 min, both receivers): relay extra delay p99 0.08 s, max 0.09 s; relay gaps identical to the source's (10 vs 10). The remaining gaps (a few per 20 min, up to ~1.5 s) originate in OP25 and are not yet explained; OP25 also pre-empts a receiver for a priority-1 grant when both are busy (5 in 30 min), which cuts the lower-priority call.
+- Open: source-side gaps on the OP25 host (shares 4 cores with Tocsin's `sdr-rx`, JS8Call, readsb); browser cushion (0.9 s) is still shorter than the longest source gaps; call re-attach window in `p25Live.ts`. Not committed.
+
+
 ## 2026-10-01 — Smooth aircraft and vessel corrections; separate feed provenance from freshness
 
 - Aircraft and AIS corrections now preserve displayed position and velocity through new reports and feed switches, with adaptive bounded correction windows and smooth shortest-arc orientation. Large discontinuities reset; stale non-estimated positions hold. Prediction lines begin at the displayed marker and respect the remaining projection window. Source changes at unchanged aircraft coordinates use the incoming fix age.

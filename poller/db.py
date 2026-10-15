@@ -139,6 +139,13 @@ async def init_db():
     logger.info("DB pool initialized")
 
 
+async def open_pool(min_size: int = 1, max_size: int = 3):
+    """A bare connection pool for the other services built from this image; the poller owns the schema work in init_db."""
+    global _pool
+    dsn = settings.database_url.replace("postgresql+asyncpg://", "postgresql://")
+    _pool = await asyncpg.create_pool(dsn, min_size=min_size, max_size=max_size)
+
+
 async def close_db():
     global _pool
     if _pool:

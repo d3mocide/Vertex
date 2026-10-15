@@ -8,7 +8,7 @@ Vertex is a local-first, real-time situational awareness dashboard. It fuses air
 
 ## Architecture
 
-Seven containers (plus an optional `tileserver`):
+Eight containers (plus an optional `tileserver`):
 
 | Container | Role | Entry point |
 |-----------|------|-------------|
@@ -17,6 +17,7 @@ Seven containers (plus an optional `tileserver`):
 | `mosquitto` | MQTT broker for IoT sensors (rtl_433, Meshtastic) | `infra/mosquitto/` |
 | `backend` | FastAPI REST + WebSocket API | `backend/main.py` |
 | `poller` | Async pollers, one module per data source | `poller/main.py` |
+| `radio` | OP25 live audio relay + call recorder (own process so the audio never waits on other pollers) | `poller/radio_main.py` |
 | `transcription` | Speech-to-text for recorded radio calls | `transcription/main.py` |
 | `frontend` | React + MapLibre GL, Nginx-served | `frontend/src/main.tsx` |
 
