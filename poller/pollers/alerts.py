@@ -6,7 +6,9 @@ import feedparser
 import httpx
 from config import settings
 from security import validate_request_url
-from bus import set_feed
+import json
+from bus import get_bus, set_feed
+from nwr_alerts import merge
 from .base import BasePoller
 
 logger = logging.getLogger(__name__)
@@ -197,5 +199,11 @@ class AlertPoller(BasePoller):
             except Exception as exc:
                 logger.warning("[alerts] nws_cap failed: %s: %s", type(exc).__name__, exc or "(no detail)")
 
+            # Keep the weather-radio alerts Tocsin's poller merged in; this list is rebuilt from CAP alone each cycle.
+            try:
+                raw = await (await get_bus()).get("feed:nwr:alerts")
+                weather_alerts = merge(weather_alerts, json.loads(raw) if raw else [])
+            except Exception as exc:
+                logger.debug("[alerts] no NWR alerts to merge: %s", exc)
             await set_feed("weather:alerts", weather_alerts)
         await set_feed("alerts:flash", items)

@@ -16,6 +16,7 @@ from bus import close
 from config import settings
 from db import open_pool, close_db
 from pollers.p25_recorder import P25AudioRecorder
+from pollers.tocsin import TocsinPoller
 
 logging.basicConfig(
     level=settings.log_level,
@@ -27,7 +28,7 @@ logger = logging.getLogger(__name__)
 
 
 def radio_sources() -> list:
-    return [P25AudioRecorder()]
+    return [P25AudioRecorder(), TocsinPoller()]
 
 
 async def main():

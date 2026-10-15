@@ -5,6 +5,17 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 
 ---
 
+## 2026-10-14 — NOAA Weather Radio from Tocsin: RF alerts in the alert list, live audio on the Environment page
+
+- Tocsin (our NWR SAME decoder, run next to the SDRs) is now an optional Vertex source: set `TOCSIN_URL` (and `TOCSIN_API_KEY` once Tocsin has auth) and add its host to `PRIVATE_HOST_ALLOWLIST`. Blank = off.
+- [poller/pollers/tocsin.py](poller/pollers/tocsin.py), run by the `radio` service: follows Tocsin's `/events` SSE stream (alerts/transcripts/dispatch only; health samples are ignored) and re-reads `/alerts`, `/transcripts`, `/streams`, `/health` every 30 s. Publishes `nwr:alerts` (mapped, zone-filtered), `nwr:status` (stream on air, dead channels, last spoken broadcast) and merges RF-heard alerts into `weather:alerts`.
+- [poller/nwr_alerts.py](poller/nwr_alerts.py): SAME FIPS to NWS county codes (041067 to ORC067), severity from Tocsin's dispatch tier (A Severe, B Moderate, C Minor), expiry from the SAME purge time, relevance against the configured NWS zones (statewide codes match their state; forecast-zone-only filters keep everything rather than hide an alert), and the CAP merge: a CAP alert that Weather Radio also announced is marked `rf_heard`, not duplicated; weekly tests sort last. [poller/pollers/alerts.py](poller/pollers/alerts.py) re-merges the NWR alerts every cycle, since it rebuilds `weather:alerts` from CAP alone. 8 new tests in `poller/tests/test_nwr_alerts.py` (14 with the recorder tests pass).
+- [backend/routers/nwr.py](backend/routers/nwr.py): `GET /api/v1/nwr` (status for the page) and `GET /api/v1/nwr/stream` (server-side relay of the on-air Icecast mount, SSRF-pinned like the radio proxy; the browser never sees Tocsin's address or key). Behind the normal session auth; an audio element sends the cookie.
+- Frontend: [NwrRadioCard.tsx](frontend/src/components/panels/environment/NwrRadioCard.tsx) under the radar (ON AIR / OFFLINE, Listen/Stop, active-alert count, dead channels, last broadcast); the stream is opened only while playing. Alert cards show an `NWR · RF` pill (alert not yet in the NWS feed) or `RF HEARD` (CAP alert also heard on air). Renders nothing unless Tocsin is configured.
+- Verified: Tocsin followed live; `nwr:status` populated; the stream endpoint relayed real Ogg audio (40 KB in 1.1 s); zero-error TypeScript. Not verified: the card visually in a browser (no test login available), and an alert end to end, because Tocsin had no active alert (its only one, a weekly test, had expired).
+- Next: Tocsin side (API key, `/alerts?since=`, SSE resume, CAP id on fused alerts), a county outline on the map for RF alerts, and the `sdr-rx` CPU review (about half a core for 7 weather channels).
+
+
 ## 2026-10-14 — P25 live audio: recorder and relay moved to a `radio` service
 
 - User reported long calls stuttering/cutting off when traffic queued up. Captured the OP25 audio websockets at three points for 20 min each (on the OP25 host, from the Vertex VM straight to it, and at the Redis `p25:live` relay). Host and VM captures matched frame for frame (the network adds nothing), but the relay showed 213 in-call gaps over 0.4 s against 51 at the source, and frames up to 17 s late (p99 10-16 s) with identical frame counts. Redis publish is under 1 ms; the delay was the recorder's websocket reads waiting behind ~30 pollers on the poller's single event loop (`poller/bus.py` already notes that loop saturating).

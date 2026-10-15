@@ -26,6 +26,10 @@ class Settings(BaseSettings):
     # Shared with the poller; never embed this credential in a stored source URL.
     meshcore_api_key: str = ""
 
+    # Tocsin (NOAA Weather Radio). Same variables as the poller; the key is never sent to the browser.
+    tocsin_url: str = ""
+    tocsin_api_key: str = ""
+
     # Self-hosted Nominatim used for city/county boundary lookup in the
     # geofence UI (same variables as the poller). Blank disables city lookup.
     geocoder_url: str = ""

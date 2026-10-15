@@ -312,6 +312,11 @@ class Settings(BaseSettings):
     # without the Icecast delay — instead of from the radio stream.
     p25_audio_ws_url: str = ""
 
+    # Tocsin (NOAA Weather Radio SAME alerts, RF health and live NWR audio). Empty = off. The host is a private
+    # address, so it must also be listed in PRIVATE_HOST_ALLOWLIST. The key is sent as X-API-Key once Tocsin has one.
+    tocsin_url: str = ""
+    tocsin_api_key: str = ""
+
     # NWS text products (NWWS-style). The API files products under different
     # location ids: forecaster products (AFD, LSR, CF6) under the Weather
     # Forecast Office id (Portland = PQR), climate reports (CF6) under the

@@ -1,0 +1,78 @@
+"""Tocsin (NOAA Weather Radio) alert mapping: SAME codes to zones, severity, relevance, merge with CAP."""
+from datetime import datetime, timedelta, timezone
+
+from nwr_alerts import fips_to_ugc, is_relevant, merge, normalize, zone_set
+
+NOW = datetime(2026, 10, 14, 18, 10, tzinfo=timezone.utc)
+
+
+def _alert(code="TOR", name="Tornado Warning", tier="A", fips=("041067",), state="RF_ONLY", minutes_ago=2, purge=30):
+    received = (NOW - timedelta(minutes=minutes_ago)).isoformat()
+    return {
+        "id": "abc", "state": state, "event_name": name, "fips_codes": list(fips), "first_seen": received,
+        "sources": [{"kind": "RF", "event": {
+            "tier": tier, "channel": "WX7", "callsign": "KPQR/NWS", "event_code": code, "event_name": name,
+            "fips_codes": list(fips), "raw_header": "ZCZC-WXR-...", "received_at": received, "purge_minutes": purge}}],
+    }
+
+
+def test_fips_to_ugc_maps_county_and_rejects_statewide_or_malformed():
+    assert fips_to_ugc("041067") == "ORC067"
+    assert fips_to_ugc("053011") == "WAC011"
+    assert fips_to_ugc("041000") is None      # whole state
+    assert fips_to_ugc("99999") is None
+    assert fips_to_ugc("") is None
+
+
+def test_normalize_fields_and_severity_by_tier():
+    out = normalize(_alert(), NOW)
+    assert out["event"] == "Tornado Warning"
+    assert out["severity"] == "Severe"
+    assert out["source"] == "nwr" and out["nwr_state"] == "RF_ONLY"
+    assert out["nwr_counties"] == ["ORC067"]
+    assert out["expires"].startswith("2026-10-14T18:38")      # received 18:08 + 30 min
+    assert "KPQR/NWS" in out["headline"] and not out["test"]
+    assert normalize(_alert(tier="B"), NOW)["severity"] == "Moderate"
+    assert normalize(_alert(tier="C"), NOW)["severity"] == "Minor"
+
+
+def test_normalize_drops_expired_and_flags_tests():
+    assert normalize(_alert(minutes_ago=40, purge=30), NOW) is None
+    t = normalize(_alert(code="RWT", name="Required Weekly Test", tier="C", purge=15), NOW)
+    assert t["test"] is True
+
+
+def test_normalize_carries_transcript_text():
+    assert normalize(_alert(), NOW, "  Take shelter now. ")["description"] == "Take shelter now."
+
+
+def test_relevance_by_zone_filter():
+    zones = zone_set("ORZ108, ORC067 ,WAC011")
+    assert is_relevant(_alert(fips=("041067",)), zones)
+    assert is_relevant(_alert(fips=("053011", "053015")), zones)
+    assert not is_relevant(_alert(fips=("041005",)), zones)
+    assert is_relevant(_alert(fips=("041000",)), zones)          # statewide covers the state
+    assert not is_relevant(_alert(fips=("053000",)), zone_set("ORC067"))
+    assert is_relevant(_alert(fips=("041005",)), set())          # no filter: show everything
+    assert is_relevant(_alert(fips=()), zones)                   # no codes (keyword-only): kept
+
+
+def test_relevance_with_only_forecast_zones_keeps_everything():
+    # Forecast zones (ORZ108) cannot be compared to county codes, so they must not hide an alert.
+    assert is_relevant(_alert(fips=("041005",)), zone_set("ORZ108,ORZ109"))
+
+
+def test_merge_marks_cap_twin_instead_of_duplicating():
+    cap = [{"event": "Tornado Warning", "headline": "NWS Portland issues...", "severity": "Extreme"}]
+    nwr = [normalize(_alert(), NOW)]
+    out = merge(cap, nwr)
+    assert len(out) == 1 and out[0]["rf_heard"] is True
+
+
+def test_merge_orders_new_before_old_and_tests_last_and_drops_stale_nwr():
+    old = normalize(_alert(name="Flood Watch", tier="B", minutes_ago=20, purge=60), NOW)
+    new = normalize(_alert(name="Severe Thunderstorm Warning", minutes_ago=1), NOW)
+    test = normalize(_alert(code="RWT", name="Required Weekly Test", tier="C", minutes_ago=0, purge=15), NOW)
+    stale_in_cap = [{"event": "Old", "source": "nwr"}, {"event": "Heat Advisory"}]
+    out = merge(stale_in_cap, [test, old, new])
+    assert [a["event"] for a in out] == ["Heat Advisory", "Severe Thunderstorm Warning", "Flood Watch", "Required Weekly Test"]

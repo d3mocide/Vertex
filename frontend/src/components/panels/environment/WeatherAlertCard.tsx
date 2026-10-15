@@ -13,6 +13,12 @@ export function WeatherAlertCard({ alert }: { alert: WeatherAlert }) {
           <span className="text-[14px] font-bold text-on-surface leading-tight mt-1">
             {alert.headline}
           </span>
+          {(alert.source === 'nwr' || alert.rf_heard) && (
+            <span className="status-pill mt-1.5 self-start border border-amber-gold/50 text-amber-gold"
+                  title={alert.nwr_state_label || 'Also announced on NOAA Weather Radio'}>
+              {alert.source === 'nwr' ? 'NWR · RF' : 'RF HEARD'}
+            </span>
+          )}
         </div>
         {isSevere && (
           <span className="ms text-red-500 animate-pulse text-[20px]" aria-hidden="true">warning</span>
@@ -22,7 +28,7 @@ export function WeatherAlertCard({ alert }: { alert: WeatherAlert }) {
       <div className="flex items-center gap-3 mt-4">
         <div className="flex flex-col">
           <span className="text-[11px] font-mono text-on-surface-variant uppercase tracking-widest">Expires</span>
-          <span className="text-[11px] font-mono text-on-surface uppercase font-bold">{new Date(alert.expires).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+          <span className="text-[11px] font-mono text-on-surface uppercase font-bold">{alert.expires ? new Date(alert.expires).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}</span>
         </div>
       </div>
 

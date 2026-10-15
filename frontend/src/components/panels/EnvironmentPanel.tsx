@@ -10,6 +10,7 @@ import { OutlookCard } from './environment/OutlookCard'
 import { WeatherAlertCard } from './environment/WeatherAlertCard'
 import { RadarControls } from './environment/RadarMiniMap'
 import { NearbyConditionsCard } from './environment/NearbyConditionsCard'
+import { NwrRadioCard } from './environment/NwrRadioCard'
 import { FeedAge } from '../common/FeedAge'
 import { PageHeader, StatTiles, type Stat } from '../common/Page'
 
@@ -176,6 +177,7 @@ export function EnvironmentPanel() {
           <div className="flex flex-col gap-4 px-4 pb-4">
             <OutlookCard />
             {radar}
+            <NwrRadioCard />
             <NearbyConditionsCard />
             {fireCard}
             <GeohazardsCard quakes={quakes} disasters={disasters} />
@@ -189,6 +191,7 @@ export function EnvironmentPanel() {
             </div>
             <div className="flex-1 min-w-0 flex flex-col gap-6 sticky top-4">
               {radar}
+              <NwrRadioCard />
               <NearbyConditionsCard />
             </div>
           </div>

@@ -242,6 +242,13 @@ export interface WeatherAlert {
   description: string
   severity:    string
   expires:     string
+  /** "nwr" for an alert heard on NOAA Weather Radio (via Tocsin) that the NWS feed does not list yet. */
+  source?:          string
+  nwr_state?:       string
+  nwr_state_label?: string
+  /** A CAP alert that Weather Radio also announced. */
+  rf_heard?:        boolean
+  test?:            boolean
 }
 
 export interface WeatherState {
