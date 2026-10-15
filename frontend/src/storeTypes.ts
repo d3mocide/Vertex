@@ -280,6 +280,8 @@ export interface NwrState {
   streams?:        { mount: string; site: string; channel: string; on_air: boolean; listeners: number }[]
   channels_dead?:  string[]
   last_spoken?:    { text: string; channel: string; at: string } | null
+  /** The last several broadcast chunks (about 20 s each), newest first. */
+  recent_spoken?:  { text: string; channel: string; at: string }[]
   alerts?:         { event: string; nwr_state: string; test: boolean }[]
   areas?:          NwrArea[]
   stream_url?:     string | null

@@ -83,6 +83,7 @@ export function NwrRadioCard() {
   const onAir = !!status.reachable && !!status.stream_url
   const stream = status.streams?.find((s) => s.on_air)
   const live = (status.alerts ?? []).filter((a) => !a.test)
+  const spoken = status.recent_spoken?.length ? status.recent_spoken : status.last_spoken ? [status.last_spoken] : []
 
   return (
     <section className="hud-panel bg-onyx-deep/40 p-4" aria-label="NOAA Weather Radio">
@@ -119,10 +120,19 @@ export function NwrRadioCard() {
         </p>
       )}
 
-      {status.last_spoken?.text && (
+      {spoken.length > 0 && (
         <div className="mt-3 border-l-2 border-outline-variant pl-3">
-          <span className="label-caps">LAST BROADCAST · <span className="font-mono">{new Date(status.last_spoken.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span></span>
-          <p className="mt-1 text-[13px] leading-snug text-on-surface line-clamp-3">{status.last_spoken.text}</p>
+          <span className="label-caps">BROADCAST TRANSCRIPT</span>
+          <ol className="mt-2 max-h-64 overflow-y-auto custom-scrollbar flex flex-col gap-2.5 pr-1" aria-label="Recent weather radio broadcast">
+            {spoken.map((chunk, i) => (
+              <li key={chunk.at} className={i === 0 ? '' : 'opacity-70'}>
+                <span className="font-mono text-[11px] text-on-surface-variant">
+                  {new Date(chunk.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                </span>
+                <p className="text-[13px] leading-snug text-on-surface">{chunk.text}</p>
+              </li>
+            ))}
+          </ol>
         </div>
       )}
       <audio ref={audioRef} preload="none" className="hidden" aria-hidden="true"

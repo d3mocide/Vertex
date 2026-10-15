@@ -114,6 +114,21 @@ def normalize(alert: dict, now: datetime | None = None, transcript: str = "") ->
     }
 
 
+def recent_spoken(transcripts: list[dict], limit: int = 8) -> list[dict]:
+    """The newest continuous-broadcast chunks Tocsin transcribed (about 20 s each), newest first, as the card shows
+    them. Alert-audio transcripts and chunks that failed Tocsin's guard (its hallucination filter) are skipped."""
+    out = []
+    for t in sorted(transcripts, key=lambda t: t.get("timestamp_ns") or 0, reverse=True):
+        text = str(t.get("text") or "").strip()
+        if str(t.get("event_code")) != "LIVE" or not t.get("passed_guard", True) or not text or not t.get("timestamp_ns"):
+            continue
+        out.append({"text": text, "channel": t.get("channel"),
+                    "at": datetime.fromtimestamp(t["timestamp_ns"] / 1e9, timezone.utc).isoformat()})
+        if len(out) >= limit:
+            break
+    return out
+
+
 def merge(cap_alerts: list[dict], nwr: list[dict]) -> list[dict]:
     """CAP alerts first; an NWR alert whose event CAP already lists marks that CAP alert as RF-heard instead of
     appearing twice. Tests are kept but sort last."""

@@ -1,7 +1,7 @@
 """Tocsin (NOAA Weather Radio) alert mapping: SAME codes to zones, severity, relevance, merge with CAP."""
 from datetime import datetime, timedelta, timezone
 
-from nwr_alerts import build_areas, fips_to_ugc, is_relevant, merge, normalize, outline_ugcs, round_geometry, zone_set
+from nwr_alerts import recent_spoken, build_areas, fips_to_ugc, is_relevant, merge, normalize, outline_ugcs, round_geometry, zone_set
 
 NOW = datetime(2026, 10, 14, 18, 10, tzinfo=timezone.utc)
 
@@ -99,3 +99,21 @@ def test_build_areas_pairs_alert_and_county_shape_and_skips_unknown_shapes():
 def test_round_geometry_trims_coordinates_but_keeps_structure():
     out = round_geometry(SQUARE)
     assert out["type"] == "Polygon" and out["coordinates"][0][0] == [-122.9123, 45.1]
+
+
+def _chunk(ns, text="river levels", code="LIVE", passed=True, channel="WX7"):
+    return {"timestamp_ns": ns, "text": text, "event_code": code, "passed_guard": passed, "channel": channel}
+
+
+def test_recent_spoken_is_newest_first_whole_text_and_skips_alert_audio_and_failed_chunks():
+    long_text = "word " * 120                                  # far longer than any display clamp
+    chunks = [_chunk(3_000_000_000_000_000_000, "third"), _chunk(1_000_000_000_000_000_000, "first"),
+              _chunk(2_000_000_000_000_000_000, long_text), _chunk(4_000_000_000_000_000_000, "alert", code="TOR"),
+              _chunk(5_000_000_000_000_000_000, "garbled", passed=False), _chunk(6_000_000_000_000_000_000, "  ")]
+    out = recent_spoken(chunks)
+    assert [c["text"] for c in out] == ["third", long_text.strip(), "first"]
+    assert out[0]["at"].startswith("2065") and out[0]["channel"] == "WX7"
+
+
+def test_recent_spoken_respects_the_limit():
+    assert len(recent_spoken([_chunk(i * 10**18, f"c{i}") for i in range(1, 30)], limit=5)) == 5

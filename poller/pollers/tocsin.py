@@ -22,7 +22,7 @@ import httpx
 from bus import get_bus, set_feed
 from config import settings
 from db import get_pool
-from nwr_alerts import build_areas, is_relevant, merge, normalize, outline_ugcs, round_geometry, zone_set
+from nwr_alerts import build_areas, is_relevant, merge, normalize, outline_ugcs, recent_spoken, round_geometry, zone_set
 from redaction import redact_text, redact_url
 from security import validate_request_url, validate_safe_url
 from .base import BasePoller
@@ -31,7 +31,8 @@ logger = logging.getLogger(__name__)
 
 REFRESH_S = 30
 _SSE_RETRY_S = 10
-_TRANSCRIPT_KEEP = 20
+_TRANSCRIPT_KEEP = 40   # enough that eight continuous-broadcast chunks survive a burst of alert transcripts
+_SPOKEN_SHOWN = 8       # about two and a half minutes of the broadcast
 _NWS_HEADERS = {"User-Agent": "Vertex/0.1 (vertex; contact@localhost)", "Accept": "application/geo+json"}
 _GEOM_RETRY_S = 600   # a county the NWS would not return is retried this often, not on every refresh
 
@@ -183,7 +184,7 @@ class TocsinPoller(BasePoller):
         if merged != cap:
             await set_feed("weather:alerts", merged)
 
-        live = next((t for t in transcripts if str(t.get("event_code")) == "LIVE"), None)
+        spoken_recent = recent_spoken(transcripts, _SPOKEN_SHOWN)
         mounts = [s for s in streams.get("streams", []) if s.get("on_air") is not None]
         await set_feed("nwr:status", {
             "reachable": True,
@@ -191,9 +192,8 @@ class TocsinPoller(BasePoller):
             "streams": [{"mount": s.get("mount"), "site": s.get("site"), "channel": s.get("channel"),
                          "on_air": bool(s.get("on_air")), "listeners": s.get("listeners", 0)} for s in mounts],
             "channels_dead": sorted({f'{h.get("site")}/{h.get("channel")}' for h in health if h.get("dead")}),
-            "last_spoken": ({"text": live.get("text", ""), "channel": live.get("channel"),
-                             "at": datetime.fromtimestamp(live["timestamp_ns"] / 1e9, timezone.utc).isoformat()}
-                            if live and live.get("timestamp_ns") else None),
+            "last_spoken": spoken_recent[0] if spoken_recent else None,
+            "recent_spoken": spoken_recent,
             "updated": now.isoformat(),
         }, broadcast=False)
         await self._alive()
