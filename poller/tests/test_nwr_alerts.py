@@ -1,7 +1,7 @@
 """Tocsin (NOAA Weather Radio) alert mapping: SAME codes to zones, severity, relevance, merge with CAP."""
 from datetime import datetime, timedelta, timezone
 
-from nwr_alerts import recent_spoken, build_areas, fips_to_ugc, is_relevant, merge, normalize, outline_ugcs, round_geometry, zone_set
+from nwr_alerts import LeadTracker, describe_area, event_severity, recent_spoken, build_areas, fips_to_ugc, is_relevant, merge, normalize, outline_ugcs, round_geometry, zone_set
 
 NOW = datetime(2026, 10, 14, 18, 10, tzinfo=timezone.utc)
 
@@ -117,3 +117,77 @@ def test_recent_spoken_is_newest_first_whole_text_and_skips_alert_audio_and_fail
 
 def test_recent_spoken_respects_the_limit():
     assert len(recent_spoken([_chunk(i * 10**18, f"c{i}") for i in range(1, 30)], limit=5)) == 5
+
+
+# ── county names, event severity, lead time ───────────────────────────────────────────────────────
+
+COUNTIES = {"41005": {"county": "Clackamas", "state": "OR"}, "41051": {"county": "Multnomah", "state": "OR"},
+            "41067": {"county": "Washington", "state": "OR"}, "53011": {"county": "Clark", "state": "WA"}}
+
+
+def test_describe_area_groups_by_state_and_reads_like_a_sentence():
+    assert describe_area(["041067", "041005", "041051", "053011"], COUNTIES) == \
+        "Clackamas, Multnomah and Washington Counties (OR); Clark County (WA)"
+    assert describe_area(["041005"], COUNTIES) == "Clackamas County (OR)"
+    assert describe_area(["041067", "041067"], COUNTIES) == "Washington County (OR)"
+
+
+def test_describe_area_survives_unknowns_statewide_codes_and_no_table():
+    assert describe_area(["041999", "041000"], COUNTIES) == ""
+    assert describe_area(["041067"], None) == "" and describe_area([], COUNTIES) == "" and describe_area(["12"], COUNTIES) == ""
+
+
+def test_normalize_carries_area_tier_callsign_and_effective_time():
+    out = normalize(_alert(fips=("041067", "041005")), NOW, counties=COUNTIES)
+    assert out["area_desc"] == "Clackamas and Washington Counties (OR)"
+    assert out["nwr_tier"] == "A" and out["nwr_callsign"] == "KPQR/NWS" and out["effective"] == out["received_at"]
+
+
+def test_event_severity_follows_the_dispatch_tier():
+    assert event_severity({"nwr_tier": "A"}) == "critical" and event_severity({"nwr_tier": "B"}) == "medium"
+    assert event_severity({"nwr_tier": "C"}) == "low" and event_severity({}) == "low"
+
+
+def _mapped(nid="a1", event="Tornado Warning", heard=1000.0, test=False):
+    return {"nwr_id": nid, "event": event, "received_at": datetime.fromtimestamp(heard, timezone.utc).isoformat(), "test": test}
+
+
+def test_the_radio_leads_when_the_cap_alert_shows_up_later():
+    t = LeadTracker()
+    assert t.update([_mapped(heard=1000)], set(), now=1010) == []                       # heard, no CAP yet
+    got = t.update([_mapped(heard=1000)], {"tornado warning"}, now=1075)                # CAP appears 75 s after the radio
+    assert got == [{"nwr_id": "a1", "event": "Tornado Warning", "lead_s": 75}]
+    assert t.annotate(_mapped())["nwr_lead_s"] == 75
+    assert t.update([_mapped(heard=1000)], {"tornado warning"}, now=1200) == []         # reported once
+
+
+def test_when_the_nws_feed_already_had_it_the_radio_gets_no_credit():
+    t = LeadTracker()
+    assert t.update([_mapped(heard=1000)], {"tornado warning"}, now=1005) == []
+    out = t.annotate(_mapped())
+    assert out["nwr_cap_first"] is True and "nwr_lead_s" not in out
+
+
+def test_an_alert_not_yet_confirmed_has_neither_flag_and_tests_are_ignored():
+    t = LeadTracker()
+    t.update([_mapped(), _mapped(nid="t1", event="Required Weekly Test", test=True)], set(), now=1010)
+    assert t.annotate(_mapped()) == _mapped()
+    assert "t1" not in t.items
+
+
+def test_lead_tracker_round_trips_through_json_and_forgets_old_alerts():
+    import json
+    t = LeadTracker()
+    t.update([_mapped(heard=1000)], set(), now=1010)
+    t.update([_mapped(heard=1000)], {"tornado warning"}, now=1060)
+    restored = LeadTracker(json.loads(json.dumps(t.state())))
+    assert restored.annotate(_mapped())["nwr_lead_s"] == 60
+    restored.update([], set(), now=1000 + 8 * 24 * 3600)
+    assert restored.items == {}
+
+
+def test_merge_puts_the_lead_on_the_cap_twin_too():
+    rf = normalize(_alert(), NOW)
+    rf["nwr_lead_s"] = 75
+    cap = [{"event": "Tornado Warning", "headline": "x", "severity": "Extreme"}]
+    assert merge(cap, [rf])[0]["nwr_lead_s"] == 75

@@ -6,7 +6,7 @@ type AlertRule = {
   id: number
   name: string
   enabled: boolean
-  trigger_type: 'geofence_entry' | 'severity_threshold' | 'entity_type' | 'scheduled'
+  trigger_type: 'geofence_entry' | 'severity_threshold' | 'entity_type' | 'weather_alert' | 'scheduled'
   action_type: 'webhook_post' | 'log' | 'sitrep_delivery'
   action_config: Record<string, unknown>
   cooldown_seconds: number | null
@@ -55,7 +55,8 @@ export function AlertRulesSection({ open }: AlertRulesSectionProps) {
         name: newRuleName.trim(),
         enabled: true,
         trigger_type: effectiveTrigger,
-        rule_filter: effectiveTrigger === 'severity_threshold' ? { min_severity: 'high' } : {},
+        rule_filter: effectiveTrigger === 'severity_threshold' ? { min_severity: 'high' }
+          : effectiveTrigger === 'weather_alert' ? { min_severity: 'medium' } : {},
         action_type: newRuleAction,
         action_config: newRuleAction === 'webhook_post'
           ? { url: newRuleUrl.trim() }
@@ -185,6 +186,7 @@ export function AlertRulesSection({ open }: AlertRulesSectionProps) {
               <option value="severity_threshold">Severity</option>
               <option value="geofence_entry">Geofence Entry</option>
               <option value="entity_type">Entity Type</option>
+              <option value="weather_alert">Weather Radio Alert</option>
             </select>
           )}
           <select

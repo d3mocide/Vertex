@@ -7,6 +7,7 @@
 offices:
   PQR:
     station: KIG98
+    home: Portland          # the observation used when the NWS current-conditions feed is down
     observations:
       - {name: Astoria,    aliases: [historia, testoria, astoria, astorium]}
       - {name: Newport,    aliases: [newport]}

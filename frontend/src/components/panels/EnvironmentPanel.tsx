@@ -164,7 +164,12 @@ export function EnvironmentPanel() {
       <PageHeader
         icon="eco"
         title="Environment"
-        subtitle={<span className="flex items-center gap-2">{regionInfo.name} <FeedAge feedKey="weather:current" prefix="Updated" className="text-[11px]" /></span>}
+        subtitle={<span className="flex items-center gap-2">{regionInfo.name} <FeedAge feedKey="weather:current" prefix="Updated" className="text-[11px]" />
+          {weather.source === 'nwr' && (
+            <span className="status-pill border border-amber-gold/50 text-amber-gold" title="The NWS observation feed is not updating, so these conditions are NOAA Weather Radio's hourly reading">
+              via Weather Radio
+            </span>
+          )}</span>}
       />
 
       <div className="flex-1 overflow-y-auto min-h-0 pb-24">

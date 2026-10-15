@@ -7,6 +7,7 @@ from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 import admin_health
+from config import settings
 from db.models import Entity, Observation, Event
 from deps import get_db, get_redis_client
 from metrics_collector import HISTORY_KEY_PREFIX, p95_from_buckets
@@ -817,6 +818,22 @@ async def get_overview(db: AsyncSession = Depends(get_db)):
     except Exception:
         receiver = None
 
+    nwr = None
+    if settings.tocsin_url:
+        try:
+            st = json.loads(await r.get("feed:nwr:status") or "{}")
+            bc = json.loads(await r.get("feed:nwr:broadcast") or "{}")
+            rivers = bc.get("rivers") or []
+            nwr = {"enabled": True, "reachable": bool(st.get("reachable")),
+                   "on_air": any(s.get("on_air") for s in st.get("streams") or []),
+                   "channels_dead": st.get("channels_dead") or [],
+                   "notices": sum(1 for n in bc.get("notices") or [] if n.get("active")),
+                   "rivers_differ": [x["name"] for x in rivers if x.get("status") == "differs"],
+                   "rivers_missing": [x["name"] for x in rivers if x.get("status") == "radio_missing"],
+                   "gauges": len(rivers)}
+        except Exception:
+            nwr = {"enabled": True, "reachable": False, "on_air": False, "channels_dead": []}
+
     poller_counts = {s: sum(1 for p in pollers if p["status"] == s) for s in ("ok", "stale", "error", "unknown")}
     quiet_pollers = sorted(pollers, key=lambda p: -p["staleness_s"])[:1]
     api = {k: metrics.get(k) for k in ("req_rate", "error_pct", "p95_ms", "memory_mb", "cpu_pct", "ws_clients", "uptime_seconds")} \
@@ -826,6 +843,7 @@ async def get_overview(db: AsyncSession = Depends(get_db)):
         "postgres": postgres, "redis": redis_info, "pollers": pollers, "feeds": feeds,
         "activity": activity, "storage": storage.health, "pool": pool if "level" in pool else None,
         "api": api, "briefing_age_s": briefing["age_s"] if briefing else None, "receiver": receiver,
+        "nwr": nwr,
     })
     return {
         "status": admin_health.overall_status(issues),
@@ -840,6 +858,7 @@ async def get_overview(db: AsyncSession = Depends(get_db)):
                                     if quiet_pollers else None)},
             "briefing": briefing,
             "receiver": receiver,
+            "weather_radio": nwr,
         },
         "feeds": feeds,
     }

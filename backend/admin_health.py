@@ -93,6 +93,8 @@ FEED_INFO: dict[str, tuple[str, str]] = {
     "weather:alerts": ("NWS alerts", "Weather"), "weather:stations": ("Nearby stations", "Weather"),
     "weather:rwis": ("Road-weather stations", "Weather"), "weather:nwws_products": ("NWS text products", "Weather"),
     "hydro:status": ("River gauges", "Weather"), "lightning:strikes": ("Lightning strikes", "Weather"),
+    "nwr:status": ("Weather Radio status", "Weather"), "nwr:broadcast": ("Weather Radio broadcast", "Weather"),
+    "nwr:alerts": ("Weather Radio alerts", "Weather"), "nwr:areas": ("Weather Radio alert outlines", "Weather"),
     "fire:danger": ("Fire danger", "Fire"), "fire:perimeters": ("Fire perimeters", "Fire"),
     "fire:nifc_incidents": ("Wildfire incidents", "Fire"),
     "fire:hotspots": ("Satellite hotspots", "Fire"),
@@ -195,6 +197,25 @@ def build_issues(s: dict) -> list[dict]:
         elif api["error_pct"] > 2 or api.get("p95_ms", 0) > 500:
             add("warning", "api", "The API is degraded",
                 f"{api['error_pct']:.1f}% errors, p95 {api.get('p95_ms', 0):.0f} ms.", "system")
+
+    nwr = s.get("nwr")
+    if nwr and nwr.get("enabled"):
+        if not nwr.get("reachable"):
+            add("warning", "weather radio", "Weather Radio (Tocsin) is unreachable",
+                "Alerts heard on the radio, the live audio and the broadcast data are unavailable.", "ingestion")
+        else:
+            if not nwr.get("on_air"):
+                add("warning", "weather radio", "No Weather Radio audio on air",
+                    "Tocsin is up but has no stream: check its receiver.", "ingestion")
+            if nwr.get("channels_dead"):
+                add("warning", "weather radio", "A Weather Radio channel is not receiving",
+                    ", ".join(nwr["channels_dead"][:5]), "ingestion")
+            if nwr.get("rivers_differ"):
+                add("info", "weather radio", "River readings on the radio disagree with NOAA",
+                    ", ".join(nwr["rivers_differ"][:3]) + " (a misheard number, or a stale gauge)", "quality")
+            if nwr.get("rivers_missing"):
+                add("info", "weather radio", "The station could not read some river gauges",
+                    ", ".join(nwr["rivers_missing"][:3]), "quality")
 
     age = s.get("briefing_age_s")
     if age is not None and age > 3 * 3600:

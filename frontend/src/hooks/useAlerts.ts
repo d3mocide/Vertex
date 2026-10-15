@@ -62,6 +62,7 @@ export function useAlerts() {
           humidity:  current['humidity']  as number | undefined,
           aqi:       current['aqi']       as number | undefined,
           aqi_label: current['aqi_label'] as string | undefined,
+          source:    current['source']    as string | undefined,
         })
       }
       if (Array.isArray(alerts)) {

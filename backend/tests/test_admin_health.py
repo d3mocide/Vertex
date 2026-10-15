@@ -257,3 +257,36 @@ def test_dispatch_activity_with_nothing_is_all_zero_and_safe():
 def test_dispatch_activity_tolerates_missing_and_bad_fields():
     d = h.dispatch_activity([{"severity": None, "last_seen": "garbage"}, {}], NOW_DT)
     assert d["seen_24h"] == 2 and d["active_now"] == 0
+
+
+# ── Weather Radio (Tocsin) ───────────────────────────────────────────────────────────────────────
+
+def _nwr_issues(**nwr):
+    base = {"enabled": True, "reachable": True, "on_air": True, "channels_dead": [], "rivers_differ": [], "rivers_missing": []}
+    base.update(nwr)
+    return [i for i in h.build_issues({"nwr": base}) if i["area"] == "weather radio"]
+
+
+def test_a_healthy_weather_radio_raises_nothing():
+    assert _nwr_issues() == []
+    assert h.build_issues({"nwr": None}) == [] and h.build_issues({"nwr": {"enabled": False}}) == []
+
+
+def test_an_unreachable_tocsin_is_a_warning_and_hides_the_rest():
+    out = _nwr_issues(reachable=False, on_air=False)
+    assert [i["title"] for i in out] == ["Weather Radio (Tocsin) is unreachable"] and out[0]["severity"] == "warning"
+
+
+def test_no_audio_and_a_dead_channel_are_warnings():
+    titles = {i["title"]: i["severity"] for i in _nwr_issues(on_air=False, channels_dead=["PDX/WX7"])}
+    assert titles == {"No Weather Radio audio on air": "warning", "A Weather Radio channel is not receiving": "warning"}
+
+
+def test_river_disagreements_and_unread_gauges_are_information_not_alarms():
+    out = _nwr_issues(rivers_differ=["Willamette River at Salem"], rivers_missing=["South Santiam River at Waterloo"])
+    assert {i["severity"] for i in out} == {"info"} and len(out) == 2
+    assert h.overall_status(out) == "ok"                       # informational items never change the status
+
+
+def test_the_weather_radio_feeds_are_named_for_the_admin_page():
+    assert h.FEED_INFO["nwr:broadcast"] == ("Weather Radio broadcast", "Weather")

@@ -81,7 +81,7 @@ def is_relevant(alert: dict, zones: set[str]) -> bool:
     return not (alert.get("fips_codes") or [])
 
 
-def normalize(alert: dict, now: datetime | None = None, transcript: str = "") -> dict | None:
+def normalize(alert: dict, now: datetime | None = None, transcript: str = "", counties: dict | None = None) -> dict | None:
     """One Tocsin alert as a Vertex weather alert, or None once it has expired."""
     now = now or datetime.now(timezone.utc)
     rf = _rf_event(alert)
@@ -110,6 +110,10 @@ def normalize(alert: dict, now: datetime | None = None, transcript: str = "") ->
         "nwr_channel": rf.get("channel") or "",
         "nwr_counties": [u for u in (fips_to_ugc(c) for c in alert.get("fips_codes") or []) if u],
         "received_at": started.isoformat(),
+        "effective": started.isoformat(),
+        "area_desc": describe_area(alert.get("fips_codes") or [], counties),
+        "nwr_tier": str(rf.get("tier") or "").upper(),
+        "nwr_callsign": callsign,
         "test": str(rf.get("event_code") or "").upper() in {"RWT", "RMT", "NPT", "DMO"},
     }
 
@@ -140,6 +144,9 @@ def merge(cap_alerts: list[dict], nwr: list[dict]) -> list[dict]:
         if twin is not None:
             twin["rf_heard"] = True
             twin["received_at"] = twin.get("received_at") or n.get("received_at")
+            for k in ("nwr_lead_s", "nwr_cap_first"):
+                if k in n:
+                    twin[k] = n[k]
         else:
             extra.append(n)
     extra.sort(key=lambda a: a.get("received_at", ""), reverse=True)      # newest first,
@@ -183,3 +190,74 @@ def round_geometry(geometry: dict, places: int = 4) -> dict:
             return round(node, places)
         return [walk(n) for n in node]
     return {"type": geometry.get("type"), "coordinates": walk(geometry.get("coordinates", []))}
+
+
+def describe_area(fips_codes: list[str], counties: dict | None) -> str:
+    """'Clackamas, Multnomah and Washington Counties (OR); Clark County (WA)' from SAME codes and Tocsin's county
+    table ({"41005": {"county": "Clackamas", "state": "OR"}}); '' when nothing is known. A SAME code is P+SSCCC."""
+    by_state: dict[str, list[str]] = {}
+    for code in fips_codes or []:
+        code = str(code)
+        info = (counties or {}).get(code[1:]) if len(code) == 6 else None
+        if info and code[3:] != "000":
+            by_state.setdefault(info.get("state", ""), []).append(info["county"])
+    parts = []
+    for state, names in by_state.items():
+        names = sorted(set(names))
+        joined = names[0] if len(names) == 1 else ", ".join(names[:-1]) + " and " + names[-1]
+        parts.append(f"{joined} {'County' if len(names) == 1 else 'Counties'}" + (f" ({state})" if state else ""))
+    return "; ".join(parts)
+
+
+_EVENT_SEVERITY = {"A": "critical", "B": "medium"}
+
+
+def event_severity(alert: dict) -> str:
+    """Vertex event severity for a mapped alert, from Tocsin's dispatch tier: immediate-threat warnings are critical."""
+    return _EVENT_SEVERITY.get(str(alert.get("nwr_tier") or "").upper(), "low")
+
+
+class LeadTracker:
+    """How long the radio had an alert before Vertex's own NWS poller showed the same one.
+
+    The radio and the NWS feed are two routes to the same alert. For each RF-heard alert this notes when it was heard
+    and when a CAP alert of the same event first appeared in `weather:alerts`: the gap is the radio's lead (seconds),
+    or, when the CAP alert was already there the first time the radio alert was seen, the NWS feed simply had it first.
+    Matching is by event name, the same rule `merge` uses. JSON-serialisable so a restart does not forget."""
+
+    KEEP_S = 7 * 24 * 3600
+
+    def __init__(self, state: dict | None = None):
+        self.items: dict[str, dict] = (state or {}).get("items", {})
+
+    def update(self, alerts: list[dict], cap_events: set[str], now: float) -> list[dict]:
+        """Feed the current RF alerts and the lower-cased event names of the CAP alerts; returns the alerts that were
+        confirmed by CAP on this call (lead known)."""
+        confirmed = []
+        for a in alerts:
+            if a.get("test") or not a.get("nwr_id"):
+                continue
+            heard = _parse_time(a.get("received_at"))
+            rec = self.items.setdefault(a["nwr_id"], {
+                "heard": heard.timestamp() if heard else now, "cap_seen": None,
+                "cap_first": str(a.get("event", "")).lower() in cap_events, "event": a.get("event", "")})
+            if rec["cap_seen"] is None and str(a.get("event", "")).lower() in cap_events:
+                rec["cap_seen"] = now
+                if not rec["cap_first"]:
+                    confirmed.append({"nwr_id": a["nwr_id"], "event": rec["event"], "lead_s": round(now - rec["heard"])})
+        for gone in [k for k, v in self.items.items() if now - v["heard"] > self.KEEP_S]:
+            del self.items[gone]
+        return confirmed
+
+    def annotate(self, alert: dict) -> dict:
+        """The alert with `nwr_lead_s` (radio lead in seconds, once CAP showed up) or `nwr_cap_first` set."""
+        rec = self.items.get(alert.get("nwr_id") or "")
+        if rec:
+            if rec["cap_first"]:
+                alert["nwr_cap_first"] = True
+            elif rec["cap_seen"] is not None:
+                alert["nwr_lead_s"] = round(rec["cap_seen"] - rec["heard"])
+        return alert
+
+    def state(self) -> dict:
+        return {"items": self.items}

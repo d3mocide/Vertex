@@ -377,3 +377,7 @@ class TestDeleteAlertRule(unittest.IsolatedAsyncioTestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def test_weather_alert_is_an_accepted_trigger_type():
+    AlertRuleCreate(name="Tornado", trigger_type="weather_alert", rule_filter={"event": "tornado"})

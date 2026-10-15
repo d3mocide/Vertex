@@ -23,7 +23,9 @@ from bus import get_bus, set_feed
 from config import settings
 from db import get_pool
 import nwr_broadcast
-from nwr_alerts import build_areas, is_relevant, merge, normalize, outline_ugcs, recent_spoken, round_geometry, zone_set
+from events import emit_event
+from nwr_alerts import (LeadTracker, build_areas, event_severity, is_relevant, merge, normalize, outline_ugcs,
+                        recent_spoken, round_geometry, zone_set)
 from redaction import redact_text, redact_url
 from security import validate_request_url, validate_safe_url
 from .base import BasePoller
@@ -36,6 +38,8 @@ _TRANSCRIPT_KEEP = 120  # about 40 minutes of the broadcast (a ~20 s chunk each)
 _NWPS_GAUGE_URL = "https://api.water.noaa.gov/nwps/v1/gauges/{lid}"
 _GAUGE_REFRESH_S = 600  # official river readings change every 15-60 min
 _NOTICE_BOOK_KEY = "nwr:notice_book"
+_LEAD_KEY = "nwr:lead_tracker"
+_COUNTIES_REFRESH_S = 24 * 3600
 _SPOKEN_SHOWN = 8       # about two and a half minutes of the broadcast
 _NWS_HEADERS = {"User-Agent": "Vertex/0.1 (vertex; contact@localhost)", "Accept": "application/geo+json"}
 _GEOM_RETRY_S = 600   # a county the NWS would not return is retried this often, not on every refresh
@@ -69,6 +73,9 @@ class TocsinPoller(BasePoller):
         self._official: dict[str, tuple[float, dict | None]] = {}   # NWPS id -> (fetched at, reading)
         self._office: tuple[float, str] = (0.0, "")
         self._seeded = False
+        self._counties: dict = {}
+        self._counties_at = 0.0
+        self._leads: LeadTracker | None = None
 
     async def run(self) -> None:
         base = (settings.tocsin_url or "").strip().rstrip("/")
@@ -174,6 +181,57 @@ class TocsinPoller(BasePoller):
         self._office = (time.monotonic(), code)
         return code
 
+    async def _load_counties(self, client: httpx.AsyncClient) -> None:
+        """Tocsin's county names (static reference data), refreshed daily."""
+        if self._counties and time.monotonic() - self._counties_at < _COUNTIES_REFRESH_S:
+            return
+        try:
+            self._counties = (await self._get(client, "/reference")).get("counties") or self._counties
+            self._counties_at = time.monotonic()
+        except Exception as exc:
+            logger.debug("[tocsin] county names unavailable: %s", redact_text(exc))
+
+    async def _lead_tracker(self) -> LeadTracker:
+        if self._leads is None:
+            state = None
+            try:
+                raw = await (await get_bus()).get(_LEAD_KEY)
+                state = json.loads(raw) if raw else None
+            except Exception as exc:
+                logger.debug("[tocsin] lead tracker not restored: %s", redact_text(exc))
+            self._leads = LeadTracker(state)
+        return self._leads
+
+    async def _record_alerts(self, mapped: list[dict], cap: list[dict]) -> None:
+        """Lead time against Vertex's own NWS feed, and an event for each alert heard (and one when the NWS feed
+        catches up), so they land in the events log, replay and webhook rules."""
+        tracker = await self._lead_tracker()
+        cap_events = {str(a.get("event", "")).lower() for a in cap if a.get("source") != "nwr" and not a.get("test")}
+        confirmed = tracker.update(mapped, cap_events, time.time())
+        for item in mapped:
+            tracker.annotate(item)
+        try:
+            await (await get_bus()).set(_LEAD_KEY, json.dumps(tracker.state()), ex=8 * 24 * 3600)
+        except Exception as exc:
+            logger.debug("[tocsin] lead tracker not saved: %s", redact_text(exc))
+        for item in mapped:
+            if item.get("test"):
+                continue
+            where = f" for {item['area_desc']}" if item.get("area_desc") else ""
+            await emit_event(
+                "nwr_alert", None, event_severity(item),                       # no entity: events.entity_id is a foreign key
+                f"{item['event']} heard on NOAA Weather Radio{where}",
+                {"nwr_id": item["nwr_id"], "event": item["event"], "state": item["nwr_state"], "tier": item["nwr_tier"],
+                 "callsign": item["nwr_callsign"], "area": item["area_desc"], "counties": item["nwr_counties"],
+                 "cap_first": bool(item.get("nwr_cap_first"))},
+                dedupe={"nwr_id": item["nwr_id"]})
+        for c in confirmed:
+            await emit_event(
+                "nwr_alert_confirmed", None, "low",
+                f"{c['event']}: Vertex's NWS feed showed it {c['lead_s']} s after the radio",
+                {"nwr_id": c["nwr_id"], "event": c["event"], "lead_s": c["lead_s"]},
+                dedupe={"nwr_id": c["nwr_id"]})
+
     async def _notice_book(self) -> "nwr_broadcast.NoticeBook":
         if self._book is None:
             state = None
@@ -252,7 +310,10 @@ class TocsinPoller(BasePoller):
             row.update(nwr_broadcast.compare_river(row, official.get(row.get("lid")), now))
             row["in_vertex"] = bool(row.get("lid") and await r.exists(f"entity:nwps:gauge:{row['lid']}"))
         times = [c["timestamp_ns"] / 1e9 for c in chunks if c.get("timestamp_ns")]
+        office = nwr_broadcast.Office(await self._office_code())
+        home = nwr_broadcast.home_observation(parsed["observations"], office, settings.region_timezone, datetime.now(timezone.utc))
         return {
+            "home": home,
             "office": await self._office_code(),
             "notices": book.current(now),
             "observations": parsed["observations"], "rivers": parsed["rivers"],
@@ -263,6 +324,7 @@ class TocsinPoller(BasePoller):
 
     async def _refresh(self) -> None:
         async with httpx.AsyncClient(timeout=10, headers=self._headers) as client:
+            await self._load_counties(client)
             alerts = await self._get(client, "/alerts", limit=50)
             transcripts = await self._get(client, "/transcripts", limit=_TRANSCRIPT_KEEP)
             streams = await self._get(client, "/streams")
@@ -276,9 +338,16 @@ class TocsinPoller(BasePoller):
             if not is_relevant(alert, zones):
                 continue
             rf = next((s.get("event") for s in alert.get("sources", []) if s.get("kind") == "RF"), None) or {}
-            item = normalize(alert, now, spoken.get(rf.get("raw_header"), ""))
+            item = normalize(alert, now, spoken.get(rf.get("raw_header"), ""), self._counties)
             if item:
                 mapped.append(item)
+        r0 = await get_bus()
+        raw_cap = await r0.get("feed:weather:alerts")
+        try:
+            current = json.loads(raw_cap) if raw_cap else []
+        except (json.JSONDecodeError, TypeError):
+            current = []
+        await self._record_alerts(mapped, [a for a in current if isinstance(a, dict)] if isinstance(current, list) else [])
         await set_feed("nwr:alerts", mapped, broadcast=False)
         await self._load_outlines(outline_ugcs(mapped))
         await set_feed("nwr:areas", build_areas(mapped, self._geom), broadcast=False)

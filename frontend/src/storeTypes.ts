@@ -248,6 +248,12 @@ export interface WeatherAlert {
   nwr_state_label?: string
   /** A CAP alert that Weather Radio also announced. */
   rf_heard?:        boolean
+  /** Counties the alert covers, e.g. "Clackamas and Washington Counties (OR)". */
+  area_desc?:       string
+  /** Seconds the radio had it before Vertex's own NWS feed showed the same alert. */
+  nwr_lead_s?:      number
+  /** The NWS feed already had it when the radio alert first appeared. */
+  nwr_cap_first?:   boolean
   test?:            boolean
 }
 
@@ -260,6 +266,8 @@ export interface WeatherState {
   humidity?:   number
   aqi?:        number
   aqi_label?:  string
+  /** "nwr" when the NWS observation feed is down and this is NOAA Weather Radio's hourly reading instead. */
+  source?:     string
   alerts:      WeatherAlert[]
 }
 

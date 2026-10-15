@@ -32,7 +32,7 @@ async def _check_action_config_url(action_config: dict[str, Any] | None) -> None
 class AlertRuleCreate(BaseModel):
     name: str = Field(min_length=1, max_length=128)
     enabled: bool = True
-    trigger_type: Literal["geofence_entry", "severity_threshold", "entity_type", "scheduled"]
+    trigger_type: Literal["geofence_entry", "severity_threshold", "entity_type", "weather_alert", "scheduled"]
     rule_filter: dict[str, Any] | None = None
     action_type: Literal["webhook_post", "log", "sitrep_delivery"] = "webhook_post"
     action_config: dict[str, Any] = Field(default_factory=dict)
@@ -44,7 +44,7 @@ class AlertRuleCreate(BaseModel):
 class AlertRuleUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=128)
     enabled: bool | None = None
-    trigger_type: Literal["geofence_entry", "severity_threshold", "entity_type", "scheduled"] | None = None
+    trigger_type: Literal["geofence_entry", "severity_threshold", "entity_type", "weather_alert", "scheduled"] | None = None
     rule_filter: dict[str, Any] | None = None
     action_type: Literal["webhook_post", "log", "sitrep_delivery"] | None = None
     action_config: dict[str, Any] | None = None

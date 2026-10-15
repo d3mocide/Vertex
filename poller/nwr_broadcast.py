@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import difflib
 import re
+import datetime as _dt
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -51,6 +52,7 @@ class Office:
         block = (data.get("offices") or {}).get((code or "").upper(), {})
         self.code = (code or "").upper()
         self.cities = [c["name"] for c in block.get("observations", [])]
+        self.home = block.get("home")
         self._alias: dict[str, str] = {}
         for c in block.get("observations", []):
             for a in c.get("aliases", []) + [c["name"]]:
@@ -496,3 +498,38 @@ def compare_river(radio: dict, official: dict | None, now: float) -> dict:
     if official.get("at") and now - official["at"] > STALE_OFFICIAL_S:
         out["official_stale"] = True
     return out
+
+
+# ── current conditions from the radio ───────────────────────────────────────────────────────────
+
+_HOUR = re.compile(r"^(\d{1,2}) ([AP])M$")
+MAX_OBS_AGE_S = 3 * 3600
+
+
+def home_observation(obs: dict, office: Office, tz_name: str, now: datetime) -> dict | None:
+    """The latest hourly observation for the office's home city in the shape of the NWS current-conditions feed, for
+    use when that feed is down; None when the broadcast has not named the city or the reading is too old.
+
+    The broadcast says only the hour ("4 PM"); it is placed on today in `tz_name`, or yesterday when that would be in
+    the future (just after midnight, reading the 11 PM block)."""
+    from zoneinfo import ZoneInfo
+
+    m = _HOUR.match(obs.get("hour") or "")
+    station = next((s for s in obs.get("stations", []) if s["place"] == office.home), None) if office.home else None
+    if not m or not station:
+        return None
+    zone = ZoneInfo(tz_name)
+    local_now = now.astimezone(zone)
+    hour = int(m.group(1)) % 12 + (12 if m.group(2) == "P" else 0)
+    observed = local_now.replace(hour=hour, minute=0, second=0, microsecond=0)
+    if observed > local_now + _dt.timedelta(minutes=5):
+        observed -= _dt.timedelta(days=1)
+    if (local_now - observed).total_seconds() > MAX_OBS_AGE_S:
+        return None
+    return {
+        "station": f"NOAA Weather Radio ({office.home})", "timestamp": observed.astimezone(timezone.utc).isoformat(),
+        "temp_f": float(station["temp_f"]), "wind_mph": station.get("wind_mph"), "wind_gust_mph": station.get("gust_mph"),
+        "wind_dir": {"N": "N", "S": "S", "E": "E", "W": "W"}.get(station.get("wind_dir") or "", station.get("wind_dir")),
+        "condition": (station.get("sky") or "").capitalize() or None, "humidity": None,
+        "pressure_in": station.get("pressure_in"), "source": "nwr",
+    }

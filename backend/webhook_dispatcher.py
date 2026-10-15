@@ -44,6 +44,17 @@ def _matches_rule(rule: AlertRule, event: dict) -> bool:
         min_sev = str(rule_filter.get("min_severity") or "high").lower()
         return _SEVERITY_RANK.get(severity, 1) >= _SEVERITY_RANK.get(min_sev, 3)
 
+    if rule.trigger_type == "weather_alert":
+        # An alert heard on NOAA Weather Radio (poller/pollers/tocsin.py). min_severity defaults to medium: watches and
+        # warnings, not tests (those are never emitted). `event` narrows it to one kind of alert by name.
+        if event_type != "nwr_alert":
+            return False
+        min_sev = str(rule_filter.get("min_severity") or "medium").lower()
+        if _SEVERITY_RANK.get(severity, 1) < _SEVERITY_RANK.get(min_sev, 2):
+            return False
+        wanted = str(rule_filter.get("event") or "").strip().lower()
+        return not wanted or wanted in str(details.get("event") or "").lower()
+
     if rule.trigger_type == "entity_type":
         want = str(rule_filter.get("entity_type") or "").strip().lower()
         if not want:

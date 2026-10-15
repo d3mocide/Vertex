@@ -64,15 +64,39 @@ async def _proxy_wms(url: str, params: dict):
     return Response(content=upstream.content, media_type=content_type)
 
 
+# The poller refreshes current conditions every few minutes; after this long without one the NWS feed is treated as
+# down and NOAA Weather Radio's own hourly observation (computed by the poller, nwr:broadcast.home) takes over.
+_CURRENT_STALE_S = 20 * 60
+
+
+def _loads(raw):
+    try:
+        return json.loads(raw) if raw else None
+    except (json.JSONDecodeError, TypeError):
+        return None
+
+
+async def current_conditions(r, now: datetime | None = None) -> dict:
+    """Current conditions: the NWS station observation, or when that feed has gone quiet the Weather Radio reading
+    (marked `source: "nwr"`, so the page can say where it came from), or {} when neither exists."""
+    now = now or datetime.now(timezone.utc)
+    current = _loads(await r.get("feed:weather:current")) or {}
+    try:
+        updated = datetime.fromisoformat(await r.hget("feed:meta", "weather:current") or "")
+        age = (now - updated).total_seconds()
+    except (TypeError, ValueError):
+        age = None if current else float("inf")
+    if current and age is not None and age <= _CURRENT_STALE_S:
+        return current
+    home = ((_loads(await r.get("feed:nwr:broadcast")) or {}).get("home"))
+    if isinstance(home, dict) and home.get("temp_f") is not None:
+        return {**home, "stale_feed": True}
+    return current
+
+
 @router.get("")
 async def get_weather():
-    raw = await get_redis().get("feed:weather:current")
-    if not raw:
-        return {}
-    try:
-        return json.loads(raw)
-    except (json.JSONDecodeError, TypeError):
-        return {}
+    return await current_conditions(get_redis())
 
 
 async def _feed_or(key: str, default):

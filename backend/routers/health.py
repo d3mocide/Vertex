@@ -25,6 +25,7 @@ _FEED_MAX_AGE_S = {
     "alerts:flash": 300, "news:local": 900, "intel:alerts": 900,
     "fire:nifc_incidents": 1800, "fire:perimeters": 5400, "radio:incidents": 600, "summary:latest": 7200,
     "hydro:status": 1800,
+    "nwr:status": 180, "nwr:broadcast": 180, "nwr:alerts": 180,
 }
 
 

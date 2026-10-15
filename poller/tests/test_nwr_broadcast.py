@@ -310,3 +310,46 @@ def test_the_bar_note_stops_at_the_time_clause_and_does_not_run_into_the_current
             "First ab, ab current of 5.19 knots at 7.30 pm Wednesday.")
     assert nb.marine(text)["bar"] == {"seas_ft": [4, 6], "note": "through Thursday evening"}
     assert nb.marine("Columbia River Bar, General Seas 3 to 5 feet.")["bar"]["note"] == ""
+
+
+# ── current conditions at home, from the radio ─────────────────────────────────────────────────────
+
+from datetime import datetime, timezone  # noqa: E402
+
+TZ = "America/Los_Angeles"
+
+
+def _obs(hour="4 PM", place="Portland", temp=71, sky="mostly sunny", wind_dir="W", wind=7):
+    return {"hour": hour, "stations": [{"place": place, "sky": sky, "temp_f": temp, "wind_dir": wind_dir, "wind_mph": wind,
+                                         "gust_mph": None, "pressure_in": 30.25, "pressure_trend": "falling"}]}
+
+
+def _now(h, m=10, day=14):                       # a local clock time, expressed in UTC (PDT is UTC-7 in October)
+    return datetime(2026, 10, day, h + 7, m, tzinfo=timezone.utc) if h + 7 < 24 else datetime(2026, 10, day + 1, h + 7 - 24, m, tzinfo=timezone.utc)
+
+
+def test_home_observation_takes_the_nws_feed_shape():
+    out = nb.home_observation(_obs(), OFFICE, TZ, _now(16, 30))
+    assert out["temp_f"] == 71.0 and out["wind_mph"] == 7 and out["wind_dir"] == "W" and out["condition"] == "Mostly sunny"
+    assert out["source"] == "nwr" and out["station"] == "NOAA Weather Radio (Portland)" and out["humidity"] is None
+    assert out["timestamp"] == "2026-10-14T23:00:00+00:00"                      # 4 PM Pacific
+
+
+def test_an_hour_later_today_than_now_means_yesterday():
+    out = nb.home_observation(_obs(hour="11 PM"), OFFICE, TZ, _now(0, 20, day=15))       # 12:20 AM, reading the 11 PM block
+    assert out["timestamp"] == "2026-10-15T06:00:00+00:00"                      # 11 PM on the 14th, Pacific
+
+
+def test_a_reading_older_than_three_hours_is_not_offered():
+    assert nb.home_observation(_obs(hour="9 AM"), OFFICE, TZ, _now(16)) is None
+
+
+def test_no_home_city_in_the_broadcast_or_for_the_office_means_nothing_to_offer():
+    assert nb.home_observation(_obs(place="Salem"), OFFICE, TZ, _now(16, 30)) is None
+    assert nb.home_observation(_obs(), nb.Office("XXX"), TZ, _now(16, 30)) is None
+    assert nb.home_observation({"hour": None, "stations": []}, OFFICE, TZ, _now(16)) is None
+
+
+def test_the_real_loop_yields_a_home_observation(loop):
+    out = nb.home_observation(loop["observations"], OFFICE, TZ, datetime.fromtimestamp(LOOP[-1]["timestamp_ns"] / 1e9, timezone.utc))
+    assert out and 40 <= out["temp_f"] <= 100 and out["condition"]
