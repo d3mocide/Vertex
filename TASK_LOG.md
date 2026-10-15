@@ -5,6 +5,16 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 
 ---
 
+## 2026-10-14 — Tocsin key + county outlines, OP25 graceful pre-emption, narrower Tocsin channelizer
+
+- **County outlines on the map** for alerts heard on Weather Radio that the NWS feed does not list yet (`RF_ONLY` / `TRANSCRIPT_ONLY`, never tests): [poller/pollers/tocsin.py](poller/pollers/tocsin.py) fetches each county's shape once from the NWS zones API (rounded to 4 places, cached for the process lifetime, failures retried every 10 min) and publishes `nwr:areas`; `/api/v1/nwr` returns them; [buildNwrAreaLayer.ts](frontend/src/layers/buildNwrAreaLayer.ts) draws them in Deck.gl (red-emergency for Tier A warnings, amber-gold for watches/advisories). Always on while such an alert is active: it is rare and a warning, and once the NWS lists it its own alerts layer takes over. The NWR status now lives in the store (`nwr`, polled once in `useAlerts`) and the Environment card reads it instead of polling separately. Verified: real outlines for two counties (~10 KB), 11 `test_nwr_alerts.py` tests, zero-error TypeScript. Not verified visually (no test login), nor with a live alert.
+- **Tocsin API key**: `TOCSIN_API_KEY` is sent as `X-API-Key` (poller and the stream relay). The key was generated on the Tocsin host and written to both `.env` files only.
+- **OP25 graceful pre-emption** (OP25 host, `tk_p25.py`, backup `tk_p25.py.bak-20261014`): a higher-priority grant now waits for the current transmission to end (TDU/TDULC/MAC_END_PTT/IDLE/HANGTIME) for at most `PREEMPT_MAX_WAIT_S` = 3.5 s before taking the receiver; transmission state fails open after 1.5 s of silence. Measured over 20 min of live traffic: 1 forced pre-emption (the talker held the channel past the ceiling) against ~7 per 20 min before, 14 waits, 8 deferrals to the idle receiver. OP25 itself is at upstream `master` HEAD; the only differences are our local patches.
+- **Tocsin `sdr-rx`** now runs the weather-only 12-bin plan (300 kS/s, `SDR_RX_NUM_BINS`): same per-channel levels and a live stream/transcripts after the swap, container CPU 47% to 22%. Details and tests are in the Tocsin repo (`feat/api-key-and-narrow-channelizer`, merged to its `main`).
+- Earlier finding corrected: the "OP25-side gaps" counted pauses between transmissions; inside a transmission OP25's audio had 3 gaps over 0.4 s in 20 min (max 0.52 s).
+- Next: `.env` cleanup (52 of the poller's 85 `.env` values equal the code default; a check/minimize/generate tool is proposed), and the precision-failing `test_result_independent_of_chunk_boundaries[complex64-*]` in Tocsin's `sdr_rx`.
+
+
 ## 2026-10-14 — NOAA Weather Radio from Tocsin: RF alerts in the alert list, live audio on the Environment page
 
 - Tocsin (our NWR SAME decoder, run next to the SDRs) is now an optional Vertex source: set `TOCSIN_URL` (and `TOCSIN_API_KEY` once Tocsin has auth) and add its host to `PRIVATE_HOST_ALLOWLIST`. Blank = off.

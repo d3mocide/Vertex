@@ -34,11 +34,13 @@ async def nwr_status():
         return {"enabled": False}
     status = await _feed("nwr:status", {"reachable": False})
     alerts = await _feed("nwr:alerts", [])
+    areas = await _feed("nwr:areas", [])
     streams = [s for s in status.get("streams", []) if s.get("on_air")]
     return {
         "enabled": True,
         **status,
         "alerts": alerts if isinstance(alerts, list) else [],
+        "areas": areas if isinstance(areas, list) else [],
         "stream_url": "/api/v1/nwr/stream" if streams else None,
     }
 

@@ -263,6 +263,28 @@ export interface WeatherState {
   alerts:      WeatherAlert[]
 }
 
+// ─── NOAA Weather Radio (Tocsin) ────────────────────────────────────────────────
+/** County outline for an alert heard on Weather Radio that the NWS feed does not list yet. */
+export interface NwrArea {
+  ugc:      string
+  event:    string
+  severity: string
+  expires:  string
+  alert_id: string
+  geometry: GeoJSON.Polygon | GeoJSON.MultiPolygon
+}
+
+export interface NwrState {
+  enabled:         boolean
+  reachable?:      boolean
+  streams?:        { mount: string; site: string; channel: string; on_air: boolean; listeners: number }[]
+  channels_dead?:  string[]
+  last_spoken?:    { text: string; channel: string; at: string } | null
+  alerts?:         { event: string; nwr_state: string; test: boolean }[]
+  areas?:          NwrArea[]
+  stream_url?:     string | null
+}
+
 // ─── Radio ────────────────────────────────────────────────────────────────────
 export interface RadioState {
   tgid:     number | null

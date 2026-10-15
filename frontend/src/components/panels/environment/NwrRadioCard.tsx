@@ -1,40 +1,16 @@
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { API_BASE } from '../../../config'
-import { authHeaders } from '../../../auth'
+import { useCivicStore } from '../../../store'
 
-interface NwrStatus {
-  enabled: boolean
-  reachable?: boolean
-  streams?: { mount: string; site: string; channel: string; on_air: boolean; listeners: number }[]
-  channels_dead?: string[]
-  last_spoken?: { text: string; channel: string; at: string } | null
-  alerts?: { event: string; nwr_state: string; test: boolean }[]
-  stream_url?: string | null
-}
-
-const POLL_MS = 20_000
 const STREAM_ORIGIN = API_BASE.replace(/\/api\/v1\/?$/, '')
 
 /** Live NOAA Weather Radio from Tocsin: play the broadcast, see the last thing the announcer said and whether the
  *  receiver hears the channel. Renders nothing unless Tocsin is configured. */
 export function NwrRadioCard() {
-  const [status, setStatus] = useState<NwrStatus | null>(null)
+  const status = useCivicStore((s) => s.nwr)       // polled once for the whole app (hooks/useAlerts.ts)
   const [playing, setPlaying] = useState(false)
   const [failed, setFailed] = useState(false)
   const audioRef = useRef<HTMLAudioElement | null>(null)
-
-  useEffect(() => {
-    let alive = true
-    const load = async () => {
-      try {
-        const res = await fetch(`${API_BASE}/nwr`, { headers: authHeaders() })
-        if (res.ok && alive) setStatus(await res.json() as NwrStatus)
-      } catch { /* keep the last status */ }
-    }
-    void load()
-    const id = setInterval(load, POLL_MS)
-    return () => { alive = false; clearInterval(id); audioRef.current?.pause() }
-  }, [])
 
   if (!status?.enabled) return null
 

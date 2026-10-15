@@ -1,7 +1,7 @@
 """Tocsin (NOAA Weather Radio) alert mapping: SAME codes to zones, severity, relevance, merge with CAP."""
 from datetime import datetime, timedelta, timezone
 
-from nwr_alerts import fips_to_ugc, is_relevant, merge, normalize, zone_set
+from nwr_alerts import build_areas, fips_to_ugc, is_relevant, merge, normalize, outline_ugcs, round_geometry, zone_set
 
 NOW = datetime(2026, 10, 14, 18, 10, tzinfo=timezone.utc)
 
@@ -76,3 +76,26 @@ def test_merge_orders_new_before_old_and_tests_last_and_drops_stale_nwr():
     stale_in_cap = [{"event": "Old", "source": "nwr"}, {"event": "Heat Advisory"}]
     out = merge(stale_in_cap, [test, old, new])
     assert [a["event"] for a in out] == ["Heat Advisory", "Severe Thunderstorm Warning", "Flood Watch", "Required Weekly Test"]
+
+
+SQUARE = {"type": "Polygon", "coordinates": [[[-122.912345678, 45.1], [-122.8, 45.1], [-122.8, 45.2], [-122.912345678, 45.1]]]}
+
+
+def test_outlines_only_for_rf_first_alerts_and_never_tests():
+    rf = normalize(_alert(fips=("041067", "041051")), NOW)
+    confirmed = normalize(_alert(name="Flood Warning", fips=("041005",), state="CONFIRMED"), NOW)
+    test = normalize(_alert(code="RWT", name="Required Weekly Test", tier="C", fips=("041009",), purge=15), NOW)
+    assert outline_ugcs([rf, confirmed, test]) == {"ORC067", "ORC051"}
+
+
+def test_build_areas_pairs_alert_and_county_shape_and_skips_unknown_shapes():
+    rf = normalize(_alert(fips=("041067", "041051")), NOW)
+    areas = build_areas([rf], {"ORC067": SQUARE, "ORC051": None})
+    assert [a["ugc"] for a in areas] == ["ORC067"]
+    assert areas[0]["event"] == "Tornado Warning" and areas[0]["severity"] == "Severe"
+    assert areas[0]["geometry"] == SQUARE and areas[0]["alert_id"] == "abc"
+
+
+def test_round_geometry_trims_coordinates_but_keeps_structure():
+    out = round_geometry(SQUARE)
+    assert out["type"] == "Polygon" and out["coordinates"][0][0] == [-122.9123, 45.1]

@@ -14,6 +14,7 @@ Runs in the radio service (poller/radio_main.py).
 import asyncio
 import json
 import logging
+import time
 from datetime import datetime, timezone
 
 import httpx
@@ -21,9 +22,9 @@ import httpx
 from bus import get_bus, set_feed
 from config import settings
 from db import get_pool
-from nwr_alerts import is_relevant, merge, normalize, zone_set
+from nwr_alerts import build_areas, is_relevant, merge, normalize, outline_ugcs, round_geometry, zone_set
 from redaction import redact_text, redact_url
-from security import validate_safe_url
+from security import validate_request_url, validate_safe_url
 from .base import BasePoller
 
 logger = logging.getLogger(__name__)
@@ -31,6 +32,8 @@ logger = logging.getLogger(__name__)
 REFRESH_S = 30
 _SSE_RETRY_S = 10
 _TRANSCRIPT_KEEP = 20
+_NWS_HEADERS = {"User-Agent": "Vertex/0.1 (vertex; contact@localhost)", "Accept": "application/geo+json"}
+_GEOM_RETRY_S = 600   # a county the NWS would not return is retried this often, not on every refresh
 
 
 async def _sse_events(lines):
@@ -55,6 +58,8 @@ class TocsinPoller(BasePoller):
         self._dirty = asyncio.Event()
         self._base = ""
         self._headers: dict[str, str] = {}
+        self._geom: dict[str, dict | None] = {}          # county outlines never change: fetched once
+        self._geom_failed: dict[str, float] = {}
 
     async def run(self) -> None:
         base = (settings.tocsin_url or "").strip().rstrip("/")
@@ -126,6 +131,25 @@ class TocsinPoller(BasePoller):
         resp.raise_for_status()
         return resp.json()
 
+    async def _load_outlines(self, ugcs: set[str]) -> None:
+        """County shapes from the NWS zones API for alerts that need an outline; cached for the process lifetime."""
+        missing = [u for u in sorted(ugcs) if u not in self._geom
+                   and time.monotonic() - self._geom_failed.get(u, -_GEOM_RETRY_S) >= _GEOM_RETRY_S]
+        if not missing:
+            return
+        async with httpx.AsyncClient(timeout=15, headers=_NWS_HEADERS, event_hooks={"request": [validate_request_url]}) as client:
+            for ugc in missing:
+                try:
+                    resp = await client.get(f"https://api.weather.gov/zones/county/{ugc}")
+                    resp.raise_for_status()
+                    geometry = (resp.json().get("geometry") or {})
+                    if geometry.get("type") in ("Polygon", "MultiPolygon"):
+                        self._geom[ugc] = round_geometry(geometry)
+                        continue
+                except Exception as exc:
+                    logger.warning("[tocsin] outline for %s unavailable: %s", ugc, redact_text(exc))
+                self._geom_failed[ugc] = time.monotonic()
+
     async def _refresh(self) -> None:
         async with httpx.AsyncClient(timeout=10, headers=self._headers) as client:
             alerts = await self._get(client, "/alerts", limit=50)
@@ -145,6 +169,8 @@ class TocsinPoller(BasePoller):
             if item:
                 mapped.append(item)
         await set_feed("nwr:alerts", mapped, broadcast=False)
+        await self._load_outlines(outline_ugcs(mapped))
+        await set_feed("nwr:areas", build_areas(mapped, self._geom), broadcast=False)
 
         r = await get_bus()
         raw = await r.get("feed:weather:alerts")

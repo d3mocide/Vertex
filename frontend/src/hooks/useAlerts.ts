@@ -21,6 +21,7 @@ export function useAlerts() {
     setAlerts,
     setNews,
     setWeather,
+    setNwr,
     setCameras,
     setTrafficFlow,
     setTrafficIncidents,
@@ -29,7 +30,7 @@ export function useAlerts() {
     setRadioIncidents,
     setAdvisories,
     setFeedMeta,
-  } = useCivicPick('setAlerts', 'setNews', 'setWeather', 'setCameras', 'setTrafficFlow', 'setTrafficIncidents', 'setUtilityStatus', 'setSummary', 'setRadioIncidents', 'setAdvisories', 'setFeedMeta')
+  } = useCivicPick('setAlerts', 'setNews', 'setWeather', 'setNwr', 'setCameras', 'setTrafficFlow', 'setTrafficIncidents', 'setUtilityStatus', 'setSummary', 'setRadioIncidents', 'setAdvisories', 'setFeedMeta')
   const timers = useRef<ReturnType<typeof setInterval>[]>([])
 
   useEffect(() => {
@@ -65,6 +66,9 @@ export function useAlerts() {
       if (Array.isArray(alerts)) {
         setWeather({ alerts: alerts as Parameters<typeof setWeather>[0]['alerts'] })
       }
+      // Weather Radio via Tocsin: one poll feeds the Environment card and the map outlines. Disabled = {enabled:false}.
+      const nwr = await fetchJson<Parameters<typeof setNwr>[0]>(`${API_BASE}/nwr`)
+      if (nwr) setNwr(nwr)
     }
 
     // Fetch cameras

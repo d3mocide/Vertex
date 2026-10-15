@@ -18,6 +18,7 @@ import { buildGeofenceLayers, type GeofenceItem } from '../layers/buildGeofenceL
 import { buildObservationRingLayers } from '../layers/buildObservationRingLayer'
 import { buildCustomLayers } from '../layers/buildCustomLayers'
 import { buildLightningLayer } from '../layers/buildLightningLayer'
+import { buildNwrAreaLayers } from '../layers/buildNwrAreaLayer'
 import { buildStreamGaugeLayers, type StreamGaugePoint } from '../layers/buildStreamGaugeLayer'
 import { buildMeshNodeLayers, type MeshNodePoint } from '../layers/buildMeshNodeLayer'
 import { buildDispatchLayers } from '../layers/buildDispatchLayer'
@@ -34,6 +35,7 @@ import { buildTransitRouteLayers, type TransitRoute } from '../layers/transitRou
 import { DEFAULT_CENTER, OBSERVATION_RANGE_KM, API_BASE } from '../config'
 import { authHeaders } from '../auth'
 import type { LightningStrike } from '../store'
+import type { NwrArea } from '../storeTypes'
 import { installPerfRecorder, markLayerBuild } from '../perfRecorder'
 import { isPerfEnabled, markPhase, registerDevMap, setScene } from '../devtools/devState'
 
@@ -63,6 +65,7 @@ function escHtml(s: unknown): string {
 
 const EMPTY_CAMERAS: TrafficCamera[] = []
 const EMPTY_LIGHTNING: LightningStrike[] = []
+const EMPTY_NWR_AREAS: NwrArea[] = []
 
 export function MapOverlay({ map }: Props) {
   const deckRef           = useRef<MapboxOverlay | null>(null)
@@ -110,6 +113,7 @@ export function MapOverlay({ map }: Props) {
   const entityMissionTags = useCivicStore((s) => s.entityMissionTags)
   const lightningStrikes   = useCivicStore((s) => s.lightningVisible ? s.lightningStrikes : EMPTY_LIGHTNING)
   const lightningVisible   = useCivicStore((s) => s.lightningVisible)
+  const nwrAreas           = useCivicStore((s) => s.nwr?.areas ?? EMPTY_NWR_AREAS)
   const gaugesVisible      = useCivicStore((s) => s.gaugesVisible)
   const selectEntity      = useCivicStore((s) => s.selectEntity)
   const setSelectedCamId  = useCivicStore((s) => s.setSelectedCamId)
@@ -150,6 +154,8 @@ export function MapOverlay({ map }: Props) {
   const systemEventsRef = useRef<SystemEvent[]>([])
   useEffect(() => { systemEventsRef.current = systemEvents }, [systemEvents])
   const lightningRef = useRef<LightningStrike[]>([])
+  const nwrAreasRef = useRef<NwrArea[]>(EMPTY_NWR_AREAS)
+  useEffect(() => { nwrAreasRef.current = nwrAreas }, [nwrAreas])
   const lightningVisibleRef = useRef(true)
   const gaugesVisibleRef = useRef(true)
   const dispatchRef = useRef<RadioIncident[]>([])
@@ -794,6 +800,8 @@ export function MapOverlay({ map }: Props) {
             () => buildCustomLayers(customLayersRef.current)),
           ...memoGroup('geofence', [geofencesRef.current, geofencesVisibleRef.current, tv],
             () => buildGeofenceLayers(geofencesRef.current, geofencesVisibleRef.current)),
+          ...memoGroup('nwrArea', [nwrAreasRef.current, minuteBucket, tv],
+            () => buildNwrAreaLayers(nwrAreasRef.current, nowMs)),
           ...memoGroup('obsRing', [tv],
             () => buildObservationRingLayers(DEFAULT_CENTER, OBSERVATION_RANGE_KM, true)),
           // Rebuilt only when mesh nodes change (not on every aircraft update).

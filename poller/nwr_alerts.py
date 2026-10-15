@@ -130,3 +130,41 @@ def merge(cap_alerts: list[dict], nwr: list[dict]) -> list[dict]:
     extra.sort(key=lambda a: a.get("received_at", ""), reverse=True)      # newest first,
     extra.sort(key=lambda a: bool(a.get("test")))                          # then tests last (stable)
     return merged + extra
+
+
+# An alert the NWS feed already lists is drawn by the map's NWS alerts layer; only RF-first ones need an outline
+# of their own (and tests never do).
+_OUTLINE_STATES = {"RF_ONLY", "TRANSCRIPT_ONLY"}
+
+
+def outline_ugcs(alerts: list[dict]) -> set[str]:
+    return {u for a in alerts if _wants_outline(a) for u in a.get("nwr_counties", [])}
+
+
+def _wants_outline(alert: dict) -> bool:
+    return alert.get("nwr_state") in _OUTLINE_STATES and not alert.get("test")
+
+
+def build_areas(alerts: list[dict], geometries: dict[str, dict | None]) -> list[dict]:
+    """One outline per (alert, county) with a known shape: what the map draws for RF-first alerts."""
+    out = []
+    for a in alerts:
+        if not _wants_outline(a):
+            continue
+        for ugc in a.get("nwr_counties", []):
+            geometry = geometries.get(ugc)
+            if geometry:
+                out.append({
+                    "ugc": ugc, "event": a.get("event", ""), "severity": a.get("severity", ""),
+                    "expires": a.get("expires", ""), "alert_id": a.get("nwr_id", ""), "geometry": geometry,
+                })
+    return out
+
+
+def round_geometry(geometry: dict, places: int = 4) -> dict:
+    """Round coordinates (~10 m at 4 places) so a county outline stays a few KB in Redis and over the wire."""
+    def walk(node):
+        if isinstance(node, (int, float)):
+            return round(node, places)
+        return [walk(n) for n in node]
+    return {"type": geometry.get("type"), "coordinates": walk(geometry.get("coordinates", []))}
