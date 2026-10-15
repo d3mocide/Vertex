@@ -353,3 +353,43 @@ def test_weather_test_alerts_are_not_briefed():
     from pollers.summary_context import format_weather_alerts
     only_test = [{"event": "Required Weekly Test", "headline": "t", "test": True}]
     assert "None active" in format_weather_alerts(only_test, NOW)
+
+
+_BRIEFING = (
+    "**BOTTOM LINE:** Posture NORMAL. Quiet.\n\n### Changes Since Last Briefing\n- none\n\n"
+    "### Key Developments\n- none\n\n### Compound Risks\n{risks}\n\n### Next 24 Hours\n{outlook}\n\n"
+    "### Recommended Actions\n- No action required.\n"
+)
+
+
+def test_score_flags_a_missing_outlook_only_when_forecast_products_were_given():
+    text = _BRIEFING.format(risks="None identified.", outlook="No forecast data available.")
+    assert score_briefing(text, {"has_forecast": True})["forecast_missed"] is True
+    assert score_briefing(text, {"has_forecast": False})["forecast_missed"] is False
+    ok = _BRIEFING.format(risks="None identified.", outlook="- Dry through Friday.")
+    assert score_briefing(ok, {"has_forecast": True})["forecast_missed"] is False
+
+
+def test_score_counts_bold_heading_and_bullet_compound_risks():
+    heading = _BRIEFING.format(risks="**High wind fire risk** — wind spreads the fires.", outlook="- dry")
+    assert score_briefing(heading, {})["compound_risks"] == 1
+    bullets = _BRIEFING.format(risks="- **A** — x\n- **B** — y", outlook="- dry")
+    assert score_briefing(bullets, {})["compound_risks"] == 2
+
+
+def test_forecast_notice_is_added_only_when_the_products_are_missing():
+    texts, has = summary_context.with_forecast_notice(["HEADER", "WX", "ALERTS", "NWS FORECASTER PRODUCTS (...)\n- AFD"])
+    assert has is True and summary_context.NO_FORECAST_NOTICE not in texts
+    texts, has = summary_context.with_forecast_notice(["HEADER", "WX", "ALERTS", "FIRE", "TRAFFIC"])
+    assert has is False and texts.index(summary_context.NO_FORECAST_NOTICE) == 3
+
+
+def test_data_gaps_come_from_the_feeds_not_the_model():
+    from pollers.summary import with_data_gaps
+
+    said = _BRIEFING.format(risks="None identified.", outlook="- dry") + "\n### Data Gaps\nAll feeds were current.\n"
+    assert "Data Gaps" not in with_data_gaps(said, [])
+    out = with_data_gaps(said, ["TRAFFIC: ODOT feed unavailable", "NWS ALERTS: not synced:"])
+    assert out.count("### Data Gaps") == 1 and "All feeds were current" not in out
+    assert out.endswith("- TRAFFIC: ODOT feed unavailable\n- NWS ALERTS: not synced")
+    assert "### Recommended Actions" in out  # the sections before it are untouched

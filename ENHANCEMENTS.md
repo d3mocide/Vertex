@@ -67,7 +67,7 @@ Since the May foundations below. See `TASK_LOG.md` for detail.
 |---|------|--------|-------|
 | O1 | Power outage cause and restoration time | `[-]` | ODIN gives customers and area only. PGE's outage map uses a Kubra feed that returns 401 without a browser session; PacifiCorp keeps its own. Context (weather, lightning) is shown instead |
 | O2 | NASA FIRMS hotspots | `[~]` | Code is live; needs a free `FIRMS_MAP_KEY` in `.env` |
-| O3 | Briefing quality tuning | `[~]` | Posture is sometimes over-called ELEVATED; occasional mixing of similar items. Watch `/summary/metrics` |
+| O3 | Briefing quality tuning | `[~]` | Posture is sometimes over-called ELEVATED; occasional mixing of similar items. Watch `/summary/metrics`. 2026-10-15: prompt reworked for small models (Gemma E4B is now the sit rep model; ~50 s); `forecast_missed` metric added to track a rare "no forecast" slip |
 | O4 | Geocoder misses | `[~]` | Suffix-less streets, missing directions and filler words now handled (2026-10-15). What remains is data: house numbers absent from OSM (no neighbours to interpolate from) and names too garbled to match. Fixing it means a better address source |
 | O5 | Link the in-app Help to the docs site | `[ ]` | Help stays user-focused; docs are for setup and development |
 | O6 | Document the 3 GB VM footprint and test on a Raspberry Pi 5 | `[ ]` | The Pi is the design target but untested |

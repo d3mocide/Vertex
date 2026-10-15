@@ -254,6 +254,23 @@ def format_nws_products(products, now: datetime, window_start: datetime) -> str 
     return "NWS FORECASTER PRODUCTS (use for the outlook / next-24h section):\n" + "\n".join(lines)
 
 
+NO_FORECAST_NOTICE = (
+    'NWS FORECASTER PRODUCTS: none available this hour. Write "No forecast data available." under Next 24 Hours.'
+)
+
+
+def with_forecast_notice(texts: list[str]) -> tuple[list[str], bool]:
+    """Say so in the data when the forecaster products are missing (never published, or cut by the budget).
+
+    The instruction rides with the condition it belongs to: a standing rule in the system prompt ("if absent, write
+    X") made small models write X even when the section was there. Returns the sections and whether a forecast is in.
+    """
+    if any(t.startswith("NWS FORECASTER PRODUCTS") for t in texts):
+        return texts, True
+    at = min(3, len(texts))
+    return [*texts[:at], NO_FORECAST_NOTICE, *texts[at:]], False
+
+
 def format_fire_incidents(entities: list[dict], now: datetime) -> str:
     if not entities:
         return "WILDFIRE INCIDENTS: None inside the local alert or regional watch radius."
@@ -1018,6 +1035,7 @@ async def build_context(r, pool, now: datetime, window_hours: int,
         sections.append((_P_KEEP, checklist))
 
     texts = fit_budget(sections, settings.summary_context_max_chars)
+    texts, facts["has_forecast"] = with_forecast_notice(texts)
     gaps = [t.split("\n", 1)[0] for t in texts
             if "unavailable" in t.split("\n", 1)[0].lower() or "not synced" in t.split("\n", 1)[0].lower()]
     return "\n\n".join(texts), gaps, facts
