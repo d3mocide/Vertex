@@ -59,7 +59,7 @@ pip-audit -r transcription/requirements.lock
 npm --prefix frontend audit --audit-level=moderate
 ```
 
-The 2026-09-30 audit returned no known vulnerabilities for all three Python
+The 2026-10-14 audit returned no known vulnerabilities for all three Python
 locks and zero npm vulnerabilities.
 
 ## Required validation
