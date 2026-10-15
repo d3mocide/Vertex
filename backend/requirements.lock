@@ -13,7 +13,7 @@ anyio==4.15.1
     #   httpx
     #   starlette
     #   watchfiles
-asyncpg==0.31.0
+asyncpg==0.32.0
     # via -r backend/requirements.txt
 bcrypt==3.2.2
     # via
@@ -27,7 +27,7 @@ cffi==2.1.1
     # via bcrypt
 click==8.5.0
     # via uvicorn
-fastapi==0.142.2
+fastapi==0.143.0
     # via -r backend/requirements.txt
 geoalchemy2==0.20.0
     # via -r backend/requirements.txt
@@ -63,12 +63,12 @@ prometheus-fastapi-instrumentator==8.1.0
     # via -r backend/requirements.txt
 pycparser==3.0
     # via cffi
-pydantic==2.13.5
+pydantic==2.14.1
     # via
     #   -r backend/requirements.txt
     #   fastapi
     #   pydantic-settings
-pydantic-core==2.46.5
+pydantic-core==2.50.1
     # via pydantic
 pydantic-settings==2.15.0
     # via -r backend/requirements.txt
@@ -88,11 +88,11 @@ pyyaml==6.0.3
     #   uvicorn
 redis==8.1.0
     # via -r backend/requirements.txt
-shapely==2.1.2
+shapely==2.2.0
     # via -r backend/requirements.txt
 six==1.17.0
     # via python-dateutil
-sqlalchemy==2.1.1
+sqlalchemy==2.1.4
     # via
     #   -r backend/requirements.txt
     #   geoalchemy2

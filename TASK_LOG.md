@@ -5,6 +5,13 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 
 ---
 
+## 2026-10-14 — Open PR clean-up and the Python dependency group
+
+- All 15 open PRs were Dependabot. 11 were stale (Sep 30) because `main` already pinned the target versions (redis 8.1.0, pydantic-settings 2.15.0, python-multipart 0.0.32, httpx 0.28.1, aiomqtt 2.5.1, feedparser 6.0.14, sgp4 2.27, gtfs-realtime-bindings 3.0.0): closed with the reason. #150 (bcrypt 5) closed: reproduced that it breaks Passlib 1.7.4 (`__about__` missing, then the 72-byte limit), as `.github/dependabot.yml` already says. #175 (frontend patch/minor group) merged after its checks and a local build/audit were clean. #176 (vite-plugin-pwa 2.0.0) failed only because its branch was stale (old lock with the vulnerable `source-map-js`); verified clean on current `main`, Dependabot rebased it and all five checks pass; left unmerged for a PWA check on the phone.
+- #174 (8 Python updates) could never pass: Dependabot edits only `requirements.txt`, CI installs the lockfiles, so its green tests ran the *old* versions and the audit job failed on the lock mismatch. Replaced by a branch that applies the same bumps and regenerates the locks without `--upgrade` (a full `--upgrade` also moved `pycryptodome` 3.23 to 4.0 via meshcore and other transitives): 12/8/20 changed lock lines. The only transitive change of note is `filelock` 4.0.7 to 3.32.7 in transcription, forced by litellm 1.105.0 declaring `filelock<4`. Verified against the new locks: lock consistency, `pip-audit` clean on all three, backend 337 and poller 723 passed, transcription installs and imports.
+- Two merged remote branches deleted; remaining remote branches are `main`, the two Dependabot PRs, `feat/critical-medical-tier` and `feat/incidents-drilldown-baseline` (unmerged, left alone).
+
+
 ## 2026-10-14 — CI keeps `.env.example` in step with the code
 
 - `scripts/envtool.py example --check` exits 1 if `.env.example` is not what `--write` would produce (a setting added, removed or changed in a `Settings` class or compose file) and never modifies the file. A new CI job (`env-example` in [.github/workflows/test.yml](.github/workflows/test.yml)) runs the envtool tests and that check, so the example cannot drift again. 4 new tests (35 total); the check passes on the current repo.
