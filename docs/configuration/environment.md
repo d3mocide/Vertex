@@ -21,6 +21,7 @@ scripts/envtool.py minimize --write               # drop them (the original is s
 scripts/envtool.py minimize --out /tmp/new.env    # write the result somewhere else instead
 scripts/envtool.py verify --env .env --other /tmp/new.env   # prove two files configure the stack identically (needs docker)
 scripts/envtool.py example --write                # list any setting `.env.example` does not describe, in a generated block
+scripts/envtool.py example --check                # what CI runs: fail if `.env.example` is out of date
 ```
 
 `minimize` only removes a line when it can prove nothing changes: the value equals the code default for every

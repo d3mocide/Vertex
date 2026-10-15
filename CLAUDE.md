@@ -84,7 +84,7 @@ docs/design/      Design-system and icon-atlas reference pages
 
 ```bash
 scripts/envtool.py check                  # misspelt/unknown keys, missing required keys, lines that repeat a default
-scripts/envtool.py example --write        # keep .env.example complete after adding a Settings field
+scripts/envtool.py example --write        # keep .env.example complete after adding a Settings field (CI fails if you forget)
 python3 -m unittest discover -s scripts -p 'test_envtool.py'
 ```
 

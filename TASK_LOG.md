@@ -5,6 +5,12 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 
 ---
 
+## 2026-10-14 — CI keeps `.env.example` in step with the code
+
+- `scripts/envtool.py example --check` exits 1 if `.env.example` is not what `--write` would produce (a setting added, removed or changed in a `Settings` class or compose file) and never modifies the file. A new CI job (`env-example` in [.github/workflows/test.yml](.github/workflows/test.yml)) runs the envtool tests and that check, so the example cannot drift again. 4 new tests (35 total); the check passes on the current repo.
+- Before this stack goes to `main`: both CI-equivalent suites were rerun in a scrubbed environment (no injected variables, like CI): poller 723 passed, backend 336 passed, 1 skipped; whole-range privacy scan clean.
+
+
 ## 2026-10-14 — Weather Radio: county names and lead time, events, rule trigger, admin health, offline weather
 
 - **County names and lead time.** RF alerts now carry `area_desc` ("Clackamas, Multnomah and Washington Counties (OR); Clark County (WA)", from Tocsin's county table, refreshed daily) and show it on the alert card. Lead time is measured against Vertex's *own* NWS poller, not Tocsin's `cap.sent`: NWS issues just before the broadcast, so "heard before the NWS posted" would usually be negative and misleading. `LeadTracker` ([poller/nwr_alerts.py](poller/nwr_alerts.py)) records when the radio heard an alert and when a CAP alert of the same event first appeared in `weather:alerts`; the card says "Heard on the radio N min before the NWS feed showed it", "Radio and NWS feed showed it together", or "The NWS feed already had this when the radio announced it". Persisted in Redis.

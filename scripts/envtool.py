@@ -3,7 +3,7 @@
 
     scripts/envtool.py check     [--env .env] [--example .env.example] [--strict]
     scripts/envtool.py minimize  [--env .env] [--write]
-    scripts/envtool.py example   [--example .env.example] [--write]
+    scripts/envtool.py example   [--example .env.example] [--write | --check]
     scripts/envtool.py verify    --env ORIGINAL --other CANDIDATE    (needs docker; proves two files configure the same)
 
 The source of truth is the code: the `Settings` classes of the poller, backend and transcription services
@@ -541,10 +541,26 @@ def generated_block(schema: Schema, already: set[str]) -> list[str]:
     return lines
 
 
+def regenerate_example(current: str, schema: Schema) -> tuple[str, int]:
+    """(`.env.example` with its generated block brought up to date, number of settings in that block)."""
+    text = re.sub(re.escape(_BLOCK_START) + r".*?" + re.escape(_BLOCK_END) + r"\n?", "", current, flags=re.S).rstrip("\n")
+    block = generated_block(schema, documented_keys_from_text(text))
+    missing = len(block) - 2
+    return text + ("\n\n" + "\n".join(block) + "\n" if missing else "\n"), missing
+
+
 def cmd_example(args, schema: Schema) -> int:
     path = Path(args.example)
-    text = path.read_text() if path.exists() else ""
-    text = re.sub(re.escape(_BLOCK_START) + r".*?" + re.escape(_BLOCK_END) + r"\n?", "", text, flags=re.S).rstrip("\n")
+    current = path.read_text() if path.exists() else ""
+    if getattr(args, "check", False):                       # CI: is the committed file what the tool would write?
+        wanted, _ = regenerate_example(current, schema)
+        if wanted == current:
+            print(f"{path.name} is up to date")
+            return 0
+        print(f"{path.name} is out of date: a setting was added, removed or changed in a Settings class or compose file.\n"
+              "Run `scripts/envtool.py example --write` and commit the result.")
+        return 1
+    text = re.sub(re.escape(_BLOCK_START) + r".*?" + re.escape(_BLOCK_END) + r"\n?", "", current, flags=re.S).rstrip("\n")
     already = documented_keys_from_text(text)
     block = generated_block(schema, already)
     missing = len(block) - 2
@@ -630,6 +646,7 @@ def main(argv: list[str] | None = None) -> int:
         p.add_argument("--example", default=".env.example")
         p.add_argument("--write", action="store_true")
         p.add_argument("--strict", action="store_true", help="check: warnings fail too")
+        p.add_argument("--check", action="store_true", help="example: exit 1 if the file is not what --write would produce")
     args = parser.parse_args(argv)
     root = Path(args.root)
     for attr in ("env", "example", "other", "out"):

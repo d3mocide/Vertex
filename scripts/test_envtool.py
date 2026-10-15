@@ -372,3 +372,47 @@ class CheckTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ExampleCheckTests(unittest.TestCase):
+    """`example --check` is what CI runs: fail when the committed file has drifted from the code."""
+
+    def setUp(self):
+        self._t = tempfile.TemporaryDirectory()
+        self.root = make_repo(Path(self._t.name))
+        self.schema = et.load_schema(self.root)
+        self.example = self.root / ".env.example"
+        self.example.write_text("# curated\nLOG_LEVEL=INFO\n")
+
+    def tearDown(self):
+        self._t.cleanup()
+
+    def check(self):
+        args = type("A", (), {"example": str(self.example), "write": False, "check": True})()
+        return et.cmd_example(args, self.schema)
+
+    def test_a_file_missing_settings_fails_and_passes_after_write(self):
+        self.assertEqual(self.check(), 1)
+        args = type("A", (), {"example": str(self.example), "write": True, "check": False})()
+        et.cmd_example(args, self.schema)
+        self.assertEqual(self.check(), 0)
+
+    def test_it_never_modifies_the_file(self):
+        before = self.example.read_text()
+        self.check()
+        self.assertEqual(self.example.read_text(), before)
+
+    def test_a_new_setting_in_the_code_makes_a_current_file_stale(self):
+        args = type("A", (), {"example": str(self.example), "write": True, "check": False})()
+        et.cmd_example(args, self.schema)
+        write(self.root, "poller/config.py", CONFIG.replace('log_level: str = "INFO"', 'log_level: str = "INFO"\n    brand_new_setting: int = 3'))
+        self.schema = et.load_schema(self.root)
+        self.assertEqual(self.check(), 1)
+
+    def test_a_removed_setting_also_makes_it_stale(self):
+        args = type("A", (), {"example": str(self.example), "write": True, "check": False})()
+        et.cmd_example(args, self.schema)
+        write(self.root, "poller/config.py", CONFIG.replace('    nws_office: str = "PQR"\n', ''))
+        write(self.root, "backend/config.py", CONFIG.replace('    nws_office: str = "PQR"\n', ''))
+        self.schema = et.load_schema(self.root)
+        self.assertEqual(self.check(), 1)
