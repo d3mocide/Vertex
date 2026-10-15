@@ -98,6 +98,18 @@ def test_the_buoy_report_and_the_bar_conditions(loop):
     assert loop["marine"]["bar"]["seas_ft"] == [4, 6] and "Thursday" in loop["marine"]["bar"]["note"]
 
 
+@pytest.mark.parametrize("text, expected", [
+    ("61 4 a.m. Columbia River/Bui 29 report. Winds northeast at 8 knots. Seas 6 feet at 9 seconds. Coastal marine",
+     {"name": "Columbia River buoy 29", "wind_dir": "NE", "wind_kt": 8, "seas_ft": 6.0, "period_s": 9}),
+    ("Friday 61 3 a.m. Columbia River Bowie 29 report winds northeast at 6 knots, seas 5 feet per hour.",
+     {"name": "Columbia River buoy 29", "wind_dir": "NE", "wind_kt": 6, "seas_ft": 5.0, "period_s": None}),
+    ("rest of tonight 54 Columbia River Buoy 29 report, wind south at 2 knots, sees 5 feet at 14 seconds.",
+     {"name": "Columbia River buoy 29", "wind_dir": "S", "wind_kt": 2, "seas_ft": 5.0, "period_s": 14}),
+])
+def test_a_garbled_buoy_report_still_parses(text, expected):
+    assert nb.marine(text)["buoy"] == expected
+
+
 def test_zone_forecasts_are_split_by_area(loop):
     areas = [f["area"] for f in loop["forecasts"]]
     assert "Greater Portland Metro Area" in areas and "North Oregon Coast" in areas

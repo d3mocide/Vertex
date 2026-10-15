@@ -86,7 +86,7 @@ export function NwrBroadcastCard() {
           )}
           {buoy && (
             <p className="font-mono text-[12px] text-on-surface">
-              {buoy.name} · wind {buoy.wind_dir ?? '—'} {buoy.wind_kt} kt · seas {buoy.seas_ft} ft at {buoy.period_s} s
+              {buoy.name} · wind {buoy.wind_dir ?? '—'} {buoy.wind_kt} kt · seas {buoy.seas_ft} ft{buoy.period_s != null ? ` at ${buoy.period_s} s` : ''}
             </p>
           )}
         </div>

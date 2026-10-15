@@ -2671,3 +2671,10 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 - Required install/pre-commit checks identified GHSA-68fv-2mgg-jv7q in the existing source-map-js 1.2.1 build dependency. Reviewed the upstream 1.2.2 release and updated only that exact transitive lockfile entry; no direct dependency or manifest changes. Frontend audit now reports zero findings.
 - TypeScript (zero errors), production build, P25 playback, layer-scene/default/persistence, map-cache/trail and entity-facet tests, Compose validation and whitespace checks passed. No Python source files changed.
 - Backend, poller and transcription dependency audits against the CI lockfiles also reported zero known vulnerabilities. Staged privacy review excludes private configuration, browser artifacts and live data.
+
+## 2026-10-15 — Weather Radio check against real broadcasts; buoy report parsing
+
+- Real SAME decode confirmed in production: Tocsin stored a Required Weekly Test heard over the air (RF only, tier C, WX7) and Vertex correctly kept it out of alerts and events as a test. No real hazard alert has been heard yet, so the alert-to-event path on live data is still unproven.
+- The buoy line was missing from the broadcast card most of the time because the transcriber garbles it ("Bui 29", "Bowie 29", "winds", "feet per hour"). `poller/nwr_broadcast.py` now accepts those variants, names the buoy from the words before it, and returns `period_s: null` when the wave period was not heard. `NwrBroadcastCard.tsx` and `storeTypes.ts` handle the missing period. Tests use the real garbled passages (poller suite 726 passed).
+- Tocsin (separate repo): the two `complex64` chunk-boundary channelizer tests failed on float32 rounding noise (about 3e-8 against a 6e-5 tone). The tolerance is now dtype-aware (1e-8 for complex128, 1e-7 for complex64); all 151 sdr_rx tests pass.
+- Open: Safari on iOS may not play the Ogg Vorbis stream. Fixing it means Tocsin encoding MP3 (its API, auth and tests name the `.ogg` mount), which is a Tocsin design decision.

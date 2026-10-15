@@ -324,7 +324,7 @@ export interface NwrBroadcast {
   notices:       NwrNotice[]
   observations:  { hour: string | null; stations: NwrObservation[] }
   rivers:        NwrRiver[]
-  marine:        { buoy?: { name: string; wind_dir: string | null; wind_kt: number; seas_ft: number; period_s: number };
+  marine:        { buoy?: { name: string; wind_dir: string | null; wind_kt: number; seas_ft: number; period_s: number | null };
                    bar?: { seas_ft: [number, number]; note: string } }
   forecasts:     { area: string; text: string }[]
   updated?:      string

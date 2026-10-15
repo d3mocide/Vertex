@@ -353,8 +353,12 @@ def rivers(text: str, office: Office) -> list[dict]:
 # ── marine ──────────────────────────────────────────────────────────────────────────────────────
 
 _SEAS = r"(?:seas|sees|seats|feeds|seeds|c's)"           # what the transcriber makes of "seas"
-_BUOY = re.compile(r"(?P<name>[A-Z][A-Za-z ]+? buoy \d+) report[,.]?\s*wind (?P<dir>(?:" + _COMPASS + r")(?: (?:" + _COMPASS + r"))?) at "
-                   r"(?P<kt>\d+) knots[,.]?\s*" + _SEAS + r" (?P<ft>\d+(?:\.\d+)?) feet at (?P<s>\d+)(?: feet\.?)? seconds", re.I)
+_BUOY_WORD = r"(?:buoy|bui|buoyant|boy|bowie|bowy|buoys)"   # what the transcriber makes of "buoy"
+# "<Place name> buoy 29 report, wind(s) <dir> at N knots, seas N feet [at N seconds]". The name is the (at most two) words
+# right before "buoy"; a garbled "feet per hour" for "feet at 13 seconds" still gives the seas, just no period.
+_BUOY = re.compile(r"(?<![A-Za-z])(?P<name>[A-Za-z]+(?: [A-Za-z]+)?)[ /]" + _BUOY_WORD + r" (?P<id>\d+) report[,.]?\s*winds? "
+                   r"(?P<dir>(?:" + _COMPASS + r")(?: (?:" + _COMPASS + r"))?) at (?P<kt>\d+) knots[,.]?\s*" + _SEAS +
+                   r" (?P<ft>\d+(?:\.\d+)?) feet(?: at (?P<s>\d+)(?: feet\.?)? seconds)?", re.I)
 _BAR = re.compile(r"columbia river bar[^.]{0,80}?general se[a-z]*[, ]\s*(?P<lo>\d+)\s*(?:-|to)\s*(?P<hi>\d+) feet"
                   r"(?:\s+(?P<rest>through [a-z]+(?: (?:evening|night|morning|afternoon))?))?", re.I)
 
@@ -364,8 +368,10 @@ def marine(text: str) -> dict:
     buoys = list(_BUOY.finditer(text))
     if buoys:
         m = buoys[-1]
-        out["buoy"] = {"name": m.group("name").strip(), "wind_dir": _DIRS.get(m.group("dir").lower().split()[0]),
-                       "wind_kt": int(m.group("kt")), "seas_ft": float(m.group("ft")), "period_s": int(m.group("s"))}
+        out["buoy"] = {"name": f"{m.group('name').strip().title()} buoy {m.group('id')}",
+                       "wind_dir": _DIRS.get(m.group("dir").lower().split()[0]),
+                       "wind_kt": int(m.group("kt")), "seas_ft": float(m.group("ft")),
+                       "period_s": int(m.group("s")) if m.group("s") else None}
     bars = list(_BAR.finditer(text))
     if bars:
         m = bars[-1]
