@@ -41,6 +41,7 @@ async def nwr_status():
         **status,
         "alerts": alerts if isinstance(alerts, list) else [],
         "areas": areas if isinstance(areas, list) else [],
+        "notices": [n for n in ((await _feed("nwr:broadcast", None)) or {}).get("notices", []) if n.get("active")],
         "stream_url": "/api/v1/nwr/stream" if streams else None,
     }
 
@@ -80,3 +81,14 @@ async def nwr_stream():
     return StreamingResponse(_iter(), media_type=resp.headers.get("content-type", "audio/ogg"),
                              headers={"Cache-Control": "no-store", "X-Accel-Buffering": "no"},
                              background=BackgroundTask(client.aclose))
+
+
+@router.get("/broadcast")
+async def nwr_broadcast():
+    """What the station has been saying, as data: notices, hourly observations, river gauges (checked against NOAA's
+    own readings), marine and zone forecasts. Polled less often than /nwr, which only carries the notices."""
+    if not settings.tocsin_url:
+        return {"enabled": False}
+    data = await _feed("nwr:broadcast", None)
+    return {"enabled": True, **(data or {"notices": [], "observations": {"hour": None, "stations": []}, "rivers": [],
+                                          "marine": {}, "forecasts": []})}

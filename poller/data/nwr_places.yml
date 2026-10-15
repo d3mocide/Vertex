@@ -1,0 +1,66 @@
+# What a NOAA Weather Radio station reads out, and how speech-to-text tends to mangle it.
+# One block per NWS forecast office (NWS_OFFICE). `observations` is the station list in broadcast order; `aliases`
+# are the spellings the transcriber actually produced (collected from several hours of real broadcast), matched
+# before a fuzzy fallback. `rivers.aliases` fix gauge-place names; `fixes` repair stock phrases.
+# A new office needs nothing here to work: its notices, forecasts and buoy report still parse; only the city
+# observations and river names need this list.
+offices:
+  PQR:
+    station: KIG98
+    observations:
+      - {name: Astoria,    aliases: [historia, testoria, astoria, astorium]}
+      - {name: Newport,    aliases: [newport]}
+      - {name: North Bend, aliases: [north bend]}
+      - {name: Seattle,    aliases: [seattle]}
+      - {name: Portland,   aliases: [portland]}
+      - {name: Scappoose,  aliases: [skatoos, scatoos, scapoose, scappoose, skatus, scapuse]}
+      - {name: Hillsboro,  aliases: [kilsboro, kilsborough, killsboro, kiltsboro, kilsparrow, hillsboro, kilsborrow, killsborough]}
+      - {name: Salem,      aliases: [salem]}
+      - {name: Corvallis,  aliases: [core vallis, core values, core valleys, core valus, corvallis, core vallas]}
+      - {name: Eugene,     aliases: [eugene]}
+      - {name: Roseburg,   aliases: [roosevelt, ruzburg, ruzberg, roseburg, rosebud, rose burg]}
+      - {name: Medford,    aliases: [medford]}
+      - {name: Troutdale,  aliases: [trowddale, trowdale, drouddale, trout deal, troutdale, trout dale]}
+      - {name: The Dalles, aliases: [the dalles, dalles, the dall's, the douse]}
+      - {name: Pendleton,  aliases: [pendleton]}
+      - {name: Redmond,    aliases: [redman, redmond, red mond]}
+    rivers:
+      # `lid` is the gauge's NOAA water-service (NWPS) id, used to check the spoken reading against the official one.
+      # The gauges the hydrologic report reads, in broadcast order. Spoken rows are matched to these by place first
+      # (the river name is the part most often garbled into the wrong North/South), then river.
+      gauges:
+        - {name: Willamette River at Eugene, lid: EUGO3}
+        - {name: Willamette River at Harrisburg, lid: HARO3}
+        - {name: Willamette River at Corvallis, lid: CORO3}
+        - {name: Willamette River at Salem, lid: SLMO3}
+        - {name: Sandy River near Bull Run, lid: SNDO3}
+        - {name: Clackamas River at Three Lynx, lid: TLYO3, aliases: [clackamas three links, clackamas three lynx]}
+        - {name: Clackamas River at Estacada, lid: ESTO3}
+        - {name: North Santiam River at Mehama, lid: MEHO3}
+        - {name: South Santiam River at Waterloo, lid: WTLO3}
+        - {name: Santiam River at Jefferson, lid: JFFO3}
+        - {name: McKenzie River near Vida, lid: VIDO3}
+        - {name: North Umpqua River at Winchester, lid: WNRO3}
+        - {name: South Umpqua River at Roseburg, lid: RSBO3}
+        - {name: Umpqua River near Elkton, lid: EKTO3}
+        - {name: Rogue River near Agness, lid: AGNO3}
+      aliases:
+        three links: Three Lynx
+        three lynx: Three Lynx
+        esticada: Estacada
+        estacada: Estacada
+        mohena: Mehama
+        mohama: Mehama
+        umpquah: Umpqua
+        elgden: Elkton
+        elkton: Elkton
+        agnes: Agness
+        mackenzie: McKenzie
+        mckenzie: McKenzie
+        vida: Vida
+        winchester: Winchester
+fixes:
+  - ["water\\.\\s?no\\w*\\.?\\s?(?:gov\\w*)(?:\\.[a-z]+)*", "water.noaa.gov"]
+  - ["\\bobserved in forecast river", "observed and forecast river"]
+  - ["\\bVoters should use caution", "Boaters should use caution"]
+  - ["\\bYou should use caution in shallow", "Boaters should use caution in shallow"]

@@ -22,6 +22,7 @@ import httpx
 from bus import get_bus, set_feed
 from config import settings
 from db import get_pool
+import nwr_broadcast
 from nwr_alerts import build_areas, is_relevant, merge, normalize, outline_ugcs, recent_spoken, round_geometry, zone_set
 from redaction import redact_text, redact_url
 from security import validate_request_url, validate_safe_url
@@ -31,7 +32,10 @@ logger = logging.getLogger(__name__)
 
 REFRESH_S = 30
 _SSE_RETRY_S = 10
-_TRANSCRIPT_KEEP = 40   # enough that eight continuous-broadcast chunks survive a burst of alert transcripts
+_TRANSCRIPT_KEEP = 120  # about 40 minutes of the broadcast (a ~20 s chunk each): three or four loops of the script
+_NWPS_GAUGE_URL = "https://api.water.noaa.gov/nwps/v1/gauges/{lid}"
+_GAUGE_REFRESH_S = 600  # official river readings change every 15-60 min
+_NOTICE_BOOK_KEY = "nwr:notice_book"
 _SPOKEN_SHOWN = 8       # about two and a half minutes of the broadcast
 _NWS_HEADERS = {"User-Agent": "Vertex/0.1 (vertex; contact@localhost)", "Accept": "application/geo+json"}
 _GEOM_RETRY_S = 600   # a county the NWS would not return is retried this often, not on every refresh
@@ -61,6 +65,9 @@ class TocsinPoller(BasePoller):
         self._headers: dict[str, str] = {}
         self._geom: dict[str, dict | None] = {}          # county outlines never change: fetched once
         self._geom_failed: dict[str, float] = {}
+        self._book: nwr_broadcast.NoticeBook | None = None   # what the station has been announcing, across refreshes
+        self._official: dict[str, tuple[float, dict | None]] = {}   # NWPS id -> (fetched at, reading)
+        self._office: tuple[float, str] = (0.0, "")
 
     async def run(self) -> None:
         base = (settings.tocsin_url or "").strip().rstrip("/")
@@ -151,6 +158,91 @@ class TocsinPoller(BasePoller):
                     logger.warning("[tocsin] outline for %s unavailable: %s", ugc, redact_text(exc))
                 self._geom_failed[ugc] = time.monotonic()
 
+    async def _office_code(self) -> str:
+        """The forecast office whose broadcast this is: the region the operator chose (setup wizard), else the setting."""
+        fetched, code = self._office
+        if code and time.monotonic() - fetched < 300:
+            return code
+        code = settings.nws_office
+        try:
+            from region_sync import _read_stored          # the stored region is the radio service's only link to the wizard
+            stored = await _read_stored(get_pool())
+            code = ((stored or {}).get("nws") or {}).get("office") or code
+        except Exception as exc:
+            logger.debug("[tocsin] no stored region: %s", redact_text(exc))
+        self._office = (time.monotonic(), code)
+        return code
+
+    async def _notice_book(self) -> "nwr_broadcast.NoticeBook":
+        if self._book is None:
+            state = None
+            try:
+                raw = await (await get_bus()).get(_NOTICE_BOOK_KEY)
+                state = json.loads(raw) if raw else None
+            except Exception as exc:
+                logger.debug("[tocsin] notice book not restored: %s", redact_text(exc))
+            self._book = nwr_broadcast.NoticeBook(state)
+        return self._book
+
+    async def _official_readings(self, lids: list[str]) -> dict[str, dict | None]:
+        """NOAA's own current reading for each gauge id, from the water service. Cached; a few at a time."""
+        now = time.monotonic()
+        stale = [l for l in lids if l not in self._official or now - self._official[l][0] > _GAUGE_REFRESH_S]
+        if stale:
+            gate = asyncio.Semaphore(4)
+            async with httpx.AsyncClient(timeout=15, headers=_NWS_HEADERS,
+                                         event_hooks={"request": [validate_request_url]}) as client:
+                async def one(lid: str) -> None:
+                    async with gate:
+                        reading = None
+                        try:
+                            resp = await client.get(_NWPS_GAUGE_URL.format(lid=lid))
+                            resp.raise_for_status()
+                            obs = (resp.json().get("status") or {}).get("observed") or {}
+                            stage, flow = obs.get("primary"), obs.get("secondary")
+                            if isinstance(stage, (int, float)) and stage > -900:
+                                at = obs.get("validTime")
+                                reading = {
+                                    "stage_ft": float(stage),
+                                    "flow_cfs": round(flow * 1000) if isinstance(flow, (int, float)) and flow > 0
+                                                and str(obs.get("secondaryUnit", "")).lower() == "kcfs" else None,
+                                    "at": datetime.fromisoformat(at.replace("Z", "+00:00")).timestamp() if at else None,
+                                }
+                        except Exception as exc:
+                            logger.debug("[tocsin] NWPS %s unavailable: %s", lid, redact_text(exc))
+                        self._official[lid] = (time.monotonic(), reading)
+                await asyncio.gather(*(one(l) for l in stale))
+        return {l: self._official.get(l, (0, None))[1] for l in lids}
+
+    async def _broadcast(self, transcripts: list[dict]) -> dict:
+        """Everything parsed from the broadcast text, with notices voted across loops and each river gauge checked
+        against NOAA's own reading."""
+        now = time.time()
+        chunks = [t for t in transcripts if str(t.get("event_code")) == "LIVE" and t.get("passed_guard", True)]
+        parsed = nwr_broadcast.parse(chunks, await self._office_code())
+        book = await self._notice_book()
+        book.update(parsed["notices"], now)
+        try:
+            await (await get_bus()).set(_NOTICE_BOOK_KEY, json.dumps(book.state()), ex=7 * 24 * 3600)
+        except Exception as exc:
+            logger.debug("[tocsin] notice book not saved: %s", redact_text(exc))
+
+        lids = [r["lid"] for r in parsed["rivers"] if r.get("lid")]
+        official = await self._official_readings(lids)
+        r = await get_bus()
+        for row in parsed["rivers"]:
+            row.update(nwr_broadcast.compare_river(row, official.get(row.get("lid")), now))
+            row["in_vertex"] = bool(row.get("lid") and await r.exists(f"entity:nwps:gauge:{row['lid']}"))
+        times = [c["timestamp_ns"] / 1e9 for c in chunks if c.get("timestamp_ns")]
+        return {
+            "office": await self._office_code(),
+            "notices": book.current(now),
+            "observations": parsed["observations"], "rivers": parsed["rivers"],
+            "marine": parsed["marine"], "forecasts": parsed["forecasts"],
+            "window": {"chunks": len(chunks), "from": min(times) if times else None, "to": max(times) if times else None},
+            "updated": datetime.now(timezone.utc).isoformat(),
+        }
+
     async def _refresh(self) -> None:
         async with httpx.AsyncClient(timeout=10, headers=self._headers) as client:
             alerts = await self._get(client, "/alerts", limit=50)
@@ -185,6 +277,10 @@ class TocsinPoller(BasePoller):
             await set_feed("weather:alerts", merged)
 
         spoken_recent = recent_spoken(transcripts, _SPOKEN_SHOWN)
+        try:
+            await set_feed("nwr:broadcast", await self._broadcast(transcripts), broadcast=False)
+        except Exception as exc:                       # a parsing problem must never take the alerts and status down
+            logger.warning("[tocsin] broadcast parse failed: %s: %s", type(exc).__name__, redact_text(exc))
         mounts = [s for s in streams.get("streams", []) if s.get("on_air") is not None]
         await set_feed("nwr:status", {
             "reachable": True,
