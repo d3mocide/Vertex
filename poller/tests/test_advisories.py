@@ -102,3 +102,27 @@ def test_enriched_incident_reads_naturally_and_markers_escalate():
     assert _radio([trapped])[0]["level"] == "red"
     evac = {**_inc(3, cat="fire", where=(45.43, -122.70), units=1, calls=1), "markers": ["Evacuation"]}
     assert _radio([evac])[0]["level"] == "amber"
+
+
+def test_a_weekly_test_never_reaches_the_bar():
+    alerts = [{"event": "Required Weekly Test", "headline": "x", "severity": "Minor", "expires": "", "test": True},
+              {"event": "Wind Advisory", "headline": "y", "severity": "Minor", "expires": ""}]
+    assert [i["title"] for i in adv.from_nws(alerts, NOW)] == ["Wind Advisory"]
+
+
+def _notice(active=True, nid="low-water-alert", text="Low Water Alert. Expect river stages below 1 foot. Boaters beware."):
+    return {"id": nid, "title": "Low Water Alert", "text": text, "active": active, "last_seen": NOW.isoformat()}
+
+
+def test_an_active_weather_radio_notice_is_an_amber_item_below_real_nws_alerts():
+    items = adv.from_nwr_notices([_notice()], NOW)
+    assert len(items) == 1 and items[0]["level"] == "amber" and items[0]["source"] == "nwr"
+    assert items[0]["title"] == "Low Water Alert" and items[0]["detail"].startswith("Expect river stages")
+    assert items[0]["target"] == {"tab": "environment"}
+    nws = adv.from_nws([{"event": "Wind Advisory", "headline": "y", "severity": "Minor", "expires": ""}], NOW)
+    assert adv.rank(items + nws)["items"][0]["source"] == "nws"          # a real alert outranks the standing notice
+
+
+def test_an_inactive_notice_is_not_shown_and_none_is_safe():
+    assert adv.from_nwr_notices([_notice(active=False)], NOW) == []
+    assert adv.from_nwr_notices(None, NOW) == []

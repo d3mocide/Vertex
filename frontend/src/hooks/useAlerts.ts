@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { API_BASE, ALERTS_POLL_MS, NEWS_POLL_MS, WEATHER_POLL_MS, NWR_POLL_MS, CAMERAS_POLL_MS } from '../config'
+import { API_BASE, ALERTS_POLL_MS, NEWS_POLL_MS, WEATHER_POLL_MS, NWR_POLL_MS, NWR_BROADCAST_POLL_MS, CAMERAS_POLL_MS } from '../config'
 import { useCivicPick } from '../store'
 import { authHeaders, clearToken } from '../auth'
 import type { TrafficFlowSensor, UtilityStatus, RadioIncidentFeed, AdvisoryFeed, FeedMetaEntry } from '../storeTypes'
@@ -22,6 +22,7 @@ export function useAlerts() {
     setNews,
     setWeather,
     setNwr,
+    setNwrBroadcast,
     setCameras,
     setTrafficFlow,
     setTrafficIncidents,
@@ -30,7 +31,7 @@ export function useAlerts() {
     setRadioIncidents,
     setAdvisories,
     setFeedMeta,
-  } = useCivicPick('setAlerts', 'setNews', 'setWeather', 'setNwr', 'setCameras', 'setTrafficFlow', 'setTrafficIncidents', 'setUtilityStatus', 'setSummary', 'setRadioIncidents', 'setAdvisories', 'setFeedMeta')
+  } = useCivicPick('setAlerts', 'setNews', 'setWeather', 'setNwr', 'setNwrBroadcast', 'setCameras', 'setTrafficFlow', 'setTrafficIncidents', 'setUtilityStatus', 'setSummary', 'setRadioIncidents', 'setAdvisories', 'setFeedMeta')
   const timers = useRef<ReturnType<typeof setInterval>[]>([])
 
   useEffect(() => {
@@ -73,6 +74,11 @@ export function useAlerts() {
     const pollNwr = async () => {
       const nwr = await fetchJson<Parameters<typeof setNwr>[0]>(`${API_BASE}/nwr`)
       if (nwr) setNwr(nwr)
+    }
+
+    const pollNwrBroadcast = async () => {
+      const data = await fetchJson<Parameters<typeof setNwrBroadcast>[0]>(`${API_BASE}/nwr/broadcast`)
+      if (data) setNwrBroadcast(data)
     }
 
     // Fetch cameras
@@ -129,6 +135,7 @@ export function useAlerts() {
     pollNews()
     pollWeather()
     pollNwr()
+    pollNwrBroadcast()
     pollCameras()
     pollFlow()
     pollIncidents()
@@ -144,6 +151,7 @@ export function useAlerts() {
       setInterval(pollNews,    NEWS_POLL_MS),
       setInterval(pollWeather, WEATHER_POLL_MS),
       setInterval(pollNwr, NWR_POLL_MS),
+      setInterval(pollNwrBroadcast, NWR_BROADCAST_POLL_MS),
       setInterval(pollCameras, CAMERAS_POLL_MS),
       setInterval(pollFlow,    30000), // 30s for flow
       setInterval(pollIncidents, 30000), // 30s for incidents

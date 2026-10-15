@@ -274,6 +274,54 @@ export interface NwrArea {
   geometry: GeoJSON.Polygon | GeoJSON.MultiPolygon
 }
 
+/** A forecaster notice read out on the broadcast (a Low Water Alert, say): not an NWS alert, so it has no CAP record. */
+export interface NwrNotice {
+  id:         string
+  title:      string
+  text:       string
+  first_seen: string
+  last_seen:  string
+  heard:      number
+  active:     boolean
+}
+
+export interface NwrRiver {
+  name:       string
+  lid?:       string | null
+  stage_ft:   number | null
+  flow_cfs:   number | null
+  /** The station said "the report was missing". */
+  missing:    boolean
+  /** How the spoken reading compares with NOAA's own: match / close / differs / radio_missing / no_data / unchecked. */
+  status:     'match' | 'close' | 'differs' | 'radio_missing' | 'no_data' | 'unchecked'
+  official?:  { stage_ft: number | null; flow_cfs: number | null; at: number | null } | null
+  /** Already a gauge on Vertex's own map. */
+  in_vertex:  boolean
+}
+
+export interface NwrObservation {
+  place:          string
+  sky:            string
+  temp_f:         number
+  wind_dir:       string | null
+  wind_mph:       number | null
+  gust_mph:       number | null
+  pressure_in:    number | null
+  pressure_trend: string | null
+}
+
+export interface NwrBroadcast {
+  enabled:       boolean
+  office?:       string
+  notices:       NwrNotice[]
+  observations:  { hour: string | null; stations: NwrObservation[] }
+  rivers:        NwrRiver[]
+  marine:        { buoy?: { name: string; wind_dir: string | null; wind_kt: number; seas_ft: number; period_s: number };
+                   bar?: { seas_ft: [number, number]; note: string } }
+  forecasts:     { area: string; text: string }[]
+  updated?:      string
+}
+
 export interface NwrState {
   enabled:         boolean
   reachable?:      boolean
@@ -284,6 +332,8 @@ export interface NwrState {
   recent_spoken?:  { text: string; channel: string; at: string }[]
   alerts?:         { event: string; nwr_state: string; test: boolean }[]
   areas?:          NwrArea[]
+  /** Notices on the air now (the full set is in NwrBroadcast). */
+  notices?:        NwrNotice[]
   stream_url?:     string | null
 }
 

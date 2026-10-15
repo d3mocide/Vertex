@@ -34,6 +34,7 @@ async def build(r, now: datetime) -> dict:
     places = [p.strip() for p in settings.advisory_places.split(",") if p.strip()]
     candidates = (
         adv.from_nws(await _feed(r, "weather:alerts", []), now)
+        + adv.from_nwr_notices(((await _feed(r, "nwr:broadcast", None)) or {}).get("notices", []), now)
         + adv.from_radio(radio.get("incidents") or [], now, home, settings.advisory_radius_km,
                          timedelta(minutes=settings.advisory_radio_max_age_minutes))
         + adv.from_traffic(await _feed(r, "traffic:incidents", []), now, settings.advisory_radius_km,

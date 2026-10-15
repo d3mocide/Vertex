@@ -5,7 +5,7 @@ import { entityToTrack, mergeEntityState, loadFavoriteCamIds } from './entityUti
 
 // Re-export all types so existing imports from '../../store' keep working.
 export * from './storeTypes'
-import type { NwrState,
+import type { NwrBroadcast, NwrState,
   Entity, Track, AlertItem, NewsItem, WeatherState, RadioState,
   TrafficCamera, SystemEvent, CustomLayerItem, SystemHealth, TrafficIncident,
   SummaryState, RadioIncidentFeed, AdvisoryFeed, FeedMetaEntry, TrailPoint, AirportSnapshot, AppMode, NavTab, EntityTypeFilter, SubFilters,
@@ -27,6 +27,7 @@ export interface CivicStore {
   news:             NewsItem[]
   weather:          WeatherState
   nwr:              NwrState | null
+  nwrBroadcast:     NwrBroadcast | null
   radio:            RadioState
   cameras:          TrafficCamera[]
   trafficFlow:      TrafficFlowSensor[]
@@ -79,6 +80,7 @@ export interface CivicStore {
   setNews:          (news: NewsItem[]) => void
   setWeather:       (weather: Partial<WeatherState>) => void
   setNwr:           (nwr: NwrState | null) => void
+  setNwrBroadcast:  (b: NwrBroadcast | null) => void
   setRadio:         (radio: RadioState) => void
   setCameras:       (cameras: TrafficCamera[]) => void
   setTrafficFlow:   (flow: TrafficFlowSensor[]) => void
@@ -384,6 +386,7 @@ export const useCivicStore = create<CivicStore>()(
   systemEvents:     [],
   weather:          defaultWeather,
   nwr:              null,
+  nwrBroadcast:     null,
   radio:            emptyRadio,
   cameras:          [],
   trafficFlow:      [],
@@ -604,6 +607,7 @@ export const useCivicStore = create<CivicStore>()(
   setNews:      (news)    => set({ news }),
   setWeather:   (patch)   => set((s) => ({ weather: { ...s.weather, ...patch } })),
   setNwr:       (nwr)     => set({ nwr }),
+  setNwrBroadcast: (nwrBroadcast) => set({ nwrBroadcast }),
   setRadio:     (radio)   => set({ radio }),
   setCameras:   (cameras) => set({ cameras }),
   setTrafficFlow: (trafficFlow) => set({ trafficFlow }),

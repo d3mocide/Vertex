@@ -96,6 +96,20 @@ export function NwrRadioCard() {
         </span>
       </div>
 
+      {(status.notices ?? []).map((n) => (
+        <div key={n.id} className="mt-3 border border-amber-gold/50 bg-amber-gold/10 px-3 py-2" role="status">
+          <div className="flex items-center gap-2">
+            <span className="ms text-[16px] leading-none text-amber-gold" aria-hidden="true">campaign</span>
+            <span className="text-[11px] font-black uppercase tracking-widest text-amber-gold">{n.title}</span>
+            <span className="ml-auto font-mono text-[11px] text-on-surface-variant">
+              on air since {new Date(n.first_seen).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            </span>
+          </div>
+          <p className="mt-1 text-[13px] leading-snug text-on-surface">{n.text.slice(n.title.length).replace(/^[. ]+/, '')}</p>
+          <p className="mt-1 text-[11px] text-on-surface-variant">Read by the forecaster on the broadcast; not an NWS alert.</p>
+        </div>
+      ))}
+
       <div className="flex items-center gap-3 mt-3">
         <button type="button" className="btn-ghost h-9 px-3 flex items-center gap-1.5" onClick={toggle} disabled={!listening && !onAir}
                 aria-label={listening ? 'Stop weather radio' : 'Play weather radio'}>

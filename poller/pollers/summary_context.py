@@ -168,6 +168,7 @@ def format_current_weather(wx: dict | None, now: datetime) -> str:
 def format_weather_alerts(alerts, now: datetime) -> str:
     if alerts is None:
         return "NWS ALERTS: Feed unavailable."
+    alerts = [a for a in alerts if not a.get("test")]      # a weekly test is not something to brief on
     if not alerts:
         return "NWS ALERTS: None active for the configured zones."
     lines = []
@@ -179,6 +180,37 @@ def format_weather_alerts(alerts, now: datetime) -> str:
         desc = sanitise(a.get("description") or a.get("headline"), 350)
         lines.append(f"- {head} [{sev or 'severity n/a'}] — {area or 'area n/a'}; {timing}\n  {desc}")
     return "NWS ALERTS (active):\n" + "\n".join(lines)
+
+
+def format_nwr_broadcast(data, now: datetime) -> str:
+    """What NOAA Weather Radio is saying that the alert feeds are not: forecaster notices, river gauges outside the
+    map, a gauge the station could not read, and the bar. Empty when there is nothing worth a line."""
+    if not isinstance(data, dict):
+        return ""
+    lines = []
+    for n in data.get("notices") or []:
+        if n.get("active"):
+            lines.append(f"- NOTICE on air since {fmt_ts(n.get('first_seen'), now)}: {sanitise(n.get('text'), 320)}")
+    rivers = [r for r in data.get("rivers") or [] if not r.get("in_vertex") and not r.get("missing") and r.get("stage_ft") is not None]
+    if rivers:
+        shown = "; ".join(f"{sanitise(r['name'].replace(' River', ''), 40)} {r['stage_ft']:.1f} ft"
+                          + (f" / {r['flow_cfs']:,} cfs" if r.get("flow_cfs") else "") for r in rivers[:10])
+        lines.append(f"- River gauges read on air, beyond the map's own gauges: {shown}")
+    for r in data.get("rivers") or []:
+        if r.get("status") == "radio_missing":
+            lines.append(f"- {sanitise(r['name'], 60)}: station could not read it; NOAA has {r['official']['stage_ft']:.2f} ft")
+        elif r.get("status") == "differs":
+            lines.append(f"- {sanitise(r['name'], 60)}: heard {r['stage_ft']:g} ft but NOAA reports "
+                         f"{r['official']['stage_ft']:g} ft (a misheard number or a stale gauge)")
+    bar = (data.get("marine") or {}).get("bar")
+    if bar:
+        lines.append(f"- Columbia River Bar: seas {bar['seas_ft'][0]}-{bar['seas_ft'][1]} ft {sanitise(bar.get('note'), 60)}".rstrip())
+    buoy = (data.get("marine") or {}).get("buoy")
+    if buoy:
+        lines.append(f"- {sanitise(buoy['name'], 40)}: wind {buoy['wind_dir']} {buoy['wind_kt']} kt, seas {buoy['seas_ft']:g} ft at {buoy['period_s']} s")
+    if not lines:
+        return ""
+    return "NOAA WEATHER RADIO (read on air; speech-to-text, so treat numbers as approximate):\n" + "\n".join(lines)
 
 
 _AFD_KEEP = re.compile(r'^\.(KEY MESSAGES|SYNOPSIS|WHAT HAS CHANGED|SHORT TERM|DISCUSSION)', re.I | re.M)
@@ -902,6 +934,9 @@ async def build_context(r, pool, now: datetime, window_hours: int,
     sections.append((_P_KEEP, format_current_weather(wx, now)))
     alerts = _loads(await r.get("feed:weather:alerts"))
     sections.append((_P_KEEP, format_weather_alerts(alerts, now)))
+    nwr = format_nwr_broadcast(_loads(await r.get("feed:nwr:broadcast")), now)
+    if nwr:
+        sections.append((_P_MED + 5, nwr))
     products = format_nws_products(_loads(await r.get("feed:weather:nwws_products")), now, window_start)
     if products:
         sections.append((_P_MED, products))

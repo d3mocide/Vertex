@@ -8,7 +8,7 @@ The bar's level is the worst item's level:
 
   red    life-safety: NWS Extreme/Severe, or a nearby structure fire, water
          rescue or violent incident heard on dispatch in the last hour
-  amber  notable: other NWS alerts, nearby gas leak / hazmat / rescue /
+  amber  notable: other NWS alerts (and notices heard on NOAA Weather Radio), nearby gas leak / hazmat / rescue /
          person struck, a multi-unit response, any fire / crash / assault
          close to home or inside a zone, a nearby road closure, or a
          FlashAlert notice from a local agency
@@ -77,6 +77,8 @@ def _ago(ts: datetime, now: datetime) -> str:
 def from_nws(alerts: list[dict], now: datetime) -> list[dict]:
     out = []
     for a in alerts or []:
+        if a.get("test"):
+            continue            # a Required Weekly Test is not a hazard: it stays on the Environment page, off the bar
         expires = _parse_ts(a.get("expires"))
         if expires and expires < now:
             continue
@@ -90,6 +92,24 @@ def from_nws(alerts: list[dict], now: datetime) -> list[dict]:
             "title": event, "detail": a.get("headline") or "",
             "ts": None, "why": f"NWS {sev or 'unrated'} alert",
             "target": {"tab": "incidents"},
+        })
+    return out
+
+
+def from_nwr_notices(notices: list[dict], now: datetime) -> list[dict]:
+    """Forecaster notices read out on NOAA Weather Radio that are on the air now (a Low Water Alert, say). They are
+    not NWS alerts and have no CAP record, so they rank below real alerts: a standing condition, shown while it lasts."""
+    out = []
+    for n in notices or []:
+        if not n.get("active"):
+            continue
+        body = (n.get("text") or "")[len(n.get("title") or ""):].lstrip(". ")
+        out.append({
+            "id": _id("nwr", n.get("id") or n.get("title") or ""),
+            "source": "nwr", "level": "amber", "score": 30,
+            "title": n.get("title") or "Weather Radio notice", "detail": body[:200],
+            "ts": n.get("last_seen"), "why": "Announced on NOAA Weather Radio",
+            "target": {"tab": "environment"},
         })
     return out
 

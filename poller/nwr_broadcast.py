@@ -353,7 +353,8 @@ def rivers(text: str, office: Office) -> list[dict]:
 _SEAS = r"(?:seas|sees|seats|feeds|seeds|c's)"           # what the transcriber makes of "seas"
 _BUOY = re.compile(r"(?P<name>[A-Z][A-Za-z ]+? buoy \d+) report[,.]?\s*wind (?P<dir>(?:" + _COMPASS + r")(?: (?:" + _COMPASS + r"))?) at "
                    r"(?P<kt>\d+) knots[,.]?\s*" + _SEAS + r" (?P<ft>\d+(?:\.\d+)?) feet at (?P<s>\d+)(?: feet\.?)? seconds", re.I)
-_BAR = re.compile(r"columbia river bar[^.]{0,80}?general se[a-z]*[, ]\s*(?P<lo>\d+)\s*(?:-|to)\s*(?P<hi>\d+) feet(?P<rest>[^.]*)", re.I)
+_BAR = re.compile(r"columbia river bar[^.]{0,80}?general se[a-z]*[, ]\s*(?P<lo>\d+)\s*(?:-|to)\s*(?P<hi>\d+) feet"
+                  r"(?:\s+(?P<rest>through [a-z]+(?: (?:evening|night|morning|afternoon))?))?", re.I)
 
 
 def marine(text: str) -> dict:
@@ -366,7 +367,7 @@ def marine(text: str) -> dict:
     bars = list(_BAR.finditer(text))
     if bars:
         m = bars[-1]
-        out["bar"] = {"seas_ft": [int(m.group("lo")), int(m.group("hi"))], "note": re.sub(r"\s+", " ", m.group("rest")).strip(" ,")}
+        out["bar"] = {"seas_ft": [int(m.group("lo")), int(m.group("hi"))], "note": re.sub(r"\s+", " ", m.group("rest") or "").strip(" ,")}
     return out
 
 

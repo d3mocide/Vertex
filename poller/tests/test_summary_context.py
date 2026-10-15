@@ -320,3 +320,36 @@ def test_score_matches_a_named_fire_even_when_the_street_differs():
     facts = {"must_cover": [{"severity": 5, "location": "NW Spartan Way", "category": "structure_fire"}]}
     m = score_briefing(text, facts)
     assert m["life_safety_in_bottom_line"] is True and m["must_cover_coverage"] == 1.0
+
+
+def _bc(**over):
+    base = {"notices": [{"id": "low-water-alert", "active": True, "first_seen": "2026-10-14T22:14:30+00:00",
+                         "text": "Low Water Alert. Expect river stages below 1 foot during low tide."}],
+            "rivers": [{"name": "Willamette River at Eugene", "stage_ft": 9.8, "flow_cfs": None, "missing": False, "in_vertex": False, "status": "match"},
+                       {"name": "Willamette River at Salem", "stage_ft": 5.4, "flow_cfs": 7057, "missing": False, "in_vertex": True, "status": "match"},
+                       {"name": "South Santiam River at Waterloo", "stage_ft": None, "missing": True, "in_vertex": False,
+                        "status": "radio_missing", "official": {"stage_ft": 3.31}}],
+            "marine": {"bar": {"seas_ft": [4, 6], "note": "through Thursday evening"}}}
+    base.update(over)
+    return base
+
+
+def test_the_briefing_gets_notices_outside_the_map_and_a_gauge_the_station_missed():
+    from pollers.summary_context import format_nwr_broadcast
+    out = format_nwr_broadcast(_bc(), NOW)
+    assert "NOTICE on air since" in out and "Low Water Alert" in out
+    assert "Eugene 9.8 ft" in out and "Salem" not in out.split("beyond the map")[1].split("\n")[0]   # only gauges not already on the map
+    assert "South Santiam River at Waterloo: station could not read it; NOAA has 3.31 ft" in out
+    assert "Columbia River Bar: seas 4-6 ft" in out
+
+
+def test_the_briefing_section_is_empty_when_there_is_nothing_to_say():
+    from pollers.summary_context import format_nwr_broadcast
+    assert format_nwr_broadcast(None, NOW) == "" and format_nwr_broadcast({"notices": [], "rivers": [], "marine": {}}, NOW) == ""
+    assert format_nwr_broadcast(_bc(notices=[{"id": "x", "active": False, "text": "old"}], rivers=[], marine={}), NOW) == ""
+
+
+def test_weather_test_alerts_are_not_briefed():
+    from pollers.summary_context import format_weather_alerts
+    only_test = [{"event": "Required Weekly Test", "headline": "t", "test": True}]
+    assert "None active" in format_weather_alerts(only_test, NOW)

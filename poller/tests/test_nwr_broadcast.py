@@ -303,3 +303,10 @@ def test_a_repeated_gauge_keeps_the_reading_that_has_a_flow_even_if_a_later_one_
     got = {r["name"]: r for r in nb.rivers(text, OFFICE)}
     assert got["Sandy River near Bull Run"]["flow_cfs"] == 266
     assert got["Willamette River at Salem"]["flow_cfs"] == 7057             # the hyphenated garble is repaired
+
+
+def test_the_bar_note_stops_at_the_time_clause_and_does_not_run_into_the_currents():
+    text = ("Forecast for the Columbia River Bar in the main channel, General Seas, 4-6 feet through Thursday evening. "
+            "First ab, ab current of 5.19 knots at 7.30 pm Wednesday.")
+    assert nb.marine(text)["bar"] == {"seas_ft": [4, 6], "note": "through Thursday evening"}
+    assert nb.marine("Columbia River Bar, General Seas 3 to 5 feet.")["bar"]["note"] == ""

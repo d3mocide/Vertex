@@ -68,6 +68,7 @@ class TocsinPoller(BasePoller):
         self._book: nwr_broadcast.NoticeBook | None = None   # what the station has been announcing, across refreshes
         self._official: dict[str, tuple[float, dict | None]] = {}   # NWPS id -> (fetched at, reading)
         self._office: tuple[float, str] = (0.0, "")
+        self._seeded = False
 
     async def run(self) -> None:
         base = (settings.tocsin_url or "").strip().rstrip("/")
@@ -214,6 +215,22 @@ class TocsinPoller(BasePoller):
                 await asyncio.gather(*(one(l) for l in stale))
         return {l: self._official.get(l, (0, None))[1] for l in lids}
 
+    async def _seed_book(self, book: "nwr_broadcast.NoticeBook") -> None:
+        """A new vote book knows only the loops in the last 40 minutes, so a notice that has been on the air for hours
+        would show as just heard and with few votes. Once, replay Tocsin's stored transcripts (hours of loops)."""
+        if self._seeded or book.items:
+            self._seeded = True
+            return
+        self._seeded = True
+        try:
+            async with httpx.AsyncClient(timeout=30, headers=self._headers) as client:
+                history = await self._get(client, "/transcripts", limit=1000)
+            chunks = [t for t in history if str(t.get("event_code")) == "LIVE" and t.get("passed_guard", True)]
+            book.update(nwr_broadcast.parse(chunks, await self._office_code())["notices"], time.time())
+            logger.info("[tocsin] notice history seeded from %d stored chunks", len(chunks))
+        except Exception as exc:
+            logger.debug("[tocsin] could not seed the notice book: %s", redact_text(exc))
+
     async def _broadcast(self, transcripts: list[dict]) -> dict:
         """Everything parsed from the broadcast text, with notices voted across loops and each river gauge checked
         against NOAA's own reading."""
@@ -221,6 +238,7 @@ class TocsinPoller(BasePoller):
         chunks = [t for t in transcripts if str(t.get("event_code")) == "LIVE" and t.get("passed_guard", True)]
         parsed = nwr_broadcast.parse(chunks, await self._office_code())
         book = await self._notice_book()
+        await self._seed_book(book)
         book.update(parsed["notices"], now)
         try:
             await (await get_bus()).set(_NOTICE_BOOK_KEY, json.dumps(book.state()), ex=7 * 24 * 3600)
