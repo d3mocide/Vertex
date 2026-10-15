@@ -63,6 +63,41 @@ def _extent(lines: list[dict], pad: float = 0.005) -> str:
     return ",".join(f"{round(v, 6):g}" for v in (min(lons) - pad, max(lats) + pad, max(lons) + pad, min(lats) - pad))
 
 
+_FILLER = re.compile(r"^(?:off of|off|near|by|on|at)\s+")
+
+
+def _street_variants(street: str) -> list[str]:
+    """Cleaner readings of a street heard with noise around it, for retrying a miss.
+
+    'off of Western Ave' -> 'Western Ave'; 'patrick s norville st' -> 's norville st' (words before the first
+    direction are dropped). Each is only a candidate: the geocoder still needs an exact house number or a real crossing.
+    """
+    from street_names import _ABBREVS
+
+    words = street.strip().split()
+    out: list[str] = []
+    cleaned = _FILLER.sub("", street.strip(), count=1)
+    if cleaned != street.strip():
+        out.append(cleaned)
+    cw = cleaned.split()
+    for i in range(1, len(cw) - 1):
+        if cw[i].lower() in _ABBREVS and cw[0].lower() not in _ABBREVS:
+            out.append(" ".join(cw[i:]))
+            break
+    return [v for v in dict.fromkeys(out) if v and v.lower() != street.strip().lower()]
+
+
+def _name_core(street: str) -> str | None:
+    """The street's name without direction or type ('SW Tuckerwood Ct' -> 'tuckerwood')."""
+    from street_names import parse_loose, parse_street
+
+    parsed = parse_street(street)
+    if parsed:
+        return parsed[1]
+    loose = parse_loose(street)
+    return loose[1] if loose else None
+
+
 def is_geocodable(location: str | None) -> bool:
     """Street addresses and intersections only — not landmarks or bare highways."""
     if not location or "(landmark)" in location:
@@ -177,15 +212,15 @@ class Geocoder:
 
     async def _resolve(self, location: str) -> tuple[tuple[float, float] | None, str, str | None]:
         """Exact lookup first; on a miss, retry with fuzzy street-name corrections."""
-        from street_names import suggest
+        from street_names import has_direction, suggest
 
         if " & " in location:
             a, b = location.split(" & ", 1)
             point = await self._intersection(a, b)
             if point:
                 return point, "intersection", None
-            alt_a = [a] + await suggest(self.pool, a, 2)
-            alt_b = [b] + await suggest(self.pool, b, 2)
+            alt_a = await self._street_candidates(a)
+            alt_b = await self._street_candidates(b)
             for ca in alt_a:
                 for cb in alt_b:
                     if (ca, cb) == (a, b):
@@ -199,12 +234,37 @@ class Geocoder:
         if point:
             return point, "address", None
         num, _, street = location.partition(" ")
-        for alt in await suggest(self.pool, street, 2):
-            corrected = f"{num} {alt}"
-            point = await self._address(corrected)
-            if point:  # validated: this exact house number exists on the corrected street
-                return point, "address_fuzzy", corrected
+        heard = [street] + _street_variants(street)
+        for variant in heard[1:]:
+            point = await self._address(f"{num} {variant}")
+            if point:
+                return point, "address_fuzzy", f"{num} {variant}"
+        for base in heard:
+            # Without a direction ("5th Ave") several quadrants can carry the same house number, so a
+            # correction counts only when exactly one candidate has it.
+            ambiguous = not has_direction(base)
+            found = []
+            for alt in await suggest(self.pool, base, 4 if ambiguous else 2):
+                if ambiguous and _name_core(alt) != _name_core(base):
+                    continue  # no direction and a guessed name: too weak for a pin
+                corrected = f"{num} {alt}"
+                point = await self._address(corrected)
+                if point:  # validated: this exact house number exists on the corrected street
+                    if not ambiguous:
+                        return point, "address_fuzzy", corrected
+                    found.append((point, corrected))
+            if len(found) == 1:
+                return found[0][0], "address_fuzzy", found[0][1]
         return None, "miss", None
+
+    async def _street_candidates(self, street: str) -> list[str]:
+        """The street as heard, its cleaned readings, then close real streets — at most four, tried in that order."""
+        from street_names import suggest
+
+        out = [street, *_street_variants(street)]
+        for base in list(out):
+            out.extend(await suggest(self.pool, base, 2))
+        return list(dict.fromkeys(out))[:4]
 
     async def _address(self, location: str) -> tuple[float, float] | None:
         results = await self._get({"street": location, "limit": 1, "addressdetails": 1})

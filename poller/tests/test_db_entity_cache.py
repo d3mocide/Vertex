@@ -44,8 +44,18 @@ import db  # noqa: E402
 
 
 class _FakeConn:
-    async def execute(self, *args, **kwargs):
+    inserts = 0
+
+    async def execute(self, sql, *args, **kwargs):
+        if "INSERT INTO observations" in sql:
+            _FakeConn.inserts += 1
         return "INSERT 0 1"
+
+    async def fetch(self, *args, **kwargs):
+        return []
+
+    async def fetchrow(self, *args, **kwargs):
+        return None
 
 
 class _FakeAcquireCtx:
@@ -66,6 +76,8 @@ def _reset_state():
     bus._entity_cache.clear()
     db._last_entity_write_ts.clear()
     db._last_obs_ts.clear()
+    db._last_obs_state.clear()
+    _FakeConn.inserts = 0
     db._pool = _FakePool()
     yield
     db._pool = None
@@ -91,3 +103,28 @@ async def test_write_entity_observation_handles_tuple_cache_entry():
 
     # Previously raised AttributeError: 'tuple' object has no attribute 'get'
     await db.write_entity_observation(new_entity, record_observation=False, sanitized=True)
+
+
+def _gauge(**over):
+    return dict({"entity_id": "gauge:1", "entity_type": "stream_gauge", "source": "nwps",
+                 "lat": 45.0, "lon": -122.0, "status": "normal"}, **over)
+
+
+@pytest.mark.asyncio
+async def test_unchanged_static_entity_records_one_observation_until_heartbeat():
+    await db.write_entity_observation(_gauge(), sanitized=True)
+    db._last_obs_ts.clear()  # get past the per-entity rate limit
+    await db.write_entity_observation(_gauge(), sanitized=True)
+    assert _FakeConn.inserts == 1
+
+    # A changed field is recorded straight away.
+    db._last_obs_ts.clear()
+    await db.write_entity_observation(_gauge(status="action"), sanitized=True)
+    assert _FakeConn.inserts == 2
+
+    # An unchanged entity is recorded again once the heartbeat has passed.
+    ts, fields = db._last_obs_state["gauge:1"]
+    db._last_obs_state["gauge:1"] = (ts - db._OBS_HEARTBEAT - 1, fields)
+    db._last_obs_ts.clear()
+    await db.write_entity_observation(_gauge(status="action"), sanitized=True)
+    assert _FakeConn.inserts == 3

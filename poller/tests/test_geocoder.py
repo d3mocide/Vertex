@@ -207,3 +207,52 @@ def test_unvalidated_corrections_are_a_miss(monkeypatch):
     monkeypatch.setattr(street_names, "suggest", fake_suggest)
     g, _ = make(lambda r: httpx.Response(200, json=[{"lat": "45.5", "lon": "-122.6", "address": {}}]))
     assert run(g.lookup("12345 SE Dark St")) is None
+
+
+def test_street_variants_strip_filler_and_leading_junk():
+    assert geo._street_variants("off of Western Ave") == ["Western Ave"]
+    assert geo._street_variants("patrick s norville st") == ["s norville st"]
+    assert geo._street_variants("SW Main St") == []
+
+
+def test_name_core_ignores_direction_and_type():
+    assert geo._name_core("SW Tuckerwood Ct") == "tuckerwood"
+    assert geo._name_core("NE Berkshire") == "berkshire"
+    assert geo._name_core("Hwy") is None
+
+
+def test_street_without_direction_or_type_is_parsed_loosely():
+    import street_names as sn
+
+    assert sn.parse_loose("NE Berkshire") == ("NE", "berkshire")
+    assert sn.parse_loose("NE Berkshire Dr") is None  # has a type: parse_street handles it
+    assert sn.has_direction("SE Century") and not sn.has_direction("5th Ave")
+
+
+@pytest.mark.asyncio
+async def test_address_without_direction_needs_exactly_one_match(monkeypatch):
+    import street_names as sn
+
+    async def fake_suggest(pool, street, limit=3):
+        return ["NW 5th Ave", "SW 5th Ave"]
+
+    monkeypatch.setattr(sn, "suggest", fake_suggest)
+
+    async def both(self, location):
+        return (45.5, -122.6)
+
+    async def only_nw(self, location):
+        return (45.5, -122.6) if " NW " in location else None
+
+    g = geo.Geocoder(FakeRedis(), pool=object())
+    monkeypatch.setattr(geo.Geocoder, "_address", only_nw)
+    # "100 5th Ave" itself is not found, only the NW candidate has that number.
+    point, how, corrected = await g._resolve("100 5th Ave")
+    assert (how, corrected) == ("address_fuzzy", "100 NW 5th Ave")
+
+    # Two quadrants carry the number: ambiguous, so no pin.
+    async def either(self, location):
+        return (45.5, -122.6) if location != "100 5th Ave" else None
+
+    monkeypatch.setattr(geo.Geocoder, "_address", either)
+    assert await g._resolve("100 5th Ave") == (None, "miss", None)

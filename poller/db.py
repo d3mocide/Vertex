@@ -39,6 +39,13 @@ _pool: asyncpg.Pool | None = None
 _OBS_MIN_INTERVAL = 30.0
 _last_obs_ts: dict[str, float] = {}
 
+# Entities that sit still (mesh nodes, gauges, fire perimeters) report the same
+# fields every poll. An observation identical to the last one recorded is
+# skipped, except for a heartbeat row so "seen in the last 24 h" queries and the
+# replay window still find the entity.
+_OBS_HEARTBEAT = 3600.0
+_last_obs_state: dict[str, tuple[float, tuple]] = {}
+
 
 # Throttle entities table upsert to avoid continuous DB writes for active entities.
 _ENTITY_MIN_INTERVAL = 15.0
@@ -244,7 +251,18 @@ async def write_entity_observation(entity: dict, record_observation: bool = True
             if lat is not None and lon is not None:
                 await check_geofences(entity, conn)
             return
+
+        fields = (
+            lat, lon, entity.get("altitude"), entity.get("heading"), entity.get("speed"),
+            entity.get("vertical_rate"), entity.get("signal_quality"), entity.get("status"),
+        )
+        prev_obs = _last_obs_state.get(entity_id_key)
+        if prev_obs and prev_obs[1] == fields and now_ts - prev_obs[0] < _OBS_HEARTBEAT:
+            if lat is not None and lon is not None:
+                await check_geofences(entity, conn)
+            return
         _last_obs_ts[entity_id_key] = now_ts
+        _last_obs_state[entity_id_key] = (now_ts, fields)
 
         await conn.execute(
             """
@@ -309,12 +327,25 @@ async def purge_observations() -> int:
             "DELETE FROM acars_messages WHERE ts < NOW() - ($1 * INTERVAL '1 day')",
             int(retention_days),
         )
+        # Registry rows nothing refers to any more: not seen within the retention
+        # window and without observations, events or operator mission tags.
+        pruned = await conn.execute(
+            """
+            DELETE FROM entities e
+            WHERE e.last_seen < NOW() - ($1 * INTERVAL '1 day')
+              AND NOT EXISTS (SELECT 1 FROM observations o WHERE o.entity_id = e.entity_id)
+              AND NOT EXISTS (SELECT 1 FROM events v WHERE v.entity_id = e.entity_id)
+              AND NOT EXISTS (SELECT 1 FROM entity_mission_tags t WHERE t.entity_id = e.entity_id)
+            """,
+            int(retention_days),
+        )
     deleted = int(result.split()[-1])
     acars_deleted = int(acars_result.split()[-1])
+    entities_pruned = int(pruned.split()[-1])
     await _record_purge(deleted, acars_deleted, retention_days)
     logger.info(
-        "[db] purged %d old observations, %d old ACARS messages (retention: %d days)",
-        deleted, acars_deleted, retention_days,
+        "[db] purged %d old observations, %d old ACARS messages, %d unreferenced entities (retention: %d days)",
+        deleted, acars_deleted, entities_pruned, retention_days,
     )
     return deleted
 

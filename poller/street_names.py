@@ -56,6 +56,23 @@ def parse_street(name: str) -> tuple[str, str, str] | None:
     return direction, _ALIASES.get(core, core), suffix
 
 
+def parse_loose(name: str) -> tuple[str, str] | None:
+    """A street heard without its type: 'NE Berkshire' -> ('NE', 'berkshire'). None if it has a type or no name."""
+    words = re.sub(r"[^\w\s]", " ", name.lower()).split()
+    direction = ""
+    if words and words[0] in _ABBREVS:
+        direction = _ABBREVS[words.pop(0)]
+    if not words or words[-1] in _SUFFIXES:
+        return None
+    core = " ".join(words)
+    return (direction, _ALIASES.get(core, core)) if len(core) >= 4 else None
+
+
+def has_direction(name: str) -> bool:
+    words = re.sub(r"[^\w\s]", " ", name.lower()).split()
+    return bool(words) and (words[0] in _ABBREVS or (len(words) > 2 and words[-1] in _ABBREVS))
+
+
 def format_street(direction: str, core: str, suffix: str) -> str:
     return " ".join(p for p in (direction, core.title(), suffix) if p)
 
@@ -101,8 +118,11 @@ async def refresh_if_stale(pool) -> int:
 async def suggest(pool, street: str, limit: int = 3) -> list[str]:
     """Closest real streets to an ASR-garbled one, same direction and type, best first."""
     parsed = parse_street(street)
-    if pool is None or parsed is None:
+    if pool is None:
         return []
+    if parsed is None:
+        loose = parse_loose(street)
+        return await _suggest_loose(pool, *loose, limit) if loose else []
     direction, core, suffix = parsed
     rows = await pool.fetch(
         """
@@ -130,3 +150,27 @@ async def suggest(pool, street: str, limit: int = 3) -> list[str]:
         if cand.lower() != heard and cand not in out:
             out.append(cand)
     return out[:limit]
+
+
+async def _suggest_loose(pool, direction: str, core: str, limit: int) -> list[str]:
+    """Streets whose name matches one heard without its type (exact name first, then close spellings)."""
+    rows = await pool.fetch(
+        """
+        SELECT dir, core, suffix,
+               levenshtein(core, $2) - CASE WHEN dmetaphone(core) = dmetaphone($2) THEN 3 ELSE 0 END AS score,
+               similarity(core, $2) AS sim
+        FROM street_names
+        WHERE ($1 = '' OR dir = $1 OR dir = '')
+          AND (core = $2 OR (length($2) >= 5 AND (core % $2 OR dmetaphone(core) = dmetaphone($2))
+                             AND levenshtein(core, $2) <= greatest(2, length($2) / 3)))
+        ORDER BY (core = $2) DESC, score, sim DESC, (dir = $1) DESC
+        LIMIT $3
+        """,
+        direction, core, limit,
+    )
+    out: list[str] = []
+    for r in rows:
+        cand = format_street(r["dir"] or direction, r["core"], r["suffix"])
+        if cand not in out:
+            out.append(cand)
+    return out
