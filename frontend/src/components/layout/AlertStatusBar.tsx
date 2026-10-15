@@ -66,7 +66,10 @@ export function AlertStatusBar() {
   const items = advisories?.items ?? []
   const count = advisories?.count ?? 0
   const level: Level = advisories?.level === 'red' ? 'red' : advisories?.level === 'amber' ? 'yellow' : 'green'
-  const top = items[0]
+  // Rotate through every advisory (the colour stays that of the worst one). Hovering or opening the list holds the current one.
+  const [index, setIndex] = useState(0)
+  const [held, setHeld] = useState(false)
+  const top = items.length ? items[index % items.length] : undefined
   const message = useMemo(() => (top ? text(top) : 'No active advisories'), [top])
 
   useEffect(() => {
@@ -95,14 +98,22 @@ export function AlertStatusBar() {
     return () => ro.disconnect()
   }, [message])
 
+  // One loop moves the text by one copy: ~6 characters a second reads comfortably.
+  const animationDuration = useMemo(() => `${Math.max(12, Math.round(message.length / 6))}s`, [message])
+
+  // A message that fits stays 8 s; one that scrolls stays for one full loop so it is read to the end.
+  useEffect(() => {
+    if (items.length < 2 || open || held) return
+    const dwell = overflows ? parseFloat(animationDuration) * 1000 : 8000
+    const id = window.setTimeout(() => setIndex((i) => (i + 1) % items.length), dwell)
+    return () => window.clearTimeout(id)
+  }, [items.length, index, overflows, animationDuration, open, held])
+
   const go = (a: Advisory) => {
     setOpen(false)
     if (a.target.incident) setFocusIncidentId(a.target.incident)
     setActiveTab(a.target.tab as NavTab)
   }
-
-  // One loop moves the text by one copy: ~6 characters a second reads comfortably.
-  const animationDuration = useMemo(() => `${Math.max(12, Math.round(message.length / 6))}s`, [message])
 
   // In calm mode show a slim indicator; in critical mode show the full bar
   if (mode === 'calm' && level === 'green') return null
@@ -119,8 +130,10 @@ export function AlertStatusBar() {
         <button
           type="button"
           onClick={() => top && go(top)}
+          onMouseEnter={() => setHeld(true)}
+          onMouseLeave={() => setHeld(false)}
           role="alert"
-          aria-live="assertive"
+          aria-live={items.length > 1 ? 'off' : 'assertive'}   // a rotating message would otherwise be re-announced every few seconds
           aria-label={top ? `Open advisory: ${message}` : 'No active advisories'}
           className="flex-1 min-w-0 h-full flex items-center gap-3 pl-4 pr-2 text-left"
         >
@@ -134,11 +147,15 @@ export function AlertStatusBar() {
           <span className="font-bold tracking-widest uppercase shrink-0">
             {LEVEL_LABELS[level]}
           </span>
+          {count > 1 && items.length > 1 && (
+            <span className="font-mono shrink-0 opacity-80">{(index % items.length) + 1}/{items.length}</span>
+          )}
           <div ref={boxRef} className="relative flex-1 min-w-0 overflow-hidden">
             {/* Off-screen copy used to measure the message's natural width. */}
             <span ref={measureRef} className="absolute invisible whitespace-nowrap font-mono" aria-hidden="true">{message}</span>
             {overflows ? (
               <span
+                key={top?.id}
                 className="alert-marquee-track font-mono opacity-80"
                 style={{ animationDuration }}
               >
