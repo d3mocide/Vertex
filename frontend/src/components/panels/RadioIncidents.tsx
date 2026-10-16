@@ -43,7 +43,7 @@ const FILTERS: { id: Group | 'all'; label: string }[] = [
 
 // Radio incidents with no traffic for this long are shown as likely resolved
 // (dispatch rarely broadcasts an explicit clear) — matches the AI briefing.
-const STALE_MS = 3 * 60 * 60 * 1000
+const STALE_MS = 60 * 60 * 1000   // follow-up traffic is normally heard within the hour; silence after that reads as stale
 const PAGE_SIZE = 10
 
 type SortKey = 'priority' | 'newest' | 'nearest' | 'units'
@@ -75,7 +75,7 @@ function statusText(i: RadioIncident, now: number): string {
   if (i.status === 'cleared') return 'Cleared'
   if (i.status === 'contained') return 'Contained'
   const quietH = Math.floor((now - Date.parse(i.last_seen)) / 3_600_000)
-  if (quietH >= 3) return `No update ${quietH}h`
+  if (quietH >= 1) return `No update ${quietH}h`
   return i.status === 'on_scene' ? 'On scene' : 'Active'
 }
 

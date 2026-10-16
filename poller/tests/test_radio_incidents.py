@@ -18,7 +18,7 @@ if _POLLER_ROOT not in sys.path:
 
 import pytest
 
-from radio_incidents import extract, is_hospital_tag, locate, normalise, parse_call
+from radio_incidents import classify, extract, is_hospital_tag, locate, normalise, parse_call
 
 T0 = datetime(2026, 9, 25, 12, 0)
 
@@ -101,11 +101,11 @@ def test_same_address_after_gap_is_a_new_incident():
     assert len(extract(rows)) == 2
 
 
-def test_routine_unlocated_chatter_is_dropped_but_serious_unlocated_is_kept():
+def test_routine_unlocated_chatter_is_dropped_but_serious_unlocated_dispatch_is_kept():
     rows = [
         (T0, 1809, "", "copy that, clear on the air, thank you"),
         (T0, 1809, "", "a priority 2 charlie sick person, respond ops 1"),
-        (T0, 1809, "", "person struck by a freight train, engine 1 engine 3 squad 1 truck 1"),
+        (T0, 1809, "", "person struck by a freight train, engine 1 engine 3 squad 1 truck 1 respond"),
     ]
     incidents = extract(rows)
     assert [i.category for i in incidents] == ["train_or_ped_struck"]
@@ -113,9 +113,9 @@ def test_routine_unlocated_chatter_is_dropped_but_serious_unlocated_is_kept():
 
 def test_ranking_puts_life_safety_first():
     rows = [
-        (T0, 1809, "", "priority 4 charlie sick person 12345 northeast holiday street medic 1343"),
-        (T0 + timedelta(minutes=1), 1809, "", "standing on the railing of the bridge fireboat 21 truck 13"),
-        (T0 + timedelta(minutes=2), 1809, "", "traffic accident north columbia boulevard and north bank street engine 17"),
+        (T0, 1809, "MC Fire Disp", "priority 4 charlie sick person 12345 northeast holiday street medic 1343"),
+        (T0 + timedelta(minutes=1), 1809, "MC Fire Disp", "standing on the railing of the bridge fireboat 21 truck 13"),
+        (T0 + timedelta(minutes=2), 1809, "MC Fire Disp", "traffic accident north columbia boulevard and north bank street engine 17"),
     ]
     assert [i.category for i in extract(rows)][:2] == ["water_rescue", "crash"]
 
@@ -246,7 +246,7 @@ def test_site_specific_hospital_tags_can_be_configured():
 
 
 def test_hospital_patient_reports_do_not_become_incidents():
-    report = ("code one with a 43 year old male coming in for an evaluation after a motor vehicle accident, "
+    report = ("engine 5 respond code one with a 43 year old male coming in for an evaluation after a motor vehicle accident, "
               "pain in his neck, the patient was also assaulted earlier and has a gunshot history")
     rows = [(T0, 1, "PROV SV HOSP", report), (T0, 1, "PROV NEWBRG", report), (T0, 1, "WC Fire Disp", report)]
     assert len(extract(rows)) == 2                                  # "PROV NEWBRG" has no hospital marker...
@@ -338,7 +338,7 @@ def test_a_serious_call_without_an_address_joins_the_incident_with_the_same_unit
 def test_a_serious_call_of_another_nature_does_not_join():
     inc = extract(rows_of((0, "CCOM FD Disp", "engine 322 respond to natural gas leak at 6901 glen echo avenue cross streets are x and y"),
                           (4, "CCOM FD 24", "engine 322 we have a person struck by a car here")))
-    assert len(inc) == 2
+    assert len(inc) == 1 and len(inc[0].calls) == 1 and inc[0].category == "gas_leak"     # not joined, and crew talk is not an incident of its own
 
 
 def test_an_address_less_fire_read_heard_with_the_addressed_dispatch_is_the_same_incident():
@@ -350,17 +350,17 @@ def test_an_address_less_fire_read_heard_with_the_addressed_dispatch_is_the_same
 def test_a_nearby_address_less_fire_does_not_join_when_it_is_too_late_or_ambiguous():
     late = extract(rows_of((0, "WC Fire Disp", "engine 5 respond to residential fire at 2345 southeast brookwood avenue cross streets are x"),
                            (10, "WC OPS 35", "copy we are about to tap a residential fire we will show you clear")))
-    assert len(late) == 2
+    assert len(late) == 1 and len(late[0].calls) == 1
     two = extract(rows_of((0, "WC Fire Disp", "engine 5 respond to residential fire at 2345 southeast brookwood avenue"),
                           (1, "CCOM FD Disp", "engine 9 respond to residential fire at 700 northeast oak street"),
                           (2, "WC OPS 35", "copy we are about to tap a residential fire we will show you clear")))
-    assert len(two) == 3
+    assert len(two) == 2 and all(len(i.calls) == 1 for i in two)
 
 
 def test_address_less_assault_chatter_never_joins_an_assault_elsewhere():
     inc = extract(rows_of((0, "WC Fire Disp", "engine 62 and amr 109 respond to assault at 7067 southeast blanton street cross streets are x and y"),
                           (1, "WC Fire Disp", "firepower 364 has the assault engine closed we are clear")))
-    assert len(inc) == 2
+    assert len(inc) == 1 and len(inc[0].calls) == 1
 
 
 # ── Location extraction: forms found by auditing two weeks of unlocated serious calls ────────────────────────────────
@@ -481,3 +481,136 @@ def test_timeline_is_ordered_trimmed_and_capped():
     assert len(tl) == 12 and [t["ts"] for t in tl] == sorted(t["ts"] for t in tl)
     assert tl[0]["text"].endswith("…") and len(tl[0]["text"]) <= 281
     assert tl[-1]["ts"] == (T0 + timedelta(minutes=19)).isoformat()    # the latest word is kept
+
+
+# ── Context clues: crew talk and look-alikes are not incidents ───────────────
+
+def _categories(rows):
+    return [i.category for i in extract(rows)]
+
+
+def test_crew_talk_naming_an_incident_word_without_dispatch_wording_is_dropped():
+    rows = [
+        (T0, 1, "WC OPS 34", "We're clearing the abdominal pain off Leviton. We got an alert on our device. The structure fire off lesser if we're needed for that."),
+        (T0, 1, "WC AMR Disp", "Can you still hold in the water?"),
+        (T0, 1, "CCOM FD 24", "CSO is going to remain. They're going to call us back when they need assistance for extrication."),
+        (T0, 1, "WC OPS 35", "Truck 5-6, I'll have you join the extrication group, which is Truck 5-5."),
+    ]
+    assert extract(rows) == []
+
+
+def test_dispatch_read_without_an_address_still_makes_an_incident():
+    rows = [
+        (T0, 1, "WC Fire Disp", "Engine 61 and AMR 129. Respond to code 1 Assault. Cross streets are Southwest 172nd Terrace and Southwest 174th Avenue."),
+        (T0, 1, "WC Fire Disp", "AMR 140. Respond to entrapment. Working Channel Ops 25."),
+    ]
+    assert sorted(_categories(rows)) == ["assault", "rescue"]
+
+
+def test_garbled_fire_dispatcher_read_is_kept_but_acknowledgements_are_not():
+    rows = [
+        (T0, 1, "WC Fire Disp", "Jitters. Sponsor traffic accident. No misery. At the 1805th Avenue in the East Evergreen Parkway."),
+        (T0 + timedelta(minutes=5), 1, "WC Fire Disp", "Please show me en route to the commercial fire in Cornelius."),
+        (T0 + timedelta(minutes=6), 1, "WC Fire Disp", "I'm sorry I come with a recall on brush fire."),
+    ]
+    assert _categories(rows) == ["crash"]
+
+
+def test_chatter_joins_the_incident_its_unit_belongs_to():
+    rows = [
+        (T0, 1, "WC Fire Disp", "Engine 8 and AMR 110 respond to commercial fire at 2220 southwest lafayette road. Cross streets are Crescent drive and Golf road."),
+        (T0 + timedelta(minutes=5), 1, "WC OPS 35", "Engine 8, you are on the commercial fire, show us en route."),
+    ]
+    incidents = extract(rows)
+    assert len(incidents) == 1 and len(incidents[0].calls) == 2
+
+
+def test_training_talkgroups_never_make_incidents():
+    rows = [
+        (T0, 1, "WC Fire Train", "Fire comm calling task force on a residential fire at 1200 southwest main street, engine 6 respond."),
+        (T0, 1, "CCOM FD Train 1", "Okay, let's go ahead and upgrade this to an entrapment. Engine 4 respond to 4000 south oak street."),
+    ]
+    assert extract(rows) == []
+
+
+def test_computer_crashes_are_not_traffic_crashes():
+    for text in ("our CAD crashed", "we hold off on site as opposed to log back in after a CAD crash", "our MDT crashed again", "the app crashed"):
+        assert classify(normalise(text))[0] == "other", text
+    assert classify(normalise("two vehicle crash on 217"))[0] == "crash"
+
+
+def test_cancelled_and_cleared_on_fire_is_a_disposition_not_a_fire():
+    for text in ("107, it is canceled on fire", "cancel on fire", "cleared on fire"):
+        assert classify(normalise(text))[0] == "other", text
+    assert classify(normalise("a tree on fire along the road"))[0] != "other"
+
+
+def test_in_the_water_needs_a_person_not_a_question_about_holding():
+    assert classify(normalise("Can you still hold in the water?"))[0] == "other"
+    assert classify(normalise("one male in the water near the boat ramp"))[0] == "water_rescue"
+
+
+def test_extrication_as_a_role_and_figurative_trapped_are_not_rescues():
+    for text in ("you're going to be my extrication group", "a command from extrication, patient is extricated",
+                 "the fire in the wood stove feels like it's trapped", "I don't know why you guys are trapped"):
+        assert classify(normalise(text))[0] != "rescue", text
+    for text in ("one driver trapped in the vehicle", "we need extrication", "neighbors say somebody trapped inside the home", "traffic accident with entrapment"):
+        assert classify(normalise(text))[0] == "rescue", text
+
+
+def test_cancelled_entrapment_is_negated():
+    assert classify(normalise("we can go ahead and cancel the entrapment box"))[0] != "rescue"
+
+
+def test_co_alarm_the_crew_calls_a_malfunction_is_filed_as_an_alarm():
+    assert classify(normalise("made contact with the homeowner for the CO alarm. There's no problem at this address. It was a malfunction."))[1] == 1
+    assert classify(normalise("carbon monoxide alarm is going off, nobody's feeling any symptoms"))[1] == 1
+    assert classify(normalise("carbon monoxide alarm going off, two patients sick and dizzy"))[0] == "carbon_monoxide"
+
+
+# ── Location extraction: forms found by auditing the dispatches that came out without a place ─────────────────────────
+
+@pytest.mark.parametrize("text, expected", [
+    ("respond to traffic accident with injuries at North Adair Street and U Street.", "N Adair St & U St"),
+    ("respond to brush fire. At Southeast 82nd Drive in Southeast Jennifer Street.", "SE 82nd Dr & SE Jennifer St"),
+    ("respond to a known injury. At Northeast 106th Avenue and Northeast 10th Thorn Drive.", "NE 106th Ave & NE 10th Thorn Dr"),
+    ("responding to a traffic accident. It'll be 22400 block of Southwest Hillsborough Highway.", "22400 SW Hillsborough Hwy"),
+    ("respond to a medical at 8445 Southwest 10 Rock Street, Unit 114.", "8445 SW 10 Rock St"),
+    ("respond to a fire at 606 I Street. Cross streets are 6th Street and 7th Street.", "606 I St"),
+    ("We saw the materials incident at 1950. 500 McLaughlin Boulevard.", "500 Mclaughlin Blvd"),
+    ("respond to traffic accidents. At southbound I-205 exit 3. Cross streets are x", "I-205 exit 3"),
+    ("respond to traffic accidents. At eastbound Sunset, exit 67, Murray.", "US 26 (Sunset Hwy) exit 67"),
+    ("miscellaneous fire. It's going to be northbound 217 near exit 6.", "Hwy 217 exit 6"),
+    ("southbound I-205, just north of mile post 7.", "I-205 mile post 7"),
+])
+def test_dispatch_location_forms(text, expected):
+    assert call(text).location == expected
+
+
+def test_update_address_without_a_suffix_is_read_in_a_dispatch():
+    c = call("Update address will be 1942 Barbary. This is going to be a smoldering backyard fire. Engine 5")
+    assert c.location == "1942 Barbary" and c.key
+
+
+def test_a_street_after_at_is_a_place_for_a_dispatch_but_not_for_crew_talk():
+    assert call("Engine 60, respond to traffic accident, a known injury. At East Main Street and Southeast").location == "E Main St"
+    assert call("we were at East Main Street earlier, a traffic accident", tag="WC OPS 34").location is None
+
+
+def test_cross_streets_are_the_place_when_no_address_was_read():
+    c = call("229, code 3 traffic accident. Cross streets are Southwest 172nd Terrace and Southwest 174th Avenue.")
+    assert c.location == "SW 172nd Ter & SW 174th Ave" and c.key
+
+
+def test_no_street_is_not_a_street():
+    assert call("Respond to sick person at 9640 Southwest Carriageway. Cross streets are Southwest Singletree Drive and no street.").location == "9640 SW Carriageway"
+    assert call("Cross streets are no street and Southwest Lori Way. Engine 5 respond").location is None
+
+
+def test_hospital_talkgroups_are_recognised_by_what_they_say_not_what_they_are_called():
+    from radio_incidents import patient_report_tags
+    report = "coming code 1 with a 43 year old male, pulse of 91, ETA ten minutes"
+    dispatch = "engine 5 respond to residential fire at 2345 southeast brookwood avenue cross streets are x and y"
+    rows = [(T0, 1, "PROV NEWBRG", report)] * 20 + [(T0, 2, "WC Fire Disp", dispatch)] * 20 + [(T0, 3, "RARE", report)] * 5
+    assert patient_report_tags(rows) == {"PROV NEWBRG"}                        # too few calls on "RARE" to judge
+    assert extract(rows[:20] + [(T0, 1, "PROV NEWBRG", "engine 5 respond to gas leak at 700 north clarendon avenue cross streets are x and y")]) == []
