@@ -1,4 +1,7 @@
-"""Reviewed official transit feeds; credentials come only from server settings."""
+"""Built-in reviewed transit feeds; credentials come only from server settings.
+
+Agencies that need no operator settings are declared in the packs instead (kind gtfs_rt). TriMet stays here because legacy
+installs with no pack still resolve it and its URLs, route types and interval are operator settings."""
 SOURCES = {'trimet-transit': {'name': 'trimet',
                     'label': 'TriMet',
                     'static_url': 'https://developer.trimet.org/schedule/gtfs.zip',
@@ -10,9 +13,4 @@ SOURCES = {'trimet-transit': {'name': 'trimet',
                     'realtime_setting': 'trimet_gtfs_rt_url',
                     'modes_setting': 'trimet_route_types',
                     'interval_setting': 'trimet_poll_interval',
-                    'enabled_setting': 'trimet_gtfs_enabled'},
- 'cherriots-transit': {'name': 'cherriots',
-                       'label': 'Cherriots',
-                       'static_url': 'https://cherriots.rideralerts.com/InfoPoint/gtfs-zip.ashx',
-                       'realtime_url': '',
-                       'bbox': (-123.6, 44.65, -122.3, 45.4)}}
+                    'enabled_setting': 'trimet_gtfs_enabled'}}

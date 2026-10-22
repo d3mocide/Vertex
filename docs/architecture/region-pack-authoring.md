@@ -28,6 +28,7 @@ Each entry in `providers` fills one or more **contracts** (`docs/contracts/`), t
 |--------|-----------|
 | `builtin` | Code that lives in the repo and is selected by id. Only for sources that need real logic (the keyed Traveler API, TriMet). |
 | `arcgis_featureserver` | A public ArcGIS layer described entirely in the manifest. Today it fills `fire.danger`. |
+| `gtfs_rt` | A transit agency's GTFS schedule and, optionally, its GTFS Realtime vehicle feed. Fills `transit.routes` and `transit.vehicles`. |
 
 ### `arcgis_featureserver` for `fire.danger`
 
@@ -69,6 +70,34 @@ Each entry in `providers` fills one or more **contracts** (`docs/contracts/`), t
 
 Find the field names by opening the layer's URL in a browser (the REST page lists every field) and the `?f=pjson` view. The layer must be reachable without a key.
 
+### `gtfs_rt` for `transit.routes` and `transit.vehicles`
+
+```yaml
+requires_keys:                     # only if the agency's realtime feed needs a key
+  - {name: PACK_METRO_TRANSIT_KEY, where: https://transit.example.org/developers, free: true, unlocks: [transit.vehicles]}
+providers:
+  - id: metro-transit
+    kind: gtfs_rt
+    provides: [transit.routes, transit.vehicles]    # routes only, if there is no realtime feed
+    attribution: Metro Transit
+    static_url: https://transit.example.org/gtfs.zip
+    realtime_url: https://transit.example.org/realtime/vehicle-positions.pb
+    key: {env: PACK_METRO_TRANSIT_KEY, param: apikey}
+    coverage: [-105.5, 39.5, -104.5, 40.1]          # min_lon, min_lat, max_lon, max_lat of the service area
+```
+
+| Field | Meaning |
+|-------|---------|
+| `static_url` | `https` address of the GTFS schedule ZIP, on a public host, with no query string or credentials. |
+| `realtime_url` | Optional `https` address of the GTFS Realtime vehicle positions feed (protocol buffers). Needed for `transit.vehicles`, and only allowed with it. |
+| `attribution` | The agency's name (up to 40 characters), shown beside its routes and vehicles. |
+| `key` | Optional, realtime feed only. `env` is the environment variable holding the key and `param` the query parameter the agency expects it in. `env` must be listed under `requires_keys` and must start with `PACK_` (two older reviewed names, `TRIMET_APP_ID` and `SOUNDTRANSIT_API_KEY`, are also accepted). A pack cannot name any other variable, so it cannot read Vertex's own secrets. |
+| `coverage` | The agency's service area. Vertex downloads the schedule only when the monitored area overlaps it. Defaults to the pack's `covers.bbox`, which is usually a whole state and far too wide for a single agency, so set it. |
+| `route_types` | Optional list of GTFS `route_type` numbers to show (0 tram, 1 subway, 2 rail, 3 bus). Default: all. |
+| `poll_seconds` | 15 to 3600, default 30. How often the vehicle feed is read. The schedule refreshes daily. |
+
+Use the agency's own published feed and respect its terms; there is no scraping. The first schedule download for a large agency takes a while and is cached for a day. A route in a schedule is not evidence that it runs today, and a schedule alone gives no live positions.
+
 ## 5. Check your pack
 
 ```bash
@@ -85,4 +114,4 @@ Include the pack directory only. Say which agency publishes the data and link to
 
 ## What is not declarative yet
 
-Traffic incidents, cameras, outages and transit still need a `builtin` provider, except GTFS-based transit, which already uses shared configuration. The next declarative kinds planned are `gtfs_rt`, `json_rest` and `wzdx` (work zone data). Oregon's forestry feed also stays built in for now because installs that never chose a pack still use it.
+Traffic incidents, cameras and outages still need a `builtin` provider. The next declarative kinds planned are `json_rest` and `wzdx` (work zone data). Some things stay built in on purpose: Oregon's forestry feed and TriMet, because installs that never chose a pack still use them (and TriMet's URLs, route types and interval are operator settings), and C-TRAN, whose access terms are unverified. Transit service alerts and calendar filtering are not part of `gtfs_rt` yet.

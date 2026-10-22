@@ -52,3 +52,16 @@ providers:
     extra: {burn_ban: BAN_STATUS}     # optional: extra detail kept on each zone (output name -> service field)
     scope: Applies to state-protected land only   # optional: shown with any burn_ban
     skip_unknown: false               # true drops zones whose level is not listed (otherwise they show as not rated)
+
+  # A transit agency described entirely here: GTFS schedule plus an optional realtime vehicle feed. A key, if the
+  # agency needs one, is named by an environment variable that starts with PACK_ and is listed under requires_keys.
+  - id: example-transit
+    kind: gtfs_rt
+    provides: [transit.routes]                   # add transit.vehicles when there is a realtime_url
+    attribution: Example Transit
+    static_url: https://transit.example.invalid/gtfs.zip
+    # realtime_url: https://transit.example.invalid/realtime/vehicle-positions.pb
+    # key: {env: PACK_EXAMPLE_TRANSIT_KEY, param: apikey}
+    coverage: [-105.5, 39.5, -104.5, 40.1]       # the agency's service area (min_lon, min_lat, max_lon, max_lat)
+    # route_types: [0, 1, 2, 3]                  # optional GTFS route_type filter
+    # poll_seconds: 30                           # optional

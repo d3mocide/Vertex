@@ -56,5 +56,8 @@ providers:
     kind: builtin
     provides: [transit.routes, transit.vehicles]
   - id: cherriots-transit
-    kind: builtin
-    provides: [transit.routes]
+    kind: gtfs_rt
+    provides: [transit.routes]                 # schedules and route shapes only: Cherriots publishes no realtime feed
+    attribution: Cherriots
+    static_url: https://cherriots.rideralerts.com/InfoPoint/gtfs-zip.ashx
+    coverage: [-123.6, 44.65, -122.3, 45.4]    # Salem area: the schedule is not fetched for a monitored area outside it

@@ -52,5 +52,10 @@ providers:
     kind: builtin
     provides: [transit.routes]
   - id: soundtransit-transit
-    kind: builtin
+    kind: gtfs_rt
     provides: [transit.routes, transit.vehicles]
+    attribution: Sound Transit
+    static_url: https://www.soundtransit.org/GTFS-rail/40_gtfs.zip
+    realtime_url: https://api.pugetsound.onebusaway.org/api/gtfs_realtime/vehicle-positions-for-agency/40.pb
+    key: {env: SOUNDTRANSIT_API_KEY, param: key}   # must also be listed under requires_keys
+    coverage: [-123.2, 46.8, -121.3, 48.3]         # Puget Sound

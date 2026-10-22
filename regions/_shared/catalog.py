@@ -4,6 +4,7 @@ Manifests select these adapters; they never import or execute pack-supplied code
 """
 import hashlib
 import json
+import os
 from transit_sources import SOURCES
 
 SELECTION_KEY = "region_packs"
@@ -40,9 +41,19 @@ def declared_entries(pack, claimed=None):
     for provider in pack.get("providers", []):
         if provider.get("kind") == "builtin":
             continue
-        bbox = tuple(pack["covers"]["bbox"])
-        entry = {"contracts": {c: FEED_KEYS[c] for c in provider["provides"]}, "bbox": bbox,
-                 "declarative": provider["spec"], "attribution": provider["spec"]["attribution"]}
+        bbox = pack["covers"]["bbox"]
+        spec = provider["spec"]
+        if provider["kind"] == "gtfs_rt":
+            contracts = {"transit.routes": ["transit:routes"]}
+            if spec["realtime_url"]:
+                contracts["transit.vehicles"] = ["transit:vehicles"]
+            # An agency serves one area, not the whole state its pack covers: a narrower coverage keeps Vertex from
+            # downloading the schedule of a transit agency hundreds of kilometres from the monitored area.
+            entry = {"contracts": contracts, "bbox": tuple(spec["coverage"] or bbox), "kind": "gtfs_rt", "declarative": spec,
+                     "attribution": spec["attribution"], **({"env_key": spec["key"]["env"]} if spec["key"] else {})}
+        else:
+            entry = {"contracts": {c: FEED_KEYS[c] for c in provider["provides"]}, "bbox": tuple(bbox),
+                     "kind": provider["kind"], "declarative": spec, "attribution": spec["attribution"]}
         for other in (PROVIDERS, claimed or {}, entries):
             known = other.get(provider["id"])
             if known is not None and known != entry:
@@ -110,9 +121,11 @@ def provider_plan(ids, installed, settings, bbox):
             reason = "disabled"
         elif spec.get("key") and not getattr(settings, spec["key"], ""):
             reason = "not_configured"
+        elif spec.get("env_key") and not os.environ.get(spec["env_key"]):
+            reason = "not_configured"      # a pack-declared key lives in the environment, not in a Settings field
         supported = set(spec["contracts"]) if spec else set()
         out[pid] = {"id": pid, "contracts": sorted(set(contracts) & supported), "reason": reason,
-                    "requires": spec.get("key_env") if spec and reason == "not_configured" else None}
+                    "requires": (spec.get("key_env") or spec.get("env_key")) if spec and reason == "not_configured" else None}
     return out, errors
 
 

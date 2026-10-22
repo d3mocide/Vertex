@@ -117,7 +117,7 @@ def provenance(data, pid, ts):
         return data
     rows = []
     for item in data:
-        row = {**item, "provider_id": pid, "attribution": "WSDOT" if pid == "wsdot-travel" else "ODOT" if pid == "odot-tripcheck" else TRANSIT_SOURCES.get(pid, {}).get("label", pid),
+        row = {**item, "provider_id": pid, "attribution": "WSDOT" if pid == "wsdot-travel" else "ODOT" if pid == "odot-tripcheck" else _attribution(pid),
                "fetched_at": ts}
         # Keep existing ODOT camera bookmarks valid; new adapters always namespace IDs.
         if pid != "odot-tripcheck" and row.get("id") is not None and not str(row["id"]).startswith(pid + ":"):

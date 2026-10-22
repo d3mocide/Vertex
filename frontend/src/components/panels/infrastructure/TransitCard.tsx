@@ -2,6 +2,9 @@ import { useCapabilities } from '../../../hooks/useCapabilities'
 import { useCivicStore } from '../../../store'
 import { RegionalFeedStatus } from '../../common/RegionalFeedStatus'
 
+/** Built-in agencies; a pack-declared agency names itself in the capabilities response (`name`). */
+const TRANSIT_NAMES: Record<string, string> = { 'trimet-transit': 'TriMet', 'ctran-transit': 'C-TRAN' }
+
 export function TransitCard() {
   const caps = useCapabilities()
   const entities = useCivicStore(s => s.entities)
@@ -21,9 +24,9 @@ export function TransitCard() {
       <RegionalFeedStatus contracts={['transit.routes', 'transit.vehicles']} />
       {Object.entries(routes.provider_statuses ?? {}).filter(([, p]) => p.reason !== 'outside_coverage').map(([id, p]) => (
         <p key={id} className="text-[12px] text-on-surface-variant">
-          {id === 'trimet-transit' ? 'TriMet' : id === 'cherriots-transit' ? 'Cherriots' : id === 'ctran-transit' ? 'C-TRAN' : 'Sound Transit'}
+          {TRANSIT_NAMES[id] ?? p.name ?? id}
           {' · '}{p.reason === 'access_unverified' ? 'Supported access pending' : p.reason === 'not_configured' ? 'Developer key required' : p.reason === 'disabled' ? 'Disabled in configuration' : p.status === 'ok' ? 'Route data available' : p.status === 'pending' ? 'Waiting for route data' : 'Route updates delayed'}
-          {id === 'cherriots-transit' && ' · Schedules only'}
+          {!p.reason && !caps?.contracts['transit.vehicles']?.provider_statuses?.[id] && ' · Schedules only'}
         </p>
       ))}
     </section>

@@ -37,7 +37,8 @@ COMPOSE = "docker-compose.yml"
 # Variables that exist for reasons the three config files and compose do not show: the compose project itself,
 # or something read straight from the environment. Known, so they are never flagged as typos.
 # Names built at run time from a source's name in config/sources.yml: MQTT_{SOURCE}_USERNAME / _PASSWORD.
-KNOWN_PATTERNS = (re.compile(r"MQTT_[A-Z0-9_]+_(USERNAME|PASSWORD)"),)
+# PACK_* are API keys named by region pack manifests (a gtfs_rt provider's key); the packs, not Settings, define them.
+KNOWN_PATTERNS = (re.compile(r"MQTT_[A-Z0-9_]+_(USERNAME|PASSWORD)"), re.compile(r"PACK_[A-Z0-9_]+"))
 
 EXTRA_KNOWN = {"COMPOSE_FILE", "COMPOSE_PROJECT_NAME", "COMPOSE_PROFILES", "VERTEX_ENV_FILE", "PYTHONPATH", "TZ"}
 

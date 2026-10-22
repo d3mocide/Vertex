@@ -18,9 +18,15 @@ from urllib.parse import urlsplit
 import yaml
 
 SCHEMA = 1
-DECLARATIVE_KINDS = {"arcgis_featureserver"}   # described entirely by the manifest; more kinds (gtfs_rt, json_rest) follow
+DECLARATIVE_KINDS = {"arcgis_featureserver", "gtfs_rt"}   # described entirely by the manifest; more kinds (json_rest, wzdx) follow
 SUPPORTED_KINDS = {"builtin"} | DECLARATIVE_KINDS
 ARCGIS_CONTRACTS = {"fire.danger"}
+GTFS_CONTRACTS = {"transit.routes", "transit.vehicles"}
+# Environment variables a manifest may name as its API key. A pack must not be able to read (and so send to an agency's
+# server) arbitrary secrets such as DATABASE_URL, so the name is either in the PACK_ namespace or one of these existing,
+# reviewed credentials.
+GTFS_LEGACY_KEYS = {"TRIMET_APP_ID", "SOUNDTRANSIT_API_KEY"}
+_PACK_KEY = re.compile(r"^PACK_[A-Z0-9_]{2,56}$")
 NEWS_FORMATS = {"rss"}
 ALERT_FORMATS = {"rss", "flashalert_xml"}
 MAX_FEEDS = 25
@@ -74,6 +80,18 @@ def _check_public_url(url: str, where: str, https_only: bool = False) -> None:
             raise ValueError()
     except ValueError:
         raise PackError(f"{where}: URLs must have a public {'https ' if https_only else ''}host and no embedded credentials") from None
+
+
+def _bbox(raw, what: str):
+    """[min_lon, min_lat, max_lon, max_lat] as floats, or None when absent."""
+    if raw is None:
+        return None
+    if not isinstance(raw, list) or len(raw) != 4:
+        raise PackError(f"{what} must be [min_lon, min_lat, max_lon, max_lat]")
+    min_lon, min_lat, max_lon, max_lat = (_num(v) for v in raw)
+    if not (min_lon < max_lon and min_lat < max_lat and -180 <= min_lon and max_lon <= 180 and -90 <= min_lat and max_lat <= 90):
+        raise PackError(f"{what} has impossible bounds")
+    return [min_lon, min_lat, max_lon, max_lat]
 
 
 def _feeds(raw, kind: str, formats: set[str]) -> list[dict]:
@@ -176,6 +194,60 @@ def _arcgis_fire_danger(p: dict, prid: str, covers_bbox) -> dict:
             "extra": extra, "scope": scope, "skip_unknown": skip}
 
 
+def _gtfs_rt(p: dict, prid: str, prov: list, covers_bbox, key_names: set) -> dict:
+    """Validated settings of a ``gtfs_rt`` provider: a GTFS schedule, optionally with a GTFS Realtime vehicle feed."""
+    where = f"provider {prid}"
+    coverage = _bbox(p.get("coverage"), f"{where}: coverage")
+    if coverage is None and covers_bbox is None:
+        raise PackError(f"{where}: a declarative provider needs its own coverage or the pack's covers.bbox")
+    if "transit.routes" not in prov or set(prov) - GTFS_CONTRACTS:
+        raise PackError(f"{where}: gtfs_rt provides transit.routes and, with a realtime_url, transit.vehicles")
+    urls = {}
+    for name, required in (("static_url", True), ("realtime_url", False)):
+        url = p.get(name)
+        if url is None and not required:
+            urls[name] = ""
+            continue
+        if not isinstance(url, str) or len(url) > 512 or not re.match(r"^https://[^\s?#]+$", url):
+            raise PackError(f"{where}: {name} must be an https address with no query string (keys go in the key setting)")
+        _check_public_url(url, f"{where}: {name}", https_only=True)
+        urls[name] = url
+    if "transit.vehicles" in prov and not urls["realtime_url"]:
+        raise PackError(f"{where}: transit.vehicles needs a realtime_url")
+    if urls["realtime_url"] and "transit.vehicles" not in prov:
+        raise PackError(f"{where}: a realtime_url is only used when the provider provides transit.vehicles")
+    attribution = p.get("attribution")
+    if not isinstance(attribution, str) or not (1 <= len(attribution) <= 40):
+        raise PackError(f"{where}: attribution is required (the agency's name, up to 40 characters)")
+
+    key = p.get("key")
+    if key is not None:
+        if not isinstance(key, dict) or set(key) != {"env", "param"}:
+            raise PackError(f"{where}: key needs env (the environment variable) and param (the query parameter the agency expects)")
+        env, param = key["env"], key["param"]
+        if not isinstance(env, str) or not (_PACK_KEY.match(env) or env in GTFS_LEGACY_KEYS):
+            raise PackError(f"{where}: key.env must start with PACK_ (or be one of {', '.join(sorted(GTFS_LEGACY_KEYS))})")
+        if env not in key_names:
+            raise PackError(f"{where}: key.env {env} must also be listed under requires_keys so the setup wizard can show it")
+        if not isinstance(param, str) or not re.match(r"^[A-Za-z][A-Za-z0-9_]{0,31}$", param):
+            raise PackError(f"{where}: key.param must be a query parameter name")
+        if not urls["realtime_url"]:
+            raise PackError(f"{where}: a key is only used on the realtime feed, which this provider does not have")
+        key = {"env": env, "param": param}
+
+    types = p.get("route_types")
+    if types is not None:
+        if (not isinstance(types, list) or not 1 <= len(types) <= 40
+                or any(isinstance(t, bool) or not isinstance(t, int) or not 0 <= t <= 1799 for t in types)):
+            raise PackError(f"{where}: route_types is a list of GTFS route_type numbers (0 tram, 1 subway, 2 rail, 3 bus ...)")
+        types = sorted(set(types))
+    poll = p.get("poll_seconds", 30)
+    if isinstance(poll, bool) or not isinstance(poll, int) or not 15 <= poll <= 3600:
+        raise PackError(f"{where}: poll_seconds must be a whole number from 15 to 3600")
+    return {"attribution": attribution, "static_url": urls["static_url"], "realtime_url": urls["realtime_url"], "key": key,
+            "route_types": types, "poll_seconds": poll, "coverage": coverage}
+
+
 def validate(manifest: dict, dirname: str, known_contracts: set[str]) -> dict:
     """Check a parsed manifest and return the normalized pack. Raises PackError with a readable reason."""
     if not isinstance(manifest, dict):
@@ -195,14 +267,7 @@ def validate(manifest: dict, dirname: str, known_contracts: set[str]) -> dict:
     states = covers.get("states") or []
     if not isinstance(states, list) or not all(isinstance(s, str) and _STATE.match(s) for s in states):
         raise PackError("covers.states must be two-letter state codes")
-    bbox = covers.get("bbox")
-    if bbox is not None:
-        if not isinstance(bbox, list) or len(bbox) != 4:
-            raise PackError("covers.bbox must be [min_lon, min_lat, max_lon, max_lat]")
-        min_lon, min_lat, max_lon, max_lat = (_num(v) for v in bbox)
-        if not (min_lon < max_lon and min_lat < max_lat and -180 <= min_lon and max_lon <= 180 and -90 <= min_lat and max_lat <= 90):
-            raise PackError("covers.bbox has impossible bounds")
-        bbox = [min_lon, min_lat, max_lon, max_lat]
+    bbox = _bbox(covers.get("bbox"), "covers.bbox")
     if not states and bbox is None:
         raise PackError("covers needs states, a bbox, or both")
 
@@ -243,6 +308,8 @@ def validate(manifest: dict, dirname: str, known_contracts: set[str]) -> dict:
             if len(prov) != 1 or prov[0] not in ARCGIS_CONTRACTS:
                 raise PackError(f"provider {prid}: arcgis_featureserver can provide only {', '.join(sorted(ARCGIS_CONTRACTS))}")
             entry["spec"] = _arcgis_fire_danger(p, prid, bbox)
+        elif kind == "gtfs_rt":
+            entry["spec"] = _gtfs_rt(p, prid, prov, bbox, seen_keys)
         providers.append(entry)
         provides.extend(c for c in prov if c not in provides)
     if not providers:

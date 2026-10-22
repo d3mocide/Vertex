@@ -30,7 +30,7 @@ def build_pollers(plan):
     from pollers.wsdot import WsdotPoller
     factories = {"odot-tripcheck": traffic.TrafficPoller, "oregon-odin": utilities.UtilityPoller,
                  "odf-fire-danger": odf_fire_danger.OdfFireDangerPoller, "wsdot-travel": WsdotPoller}
-    from pollers.gtfs_rt import GtfsRtPoller
+    from pollers.gtfs_rt import GtfsRtPoller, declared_source
     from transit_sources import SOURCES
     for pid in SOURCES:
         factories[pid] = lambda pid=pid: GtfsRtPoller(pid)
@@ -40,8 +40,13 @@ def build_pollers(plan):
     for pid, p in plan.items():
         if p["reason"] or not p["contracts"]:
             continue
-        spec = PROVIDERS[pid].get("declarative")
-        pollers.append(ArcgisFireDangerPoller(pid, spec) if spec else factories[pid]())
+        entry = PROVIDERS[pid]
+        if entry.get("kind") == "gtfs_rt":
+            pollers.append(GtfsRtPoller(pid, declared_source(pid, entry["declarative"])))
+        elif entry.get("declarative"):
+            pollers.append(ArcgisFireDangerPoller(pid, entry["declarative"]))
+        else:
+            pollers.append(factories[pid]())
     return pollers
 
 
@@ -51,17 +56,33 @@ async def start_providers(pool, settings, redis):
     plan, errors, choice = await resolve_startup(pool, settings)
     configure(plan)
     await reconcile(redis, set_feed)
+    from pollers.gtfs_rt import declared_source
+    from provider_catalog import PROVIDERS
     from transit_sources import SOURCES
-    for pid, source in SOURCES.items():
-        if pid in plan and not plan[pid]["reason"]:
+    active = set()
+    for pid, provider in plan.items():
+        if provider["reason"]:
             continue
-        key = 'transit:entities:' + source['name']
+        if pid in SOURCES:
+            active.add(SOURCES[pid]["name"])
+        elif PROVIDERS.get(pid, {}).get("kind") == "gtfs_rt":
+            active.add(declared_source(pid, PROVIDERS[pid]["declarative"])["name"])
+    # Anything left from an agency that is no longer in use (pack deselected, key removed, outside coverage) goes.
+    async for key in redis.scan_iter(match="transit:entities:*"):
+        key = key.decode() if isinstance(key, bytes) else key
+        name = key.rsplit(":", 1)[-1]
+        if name in active:
+            continue
         for eid in await redis.smembers(key):
             eid = eid.decode() if isinstance(eid, bytes) else eid
             await redis.delete('entity:' + eid)
             await redis.publish('civic:updates', json.dumps({'type': 'entity_remove', 'data': {'entity_id': eid}}))
         await redis.delete(key)
-        await redis.delete('cache:transit:' + source['name'] + ':paths')
+        await redis.delete('cache:transit:' + name + ':paths')
+    async for key in redis.scan_iter(match="cache:transit:*:paths"):     # static-only agencies keep route shapes but no vehicles
+        key = key.decode() if isinstance(key, bytes) else key
+        if key.split(":")[2] not in active:
+            await redis.delete(key)
     # The legacy wrapper heartbeat is no longer a collector.
     await redis.hdel('metrics:poller_heartbeats', 'gtfs_rt')
     await redis.hset("region:poller", "packs_signature", selection_signature(choice) if choice is not None else "")

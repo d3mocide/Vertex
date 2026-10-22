@@ -5,6 +5,7 @@ import csv
 import hashlib
 import io
 import json
+import os
 import logging
 import math
 import re
@@ -286,11 +287,27 @@ async def download(client, url, limit, params=None):
     finally: await response.aclose()
 
 
+def source_key(source):
+    """The API key for a source: a built-in names a Settings field, a pack-declared one an environment variable."""
+    if source.get('key_env'):
+        return os.environ.get(source['key_env'], '')
+    return getattr(settings, source['key'], '')
+
+
+def declared_source(provider_id, spec):
+    """A SOURCES-shaped entry for a pack-declared ``gtfs_rt`` provider (validated by regions/_shared/pack_support.py)."""
+    key = spec.get('key')
+    name = provider_id.removesuffix('-transit').replace('-', '_')        # keeps the keys of agencies that moved here unchanged
+    return {'name': name, 'label': spec['attribution'], 'static_url': spec['static_url'],
+            'realtime_url': spec['realtime_url'], 'route_types': spec.get('route_types'), 'poll_seconds': spec.get('poll_seconds'),
+            **({'key_env': key['env'], 'key_param': key['param']} if key else {})}
+
+
 class GtfsRtPoller(BasePoller):
     """One BasePoller per agency, with independent failure/backoff and freshness."""
-    def __init__(self, provider_id='trimet-transit'):
+    def __init__(self, provider_id='trimet-transit', source=None):
         self.provider_id = provider_id
-        self.source = dict(SOURCES[provider_id])
+        self.source = dict(source or SOURCES[provider_id])
         self.name = 'gtfs_'+self.source['name']
         self.interval = 30 if self.source['realtime_url'] else 3600
         self.routes, self.trips, self.local, self.paths = {}, {}, set(), {}
@@ -301,6 +318,10 @@ class GtfsRtPoller(BasePoller):
         self.modes = {0, 1, 2, 3, *range(100, 200), *range(400, 500), *range(700, 800), 800}
         for field, setting in [('static_url', 'static_setting'), ('realtime_url', 'realtime_setting')]:
             if self.source.get(setting): self.source[field] = getattr(settings, self.source[setting])
+        if self.source.get('route_types'):
+            self.modes = set(self.source['route_types'])
+        if self.source.get('poll_seconds') and self.source['realtime_url']:
+            self.interval = self.source['poll_seconds']
         if self.source.get('modes_setting'):
             self.modes = {int(x) for x in getattr(settings, self.source['modes_setting']).split(',') if x.strip().isdigit()}
         if self.source.get('interval_setting'):
@@ -375,7 +396,7 @@ class GtfsRtPoller(BasePoller):
                     self.static_retry_at = time.monotonic() + 900
                     logger.warning('[%s] schedule refresh delayed (%s); retaining cached index', self.name, type(exc).__name__)
             if not source['realtime_url']: return
-            params = {source['key_param']: getattr(settings, source['key'], '')} if source.get('key') else None
+            params = {source['key_param']: source_key(source)} if source.get('key') or source.get('key_env') else None
             content = await download(client, source['realtime_url'], 8*1024*1024, params)
         message = gtfs_realtime_pb2.FeedMessage(); message.ParseFromString(content)
         entities = normalize_vehicles(message, self.routes, self.trips, self.local, source, self.box,
