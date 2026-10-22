@@ -67,11 +67,44 @@ async def _stops(feed: str):
     return json.loads(raw)
 
 
+async def _alerts():
+    """Active service alerts of every agency in use, each tagged with its feed (the agency's cache key name)."""
+    redis, out = get_redis(), []
+    async for key in redis.scan_iter(match="cache:transit:*:alerts"):
+        key = key.decode() if isinstance(key, bytes) else key
+        raw = await redis.get(key)
+        try:
+            payload = json.loads(raw) if raw else None
+        except ValueError:
+            payload = None
+        if not isinstance(payload, dict):
+            continue
+        feed = key.split(":")[2]
+        out += [{**a, "feed": feed, "agency": payload.get("label") or feed} for a in payload.get("alerts", [])
+                if isinstance(a, dict)]
+    return out
+
+
+@router.get("/transit/alerts")
+async def get_transit_alerts():
+    """Service alerts for routes in the monitoring area (and agency-wide notices), newest first."""
+    labels = {(f["properties"].get("feed"), f["properties"].get("route_id")): f["properties"].get("route_short_name")
+              or f["properties"].get("route_long_name") or f["properties"].get("route_id")
+              for f in (await get_transit_routes())["features"]}
+    alerts = [{**a, "route_labels": [str(labels.get((a["feed"], rid), rid)) for rid in a.get("routes", [])]} for a in await _alerts()]
+    return sorted(alerts, key=lambda a: a.get("start") or 0, reverse=True)
+
+
 @router.get("/transit/route-list")
 async def get_transit_route_list():
     """Every route in the monitoring area without its geometry, for browsing."""
     collection = await get_transit_routes()
-    return sorted((_route_summary(f) for f in collection["features"]),
+    counts = {}
+    for alert in await _alerts():
+        for rid in alert.get("routes", []):
+            counts[(alert["feed"], rid)] = counts.get((alert["feed"], rid), 0) + 1
+    return sorted(({**_route_summary(f), "alerts": counts.get((f["properties"].get("feed"), f["properties"].get("route_id")), 0)}
+                   for f in collection["features"]),
                   key=lambda r: (r["feed"] or "", r["type"] is None, r["type"], str(r["short_name"]).zfill(6), r["long_name"]))
 
 
@@ -90,7 +123,9 @@ async def get_transit_route(feed: str, route_id: str):
         stops = [{"id": sid, "name": index["stops"][sid][0], "lat": index["stops"][sid][1], "lon": index["stops"][sid][2]}
                  for sid in pattern["s"] if sid in index["stops"]]
         directions.append({"headsign": pattern["h"], "stops": stops})
-    return {"route": _route_summary(feature), "geometry": feature["geometry"], "directions": directions}
+    alerts = [a for a in await _alerts() if a["feed"] == feed and (route_id in a.get("routes", []) or a.get("agency_wide"))]
+    return {"route": _route_summary(feature), "geometry": feature["geometry"], "directions": directions,
+            "alerts": sorted(alerts, key=lambda a: a.get("start") or 0, reverse=True)}
 
 
 @router.get("/transit/stop/{feed}/{stop_id}")

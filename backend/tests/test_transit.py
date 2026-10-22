@@ -46,10 +46,16 @@ def _route(rid, number, type_=3):
                            'route_short_name': number, 'route_long_name': 'Line ' + rid, 'route_color': '#112233'}}
 
 
-def _redis(monkeypatch):
+def _redis(monkeypatch, alerts=None):
     routes = {'type': 'FeatureCollection', 'features': [_route('r2', '10'), _route('r1', '9'), _route('r3', '90', 0)]}
     data = {'feed:transit:routes': json.dumps(routes), 'cache:transit:trimet:stops': json.dumps(INDEX)}
-    redis = SimpleNamespace(get=AsyncMock(side_effect=lambda key: data.get(key)))
+    if alerts is not None:
+        data['cache:transit:trimet:alerts'] = json.dumps({'label': 'TriMet', 'alerts': alerts})
+
+    async def scan_iter(match=None):
+        for key in [k for k in data if k.endswith(':alerts')]:
+            yield key
+    redis = SimpleNamespace(get=AsyncMock(side_effect=lambda key: data.get(key)), scan_iter=scan_iter)
     monkeypatch.setattr(rail, 'get_redis', lambda: redis)
 
 
@@ -82,3 +88,34 @@ async def test_stop_lists_the_routes_that_call_there(monkeypatch):
     assert [r['route_id'] for r in (await rail.get_transit_stop('trimet', 'a'))['routes']] == ['r1']
     with pytest.raises(HTTPException):
         await rail.get_transit_stop('trimet', 'zzz')
+
+
+ALERTS = [{'id': 'a1', 'header': 'Detour on 9', 'description': '', 'url': '', 'effect': 'Detour', 'routes': ['r1'],
+           'agency_wide': False, 'start': 100, 'end': None},
+          {'id': 'a2', 'header': 'Fare change', 'description': '', 'url': '', 'effect': '', 'routes': [],
+           'agency_wide': True, 'start': 200, 'end': None}]
+
+
+@pytest.mark.asyncio
+async def test_alerts_list_newest_first_with_agency(monkeypatch):
+    _redis(monkeypatch, ALERTS)
+    listed = await rail.get_transit_alerts()
+    assert [a['id'] for a in listed] == ['a2', 'a1']
+    assert {a['agency'] for a in listed} == {'TriMet'} and {a['feed'] for a in listed} == {'trimet'}
+
+
+@pytest.mark.asyncio
+async def test_route_list_counts_alerts_and_route_detail_carries_them(monkeypatch):
+    _redis(monkeypatch, ALERTS)
+    counts = {r['route_id']: r['alerts'] for r in await rail.get_transit_route_list()}
+    assert counts == {'r1': 1, 'r2': 0, 'r3': 0}          # an agency-wide notice is not counted against every route
+    detail = await rail.get_transit_route('trimet', 'r1')
+    assert [a['id'] for a in detail['alerts']] == ['a2', 'a1']      # its own alert and the agency-wide one
+    assert (await rail.get_transit_route('trimet', 'r2'))['alerts'][0]['id'] == 'a2'
+
+
+@pytest.mark.asyncio
+async def test_no_alert_cache_means_no_alerts(monkeypatch):
+    _redis(monkeypatch)
+    assert await rail.get_transit_alerts() == []
+    assert (await rail.get_transit_route('trimet', 'r1'))['alerts'] == []

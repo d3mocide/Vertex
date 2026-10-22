@@ -82,7 +82,7 @@ async def start_providers(pool, settings, redis):
             await redis.publish('civic:updates', json.dumps({'type': 'entity_remove', 'data': {'entity_id': eid}}))
         await redis.delete(key)
     # Static-only agencies keep route shapes and stops but no vehicles.
-    for kind in ("paths", "stops"):
+    for kind in ("paths", "stops", "alerts"):
         async for key in redis.scan_iter(match="cache:transit:*:" + kind):
             key = key.decode() if isinstance(key, bytes) else key
             if key.split(":")[2] not in active:

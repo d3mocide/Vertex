@@ -90,6 +90,15 @@ export function HelpPanel() {
                 </div>
               )
             })}
+            <a
+              href="https://github.com/d3mocide/Vertex/tree/main/docs"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mx-6 mt-2 flex items-center gap-2 text-[11px] font-bold uppercase tracking-widest text-on-surface-variant hover:text-amber-gold transition-colors"
+            >
+              <span className="ms text-[16px]" aria-hidden="true">open_in_new</span>
+              Setup and development docs
+            </a>
           </nav>
         </aside>
 

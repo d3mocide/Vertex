@@ -250,7 +250,7 @@ def _gtfs_rt(p: dict, prid: str, prov: list, covers_bbox, key_names: set) -> dic
     if "transit.routes" not in prov or set(prov) - GTFS_CONTRACTS:
         raise PackError(f"{where}: gtfs_rt provides transit.routes and, with a realtime_url, transit.vehicles")
     urls = {}
-    for name, required in (("static_url", True), ("realtime_url", False)):
+    for name, required in (("static_url", True), ("realtime_url", False), ("alerts_url", False)):
         url = p.get(name)
         if url is None and not required:
             urls[name] = ""
@@ -267,8 +267,8 @@ def _gtfs_rt(p: dict, prid: str, prov: list, covers_bbox, key_names: set) -> dic
     if not isinstance(attribution, str) or not (1 <= len(attribution) <= 40):
         raise PackError(f"{where}: attribution is required (the agency's name, up to 40 characters)")
 
-    key = _key(p.get("key"), where, key_names, bool(urls["realtime_url"]),
-               "a key is only used on the realtime feed, which this provider does not have")
+    key = _key(p.get("key"), where, key_names, bool(urls["realtime_url"] or urls["alerts_url"]),
+               "a key is only used on the realtime and alerts feeds, which this provider does not have")
 
     types = p.get("route_types")
     if types is not None:
@@ -279,7 +279,8 @@ def _gtfs_rt(p: dict, prid: str, prov: list, covers_bbox, key_names: set) -> dic
     poll = p.get("poll_seconds", 30)
     if isinstance(poll, bool) or not isinstance(poll, int) or not 15 <= poll <= 3600:
         raise PackError(f"{where}: poll_seconds must be a whole number from 15 to 3600")
-    return {"attribution": attribution, "static_url": urls["static_url"], "realtime_url": urls["realtime_url"], "key": key,
+    return {"attribution": attribution, "static_url": urls["static_url"], "realtime_url": urls["realtime_url"],
+            "alerts_url": urls["alerts_url"], "key": key,
             "route_types": types, "poll_seconds": poll, "coverage": coverage}
 
 

@@ -344,13 +344,26 @@ def _gtfs_pack(provider=None, **changes):
 def test_gtfs_rt_provider_is_validated_into_a_spec():
     spec = _validate(_gtfs_pack())["providers"][0]["spec"]
     assert spec == {"attribution": "Metro Transit", "static_url": "https://transit.example.org/gtfs.zip",
-                    "realtime_url": "https://transit.example.org/rt/vehicles.pb", "key": {"env": "PACK_METRO_KEY", "param": "apikey"},
-                    "route_types": None, "poll_seconds": 30, "coverage": [-105.5, 39.5, -104.5, 40.1]}
+                    "realtime_url": "https://transit.example.org/rt/vehicles.pb", "alerts_url": "",
+                    "key": {"env": "PACK_METRO_KEY", "param": "apikey"}, "route_types": None, "poll_seconds": 30, "coverage": [-105.5, 39.5, -104.5, 40.1]}
 
 
 def test_gtfs_rt_schedule_only_provider_needs_no_realtime_or_key():
     spec = _validate(_pack(providers=[_gtfs(provides=["transit.routes"], realtime_url=None, key=None)]))["providers"][0]["spec"]
     assert spec["realtime_url"] == "" and spec["key"] is None
+
+
+def test_gtfs_rt_alerts_feed_is_optional_and_shares_the_key():
+    spec = _validate(_gtfs_pack(_gtfs(provides=["transit.routes"], realtime_url=None,
+                                      alerts_url="https://transit.example.org/rt/alerts.pb")))["providers"][0]["spec"]
+    assert spec["alerts_url"] == "https://transit.example.org/rt/alerts.pb" and spec["key"]["env"] == "PACK_METRO_KEY"
+
+
+@pytest.mark.parametrize("url, message", [("http://transit.example.org/a.pb", "https"), ("https://transit.example.org/a.pb?k=1", "query string"),
+                                          ("https://10.0.0.5/a.pb", "public")])
+def test_gtfs_rt_alerts_url_gets_the_same_checks(url, message):
+    with pytest.raises(packs.PackError, match=message):
+        _validate(_gtfs_pack(_gtfs(alerts_url=url)))
 
 
 @pytest.mark.parametrize("changes, message", [
@@ -385,7 +398,7 @@ def test_gtfs_rt_bad_providers_are_rejected(changes, message):
 
 
 def test_gtfs_rt_key_on_a_schedule_only_provider_is_refused():
-    with pytest.raises(packs.PackError, match="only used on the realtime feed"):
+    with pytest.raises(packs.PackError, match="only used on the realtime and alerts feeds"):
         _validate(_pack(providers=[_gtfs(provides=["transit.routes"], realtime_url=None)],
                         requires_keys=[{"name": "PACK_METRO_KEY", "unlocks": []}]))
 

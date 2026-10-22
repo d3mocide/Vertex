@@ -3,6 +3,7 @@ import { API_BASE } from '../../../config'
 import { authHeaders } from '../../../auth'
 import { useCivicStore } from '../../../store'
 import type { TransitRouteDetail, TransitRouteSummary } from '../../../storeTypes'
+import { TransitAlertRow } from './TransitAlerts'
 
 interface StopInfo { id: string; feed: string; name: string; routes: TransitRouteSummary[] }
 
@@ -102,6 +103,7 @@ export function TransitBrowser({ agencyNames }: { agencyNames: Record<string, st
               className={`w-full text-left flex items-center gap-2 px-2 py-1.5 border-b border-white/5 hover:bg-white/5 focus:outline-hidden focus:bg-white/5 ${detail?.route.id === r.id ? 'bg-amber-gold/10' : ''}`}>
               <RouteBadge route={r} />
               <span className="text-[12px] text-on-surface truncate flex-1">{r.long_name || `Route ${r.short_name}`}</span>
+              {!!r.alerts && <span className="ms text-[14px] leading-none text-amber-gold shrink-0" title={`${r.alerts} service alert${r.alerts > 1 ? 's' : ''}`} aria-label="Has service alerts">warning</span>}
               <span className="label-caps shrink-0">{modeName(r.type)}</span>
             </button>
           </li>
@@ -130,6 +132,11 @@ export function TransitBrowser({ agencyNames }: { agencyNames: Record<string, st
                   <span className="truncate">To {d.headsign || `direction ${i + 1}`}</span>
                 </button>
               ))}
+            </div>
+          )}
+          {!!detail.alerts?.length && (
+            <div className="stack-y-2" aria-label="Service alerts">
+              {detail.alerts.map(a => <TransitAlertRow key={a.id} alert={a} />)}
             </div>
           )}
           {current ? (

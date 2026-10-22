@@ -49,6 +49,7 @@ function Tile({ def, on, facetCount = 0, facetOpen = false, onFacet }: {
         type="button"
         onClick={toggle}
         aria-pressed={on}
+        title={def.hint}
         className={`flex-1 min-w-0 flex items-center gap-1.5 px-2 py-2 border text-left text-[11px] font-bold uppercase tracking-wider transition-colors ${focus} ${border} ${on ? 'text-on-surface' : 'text-on-surface-variant hover:text-on-surface'}`}
       >
         <span className={`ms text-[16px] leading-none ${on ? 'text-amber-gold' : ''}`} aria-hidden="true">{def.icon}</span>
@@ -398,6 +399,9 @@ function LayersPanel({ onClose }: { onClose: () => void }) {
                   )
                 })}
               </div>
+              {defs.filter(d => d.hint && !readLayer(state, d)).map(d => (
+                <p key={d.key} className="text-[11px] text-on-surface-variant mt-1.5">{d.label}: {d.hint}</p>
+              ))}
               {openFacet && defs.some(d => d.key === openFacet) && (
                 <FacetPanel entity={openFacet} title={`${defs.find(d => d.key === openFacet)?.label ?? ''} types`} filters={state.subFilters} />
               )}

@@ -308,3 +308,54 @@ def test_a_not_in_service_pseudo_stop_is_not_listed_and_never_names_a_direction(
     out = {}
     g.read_static(content, BOX, {3}, SOURCE, stops_out=out)
     assert out['routes']['r1'] == [{'h': 'Beta', 's': ['a', 'b']}] and 'x' not in out['stops']
+
+
+def _alert_feed(*alerts):
+    message = pb.FeedMessage(); message.header.gtfs_realtime_version = '2.0'
+    for i, (routes, kw) in enumerate(alerts):
+        e = message.entity.add(); e.id = f'al{i}'
+        a = e.alert
+        for rid in routes:
+            a.informed_entity.add().route_id = rid
+        if not routes:
+            a.informed_entity.add().agency_id = 'AG'
+        if 'start' in kw or 'end' in kw:
+            period = a.active_period.add()
+            if 'start' in kw: period.start = kw['start']
+            if 'end' in kw: period.end = kw['end']
+        if kw.get('header'): a.header_text.translation.add().text = kw['header']
+        if kw.get('description'): a.description_text.translation.add().text = kw['description']
+        if kw.get('url'): a.url.translation.add().text = kw['url']
+        if kw.get('effect'): a.effect = kw['effect']
+    return message
+
+
+def test_alerts_keep_local_routes_and_agency_wide_notices_only():
+    message = _alert_feed((['r1'], {'header': 'Detour'}), (['other'], {'header': 'Elsewhere'}), ([], {'header': 'Fares'}))
+    got = g.normalize_alerts(message, {'r1'}, now=1000)
+    assert [(a['header'], a['routes'], a['agency_wide']) for a in got] == [('Detour', ['r1'], False), ('Fares', [], True)]
+
+
+def test_alerts_respect_active_periods_and_open_ended_ones():
+    message = _alert_feed((['r1'], {'header': 'past', 'start': 10, 'end': 500}), (['r1'], {'header': 'future', 'start': 5000}),
+                          (['r1'], {'header': 'open', 'start': 10}), (['r1'], {'header': 'always'}))
+    got = g.normalize_alerts(message, {'r1'}, now=1000)
+    assert [a['header'] for a in got] == ['open', 'always']
+    assert got[0]['start'] == 10 and got[0]['end'] is None
+
+
+def test_alert_text_uses_the_description_when_the_header_is_empty_and_bounds_it():
+    long = 'word ' * 400
+    message = _alert_feed((['r1'], {'description': long}), (['r1'], {'header': 'Head', 'description': 'Body'}), (['r1'], {}))
+    got = g.normalize_alerts(message, {'r1'}, now=1)
+    assert len(got) == 2                                         # an alert with no text at all is dropped
+    assert 0 < len(got[0]['header']) <= 600 and got[0]['description'] == ''
+    assert (got[1]['header'], got[1]['description']) == ('Head', 'Body')
+
+
+def test_alert_links_must_be_https_and_effects_are_named():
+    message = _alert_feed((['r1'], {'header': 'a', 'url': 'http://example.org/x', 'effect': pb.Alert.DETOUR}),
+                          (['r1'], {'header': 'b', 'url': 'https://example.org/x'}))
+    got = g.normalize_alerts(message, {'r1'}, now=1)
+    assert (got[0]['url'], got[0]['effect']) == ('', 'Detour')
+    assert (got[1]['url'], got[1]['effect']) == ('https://example.org/x', '')

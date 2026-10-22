@@ -9,6 +9,8 @@ export interface LayerDef {
   icon: string
   /** Regional data contract that must have a provider before the layer is offered. */
   contract?: string
+  /** Shown under the group while the layer is off, for layers that are off by default. */
+  hint?: string
 }
 
 interface GroupDef { id: string; label: string; layers: LayerDef[] }
@@ -44,7 +46,7 @@ export const GROUPS: GroupDef[] = [
     { key: 'geofencesVisible', kind: 'flag', label: 'Zone monitor', icon: 'verified_user' },
   ] },
   { id: 'context', label: 'Map context', layers: [
-    { key: 'railTracksVisible', kind: 'flag', label: 'Rail tracks', icon: 'route' },
+    { key: 'railTracksVisible', kind: 'flag', label: 'Rail tracks', icon: 'route', hint: 'Off by default. Turn it on to draw rail lines on the map.' },
     { key: 'camerasVisible', kind: 'flag', label: 'Cameras', icon: 'videocam', contract: 'traffic.cameras' },
     { key: 'rf_sensor', kind: 'entity', label: 'RF sensors', icon: 'sensors' },
     { key: 'trailsVisible', kind: 'flag', label: 'Trails', icon: 'timeline' },

@@ -301,6 +301,50 @@ def normalize_vehicles(message, routes, trips, local, source, box, now=None, pat
     return entities
 
 
+_EFFECTS = {'NO_SERVICE': 'No service', 'REDUCED_SERVICE': 'Reduced service', 'SIGNIFICANT_DELAYS': 'Significant delays',
+            'DETOUR': 'Detour', 'ADDITIONAL_SERVICE': 'Additional service', 'MODIFIED_SERVICE': 'Modified service',
+            'STOP_MOVED': 'Stop moved', 'ACCESSIBILITY_ISSUE': 'Accessibility', 'OTHER_EFFECT': 'Other'}
+_MAX_ALERTS = 100
+ALERTS_EVERY_S = 300
+
+
+def _words(translated, limit):
+    """Text of a GTFS-RT TranslatedString, English first, squeezed to one line of at most ``limit`` characters."""
+    options = list(translated.translation)
+    pick = next((t for t in options if t.language[:2].lower() == 'en'), None) or next((t for t in options if t.text.strip()), None)
+    text = ' '.join((pick.text if pick else '').split())
+    return text if len(text) <= limit else text[:limit-1].rstrip()+'\u2026'
+
+
+def normalize_alerts(message, local, now=None):
+    """Active service alerts that concern the monitored area: those naming a route in ``local``, or the whole agency.
+
+    Stop-only alerts are left out (they cannot be placed). Times are Unix seconds; no end means until further notice."""
+    now = now or time.time()
+    out = []
+    for entity in message.entity:
+        if not entity.HasField('alert'): continue
+        alert = entity.alert
+        periods = list(alert.active_period)
+        if periods and not any((not p.start or p.start <= now) and (not p.end or now < p.end) for p in periods):
+            continue
+        informed = list(alert.informed_entity)
+        routes = sorted({e.route_id for e in informed if e.route_id and e.route_id in local})
+        agency_wide = any(not e.route_id and not e.stop_id and not e.trip.trip_id for e in informed)
+        if not routes and not agency_wide: continue
+        header, description = _words(alert.header_text, 200), _words(alert.description_text, 600)
+        if not header and not description: continue
+        link = _words(alert.url, 300)
+        effect = gtfs_realtime_pb2.Alert.Effect.Name(alert.effect) if alert.HasField('effect') else ''
+        starts = min((p.start for p in periods if p.start), default=0)
+        ends = max((p.end for p in periods), default=0) if periods and all(p.end for p in periods) else 0
+        out.append({'id': str(entity.id)[:64], 'header': header or description, 'description': description if header else '',
+                    'url': link if re.fullmatch(r'https://[^\s]+', link) else '', 'effect': _EFFECTS.get(effect, ''),
+                    'routes': routes, 'agency_wide': agency_wide and not routes, 'start': starts or None, 'end': ends or None})
+        if len(out) >= _MAX_ALERTS: break
+    return out
+
+
 async def download(client, url, limit, params=None):
     # Credentials never follow redirects to another host.
     try:
@@ -333,7 +377,7 @@ def declared_source(provider_id, spec):
     key = spec.get('key')
     name = provider_id.removesuffix('-transit').replace('-', '_')        # keeps the keys of agencies that moved here unchanged
     return {'name': name, 'label': spec['attribution'], 'static_url': spec['static_url'],
-            'realtime_url': spec['realtime_url'], 'route_types': spec.get('route_types'), 'poll_seconds': spec.get('poll_seconds'),
+            'realtime_url': spec['realtime_url'], 'alerts_url': spec.get('alerts_url', ''), 'route_types': spec.get('route_types'), 'poll_seconds': spec.get('poll_seconds'),
             **({'key_env': key['env'], 'key_param': key['param']} if key else {})}
 
 
@@ -343,7 +387,8 @@ class GtfsRtPoller(BasePoller):
         self.provider_id = provider_id
         self.source = dict(source or SOURCES[provider_id])
         self.name = 'gtfs_'+self.source['name']
-        self.interval = 30 if self.source['realtime_url'] else 3600
+        self.interval = 30 if self.source['realtime_url'] else ALERTS_EVERY_S if self.source.get('alerts_url') else 3600
+        self.alerts_at = 0
         self.routes, self.trips, self.local, self.paths = {}, {}, set(), {}
         self.previous_positions = {}
         self.static_ts = 0
@@ -402,6 +447,19 @@ class GtfsRtPoller(BasePoller):
                            time.monotonic() - started, type(exc).__name__)
             self.static_ts = 0
 
+    async def _alerts(self, client, params):
+        """Service alerts, every few minutes. A failure keeps the previous alerts until they expire from Redis."""
+        url = self.source.get('alerts_url')
+        if not url or time.monotonic() - self.alerts_at < ALERTS_EVERY_S - 1: return
+        self.alerts_at = time.monotonic()
+        try:
+            message = gtfs_realtime_pb2.FeedMessage(); message.ParseFromString(await download(client, url, 2*1024*1024, params))
+            alerts = normalize_alerts(message, self.local)
+            r = await get_bus()
+            await r.set('cache:transit:'+self.source['name']+':alerts', json.dumps({'fetched_at': time.time(), 'label': self.source['label'], 'alerts': alerts}, separators=(',', ':')), ex=1800)
+        except Exception as exc:
+            logger.warning('[%s] service alerts unavailable (%s)', self.name, type(exc).__name__)
+
     async def poll(self):
         source = self.source
         async with httpx.AsyncClient(timeout=90, headers={'User-Agent': 'Vertex/1.0'}) as client:
@@ -431,8 +489,9 @@ class GtfsRtPoller(BasePoller):
                     if not self.static_ts: raise
                     self.static_retry_at = time.monotonic() + 900
                     logger.warning('[%s] schedule refresh delayed (%s); retaining cached index', self.name, type(exc).__name__)
-            if not source['realtime_url']: return
             params = {source['key_param']: source_key(source)} if source.get('key') or source.get('key_env') else None
+            await self._alerts(client, params)
+            if not source['realtime_url']: return
             content = await download(client, source['realtime_url'], 8*1024*1024, params)
         message = gtfs_realtime_pb2.FeedMessage(); message.ParseFromString(content)
         entities = normalize_vehicles(message, self.routes, self.trips, self.local, source, self.box,

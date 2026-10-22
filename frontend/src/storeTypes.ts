@@ -474,14 +474,20 @@ export interface SystemHealth {
 export type AppMode  = 'calm' | 'critical'
 /** A transit route chosen in the Infrastructure browser, as served by `/transit/route/{feed}/{route_id}`. */
 export interface TransitStop { id: string; name: string; lat: number; lon: number }
+export interface TransitAlert {
+  id: string; feed: string; agency: string; header: string; description: string; url: string; effect: string
+  routes: string[]; route_labels?: string[]; agency_wide: boolean; start: number | null; end: number | null
+}
 export interface TransitRouteSummary {
   id: string; feed: string; route_id: string; type: number | null
   short_name: string; long_name: string; color: string | null; text_color: string | null; attribution: string | null
+  alerts?: number
 }
 export interface TransitRouteDetail {
   route: TransitRouteSummary
   geometry: { type: 'MultiLineString'; coordinates: [number, number][][] }
   directions: { headsign: string; stops: TransitStop[] }[]
+  alerts?: TransitAlert[]
 }
 
 export type NavTab   = 'safety' | 'infrastructure' | 'environment' | 'intel' | 'events' | 'incidents' | 'comms' | 'flightlog'

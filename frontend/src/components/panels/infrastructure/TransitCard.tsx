@@ -1,6 +1,7 @@
 import { useCapabilities } from '../../../hooks/useCapabilities'
 import { useCivicStore } from '../../../store'
 import { RegionalFeedStatus } from '../../common/RegionalFeedStatus'
+import { TransitAlerts } from './TransitAlerts'
 import { TransitBrowser } from './TransitBrowser'
 
 /** Built-in agencies; a pack-declared agency names itself in the capabilities response (`name`). */
@@ -30,6 +31,7 @@ export function TransitCard() {
           {!p.reason && !caps?.contracts['transit.vehicles']?.provider_statuses?.[id] && ' · Schedules only'}
         </p>
       ))}
+      <TransitAlerts />
       <TransitBrowser agencyNames={{ ...TRANSIT_NAMES, ...Object.fromEntries(Object.entries(routes.provider_statuses ?? {}).flatMap(([id, p]) => p.name ? [[id, p.name]] : [])) }} />
     </section>
   )
