@@ -18,7 +18,9 @@ from urllib.parse import urlsplit
 import yaml
 
 SCHEMA = 1
-SUPPORTED_KINDS = {"builtin"}   # declarative kinds (gtfs_rt, arcgis_featureserver, ...) arrive later
+DECLARATIVE_KINDS = {"arcgis_featureserver"}   # described entirely by the manifest; more kinds (gtfs_rt, json_rest) follow
+SUPPORTED_KINDS = {"builtin"} | DECLARATIVE_KINDS
+ARCGIS_CONTRACTS = {"fire.danger"}
 NEWS_FORMATS = {"rss"}
 ALERT_FORMATS = {"rss", "flashalert_xml"}
 MAX_FEEDS = 25
@@ -50,6 +52,30 @@ def _num(v) -> float:
     return float(v)
 
 
+def _check_public_url(url: str, where: str, https_only: bool = False) -> None:
+    """URLs in a pack must point at a public host, with no credentials, so a pack cannot aim Vertex at a private network."""
+    try:
+        parsed = urlsplit(url)
+        host = parsed.hostname
+        port = parsed.port
+        if not host or parsed.username is not None or parsed.password is not None:
+            raise ValueError()
+        if https_only and parsed.scheme != "https":
+            raise ValueError()
+        if host.lower().rstrip('.').endswith(('.local', '.localhost')) or host.lower().rstrip('.') == 'localhost':
+            raise ValueError()
+        try:
+            address = ipaddress.ip_address(host)
+        except ValueError:
+            address = None
+        if address is not None and not address.is_global:
+            raise ValueError()
+        if port is not None and not 1 <= port <= 65535:
+            raise ValueError()
+    except ValueError:
+        raise PackError(f"{where}: URLs must have a public {'https ' if https_only else ''}host and no embedded credentials") from None
+
+
 def _feeds(raw, kind: str, formats: set[str]) -> list[dict]:
     if raw is None:
         return []
@@ -64,24 +90,7 @@ def _feeds(raw, kind: str, formats: set[str]) -> list[dict]:
             raise PackError(f"feeds.{kind}: each feed needs a name (1-128 characters)")
         if not isinstance(url, str) or not re.match(r"^https?://[^\s]+$", url) or len(url) > 512:
             raise PackError(f"feeds.{kind}: {name!r} needs an http(s) url")
-        try:
-            parsed = urlsplit(url)
-            host = parsed.hostname
-            port = parsed.port
-            if not host or parsed.username is not None or parsed.password is not None:
-                raise ValueError()
-            if host.lower().rstrip('.').endswith(('.local', '.localhost')) or host.lower().rstrip('.') == 'localhost':
-                raise ValueError()
-            try:
-                address = ipaddress.ip_address(host)
-            except ValueError:
-                address = None
-            if address is not None and not address.is_global:
-                raise ValueError()
-            if port is not None and not 1 <= port <= 65535:
-                raise ValueError()
-        except ValueError:
-            raise PackError(f"feeds.{kind}: URLs must have a public host and no embedded credentials") from None
+        _check_public_url(url, f"feeds.{kind}")
         fmt = f.get("format", "rss")
         if not isinstance(fmt, str) or fmt not in formats:
             raise PackError(f"feeds.{kind}: {name!r} format must be one of {', '.join(sorted(formats))}")
@@ -90,6 +99,81 @@ def _feeds(raw, kind: str, formats: set[str]) -> list[dict]:
         seen.add(url)
         out.append({"name": name, "url": url, "format": fmt})
     return out
+
+
+_FIELD = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{0,63}$")
+_OUT = re.compile(r"^[a-z][a-z0-9_]{0,31}$")
+_RESERVED_OUT = {"zone", "danger", "danger_rank", "label", "dist_km", "provider_id", "attribution", "scope", "type"}
+
+
+def _field(name, where: str) -> str:
+    if not isinstance(name, str) or not _FIELD.match(name):
+        raise PackError(f"{where} must be a field name from the service (letters, digits, underscore)")
+    return name
+
+
+def _arcgis_fire_danger(p: dict, prid: str, covers_bbox) -> dict:
+    """Validated settings of an ``arcgis_featureserver`` provider for the ``fire.danger`` contract."""
+    where = f"provider {prid}"
+    if covers_bbox is None:
+        raise PackError(f"{where}: a declarative provider needs covers.bbox (it is the provider's coverage)")
+    url = p.get("url")
+    if not isinstance(url, str) or len(url) > 512 or not re.match(r"^https://[^\s?#]+$", url):
+        raise PackError(f"{where}: url must be the https address of a FeatureServer or MapServer layer (no query string)")
+    _check_public_url(url, where, https_only=True)
+    url = url.rstrip("/")
+    if url.endswith("/query") or not re.search(r"/(?:FeatureServer|MapServer)/\d+$", url):
+        raise PackError(f"{where}: url must end in /FeatureServer/<layer> or /MapServer/<layer>, without /query")
+    attribution = p.get("attribution")
+    if not isinstance(attribution, str) or not (1 <= len(attribution) <= 40):
+        raise PackError(f"{where}: attribution is required (the agency's name, up to 40 characters)")
+    refresh = p.get("refresh_minutes", 30)
+    if isinstance(refresh, bool) or not isinstance(refresh, int) or not 5 <= refresh <= 1440:
+        raise PackError(f"{where}: refresh_minutes must be a whole number from 5 to 1440")
+
+    fields = p.get("fields")
+    if not isinstance(fields, dict) or set(fields) - {"id", "zone", "level"} or "zone" not in fields or "level" not in fields:
+        raise PackError(f"{where}: fields needs zone and level (and may name an id field)")
+    zone = fields["zone"]
+    zone = [_field(z, f"{where}: fields.zone") for z in zone] if isinstance(zone, list) and zone and len(zone) <= 4 \
+        else [_field(zone, f"{where}: fields.zone")]
+    out_fields = {"zone": zone, "level": _field(fields["level"], f"{where}: fields.level"),
+                  "id": _field(fields["id"], f"{where}: fields.id") if fields.get("id") is not None else None}
+
+    levels_raw = p.get("levels")
+    if not isinstance(levels_raw, dict) or not (1 <= len(levels_raw) <= 12):
+        raise PackError(f"{where}: levels maps the agency's danger wording (or codes) to a danger from 1 to 4")
+    levels = {}
+    for raw_key, row in levels_raw.items():
+        if not isinstance(row, dict) or set(row) - {"danger", "rank", "label"}:
+            raise PackError(f"{where}: each level needs danger (1-4) and may add rank (1-5) and label")
+        danger, rank, label = row.get("danger"), row.get("rank", row.get("danger")), row.get("label")
+        for what, value, hi in (("danger", danger, 4), ("rank", rank, 5)):
+            if isinstance(value, bool) or not isinstance(value, int) or not 1 <= value <= hi:
+                raise PackError(f"{where}: level {raw_key!r} {what} must be a whole number from 1 to {hi}")
+        if label is not None and (not isinstance(label, str) or not 1 <= len(label) <= 40):
+            raise PackError(f"{where}: level {raw_key!r} label must be 1-40 characters")
+        key = str(raw_key).strip().casefold()
+        if key in levels:
+            raise PackError(f"{where}: level {raw_key!r} is listed twice")
+        levels[key] = {"danger": danger, "rank": rank, "label": label}
+
+    extra_raw = p.get("extra") or {}
+    if not isinstance(extra_raw, dict) or len(extra_raw) > 12:
+        raise PackError(f"{where}: extra maps up to 12 output names to service fields")
+    extra = {}
+    for out, field in extra_raw.items():
+        if not isinstance(out, str) or not _OUT.match(out) or out in _RESERVED_OUT:
+            raise PackError(f"{where}: extra output name {out!r} is not allowed")
+        extra[out] = _field(field, f"{where}: extra.{out}")
+    scope = p.get("scope")
+    if scope is not None and (not isinstance(scope, str) or len(scope) > 200):
+        raise PackError(f"{where}: scope is a sentence of at most 200 characters")
+    skip = p.get("skip_unknown", False)
+    if not isinstance(skip, bool):
+        raise PackError(f"{where}: skip_unknown must be true or false")
+    return {"url": url, "attribution": attribution, "refresh_minutes": refresh, "fields": out_fields, "levels": levels,
+            "extra": extra, "scope": scope, "skip_unknown": skip}
 
 
 def validate(manifest: dict, dirname: str, known_contracts: set[str]) -> dict:
@@ -154,7 +238,12 @@ def validate(manifest: dict, dirname: str, known_contracts: set[str]) -> dict:
         bad = [c for c in prov if c not in known_contracts]
         if bad:
             raise PackError(f"provider {prid} provides unknown contract(s): {', '.join(bad)}")
-        providers.append({"id": prid, "kind": kind, "provides": list(prov)})
+        entry = {"id": prid, "kind": kind, "provides": list(prov)}
+        if kind == "arcgis_featureserver":
+            if len(prov) != 1 or prov[0] not in ARCGIS_CONTRACTS:
+                raise PackError(f"provider {prid}: arcgis_featureserver can provide only {', '.join(sorted(ARCGIS_CONTRACTS))}")
+            entry["spec"] = _arcgis_fire_danger(p, prid, bbox)
+        providers.append(entry)
         provides.extend(c for c in prov if c not in provides)
     if not providers:
         raise PackError("a pack needs at least one provider")

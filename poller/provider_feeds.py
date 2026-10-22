@@ -91,10 +91,19 @@ def _https(url):
     return url
 
 
+_BUILTIN_ATTRIBUTION = {"odf-fire-danger": "ODF", "oregon-odin": "Oregon ODIN"}
+
+
+def _attribution(pid):
+    """The agency to credit: a pack-declared provider names itself; built-ins and transit have their own labels."""
+    return (_BUILTIN_ATTRIBUTION.get(pid) or PROVIDERS.get(pid, {}).get("attribution")
+            or TRANSIT_SOURCES.get(pid, {}).get("label", pid))
+
+
 def provenance(data, pid, ts):
     if not isinstance(data, list):
         if isinstance(data, dict) and data.get("type") == "FeatureCollection":
-            attribution = "WA DNR" if pid == "wadnr-fire-danger" else "ODF" if pid == "odf-fire-danger" else "Oregon ODIN" if pid == "oregon-odin" else TRANSIT_SOURCES.get(pid, {}).get("label", pid)
+            attribution = _attribution(pid)
             result = {**data, "provider_id": pid, "attribution": attribution, "fetched_at": ts}
             result["features"] = [{**f, "properties": {**f.get("properties", {}), "provider_id": pid, "attribution": attribution}}
                                   for f in data.get("features", [])]

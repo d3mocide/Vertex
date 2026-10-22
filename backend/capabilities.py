@@ -110,8 +110,10 @@ def build(settings, feed_ages: dict[str, float], region: dict | None = None, pac
         relevant = [p for p in plan.values() if contract.id in p["contracts"]]
         for provider in relevant:
             pid = provider["id"]
+            # A provider declared by a pack names its agency itself; built-ins are named by the frontend.
+            named = {"name": PROVIDERS[pid]["attribution"]} if PROVIDERS.get(pid, {}).get("attribution") else {}
             if provider["reason"]:
-                details[pid] = {"status": "none", "reason": provider["reason"], "requires": provider["requires"], "updated_age_s": None}
+                details[pid] = {"status": "none", "reason": provider["reason"], "requires": provider["requires"], "updated_age_s": None, **named}
                 continue
             feeds = PROVIDERS[pid]["contracts"][contract.id]
             ages = [feed_ages[f"provider:{pid}:{f}"] for f in feeds if f"provider:{pid}:{f}" in feed_ages]
@@ -120,7 +122,7 @@ def build(settings, feed_ages: dict[str, float], region: dict | None = None, pac
                 ages = [feed_ages[f] for f in feeds if f in feed_ages]
             age = min(ages) if ages else None
             status = "pending" if age is None else "down" if contract.max_age_s and age > contract.max_age_s * DOWN_FACTOR else "stale" if contract.max_age_s and age > contract.max_age_s else "ok"
-            details[pid] = {"status": status, "reason": None, "requires": None, "updated_age_s": round(age) if age is not None else None}
+            details[pid] = {"status": status, "reason": None, "requires": None, "updated_age_s": round(age) if age is not None else None, **named}
         active = [pid for pid, detail in details.items() if detail["status"] != "none"]
         reason = None
         if not active:

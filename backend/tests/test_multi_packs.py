@@ -176,3 +176,10 @@ def test_missing_wsdot_key_keeps_dnr_fire_and_oregon_active():
     assert traffic['provider_statuses']['wsdot-travel']['reason'] == 'not_configured'
     assert traffic['provider_statuses']['wsdot-travel']['requires'] == 'WSDOT_API_KEY'
     assert set(out['contracts']['fire.danger']['providers']) == {'odf-fire-danger', 'wadnr-fire-danger'}
+
+
+def test_a_pack_declared_provider_names_itself_in_capabilities():
+    out = capabilities.build(SETTINGS, {"provider:wadnr-fire-danger:fire:danger": 60}, region(["washington"]), installed())
+    status = out["contracts"]["fire.danger"]["provider_statuses"]["wadnr-fire-danger"]
+    assert status["name"] == "WA DNR" and status["status"] == "ok"
+    assert "name" not in out["contracts"]["traffic.cameras"]["provider_statuses"]["wsdot-travel"]    # built-ins are named by the UI

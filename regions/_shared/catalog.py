@@ -18,7 +18,6 @@ PROVIDERS = {
     "odf-fire-danger": {"contracts": {"fire.danger": ["fire:danger"]}, "bbox": OREGON},
     "wsdot-travel": {"contracts": {"traffic.incidents": ["traffic:incidents"],
         "traffic.cameras": ["traffic:cameras"]}, "bbox": WASHINGTON, "key": "wsdot_api_key", "key_env": "WSDOT_API_KEY"},
-    "wadnr-fire-danger": {"contracts": {"fire.danger": ["fire:danger"]}, "bbox": WASHINGTON},
 }
 for pid, source in SOURCES.items():
     contracts = {"transit.routes": ["transit:routes"]}
@@ -27,8 +26,27 @@ for pid, source in SOURCES.items():
     PROVIDERS[pid] = {"contracts": contracts, "bbox": source["bbox"],
                       **({"key": source["key"], "key_env": source["key"].upper()} if source.get("key") else {}),
                       "unavailable": source.get("unavailable"), "enabled_setting": source.get("enabled_setting")}
+FEED_KEYS = {"fire.danger": ["fire:danger"]}      # feed keys of the contracts a declarative provider can fill
 CONTRACT_IDS = {c for spec in PROVIDERS.values() for c in spec["contracts"]}
 LEGACY_PROVIDERS = ("odot-tripcheck", "oregon-odin", "odf-fire-danger", "trimet-transit")
+
+
+def register_declared(pack):
+    """Add a pack's declarative providers (kind arcgis_featureserver, ...) to PROVIDERS from their validated manifest.
+
+    The catalog stays the one place that answers "what does provider X provide, where, and what does it need"; a
+    declarative provider is just an entry built from the manifest rather than written here. A provider id may not
+    replace a built-in or another pack's provider with different settings."""
+    for provider in pack.get("providers", []):
+        if provider.get("kind") == "builtin":
+            continue
+        bbox = tuple(pack["covers"]["bbox"])
+        entry = {"contracts": {c: FEED_KEYS[c] for c in provider["provides"]}, "bbox": bbox,
+                 "declarative": provider["spec"], "attribution": provider["spec"]["attribution"]}
+        known = PROVIDERS.get(provider["id"])
+        if known is not None and known != entry:
+            raise ValueError(f"provider id {provider['id']!r} is already in use")
+        PROVIDERS[provider["id"]] = entry
 
 
 def selected_ids(region):
@@ -58,6 +76,11 @@ def provider_plan(ids, installed, settings, bbox):
         for pack_id in ids:
             pack = installed.get(pack_id)
             if not pack:
+                errors[pack_id] = "invalid_pack"
+                continue
+            try:
+                register_declared(pack)
+            except ValueError:
                 errors[pack_id] = "invalid_pack"
                 continue
             for provider in pack["providers"]:

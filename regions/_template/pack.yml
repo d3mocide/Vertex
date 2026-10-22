@@ -30,5 +30,25 @@ feeds:                        # optional: added to sources.yml when the operator
 
 providers:
   - id: example-provider
-    kind: builtin             # only "builtin" is supported so far; declarative kinds come next
+    kind: builtin             # code in the repo; "arcgis_featureserver" below needs no code
     provides: [traffic.incidents]   # contract ids from docs/contracts/
+
+  # A provider described entirely here, with no Python: fire danger from an ArcGIS layer. See
+  # docs/architecture/region-pack-authoring.md for every field. Remove this example if you do not need it.
+  - id: example-fire-danger
+    kind: arcgis_featureserver
+    provides: [fire.danger]
+    url: https://gis.example.invalid/arcgis/rest/services/Fire/FeatureServer/0   # https; the layer, without /query
+    attribution: Example Forestry     # shown beside the data
+    refresh_minutes: 30
+    fields:
+      id: OBJECTID
+      zone: [ZONE_NAME, DISTRICT]     # a name or a list; the first one with a value is used
+      level: DANGER_LEVEL
+    levels:                           # the agency's wording (or codes) -> danger 1-4 (map colour), optional rank 1-5 and label
+      low:     {danger: 1}
+      high:    {danger: 3}
+      extreme: {danger: 4, rank: 5}
+    extra: {burn_ban: BAN_STATUS}     # optional: extra detail kept on each zone (output name -> service field)
+    scope: Applies to state-protected land only   # optional: shown with any burn_ban
+    skip_unknown: false               # true drops zones whose level is not listed (otherwise they show as not rated)

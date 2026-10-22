@@ -227,3 +227,70 @@ def test_a_pack_only_enables_the_contracts_its_providers_provide():
     assert c["traffic.cameras"]["status"] == "pending"
     assert c["fire.danger"]["status"] == "none" and c["fire.danger"]["reason"] == "not_in_pack"
     assert c["outages.areas"]["reason"] == "not_in_pack"
+
+
+# ── declarative providers (arcgis_featureserver) ─────────────────────────────
+def _arcgis(**changes):
+    p = {"id": "co-fire", "kind": "arcgis_featureserver", "provides": ["fire.danger"],
+         "url": "https://gis.example.org/arcgis/rest/services/Fire/FeatureServer/0", "attribution": "Example Forestry",
+         "fields": {"id": "OBJECTID", "zone": ["ZONE_NAME", "DISTRICT"], "level": "DANGER"},
+         "levels": {"Low": {"danger": 1}, "Extreme": {"danger": 4, "rank": 5, "label": "Extreme"}, 3: {"danger": 3}},
+         "extra": {"burn_ban": "BAN"}, "scope": "State land only"}
+    for k, v in changes.items():
+        if v is None:
+            p.pop(k, None)
+        else:
+            p[k] = v
+    return p
+
+
+def _declared(**changes):
+    return _validate(_pack(providers=[_arcgis(**changes)]))
+
+
+def test_declarative_provider_is_validated_into_a_spec():
+    spec = _declared()["providers"][0]["spec"]
+    assert spec["fields"] == {"zone": ["ZONE_NAME", "DISTRICT"], "level": "DANGER", "id": "OBJECTID"}
+    assert spec["levels"]["low"] == {"danger": 1, "rank": 1, "label": None}      # rank defaults to danger; keys fold case
+    assert spec["levels"]["3"]["danger"] == 3                                   # numeric codes become text keys
+    assert spec["refresh_minutes"] == 30 and spec["skip_unknown"] is False
+
+
+@pytest.mark.parametrize("changes, message", [
+    ({"url": "http://gis.example.org/arcgis/rest/services/F/FeatureServer/0"}, "https"),
+    ({"url": "https://10.0.0.5/arcgis/rest/services/F/FeatureServer/0"}, "public"),
+    ({"url": "https://gis.example.org/arcgis/rest/services/F/FeatureServer/0/query"}, "without /query"),
+    ({"url": "https://gis.example.org/arcgis/rest/services/F/FeatureServer/0?token=abc"}, "layer"),
+    ({"url": "https://user:pw@gis.example.org/arcgis/rest/services/F/FeatureServer/0"}, "credentials"),
+    ({"attribution": None}, "attribution"),
+    ({"refresh_minutes": 1}, "refresh_minutes"),
+    ({"fields": {"zone": "Z"}}, "fields needs"),
+    ({"fields": {"zone": "bad name!", "level": "L"}}, "field name"),
+    ({"levels": {}}, "levels"),
+    ({"levels": {"Low": {"danger": 5}}}, "danger"),
+    ({"levels": {"Low": {"danger": 1, "colour": "red"}}}, "each level"),
+    ({"extra": {"zone": "Z"}}, "not allowed"),
+    ({"provides": ["traffic.incidents"]}, "can provide only"),
+])
+def test_declarative_provider_rejects_unsafe_or_incomplete_settings(changes, message):
+    with pytest.raises(packs.PackError, match=message):
+        _declared(**changes)
+
+
+def test_declarative_provider_needs_a_coverage_box():
+    with pytest.raises(packs.PackError, match="covers.bbox"):
+        _validate(_pack(covers={"states": ["CO"]}, providers=[_arcgis()]))
+
+
+def test_declarative_provider_registers_in_the_catalog_and_cannot_take_a_builtin_id():
+    import provider_catalog as catalog
+    pack = _declared()
+    catalog.register_declared(pack)
+    entry = catalog.PROVIDERS["co-fire"]
+    assert entry["contracts"] == {"fire.danger": ["fire:danger"]} and entry["bbox"] == (-105.7, 39.2, -104.3, 40.3)
+    assert entry["declarative"]["attribution"] == "Example Forestry"
+    catalog.register_declared(pack)                                              # same settings again is fine
+    clash = _declared(id="odf-fire-danger")
+    with pytest.raises(ValueError, match="already in use"):
+        catalog.register_declared(clash)
+    catalog.PROVIDERS.pop("co-fire")

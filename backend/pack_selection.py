@@ -9,7 +9,7 @@ import region_config
 from config_writer import pack_feed_config
 from db.models import AppSetting
 from pack_feeds import sync_pack_feeds
-from provider_catalog import PROVIDERS, SELECTION_KEY, combined_feeds
+from provider_catalog import PROVIDERS, SELECTION_KEY, combined_feeds, register_declared
 
 
 def validate_choice(ids, installed):
@@ -20,6 +20,10 @@ def validate_choice(ids, installed):
     for pid in ids:
         if pid not in installed:
             raise HTTPException(422, f"pack {pid!r} is not installed (or is invalid)")
+        try:
+            register_declared(installed[pid])
+        except ValueError:
+            raise HTTPException(422, f"pack {pid!r} uses a provider id that is already taken") from None
         if any(p["id"] not in PROVIDERS for p in installed[pid].get("providers", [])):
             raise HTTPException(422, f"pack {pid!r} contains an unsupported built-in provider")
     return ids

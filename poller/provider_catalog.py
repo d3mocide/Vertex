@@ -8,4 +8,4 @@ if not root.is_dir():
     root = Path(__file__).resolve().parents[1] / "regions" / "_shared"
 sys.path.insert(0, str(root))
 from catalog import (CONTRACT_IDS, LEGACY_PROVIDERS, PROVIDERS, SELECTION_KEY,
-                     combined_feeds, intersects, provider_plan, selected_ids, selection_signature)
+                     combined_feeds, intersects, provider_plan, register_declared, selected_ids, selection_signature)

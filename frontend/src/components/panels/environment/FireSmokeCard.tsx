@@ -127,9 +127,9 @@ export function FireSmokeCard({ localFires, regionalFires, aqi, aqiLabel }: {
         </div>
       )}
 
-      {zones.filter((z) => z.provider_id === 'wadnr-fire-danger' && z.burn_ban).map((z) => (
+      {zones.filter((z) => z.burn_ban).map((z) => (
         <div key={`burn-${z.zone}`} className="mt-3 border border-outline-variant px-3 py-2 text-[11px] text-on-surface-variant">
-          <div className="font-mono text-on-surface">WA DNR · {z.zone}: {z.burn_ban}</div>
+          <div className="font-mono text-on-surface">{z.attribution ?? 'Burn restriction'} · {z.zone}: {z.burn_ban}</div>
           <div className="mt-1">{z.scope}</div>
           {z.notes && <div className="mt-1">{z.notes}</div>}
         </div>

@@ -28,14 +28,21 @@ async def resolve_startup(pool, settings):
 def build_pollers(plan):
     from regional_adapters import odf_fire_danger, traffic, utilities
     from pollers.wsdot import WsdotPoller
-    from pollers.wadnr_fire_danger import WadnrFireDangerPoller
     factories = {"odot-tripcheck": traffic.TrafficPoller, "oregon-odin": utilities.UtilityPoller,
-                 "odf-fire-danger": odf_fire_danger.OdfFireDangerPoller, "wsdot-travel": WsdotPoller, "wadnr-fire-danger": WadnrFireDangerPoller}
+                 "odf-fire-danger": odf_fire_danger.OdfFireDangerPoller, "wsdot-travel": WsdotPoller}
     from pollers.gtfs_rt import GtfsRtPoller
     from transit_sources import SOURCES
     for pid in SOURCES:
         factories[pid] = lambda pid=pid: GtfsRtPoller(pid)
-    return [factories[pid]() for pid, p in plan.items() if not p["reason"] and p["contracts"]]
+    from provider_catalog import PROVIDERS
+    from pollers.arcgis_fire_danger import ArcgisFireDangerPoller
+    pollers = []
+    for pid, p in plan.items():
+        if p["reason"] or not p["contracts"]:
+            continue
+        spec = PROVIDERS[pid].get("declarative")
+        pollers.append(ArcgisFireDangerPoller(pid, spec) if spec else factories[pid]())
+    return pollers
 
 
 async def start_providers(pool, settings, redis):

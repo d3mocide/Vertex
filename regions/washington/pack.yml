@@ -27,8 +27,27 @@ providers:
     kind: builtin
     provides: [traffic.incidents, traffic.cameras]
   - id: wadnr-fire-danger
-    kind: builtin
+    kind: arcgis_featureserver
     provides: [fire.danger]
+    url: https://gis.dnr.wa.gov/site3/rest/services/Public_Wildfire/WADNR_PUBLIC_WD_WildfireDanger/MapServer/0
+    attribution: WA DNR
+    refresh_minutes: 30
+    fields:
+      id: OBJECTID
+      zone: [FIREDANGER_AREA_NM, DNR_REGION_NAME]    # first one that has a value
+      level: FIRE_DANGER_LEVEL_NM
+    levels:                          # the map shows four colours; rank keeps the agency's five levels apart
+      low:       {danger: 1, rank: 1}
+      moderate:  {danger: 2, rank: 2}
+      high:      {danger: 3, rank: 3}
+      very high: {danger: 4, rank: 4}
+      extreme:   {danger: 4, rank: 5}
+    extra:                           # extra detail kept on each zone: output name -> service field
+      district_name: DNR_REGION_NAME
+      burn_ban: BURN_BAN_LEVEL_NM
+      burn_ban_code: BURN_BAN_LEVEL_CD
+      notes: NOTES_TXT
+    scope: DNR-protected forestlands; local restrictions may also apply
   - id: ctran-transit
     kind: builtin
     provides: [transit.routes]

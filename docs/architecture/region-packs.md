@@ -1,6 +1,6 @@
 # Region Packs and Location Portability
 
-**Status:** partly implemented. The pack manifest format (v1), the validating loader, the Oregon pack, the `_template` pack and the setup wizard have shipped; the remaining roadmap items are tracked in [ENHANCEMENTS.md](https://github.com/d3mocide/Vertex/blob/main/ENHANCEMENTS.md). The rest of this page is the original design, so details may differ from what was built; `regions/_template/pack.yml` is the authoritative format.
+**Status:** partly implemented. The pack manifest format (v1), the validating loader, the Oregon pack, the `_template` pack, the setup wizard and the first declarative provider kind (`arcgis_featureserver` for `fire.danger`, see [Writing a region pack](region-pack-authoring.md)) have shipped; the remaining roadmap items are tracked in [ENHANCEMENTS.md](https://github.com/d3mocide/Vertex/blob/main/ENHANCEMENTS.md). The rest of this page is the original design, so details may differ from what was built; `regions/_template/pack.yml` is the authoritative format.
 
 ## The problem
 
