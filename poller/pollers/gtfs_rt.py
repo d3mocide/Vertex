@@ -45,6 +45,7 @@ def unpack_lines(lines):
     return [list(zip(line[0::2], line[1::2])) if isinstance(line, array) else line for line in lines]
 MAX_EXPANDED_BYTES = 300 * 1024 * 1024
 MAX_ROWS = 8_000_000
+NOT_A_STOP = re.compile(r'^\s*(not in service|deadhead)\s*$', re.I)
 
 
 def bbox(region):
@@ -81,7 +82,7 @@ def clip_line(points, box):
     return lines
 
 
-def read_static(content, box, modes, source):
+def read_static(content, box, modes, source, stops_out=None):
     """Bounded static import; all stop/shape geography comes from the publisher."""
     with zipfile.ZipFile(io.BytesIO(content)) as zf:
         if len(zf.infolist()) > 100 or sum(f.file_size for f in zf.infolist()) > MAX_EXPANDED_BYTES:
@@ -129,30 +130,62 @@ def read_static(content, box, modes, source):
             paths[sid] = lines
             for rid in shape_routes[sid]:
                 local.add(rid); route_lines.setdefault(rid, []).extend(lines)
-        local_stops, stop_names = set(), {}
+        local_stops, stop_names, stop_pos = set(), {}, {}
         for r in rows('stops.txt'):
             stop_id = r.get('stop_id')
             if not stop_id: continue
             stop_names[stop_id] = r.get('stop_name', '')
-            try: inside = point_inside(float(r['stop_lon']), float(r['stop_lat']), box)
+            try: lon, lat = float(r['stop_lon']), float(r['stop_lat'])
             except (KeyError, ValueError): continue
-            if inside: local_stops.add(stop_id)
-        # Stops identify routes when publisher shapes are absent or incomplete.
+            if math.isfinite(lon) and math.isfinite(lat) and point_inside(lon, lat, box):
+                local_stops.add(stop_id); stop_pos[stop_id] = (round(lat, 6), round(lon, 6))
+        # One pass over stop_times serves three jobs: stops identify routes when publisher shapes are absent or
+        # incomplete, trips without a headsign take their last stop's name, and each route's stops are listed in order.
         needs_local = len(local) < len(routes)
-        if needs_local or any(not trip['headsign'] for trip in trips.values()):
-            trip_end = {}
-            for r in rows('stop_times.txt'):
-                trip = trips.get(r.get('trip_id'))
-                if not trip: continue
-                if needs_local and r.get('stop_id') in local_stops: local.add(trip['route_id'])
-                if trip['headsign']: continue
-                try: sequence = int(r['stop_sequence'])
-                except (KeyError, ValueError): continue
-                tid = r['trip_id']
-                if tid not in trip_end or sequence > trip_end[tid][0]:
-                    trip_end[tid] = (sequence, r.get('stop_headsign') or stop_names.get(r.get('stop_id'), ''))
-            for tid, (_, headsign) in trip_end.items():
-                trips[tid]['headsign'] = headsign
+        trip_dir = {}
+        if stops_out is not None:
+            for r in rows('trips.txt'):
+                if r.get('trip_id') in trips: trip_dir[r['trip_id']] = r.get('direction_id', '')
+        trip_end, trip_stops, stop_index, stop_ids = {}, {}, {}, []
+        for r in rows('stop_times.txt'):
+            trip = trips.get(r.get('trip_id'))
+            if not trip: continue
+            stop_id = r.get('stop_id')
+            if needs_local and stop_id in local_stops: local.add(trip['route_id'])
+            try: sequence = int(r['stop_sequence'])
+            except (KeyError, ValueError): continue
+            tid = r['trip_id']
+            if not trip['headsign'] and (tid not in trip_end or sequence > trip_end[tid][0]):
+                trip_end[tid] = (sequence, r.get('stop_headsign') or stop_names.get(stop_id, ''))
+            if stops_out is not None and stop_id in local_stops:
+                # Packed (sequence, interned stop) integers: millions of rows must not become millions of objects.
+                if stop_id not in stop_index:
+                    stop_index[stop_id] = len(stop_ids); stop_ids.append(stop_id)
+                trip_stops.setdefault(tid, array('q')).append(sequence << 24 | stop_index[stop_id])
+        for tid, (_, headsign) in trip_end.items():
+            trips[tid]['headsign'] = headsign
+        if stops_out is not None:
+            # The longest trip per route and direction stands for the route's stop pattern.
+            best = {}
+            for tid, packed in trip_stops.items():
+                rid = trips[tid]['route_id']
+                if rid not in local: continue
+                key = (rid, trip_dir.get(tid, ''))
+                # Deadhead trips ("Not in Service") can be the longest; a revenue trip is always preferred.
+                rank = (not NOT_A_STOP.search(trips[tid]['headsign']), len(packed))
+                if key not in best or rank > best[key][0]: best[key] = (rank, tid)
+            used, route_patterns = set(), {}
+            for (rid, _), (_, tid) in sorted(best.items()):
+                # TriMet ends some trips at a pseudo-stop named "Not in Service"; it is not a place a rider can go.
+                ordered = [sid for sid in (stop_ids[v & 0xFFFFFF] for v in sorted(trip_stops[tid]))
+                           if not NOT_A_STOP.search(stop_names.get(sid, ''))]
+                if not ordered: continue
+                used.update(ordered)
+                headsign = trips[tid]['headsign']
+                if NOT_A_STOP.search(headsign): headsign = stop_names.get(ordered[-1], '')
+                route_patterns.setdefault(rid, []).append({'h': headsign, 's': ordered})
+            stops_out['stops'] = {sid: [stop_names.get(sid, ''), *stop_pos[sid]] for sid in sorted(used)}
+            stops_out['routes'] = route_patterns
         for rid, lines in route_lines.items():
             unique = list({tuple(map(tuple, line)): line for line in lines}.values())
             r = routes[rid]
@@ -175,9 +208,10 @@ def static_job(url, box, modes, source):
         async with httpx.AsyncClient(timeout=90, headers={'User-Agent': 'Vertex/1.0'}) as client:
             return await download(client, url, MAX_ZIP_BYTES)
     content = asyncio.run(fetch())
-    routes, trips, local, shapes, paths = read_static(content, box, modes, source)
+    stops = {}
+    routes, trips, local, shapes, paths = read_static(content, box, modes, source, stops_out=stops)
     del content
-    return routes, trips, local, shapes, {sid: pack_lines(lines) for sid, lines in paths.items()}
+    return routes, trips, local, shapes, {sid: pack_lines(lines) for sid, lines in paths.items()}, stops
 
 
 async def run_static_job(*args):
@@ -339,7 +373,8 @@ class GtfsRtPoller(BasePoller):
         # Cache only the bounded parsed index, never credentials or requests.
         self.cache_key = 'cache:transit:' + self.source['name'] + ':index'
         self.paths_key = 'cache:transit:' + self.source['name'] + ':paths'
-        self.cache_signature = hashlib.sha256(json.dumps([3, self.source['static_url'], self.box, sorted(self.modes)], sort_keys=True).encode()).hexdigest()
+        self.stops_key = 'cache:transit:' + self.source['name'] + ':stops'
+        self.cache_signature = hashlib.sha256(json.dumps([4, self.source['static_url'], self.box, sorted(self.modes)], sort_keys=True).encode()).hexdigest()
         r = await get_bus()
         step, started = 'index', time.monotonic()
         try:
@@ -347,7 +382,7 @@ class GtfsRtPoller(BasePoller):
             if raw:
                 cached = json.loads(raw)
                 age = time.time() - cached.get('ts', 0)
-                if cached.get('signature') == self.cache_signature and 0 <= age < 86400 and await r.exists(self.paths_key) and await r.exists('feed:provider:'+self.provider_id+':transit:routes'):
+                if cached.get('signature') == self.cache_signature and 0 <= age < 86400 and await r.exists(self.paths_key) and await r.exists(self.stops_key) and await r.exists('feed:provider:'+self.provider_id+':transit:routes'):
                     # A regional path hash can be tens of MB. Restore in small
                     # pages so one large response cannot time out startup.
                     paths, cursor = {}, 0
@@ -372,7 +407,7 @@ class GtfsRtPoller(BasePoller):
         async with httpx.AsyncClient(timeout=90, headers={'User-Agent': 'Vertex/1.0'}) as client:
             if (time.monotonic()-self.static_ts > 86400 or not self.static_ts) and time.monotonic() >= self.static_retry_at:
                 try:
-                    routes, trips, local, shapes, paths = await run_static_job(source['static_url'], self.box, self.modes, source)
+                    routes, trips, local, shapes, paths, stops = await run_static_job(source['static_url'], self.box, self.modes, source)
                     r = await get_bus()
                     pipe = r.pipeline(transaction=True)
                     pipe.delete(self.paths_key)
@@ -382,6 +417,7 @@ class GtfsRtPoller(BasePoller):
                         pipe.hset(self.paths_key, mapping={sid: json.dumps(unpack_lines(lines))
                                                            for sid, lines in batch})
                     pipe.expire(self.paths_key, 172800)
+                    pipe.set(self.stops_key, json.dumps(stops, separators=(',', ':')), ex=172800)
                     await pipe.execute()
                     self.routes, self.trips, self.local, self.paths = routes, trips, local, paths
                     await set_feed('transit:routes', shapes, provider_id=self.provider_id, broadcast=False)

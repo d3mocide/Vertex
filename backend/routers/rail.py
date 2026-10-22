@@ -50,6 +50,63 @@ async def get_transit_routes():
     return json.loads(raw) if raw else {"type": "FeatureCollection", "features": []}
 
 
+def _route_summary(f):
+    p = f.get("properties", {})
+    return {"id": p.get("id"), "feed": p.get("feed"), "route_id": p.get("route_id"), "type": p.get("route_type"),
+            "short_name": p.get("route_short_name", ""), "long_name": p.get("route_long_name", ""),
+            "color": p.get("route_color"), "text_color": p.get("route_text_color"), "attribution": p.get("attribution")}
+
+
+async def _stops(feed: str):
+    """An agency's stop index (`stops`: id -> [name, lat, lon]; `routes`: route id -> directions of ordered stop ids)."""
+    if feed + "-transit" not in PROVIDERS or len(feed) > 64:
+        raise HTTPException(status_code=404, detail="Unknown transit feed")
+    raw = await get_redis().get("cache:transit:" + feed + ":stops")
+    if not raw:
+        raise HTTPException(status_code=404, detail="Stops unavailable")
+    return json.loads(raw)
+
+
+@router.get("/transit/route-list")
+async def get_transit_route_list():
+    """Every route in the monitoring area without its geometry, for browsing."""
+    collection = await get_transit_routes()
+    return sorted((_route_summary(f) for f in collection["features"]),
+                  key=lambda r: (r["feed"] or "", r["type"] is None, r["type"], str(r["short_name"]).zfill(6), r["long_name"]))
+
+
+@router.get("/transit/route/{feed}/{route_id}")
+async def get_transit_route(feed: str, route_id: str):
+    """One route: its geometry and, for each direction, the stops in order."""
+    if len(route_id) > 128 or not route_id:
+        raise HTTPException(status_code=404, detail="Route unavailable")
+    collection = await get_transit_routes()
+    feature = next((f for f in collection["features"] if f.get("properties", {}).get("id") == feed + ":" + route_id), None)
+    if feature is None:
+        raise HTTPException(status_code=404, detail="Route unavailable")
+    index = await _stops(feed)
+    directions = []
+    for pattern in index.get("routes", {}).get(route_id, []):
+        stops = [{"id": sid, "name": index["stops"][sid][0], "lat": index["stops"][sid][1], "lon": index["stops"][sid][2]}
+                 for sid in pattern["s"] if sid in index["stops"]]
+        directions.append({"headsign": pattern["h"], "stops": stops})
+    return {"route": _route_summary(feature), "geometry": feature["geometry"], "directions": directions}
+
+
+@router.get("/transit/stop/{feed}/{stop_id}")
+async def get_transit_stop(feed: str, stop_id: str):
+    """A stop and the routes that call at it (static pattern only: no arrival times)."""
+    index = await _stops(feed)
+    stop = index["stops"].get(stop_id)
+    if stop is None:
+        raise HTTPException(status_code=404, detail="Stop unavailable")
+    summaries = {f["properties"].get("route_id"): _route_summary(f) for f in (await get_transit_routes())["features"]
+                 if f.get("properties", {}).get("feed") == feed}
+    serving = sorted({rid for rid, patterns in index.get("routes", {}).items() if any(stop_id in p["s"] for p in patterns)})
+    return {"id": stop_id, "feed": feed, "name": stop[0], "lat": stop[1], "lon": stop[2],
+            "routes": [summaries[rid] for rid in serving if rid in summaries]}
+
+
 @router.get("/transit/vehicles")
 async def get_transit_vehicles():
     raw = await get_redis().get("feed:transit:vehicles")

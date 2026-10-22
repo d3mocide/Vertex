@@ -8,7 +8,7 @@ export * from './storeTypes'
 import type { NwrBroadcast, NwrState,
   Entity, Track, AlertItem, NewsItem, WeatherState, RadioState,
   TrafficCamera, SystemEvent, CustomLayerItem, SystemHealth, TrafficIncident,
-  SummaryState, RadioIncidentFeed, AdvisoryFeed, FeedMetaEntry, TrailPoint, AirportSnapshot, AppMode, NavTab, EntityTypeFilter, SubFilters,
+  SummaryState, RadioIncidentFeed, AdvisoryFeed, FeedMetaEntry, TrailPoint, AirportSnapshot, AppMode, NavTab, EntityTypeFilter, TransitRouteDetail, SubFilters,
   RangeFilter, ReplayData, EntityMissionTag, AnnotationItem,
   TrafficFlowSensor, UtilityStatus, MeshMessage, MeshLink,
   AcarsMessage,
@@ -57,6 +57,9 @@ export interface CivicStore {
   mode:             AppMode
   activeTab:        NavTab
   selectedEntityId: string | null
+  // Route and stop picked in the Infrastructure transit browser; the map draws them
+  transitBrowse:    TransitRouteDetail | null
+  transitBrowseStop: string | null
   ldiMode:          boolean          // Last Daylight Image toggle for cameras
   radarVisible:     boolean
   radarOpacity:     number
@@ -108,6 +111,7 @@ export interface CivicStore {
   setMode:             (mode: AppMode) => void
   setActiveTab:        (tab: NavTab) => void
   selectEntity:        (id: string | null) => void
+  setTransitBrowse:    (route: TransitRouteDetail | null, stopId?: string | null) => void
   setLdiMode:          (v: boolean) => void
   setRadarVisible:     (v: boolean) => void
   setRadarOpacity:     (v: number) => void
@@ -413,6 +417,8 @@ export const useCivicStore = create<CivicStore>()(
   mode:             'calm',
   activeTab:        'safety',
   selectedEntityId: null,
+  transitBrowse:    null,
+  transitBrowseStop: null,
   ldiMode:          false,
   radarVisible:     false,
   radarOpacity:     0.6,
@@ -665,6 +671,7 @@ export const useCivicStore = create<CivicStore>()(
   setMode:           (mode)           => set({ mode }),
   setActiveTab:      (activeTab)      => set({ activeTab }),
   selectEntity:      (selectedEntityId) => set({ selectedEntityId }),
+  setTransitBrowse:  (transitBrowse, transitBrowseStop = null) => set({ transitBrowse, transitBrowseStop }),
   setLdiMode:        (ldiMode)        => set({ ldiMode }),
   setRadarVisible:   (radarVisible)   => set({ radarVisible }),
   setRadarOpacity:   (radarOpacity)   => set({ radarOpacity }),

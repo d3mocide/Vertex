@@ -23,7 +23,7 @@ import { buildStreamGaugeLayers, type StreamGaugePoint } from '../layers/buildSt
 import { buildMeshNodeLayers, type MeshNodePoint } from '../layers/buildMeshNodeLayer'
 import { buildDispatchLayers } from '../layers/buildDispatchLayer'
 import { buildReplayTracks } from '../layers/replayTracks'
-import type { RadioIncident } from '../storeTypes'
+import type { RadioIncident, TransitRouteDetail } from '../storeTypes'
 import { isSupplementSource } from '../storeTypes'
 
 import { extractRailSegments, snapPointToRail, type RailSegment } from '../layers/railSnap'
@@ -32,6 +32,7 @@ import { applyPVB, applyPVBTrack, type PVBState } from '../layers/pvb'
 import { smoothTransitPosition, type TransitMotionState } from '../layers/transitMotion'
 import { projectTransit, type TransitProjectionState } from '../layers/transitProjection'
 import { buildTransitRouteLayers, type TransitRoute } from '../layers/transitRouteLayer'
+import { browseBounds, buildTransitBrowseLayers } from '../layers/transitBrowseLayer'
 import { DEFAULT_CENTER, OBSERVATION_RANGE_KM, API_BASE } from '../config'
 import { authHeaders } from '../auth'
 import type { LightningStrike } from '../store'
@@ -80,6 +81,8 @@ export function MapOverlay({ map }: Props) {
   const transitMotionRef  = useRef<Record<string, TransitMotionState>>({})
   const transitProjectionRef = useRef<Record<string, TransitProjectionState>>({})
   const selectedTransitRouteRef = useRef<TransitRoute | null>(null)
+  const transitBrowseRef     = useRef<TransitRouteDetail | null>(null)
+  const transitBrowseStopRef  = useRef<string | null>(null)
   const selectedRef       = useRef<string | null>(null)
   const camerasRef        = useRef<TrafficCamera[]>([])
   const selectedCamRef    = useRef<string | null>(null)
@@ -174,6 +177,8 @@ export function MapOverlay({ map }: Props) {
       tracksRef.current = state.tracks
       entitiesRef.current = state.entities
       typeVersionRef.current = state.entityTypeVersion
+      transitBrowseRef.current = state.transitBrowse
+      transitBrowseStopRef.current = state.transitBrowseStop
     }
     sync(useCivicStore.getState())
     return useCivicStore.subscribe(sync)
@@ -206,6 +211,16 @@ export function MapOverlay({ map }: Props) {
     }
     return () => { cancelled = true; controller.abort(); selectedTransitRouteRef.current = null }
   }, [selectedId, selectedFeed, selectedShape, selectedVehicleType, selectedTransitVisible])
+  // Frame the route (or fly to the stop) the Infrastructure transit browser handed to the map.
+  const browseRoute = useCivicStore(s => s.transitBrowse)
+  const browseStop = useCivicStore(s => s.transitBrowseStop)
+  useEffect(() => {
+    if (!browseRoute) return
+    const stop = browseStop ? browseRoute.directions.flatMap(d => d.stops).find(x => x.id === browseStop) : undefined
+    if (stop) { map.flyTo({ center: [stop.lon, stop.lat], zoom: Math.max(map.getZoom(), 15), duration: 700 }); return }
+    const bounds = browseBounds(browseRoute)
+    if (bounds) map.fitBounds([[bounds[0], bounds[1]], [bounds[2], bounds[3]]], { padding: 80, maxZoom: 14, duration: 700 })
+  }, [map, browseRoute, browseStop])
   const geofencesVisibleRef = useRef(true)
   useEffect(() => { geofencesVisibleRef.current = geofencesVisible }, [geofencesVisible])
   const trailsVisibleRef = useRef(true)
@@ -834,6 +849,8 @@ export function MapOverlay({ map }: Props) {
           ], () => buildTrailLayers(rawTracks, sel, trailsVisibleRef.current, 'selected')),
           ...memoGroup('selectedTransitRoute', [selectedTransitRouteRef.current, rawTracks[sel ?? ''], replayModeRef.current],
             () => replayModeRef.current || !rawTracks[sel ?? ''] ? [] : buildTransitRouteLayers(selectedTransitRouteRef.current)),
+          ...memoGroup('transitBrowse', [transitBrowseRef.current, transitBrowseStopRef.current, zoomBucket, zoom >= 11, zoom >= 13],
+            () => buildTransitBrowseLayers(transitBrowseRef.current, transitBrowseStopRef.current, zoom)),
           ...memoGroup('dispatch', [dispatchRef.current, dispatchVisibleRef.current, subFiltersRef.current, minuteBucket, zoom >= 8, tv],
             () => buildDispatchLayers(dispatchRef.current, dispatchVisibleRef.current, nowMs, zoom, subFiltersRef.current)),
           ...memoGroup('entity', [pvbTracks, sel, animated ? cycleRef.current : 0, entityZoom, missionTagsRef.current, tv],

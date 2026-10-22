@@ -78,11 +78,12 @@ async def start_providers(pool, settings, redis):
             await redis.delete('entity:' + eid)
             await redis.publish('civic:updates', json.dumps({'type': 'entity_remove', 'data': {'entity_id': eid}}))
         await redis.delete(key)
-        await redis.delete('cache:transit:' + name + ':paths')
-    async for key in redis.scan_iter(match="cache:transit:*:paths"):     # static-only agencies keep route shapes but no vehicles
-        key = key.decode() if isinstance(key, bytes) else key
-        if key.split(":")[2] not in active:
-            await redis.delete(key)
+    # Static-only agencies keep route shapes and stops but no vehicles.
+    for kind in ("paths", "stops"):
+        async for key in redis.scan_iter(match="cache:transit:*:" + kind):
+            key = key.decode() if isinstance(key, bytes) else key
+            if key.split(":")[2] not in active:
+                await redis.delete(key)
     # The legacy wrapper heartbeat is no longer a collector.
     await redis.hdel('metrics:poller_heartbeats', 'gtfs_rt')
     await redis.hset("region:poller", "packs_signature", selection_signature(choice) if choice is not None else "")

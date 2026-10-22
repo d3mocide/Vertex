@@ -37,7 +37,8 @@ function layerRank(layer: Layer): number {
     id === 'event-points' || id === 'lightning-strikes' ? 80 :
     id.startsWith('mesh-node') || id.startsWith('stream-gauge') || id === 'camera-points' ? 40 :
     id === 'annotation-marker' || id === 'annotation-label' || id.startsWith('custom-point') ? 30 :
-    id === 'annotation-line' || id.startsWith('custom-line') || id.startsWith('selected-transit-route') ? 20 : 10
+    id === 'annotation-line' || id.startsWith('custom-line') || id.startsWith('selected-transit-route') ? 20 :
+    id.startsWith('transit-browse') ? 25 : 10
   const withinTier = id === 'history-trails' ? 0 :
     id === 'trail-gap-bridge' || id === 'predicted-path' ? 1 :
     id === 'selected-trail' ? 2 : 3

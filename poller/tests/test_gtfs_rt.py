@@ -204,7 +204,7 @@ async def test_cached_index_restores_original_age_without_marking_routes_fresh(m
     import hashlib
     import json
     collector = g.GtfsRtPoller('trimet-transit')
-    signature = hashlib.sha256(json.dumps([3, collector.source['static_url'], collector.box,
+    signature = hashlib.sha256(json.dumps([4, collector.source['static_url'], collector.box,
         sorted(collector.modes)], sort_keys=True).encode()).hexdigest()
     cached = {'signature': signature, 'ts': g.time.time()-3600,
         'routes': {'r1': {'type': 3}}, 'trips': {'t1': {'route_id': 'r1'}}, 'local': ['r1']}
@@ -256,3 +256,55 @@ def test_packed_shapes_round_trip_and_old_list_form_still_works():
     assert gtfs_rt._shape_lines(None, {}, "x") is None and gtfs_rt._shape_lines({"a": packed}, {}, "b") is None
     cache = {}
     assert gtfs_rt._shape_lines({"a": packed}, cache, "a") is gtfs_rt._shape_lines({"a": packed}, cache, "a")
+
+
+def stops_fixture():
+    return archive({
+        'routes.txt': 'route_id,route_type,route_short_name,route_long_name\nr1,3,1,Example Bus\n',
+        'trips.txt': 'trip_id,route_id,shape_id,trip_headsign,direction_id\nshort,r1,,Downtown,0\nlong,r1,,Downtown,0\nback,r1,,Uptown,1\n',
+        'stops.txt': ('stop_id,stop_name,stop_lat,stop_lon\na,Alpha,45.4,-122.7\nb,Beta,45.41,-122.71\nc,Gamma,45.42,-122.72\n'
+                      'far,Elsewhere,10,10\nunused,Unused,45.5,-122.5\n'),
+        # Rows are deliberately out of sequence order, and "far" lies outside the monitoring area.
+        'stop_times.txt': ('trip_id,stop_id,stop_sequence\nshort,a,1\nshort,b,2\n'
+                           'long,c,3\nlong,a,1\nlong,far,4\nlong,b,2\nback,c,1\nback,a,2\n'),
+    })
+
+
+def test_each_route_lists_its_stops_in_order_per_direction_from_the_longest_trip():
+    out = {}
+    g.read_static(stops_fixture(), BOX, {3}, SOURCE, stops_out=out)
+    patterns = out['routes']['r1']
+    assert patterns == [{'h': 'Downtown', 's': ['a', 'b', 'c']}, {'h': 'Uptown', 's': ['c', 'a']}]
+    assert out['stops']['a'] == ['Alpha', 45.4, -122.7]
+    assert set(out['stops']) == {'a', 'b', 'c'}            # outside the area and unserved stops are left out
+
+
+def test_stops_are_only_collected_on_request_and_never_change_the_other_results():
+    plain = g.read_static(stops_fixture(), BOX, {3}, SOURCE)
+    out = {}
+    again = g.read_static(stops_fixture(), BOX, {3}, SOURCE, stops_out=out)
+    assert plain[:3] == again[:3] and plain[3] == again[3]
+
+
+def test_deadhead_trips_never_stand_for_a_routes_stop_pattern():
+    content = archive({
+        'routes.txt': 'route_id,route_type,route_short_name,route_long_name\nr1,3,1,Example Bus\n',
+        'trips.txt': 'trip_id,route_id,shape_id,trip_headsign,direction_id\nd,r1,,Not in Service,0\nv,r1,,Downtown,0\n',
+        'stops.txt': 'stop_id,stop_name,stop_lat,stop_lon\na,Alpha,45.4,-122.7\nb,Beta,45.41,-122.71\nc,Gamma,45.42,-122.72\n',
+        'stop_times.txt': 'trip_id,stop_id,stop_sequence\nd,a,1\nd,b,2\nd,c,3\nv,a,1\nv,b,2\n',
+    })
+    out = {}
+    g.read_static(content, BOX, {3}, SOURCE, stops_out=out)
+    assert out['routes']['r1'] == [{'h': 'Downtown', 's': ['a', 'b']}]
+
+
+def test_a_not_in_service_pseudo_stop_is_not_listed_and_never_names_a_direction():
+    content = archive({
+        'routes.txt': 'route_id,route_type,route_short_name,route_long_name\nr1,3,1,Example Bus\n',
+        'trips.txt': 'trip_id,route_id,shape_id,trip_headsign,direction_id\nt,r1,,,0\n',
+        'stops.txt': 'stop_id,stop_name,stop_lat,stop_lon\na,Alpha,45.4,-122.7\nb,Beta,45.41,-122.71\nx,Not in Service,45.42,-122.72\n',
+        'stop_times.txt': 'trip_id,stop_id,stop_sequence\nt,a,1\nt,b,2\nt,x,3\n',
+    })
+    out = {}
+    g.read_static(content, BOX, {3}, SOURCE, stops_out=out)
+    assert out['routes']['r1'] == [{'h': 'Beta', 's': ['a', 'b']}] and 'x' not in out['stops']

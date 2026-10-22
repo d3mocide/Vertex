@@ -20,6 +20,7 @@ import { Map }               from './components/Map'
 import { TacticalAudio }     from './components/panels/TacticalAudio'
 import { EntityDetail }      from './components/panels/EntityDetail'
 import { InfrastructureGrid } from './components/panels/InfrastructureGrid'
+import { TransitRouteChip } from './components/panels/TransitRouteChip'
 import { EnvironmentPanel }  from './components/panels/EnvironmentPanel'
 import { IntelPanel }         from './components/panels/IntelPanel'
 import { elevateNewsToEvent } from './intelProcessor'
@@ -144,6 +145,7 @@ function Dashboard() {
                   <EntitySearchPanel />
                 </div>
                 <EntityDetail />
+                <TransitRouteChip />
                 <div className="absolute top-2 lg:top-28 left-2 lg:left-[352px] flex flex-col lg:flex-row items-start gap-2 z-30 pointer-events-none *:pointer-events-auto">
                   <button
                     type="button"
