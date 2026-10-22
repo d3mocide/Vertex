@@ -166,6 +166,10 @@ class Settings(BaseSettings):
     # Self-hosted Nominatim for locating radio incidents (see infra/nominatim/).
     # Blank disables geocoding.
     geocoder_url: str = ""
+    # ArcGIS feature service of address points in the NENA NG911 schema (Add_Number, St_PreDir, St_Name, St_PosTyp ...), e.g.
+    # a state's or county's open data layer. When Nominatim lacks a house number, the geocoder pins the address from the
+    # points loaded from here (exact, or interpolated between neighbours and marked approximate). Blank disables it.
+    address_points_url: str = ""
     # State name passed to structured searches (must match the imported extract).
     geocoder_state: str = "Oregon"
     # Days of history used as the "normal" baseline for event and radio volume.

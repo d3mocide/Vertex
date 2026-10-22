@@ -23,6 +23,7 @@ requires_keys:
 
 defaults:
   geocoder_state: Oregon
+  address_points_url: https://services8.arcgis.com/8PAo5HGmvRMlF2eU/ArcGIS/rest/services/Oregon_Address_Points/FeatureServer/0
 
 # Local news and emergency feeds added to sources.yml when the operator picks this pack.
 feeds:

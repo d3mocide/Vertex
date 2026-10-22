@@ -35,7 +35,7 @@ def _system_prompt(window_hours: int) -> str:
     return f"""You are the duty intelligence officer for the {settings.region_name} operations center. You write the recurring situational awareness briefing covering the last {window_hours} hours. Your reader is a well-informed resident who runs this dashboard for their own area — not a dispatcher: they cannot direct responders, contact dispatch or task agencies. They already have the live map; they need judgement, not a data dump.
 
 HOW TO THINK — keep your reasoning short (under about 400 words), make one pass, and do not enumerate or re-check every item. The output carries only conclusions.
-1. Posture first. NORMAL = routine activity, incidents are isolated and handled by normal operations; ELEVATED = an active hazard or incident with material impact on many people or key infrastructure (warning-level weather, major closure of a primary route during the window, significant outages, a fire threatening structures); HIGH = life-safety emergency or major infrastructure failure affecting the region. Isolated ramp closures, small fires and low outage counts are NORMAL.
+1. Posture first. NORMAL = routine activity, incidents are isolated and handled by normal operations; ELEVATED = an active hazard or incident with material impact on many people or key infrastructure (warning-level weather, major closure of a primary route during the window, significant outages, a fire threatening structures); HIGH = life-safety emergency or major infrastructure failure affecting the region. Isolated ramp closures, small fires, low outage counts and single medical, rescue or entrapment calls are NORMAL; name them, but they do not raise the posture on their own.
 2. Pick the 5-8 items that matter most to a resident of the region. LOCAL band first; REGIONAL only through a concrete mechanism (smoke transport, mutual-aid draw, a shared road or grid link); DISTANT is noise; routine crime and human-interest news is not situational awareness. From the RADIO-DERIVED INCIDENTS, always cover multi-unit responses, fires, rescues, gas/CO/hazmat and people struck; treat the rest as minor. Check timestamps: a "likely resolved" or 20-hour-old item is history. Items tagged "[in <zone>]" are inside the operator's own geofences - say so. Any violence (shooting/stabbing), rescue, entrapment, structure fire or water/bridge incident in the window - even if tagged likely resolved - gets its own line in Key Developments (type, area or "location not stated", time) and is named in the bottom line; never leave it only under Changes or in a group.
 3. Compound risk = two or more INDEPENDENT hazards whose effects interact in place AND time through a mechanism you can name. One incident and its own consequences is a single development; unrelated incidents that merely coincide are not a compound risk. If none survive, write "None identified."
 4. Forecast only from the NWS forecaster products. Then write the briefing straight away - do not draft it in your reasoning.
@@ -76,6 +76,15 @@ Do not write a Data Gaps section: the system adds one when a feed was unavailabl
 
 
 _DATA_GAPS_RE = re.compile(r"\n+#{2,4}\s*Data Gaps\b.*?(?=\n#{2,4}\s|\Z)", re.S | re.I)
+
+
+# Gemma sometimes closes the briefing by answering the prompt's checklist ("MUST-COVER CHECKLIST: ... Covered.").
+_CHECKLIST_ECHO_RE = re.compile(r"\n+(?:#{2,4}\s*)?\**MUST-COVER CHECKLIST\b.*?(?=\n#{2,4}\s|\Z)", re.S | re.I)
+
+
+def without_checklist_echo(text: str) -> str:
+    """The briefing without a section that merely answers the must-cover checklist from the prompt."""
+    return _CHECKLIST_ECHO_RE.sub("", text).rstrip()
 
 
 def with_data_gaps(text: str, gaps: list[str]) -> str:
@@ -366,7 +375,7 @@ class AISummaryPoller(BasePoller):
         if finish_reason == "length":
             logger.warning("[summary] briefing hit max_tokens and may be truncated — raise SUMMARY_LLM_MAX_TOKENS")
 
-        text = with_data_gaps(text, gaps)
+        text = with_data_gaps(without_checklist_echo(text), gaps)
         metrics = score_briefing(text, facts)
         briefing = {
             "ts": now.isoformat(),

@@ -75,15 +75,23 @@ class RadioIncidentPoller(BasePoller):
 
     def __init__(self):
         self._last_hash = ""
+        self._gazetteer_task: asyncio.Task | None = None
+        self._gazetteer_checked: datetime | None = None
         self._baseline: dict | None = None
         # The first baseline waits a minute and a half, so it does not compete with the pollers' start-up.
         self._baseline_at: datetime | None = datetime.now(timezone.utc) - _BASELINE_EVERY + timedelta(seconds=90)
 
     async def setup(self):
-        if settings.geocoder_url:
-            # Street gazetteer for fuzzy geocoding; refreshes monthly, loads in
-            # the background so a slow Overpass never delays the poll loop.
-            asyncio.create_task(self._refresh_streets())
+        self._start_gazetteer_refresh()
+
+    def _start_gazetteer_refresh(self):
+        """Street gazetteer for fuzzy geocoding and the address points; each reloads only when older than a month, so the
+        daily check from poll() is one cheap query. They load in the background so a slow server never delays the poll
+        loop, and a poller that stays up for months still renews them."""
+        if not settings.geocoder_url or (self._gazetteer_task is not None and not self._gazetteer_task.done()):
+            return
+        self._gazetteer_checked = datetime.now(timezone.utc)
+        self._gazetteer_task = asyncio.create_task(self._refresh_streets())
 
     async def _refresh_streets(self):
         from street_names import refresh_if_stale
@@ -91,6 +99,11 @@ class RadioIncidentPoller(BasePoller):
             await refresh_if_stale(get_pool())
         except Exception as exc:
             logger.warning("[radio_incidents] street-name gazetteer refresh failed: %s", exc)
+        import address_points
+        try:
+            await address_points.refresh_if_stale(get_pool())
+        except Exception as exc:
+            logger.warning("[radio_incidents] address point refresh failed: %s", exc)
 
     def _maybe_refresh_baseline(self, now: datetime) -> None:
         if self._baseline_at is None or now - self._baseline_at >= _BASELINE_EVERY:
@@ -118,6 +131,8 @@ class RadioIncidentPoller(BasePoller):
     async def poll(self):
         now = datetime.now(timezone.utc)
         self._maybe_refresh_baseline(now)
+        if self._gazetteer_checked is None or now - self._gazetteer_checked >= timedelta(days=1):
+            self._start_gazetteer_refresh()
         window = settings.radio_incidents_window_hours
         geocoder = Geocoder(await get_bus(), get_pool())
         try:

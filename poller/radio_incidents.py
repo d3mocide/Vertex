@@ -499,7 +499,7 @@ class Call:
 # fire off Lesser if we're needed", "can you still hold in the water?") carries none of it; it needs a unit or a dispatcher
 # talkgroup next to it so that a lone "respond" in conversation does not count.
 _DISPATCH_WORDS = re.compile(r"\brespond(?:s|ing|ed)?\b|\bcross streets?\b|\bworking (?:channel )?(?:ops|off|panel)\b|\bcode [123]\b|\b(?:priority|priori\w*) \d\b"
-                             r"|\byou re (?:going|headed|selling|ahead|en route)\b|\b(?:they re|you re|we re) out to\b|\bupdate(?:d)? address\b")
+                             r"|\byou re (?:going|headed|selling|ahead|en route|responding)\b|\b(?:they re|you re|we re) out to\b|\bupdate(?:d)? address\b")
 # The fire dispatcher's own talkgroups: what it says is a dispatch even when ASR garbled "respond to" ("Sponsor traffic
 # accident ... at 1805th Avenue"), unless it is an acknowledgement ("show me en route to the commercial fire", "recall").
 _FIRE_DISPATCHER = re.compile(r"fire disp|\bfd disp", re.I)
@@ -662,6 +662,9 @@ def _absorb(into: "Incident", c: Call) -> None:
         into.status = c.status
 
 
+_SAME_ROAD = timedelta(minutes=20)
+
+
 def cluster(calls: list[Call], gap: timedelta = timedelta(minutes=90)) -> list[Incident]:
     """Group calls about the same place into incidents.
 
@@ -678,6 +681,7 @@ def cluster(calls: list[Call], gap: timedelta = timedelta(minutes=90)) -> list[I
     incidents: list[Incident] = []
     open_by_key: dict[str, Incident] = {}
     open_by_nd: dict[tuple[str, str], Incident] = {}
+    open_by_loc: dict[str, Incident] = {}
     loose: list[Call] = []          # address-less calls that did not start an incident, for the unit-linking pass
     chatter: list[Call] = []        # serious-sounding address-less calls with no dispatch wording
     for c in sorted(calls, key=lambda c: c.ts):
@@ -690,6 +694,10 @@ def cluster(calls: list[Call], gap: timedelta = timedelta(minutes=90)) -> list[I
             if cand is not None and c.ts - cand.last_seen <= gap and _compatible(c.category, cand.category):
                 inc = cand
                 open_by_key[c.key] = cand
+        if inc is None and not c.key and c.location:      # a highway read with no cross street: same road and nature soon after
+            cand = open_by_loc.get(c.location)
+            if cand is not None and c.ts - cand.last_seen <= _SAME_ROAD and _compatible(c.category, cand.category):
+                inc = cand
         if inc is None:
             if not c.key and c.severity < 3:
                 if c.units and c.status:
@@ -703,6 +711,8 @@ def cluster(calls: list[Call], gap: timedelta = timedelta(minutes=90)) -> list[I
             inc = Incident(category=c.category, severity=c.severity, location=c.location, key=c.key,
                            first_seen=c.ts, last_seen=c.ts)
             incidents.append(inc)
+            if not c.key and c.location and c.dispatch:
+                open_by_loc[c.location] = inc
             if c.key:
                 open_by_key[c.key] = inc
                 if nd is not None:
@@ -758,7 +768,7 @@ def _link_by_units(incidents: list[Incident], loose: list[Call], chatter: list[C
             if len(found) == 1:
                 _absorb(found[0], call)
                 continue
-        if call.category in _NEARBY_LINKABLE:
+        if call.category in _NEARBY_LINKABLE and not call.location:   # a call naming its own place is not a re-read
             near = [i for i in located if i.category == call.category and abs(i.first_seen - call.ts) <= _LINK_NEARBY]
             if len(near) == 1:
                 _absorb(near[0], call)
@@ -772,7 +782,7 @@ def _link_by_units(incidents: list[Incident], loose: list[Call], chatter: list[C
                 _absorb(found[0], c)
             absorbed.add(id(u))
     for u in unlocated:                                  # a dispatch read without its address, heard with the addressed one
-        if id(u) in absorbed or u.category not in _NEARBY_LINKABLE:
+        if id(u) in absorbed or u.category not in _NEARBY_LINKABLE or u.location:
             continue
         near = [i for i in located if i.category == u.category and abs(i.first_seen - u.first_seen) <= _LINK_NEARBY]
         if len(near) == 1:

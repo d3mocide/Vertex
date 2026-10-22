@@ -614,3 +614,15 @@ def test_hospital_talkgroups_are_recognised_by_what_they_say_not_what_they_are_c
     rows = [(T0, 1, "PROV NEWBRG", report)] * 20 + [(T0, 2, "WC Fire Disp", dispatch)] * 20 + [(T0, 3, "RARE", report)] * 5
     assert patient_report_tags(rows) == {"PROV NEWBRG"}                        # too few calls on "RARE" to judge
     assert extract(rows[:20] + [(T0, 1, "PROV NEWBRG", "engine 5 respond to gas leak at 700 north clarendon avenue cross streets are x and y")]) == []
+
+
+def test_highway_crash_read_twice_is_one_incident_and_not_a_nearby_addressed_crash():
+    t0 = datetime(2026, 10, 1, 12, 0)
+    rows = [
+        (t0, 1, "WC Fire Disp", "Engine 2 and AMR 123 respond to traffic accidents with injuries at East Main Street and Northeast Brooklyn Park Way."),
+        (t0 + timedelta(minutes=4), 2, "WC OPS 34", "Rescue 51, you're responding for an unknown injury crash northbound Highway 217, just south of Denny. Three-vehicle rear-end crash."),
+        (t0 + timedelta(minutes=6), 2, "WC OPS 34", "Rescue 51, injury crash northbound Highway 217 just south of Denny, airbag deployment."),
+    ]
+    incs = [i for i in extract(rows, []) if i.severity >= 3]
+    assert sorted(len(i.calls) for i in incs) == [1, 2]
+    assert any("Brooklyn" in (i.location or "") and len(i.calls) == 1 for i in incs)

@@ -393,3 +393,15 @@ def test_data_gaps_come_from_the_feeds_not_the_model():
     assert out.count("### Data Gaps") == 1 and "All feeds were current" not in out
     assert out.endswith("- TRAFFIC: ODOT feed unavailable\n- NWS ALERTS: not synced")
     assert "### Recommended Actions" in out  # the sections before it are untouched
+
+
+def test_checklist_echo_is_dropped_but_later_sections_stay():
+    from pollers.summary import without_checklist_echo
+
+    body = "### Next 24 Hours\n- dry"
+    for echo in ("**MUST-COVER CHECKLIST**\n- RESCUE — a street (active): Covered.",
+                 "**MUST-COVER CHECKLIST:** The closure is covered by the key development."):
+        out = without_checklist_echo(f"{body}\n\n{echo}")
+        assert out == body
+    out = without_checklist_echo(f"{body}\n\n**MUST-COVER CHECKLIST:**\n- x\n\n### Recommended Actions\n- go")
+    assert "CHECKLIST" not in out and out.endswith("### Recommended Actions\n- go")

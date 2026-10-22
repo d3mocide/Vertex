@@ -256,3 +256,104 @@ async def test_address_without_direction_needs_exactly_one_match(monkeypatch):
 
     monkeypatch.setattr(geo.Geocoder, "_address", either)
     assert await g._resolve("100 5th Ave") == (None, "miss", None)
+
+
+def test_interpolate_between_neighbours_on_the_same_side():
+    import address_points as ap
+
+    known = [(29811, 45.100, -122.500), (29901, 45.110, -122.500), (29810, 45.1, -122.5), (29700, 45.09, -122.5)]
+    assert ap.interpolate(29811, known)[2] is True
+    lat, lon, exact = ap.interpolate(29819, known)
+    assert not exact and 45.100 < lat < 45.110          # between 29811 and 29901 (odd side)
+    assert ap.interpolate(29455, known) is None          # nothing close enough to trust
+
+
+def test_interpolate_refuses_neighbours_far_apart():
+    import address_points as ap
+
+    assert ap.interpolate(150, [(100, 45.0, -122.0), (200, 45.1, -122.0)]) is None      # 11 km apart: the street bends
+    assert ap.interpolate(110, [(100, 45.0, -122.0)]) is not None                        # end of the street, close number
+
+
+def test_interpolate_refuses_the_same_number_in_two_towns():
+    import address_points as ap
+    assert ap.interpolate(100, [(100, 45.0, -122.0), (100, 45.2, -122.1)]) is None                    # 25 km apart
+    lat, lon, exact = ap.interpolate(100, [(100, 45.0, -122.0), (100, 45.0001, -122.0)])             # units at one address
+    assert exact is True
+
+
+class FakeAddressPool:
+    """Stands in for an asyncpg pool: fetch() returns canned rows, fetchval() answers by query text."""
+
+    def __init__(self, rows=(), loaded_at=None, signature=None):
+        self.rows, self.loaded_at, self.signature, self.executed = list(rows), loaded_at, signature, []
+
+    async def fetch(self, query, *args):
+        return self.rows
+
+    async def fetchval(self, query, *args):
+        return self.signature if "signature" in query else self.loaded_at
+
+    def acquire(self):
+        pool = self
+
+        class Conn:
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *exc):
+                return False
+
+            async def execute(self, query, *args):
+                pool.executed.append(query)
+
+        return Conn()
+
+
+@pytest.mark.asyncio
+async def test_locate_with_a_heard_direction_uses_points_that_lack_one(monkeypatch):
+    import address_points as ap
+    monkeypatch.setattr(ap.settings, "address_points_url", "https://example.test/arcgis/rest/services/x/FeatureServer/0")
+    rows = [{"dir": "S", "num": 100, "lat": 45.0, "lon": -122.0}, {"dir": "", "num": 120, "lat": 45.002, "lon": -122.0}]
+    hit = await ap.locate(FakeAddressPool(rows), "110 S Main St")
+    assert hit is not None and hit[2] is False and 45.0 < hit[0] < 45.002
+
+
+@pytest.mark.asyncio
+async def test_a_changed_region_reloads_the_address_points(monkeypatch):
+    import time
+    import address_points as ap
+    monkeypatch.setattr(ap.settings, "address_points_url", "https://example.test/arcgis/rest/services/x/FeatureServer/0")
+    for name, value in (("bbox_min_lat", 44.8), ("bbox_min_lon", -123.5), ("bbox_max_lat", 45.8), ("bbox_max_lon", -122.0)):
+        monkeypatch.setattr(ap.settings, name, value)
+    loaded = []
+
+    async def fake_pages(client):
+        loaded.append(True)
+        return
+        yield
+
+    monkeypatch.setattr(ap, "_pages", fake_pages)
+    fresh = time.time() - 3600
+    assert await ap.refresh_if_stale(FakeAddressPool(loaded_at=fresh, signature=ap._signature())) == 0 and not loaded
+    await ap.refresh_if_stale(FakeAddressPool(loaded_at=fresh, signature="https://example.test|0,0,1,1"))
+    assert loaded                       # same age, different box: the points are re-fetched
+
+
+@pytest.mark.asyncio
+async def test_address_point_pages_use_the_pinned_request_and_follow_object_ids(monkeypatch):
+    import address_points as ap
+    monkeypatch.setattr(ap.settings, "address_points_url", "https://example.test/arcgis/rest/services/x/FeatureServer/0/")
+    sent = []
+
+    async def fake_send(client, method, url, **kwargs):
+        sent.append((method, url, kwargs["data"]["where"]))
+        first = len(sent) == 1
+        body = {"features": [{"attributes": {"OBJECTID": 7 if first else 9}}], "exceededTransferLimit": first}
+        return httpx.Response(200, json=body, request=httpx.Request(method, url))
+
+    monkeypatch.setattr(ap, "send_pinned_http_request", fake_send)
+    monkeypatch.setattr(ap, "_PAUSE_S", 0)
+    pages = [p async for p in ap._pages(None)]
+    assert len(pages) == 2 and all(m == "POST" and u.endswith("/FeatureServer/0/query") for m, u, _ in sent)
+    assert sent[1][2].endswith("OBJECTID > 7")

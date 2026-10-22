@@ -77,7 +77,7 @@ def _deep_size(obj, seen: set, budget: list) -> int:
     return total
 
 
-_CENSUS_MODULES = {"bus", "db", "geocoder", "geo_tags", "street_names", "radio_incidents", "pollers", "enrichment"}
+_CENSUS_MODULES = {"bus", "db", "geocoder", "address_points", "geo_tags", "street_names", "radio_incidents", "pollers", "enrichment"}
 
 
 def _census() -> None:

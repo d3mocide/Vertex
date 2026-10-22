@@ -194,7 +194,7 @@ class Geocoder:
                 logger.debug("[geocoder] reverse lookup failed for %r: %s", location, exc)
         if entry.get("lat") is None:
             return None
-        return {**entry, "approx": True} if approx else entry
+        return {**entry, "approx": True} if approx or entry.get("how") == "address_interp" else entry
 
     async def _reverse_city(self, lat: float, lon: float) -> str | None:
         """City (or town / unincorporated place) containing a point."""
@@ -255,6 +255,25 @@ class Geocoder:
                     found.append((point, corrected))
             if len(found) == 1:
                 return found[0][0], "address_fuzzy", found[0][1]
+        return await self._local_address(num, heard)
+
+    async def _local_address(self, num: str, heard: list[str]) -> tuple[tuple[float, float] | None, str, str | None]:
+        """Last resort: the local address points, for the street as heard and then its close real names."""
+        import address_points
+        from street_names import suggest
+
+        if not address_points.enabled():
+            return None, "miss", None
+        for base in heard:
+            for street in [base, *await suggest(self.pool, base, 3)]:
+                try:
+                    hit = await address_points.locate(self.pool, f"{num} {street}")
+                except Exception as exc:     # the table may not be loaded yet; a miss is the honest answer then
+                    logger.debug("[geocoder] address point lookup failed for %r: %s", f"{num} {street}", exc)
+                    return None, "miss", None
+                if hit and _in_bbox(hit[0], hit[1]):
+                    corrected = None if street == base else f"{num} {street}"
+                    return (hit[0], hit[1]), ("address_points" if hit[2] else "address_interp"), corrected
         return None, "miss", None
 
     async def _street_candidates(self, street: str) -> list[str]:

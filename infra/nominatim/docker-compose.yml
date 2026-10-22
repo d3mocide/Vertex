@@ -34,5 +34,15 @@ services:
       - nominatim-data:/var/lib/postgresql/16/main
     shm_size: 1gb
 
+  # Browser interface for the API above: http://<nominatim-host>:8089/. The map tiles it shows load from
+  # tile.openstreetmap.org in the viewer's browser; change Map_Tile_URL in ui/config.theme.js to use another server.
+  nominatim-ui:
+    build: ./ui
+    restart: unless-stopped
+    ports:
+      - "8089:8080"
+    depends_on:
+      - nominatim
+
 volumes:
   nominatim-data:
