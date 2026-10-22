@@ -31,22 +31,33 @@ CONTRACT_IDS = {c for spec in PROVIDERS.values() for c in spec["contracts"]}
 LEGACY_PROVIDERS = ("odot-tripcheck", "oregon-odin", "odf-fire-danger", "trimet-transit")
 
 
-def register_declared(pack):
-    """Add a pack's declarative providers (kind arcgis_featureserver, ...) to PROVIDERS from their validated manifest.
+def declared_entries(pack, claimed=None):
+    """Catalog entries a pack's declarative providers would add, as {provider id: entry}; changes nothing.
 
-    The catalog stays the one place that answers "what does provider X provide, where, and what does it need"; a
-    declarative provider is just an entry built from the manifest rather than written here. A provider id may not
-    replace a built-in or another pack's provider with different settings."""
+    A provider id may not replace a built-in or an already registered provider with different settings, nor one in
+    ``claimed`` (entries of other packs in the same selection). Raises ValueError for a clash."""
+    entries = {}
     for provider in pack.get("providers", []):
         if provider.get("kind") == "builtin":
             continue
         bbox = tuple(pack["covers"]["bbox"])
         entry = {"contracts": {c: FEED_KEYS[c] for c in provider["provides"]}, "bbox": bbox,
                  "declarative": provider["spec"], "attribution": provider["spec"]["attribution"]}
-        known = PROVIDERS.get(provider["id"])
-        if known is not None and known != entry:
-            raise ValueError(f"provider id {provider['id']!r} is already in use")
-        PROVIDERS[provider["id"]] = entry
+        for other in (PROVIDERS, claimed or {}, entries):
+            known = other.get(provider["id"])
+            if known is not None and known != entry:
+                raise ValueError(f"provider id {provider['id']!r} is already in use")
+        entries[provider["id"]] = entry
+    return entries
+
+
+def register_declared(pack):
+    """Add a pack's declarative providers (kind arcgis_featureserver, ...) to PROVIDERS from their validated manifest.
+
+    The catalog stays the one place that answers "what does provider X provide, where, and what does it need"; a
+    declarative provider is just an entry built from the manifest rather than written here. Only packs that are
+    actually in use are registered (the provider plan does it); merely checking a choice must use declared_entries."""
+    PROVIDERS.update(declared_entries(pack))
 
 
 def selected_ids(region):

@@ -294,3 +294,30 @@ def test_declarative_provider_registers_in_the_catalog_and_cannot_take_a_builtin
     with pytest.raises(ValueError, match="already in use"):
         catalog.register_declared(clash)
     catalog.PROVIDERS.pop("co-fire")
+
+
+def test_checking_a_selection_registers_nothing():
+    import provider_catalog as catalog
+    from fastapi import HTTPException
+    import pack_selection
+    installed = {"denver": _declared(id="check-only-fire")}
+    assert pack_selection.validate_choice(["denver"], installed) == ["denver"]
+    assert "check-only-fire" not in catalog.PROVIDERS                        # rejected or never saved choices leave no trace
+    catalog.register_declared(installed["denver"])                           # using the pack is what registers it
+    assert "check-only-fire" in catalog.PROVIDERS
+    catalog.PROVIDERS.pop("check-only-fire")
+    with pytest.raises(HTTPException) as bad:                                # built-in ids stay off limits
+        pack_selection.validate_choice(["denver"], {"denver": _declared(id="odf-fire-danger")})
+    assert bad.value.status_code == 422
+
+
+def test_two_selected_packs_cannot_declare_one_provider_id_differently():
+    import pack_selection
+    from fastapi import HTTPException
+    same = _declared(id="shared-fire")
+    twin = _validate(_pack(id="boulder", providers=[_arcgis(id="shared-fire")]), "boulder")
+    other = _validate(_pack(id="boulder", providers=[_arcgis(id="shared-fire", attribution="Other Agency")]), "boulder")
+    pack_selection.validate_choice(["denver", "boulder"], {"denver": same, "boulder": twin})      # identical settings agree
+    with pytest.raises(HTTPException) as bad:
+        pack_selection.validate_choice(["denver", "boulder"], {"denver": same, "boulder": other})
+    assert bad.value.status_code == 422 and "already taken" in bad.value.detail

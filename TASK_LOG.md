@@ -2745,3 +2745,9 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 
 - Every download of a recorded radio call (`/api/v1/radio/recordings/<id>/file`) logged "an upstream response is buffered to a temporary file": the audio is larger than nginx's in-memory proxy buffers, so each file was written to disk before the client got a byte. `frontend/nginx.conf` and `frontend/nginx-tls.conf` now have a location for that route with `proxy_buffering off`, as the live radio proxy and Weather Radio relay already had. Checked after restart: a recording was served and no buffering warning was logged.
 - Known drift, not changed: `nginx-tls.conf` has no locations for `/api/v1/radio/proxy/` or `/api/v1/nwr/stream`, so behind TLS the live audio relays still go through the default buffered `/api/` location.
+
+## 2026-10-22 — Open items from the bug hunt
+
+- **Address-point reload** confirmed: after the restarts the background load finished (812,417 points) and stored its source signature, so the table now reloads only when the region box or service URL changes or after 30 days.
+- **Rejected selections leave nothing behind**: `validate_choice` used `register_declared`, which added a pack's declarative providers to the shared catalog before the choice was saved (or even when it was refused). The check is now `declared_entries` in `regions/_shared/catalog.py`, which changes nothing; only the provider plan registers a pack that is in use. It also rejects two selected packs that declare one provider id with different settings. Tests in `backend/tests/test_packs.py`.
+- **TLS nginx**: `frontend/nginx-tls.conf` gains the unbuffered locations for the live radio proxy and the Weather Radio relay that `nginx.conf` already had, so audio behind TLS no longer goes through the buffered `/api/` location. The file passes `nginx -t` with a throwaway certificate; a live TLS stack was not run.
