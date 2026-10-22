@@ -40,7 +40,7 @@ Operational implications:
 |-------|------------------------------|--------------|
 | ADS-B (`poller/pollers/adsb.py`) | OpenSky queries are BBOX-scoped (`lamin/lamax/lomin/lomax`). Local BEAST/UltraFeeder data is source-local, then source-priority arbitration decides publish preference. | `BBOX_*`, `ADSB_*` |
 | AIS (`poller/pollers/ais.py`) | AISstream fallback uses one or more `BoundingBoxes`; local AIS-catcher source is not geofiltered in poller code. | `regions` or `BBOX_*`, `AISSTREAM_API_KEY` |
-| Weather (`poller/pollers/weather.py`) | METAR/TAF/PIREP use BBOX query; AirNow AQI uses centerpoint + fixed 50 distance parameter. NWWS and PWS use configured office/station IDs. | `regions` or `BBOX_*`, `REGION_LAT/LON`, `NWS_OFFICE`, `WUNDERGROUND_*` |
+| Weather (`poller/pollers/weather.py`) | METAR/TAF/PIREP use BBOX query; AirNow AQI (ziplatlong service) uses centerpoint + fixed 50 distance parameter. NWWS and PWS use configured office/station IDs. | `regions` or `BBOX_*`, `REGION_LAT/LON`, `NWS_OFFICE`, `WUNDERGROUND_*` |
 | Fire (`poller/pollers/fire.py`) | API prefilter uses centerpoint-expanded BBOX. Post-filtering classifies by BBOX-or-radius local relevance, then regional radius and age limits. | `REGION_LAT/LON`, `BBOX_*`, `FIRE_*` |
 | NIFC Fire Perimeters (`poller/pollers/nifc.py`) | Fetches all active fire perimeters from WFIGS GeoJSON. No client-side geographic filter — the upstream endpoint covers all of North America. | None |
 | Lightning (`poller/pollers/lightning.py`) | WebSocket subscription uses configured BBOX with +/- 5 degree pad. | `BBOX_*` |

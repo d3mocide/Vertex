@@ -45,6 +45,20 @@ def normalize_forecast(hourly: dict, periods: dict, hours: int = 24, days: int =
     }
 
 
+def parse_aqi(data) -> dict | None:
+    """The worst current AQI across pollutants from AirNow's ziplatlong observation service, or None.
+
+    The service replaced latLong/current on 2026-10-01 and renamed the fields (nowcastAQI, aqiCategoryName). An area
+    with no monitor answers with a WebServiceError object instead of a list, and a pollutant can lack a value."""
+    if not isinstance(data, list):
+        return None
+    rows = [d for d in data if isinstance(d, dict) and isinstance(d.get("nowcastAQI"), (int, float)) and d["nowcastAQI"] >= 0]
+    if not rows:
+        return None
+    worst = max(rows, key=lambda d: d["nowcastAQI"])
+    return {"aqi": worst["nowcastAQI"], "aqi_label": worst.get("aqiCategoryName")}
+
+
 class WeatherPoller(BasePoller):
     name = "weather"
     interval = 300  # 5 minutes
@@ -179,7 +193,7 @@ class WeatherPoller(BasePoller):
         lat = settings.region_lat
         lon = settings.region_lon
         
-        url = "https://www.airnowapi.org/aq/observation/latLong/current/"
+        url = "https://www.airnowapi.org/aq/observation/current/ziplatlong/"
         params = {
             "format": "application/json",
             "latitude": lat,
@@ -196,17 +210,11 @@ class WeatherPoller(BasePoller):
             ) as client:
                 resp = await client.get(url, params=params)
                 resp.raise_for_status()
-            data = resp.json()
-            if not isinstance(data, list) or not data:
+            reading = parse_aqi(resp.json())
+            if reading is None:
                 return {}
-
-            # Find the max AQI across pollutants like PM2.5 and O3
-            max_aqi_obs = max(data, key=lambda d: d.get("AQI", -1))
             _success = True
-            return {
-                "aqi": max_aqi_obs.get("AQI"),
-                "aqi_label": max_aqi_obs.get("Category", {}).get("Name"),
-            }
+            return reading
         except httpx.HTTPStatusError as exc:
             self._airnow_consecutive_failures += 1
             status = exc.response.status_code
