@@ -18,9 +18,10 @@ from urllib.parse import urlsplit
 import yaml
 
 SCHEMA = 1
-DECLARATIVE_KINDS = {"arcgis_featureserver", "gtfs_rt"}   # described entirely by the manifest; more kinds (json_rest, wzdx) follow
+DECLARATIVE_KINDS = {"arcgis_featureserver", "gtfs_rt", "wzdx"}   # described entirely by the manifest; json_rest follows
 SUPPORTED_KINDS = {"builtin"} | DECLARATIVE_KINDS
 ARCGIS_CONTRACTS = {"fire.danger"}
+WZDX_CONTRACTS = {"traffic.incidents"}
 GTFS_CONTRACTS = {"transit.routes", "transit.vehicles"}
 # Environment variables a manifest may name as its API key. A pack must not be able to read (and so send to an agency's
 # server) arbitrary secrets such as DATABASE_URL, so the name is either in the PACK_ namespace or one of these existing,
@@ -194,6 +195,52 @@ def _arcgis_fire_danger(p: dict, prid: str, covers_bbox) -> dict:
             "extra": extra, "scope": scope, "skip_unknown": skip}
 
 
+def _key(key, where: str, key_names: set, allowed: bool, why_not: str):
+    """Validated ``key: {env, param}`` of a declarative provider, or None. The variable must be a ``PACK_*`` name (or a
+    reviewed legacy name) listed under requires_keys, so a manifest can never make Vertex send its own secrets."""
+    if key is None:
+        return None
+    if not isinstance(key, dict) or set(key) != {"env", "param"}:
+        raise PackError(f"{where}: key needs env (the environment variable) and param (the query parameter the agency expects)")
+    env, param = key["env"], key["param"]
+    if not isinstance(env, str) or not (_PACK_KEY.match(env) or env in GTFS_LEGACY_KEYS):
+        raise PackError(f"{where}: key.env must start with PACK_ (or be one of {', '.join(sorted(GTFS_LEGACY_KEYS))})")
+    if env not in key_names:
+        raise PackError(f"{where}: key.env {env} must also be listed under requires_keys so the setup wizard can show it")
+    if not isinstance(param, str) or not re.match(r"^[A-Za-z][A-Za-z0-9_]{0,31}$", param):
+        raise PackError(f"{where}: key.param must be a query parameter name")
+    if not allowed:
+        raise PackError(f"{where}: {why_not}")
+    return {"env": env, "param": param}
+
+
+def _wzdx(p: dict, prid: str, prov: list, covers_bbox, key_names: set) -> dict:
+    """Validated settings of a ``wzdx`` provider: a US DOT Work Zone Data Exchange GeoJSON feed as ``traffic.incidents``."""
+    where = f"provider {prid}"
+    coverage = _bbox(p.get("coverage"), f"{where}: coverage")
+    if coverage is None and covers_bbox is None:
+        raise PackError(f"{where}: a declarative provider needs its own coverage or the pack's covers.bbox")
+    if set(prov) != WZDX_CONTRACTS:
+        raise PackError(f"{where}: wzdx provides only {', '.join(sorted(WZDX_CONTRACTS))}")
+    url = p.get("url")
+    if not isinstance(url, str) or len(url) > 512 or not re.match(r"^https://[^\s?#]+$", url):
+        raise PackError(f"{where}: url must be an https address with no query string (keys go in the key setting)")
+    _check_public_url(url, f"{where}: url", https_only=True)
+    attribution = p.get("attribution")
+    if not isinstance(attribution, str) or not (1 <= len(attribution) <= 40):
+        raise PackError(f"{where}: attribution is required (the agency's name, up to 40 characters)")
+    link = p.get("link")
+    if link is not None:
+        if not isinstance(link, str) or len(link) > 512 or not re.match(r"^https://[^\s]+$", link):
+            raise PackError(f"{where}: link must be an https address of the agency's traveler-information page")
+        _check_public_url(link, f"{where}: link", https_only=True)
+    key = _key(p.get("key"), where, key_names, True, "")
+    poll = p.get("poll_seconds", 300)
+    if isinstance(poll, bool) or not isinstance(poll, int) or not 60 <= poll <= 3600:
+        raise PackError(f"{where}: poll_seconds must be a whole number from 60 to 3600")
+    return {"attribution": attribution, "url": url, "link": link, "key": key, "poll_seconds": poll, "coverage": coverage}
+
+
 def _gtfs_rt(p: dict, prid: str, prov: list, covers_bbox, key_names: set) -> dict:
     """Validated settings of a ``gtfs_rt`` provider: a GTFS schedule, optionally with a GTFS Realtime vehicle feed."""
     where = f"provider {prid}"
@@ -220,20 +267,8 @@ def _gtfs_rt(p: dict, prid: str, prov: list, covers_bbox, key_names: set) -> dic
     if not isinstance(attribution, str) or not (1 <= len(attribution) <= 40):
         raise PackError(f"{where}: attribution is required (the agency's name, up to 40 characters)")
 
-    key = p.get("key")
-    if key is not None:
-        if not isinstance(key, dict) or set(key) != {"env", "param"}:
-            raise PackError(f"{where}: key needs env (the environment variable) and param (the query parameter the agency expects)")
-        env, param = key["env"], key["param"]
-        if not isinstance(env, str) or not (_PACK_KEY.match(env) or env in GTFS_LEGACY_KEYS):
-            raise PackError(f"{where}: key.env must start with PACK_ (or be one of {', '.join(sorted(GTFS_LEGACY_KEYS))})")
-        if env not in key_names:
-            raise PackError(f"{where}: key.env {env} must also be listed under requires_keys so the setup wizard can show it")
-        if not isinstance(param, str) or not re.match(r"^[A-Za-z][A-Za-z0-9_]{0,31}$", param):
-            raise PackError(f"{where}: key.param must be a query parameter name")
-        if not urls["realtime_url"]:
-            raise PackError(f"{where}: a key is only used on the realtime feed, which this provider does not have")
-        key = {"env": env, "param": param}
+    key = _key(p.get("key"), where, key_names, bool(urls["realtime_url"]),
+               "a key is only used on the realtime feed, which this provider does not have")
 
     types = p.get("route_types")
     if types is not None:
@@ -310,6 +345,8 @@ def validate(manifest: dict, dirname: str, known_contracts: set[str]) -> dict:
             entry["spec"] = _arcgis_fire_danger(p, prid, bbox)
         elif kind == "gtfs_rt":
             entry["spec"] = _gtfs_rt(p, prid, prov, bbox, seen_keys)
+        elif kind == "wzdx":
+            entry["spec"] = _wzdx(p, prid, prov, bbox, seen_keys)
         providers.append(entry)
         provides.extend(c for c in prov if c not in provides)
     if not providers:

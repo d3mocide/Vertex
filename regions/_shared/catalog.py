@@ -51,6 +51,10 @@ def declared_entries(pack, claimed=None):
             # downloading the schedule of a transit agency hundreds of kilometres from the monitored area.
             entry = {"contracts": contracts, "bbox": tuple(spec["coverage"] or bbox), "kind": "gtfs_rt", "declarative": spec,
                      "attribution": spec["attribution"], **({"env_key": spec["key"]["env"]} if spec["key"] else {})}
+        elif provider["kind"] == "wzdx":
+            entry = {"contracts": {"traffic.incidents": ["traffic:incidents"]}, "bbox": tuple(spec["coverage"] or bbox),
+                     "kind": "wzdx", "declarative": spec, "attribution": spec["attribution"],
+                     **({"env_key": spec["key"]["env"]} if spec["key"] else {})}
         else:
             entry = {"contracts": {c: FEED_KEYS[c] for c in provider["provides"]}, "bbox": tuple(bbox),
                      "kind": provider["kind"], "declarative": spec, "attribution": spec["attribution"]}

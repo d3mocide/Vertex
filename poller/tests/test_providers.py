@@ -10,9 +10,9 @@ import providers
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize('choice,expected', [
-    ({'packs': ['oregon', 'washington']}, {'odot-tripcheck', 'oregon-odin', 'odf-fire-danger', 'wsdot-travel', 'wadnr-fire-danger', 'trimet-transit', 'cherriots-transit', 'ctran-transit', 'soundtransit-transit'}),
+    ({'packs': ['oregon', 'washington']}, {'odot-tripcheck', 'oregon-odin', 'odf-fire-danger', 'wsdot-travel', 'wsdot-workzones', 'wadnr-fire-danger', 'trimet-transit', 'cherriots-transit', 'ctran-transit', 'soundtransit-transit'}),
     ({'packs': []}, set()),
-    ({'packs': ['washington']}, {'wsdot-travel', 'wadnr-fire-danger', 'ctran-transit', 'soundtransit-transit'}),
+    ({'packs': ['washington']}, {'wsdot-travel', 'wsdot-workzones', 'wadnr-fire-danger', 'ctran-transit', 'soundtransit-transit'}),
     (None, {'odot-tripcheck', 'oregon-odin', 'odf-fire-danger', 'trimet-transit'}),
 ])
 async def test_startup_selection_with_env_pinned_center(monkeypatch, choice, expected):

@@ -98,6 +98,27 @@ providers:
 
 Use the agency's own published feed and respect its terms; there is no scraping. The first schedule download for a large agency takes a while and is cached for a day. A route in a schedule is not evidence that it runs today, and a schedule alone gives no live positions.
 
+### `wzdx` for `traffic.incidents`
+
+Many US state DOTs publish road work as a [Work Zone Data Exchange](https://github.com/usdot-jpo-ode/wzdx) (WZDx) GeoJSON feed; the USDOT keeps a [registry of them](https://datahub.transportation.gov/Roadways-and-Bridges/Work-Zone-Data-Exchange-WZDx-Feed-Registry/69qe-yiui). One provider block is enough to list that work as incidents:
+
+```yaml
+requires_keys:                                  # only when the feed needs a key
+  - {name: PACK_EXAMPLE_WZ_KEY, where: https://dot.example.org/developers, free: true, unlocks: [traffic.incidents]}
+providers:
+  - id: example-workzones
+    kind: wzdx
+    provides: [traffic.incidents]
+    url: https://dot.example.org/wzdx/feed       # https, public, no query string
+    attribution: Example DOT
+    link: https://dot.example.org/map            # optional: where an incident's "details" link goes
+    # key: {env: PACK_EXAMPLE_WZ_KEY, param: api_key}
+    # coverage: [-105.5, 39.5, -104.5, 40.1]     # optional; defaults to the pack's covers.bbox
+    # poll_seconds: 300                          # optional, 60 to 3600
+```
+
+Keys follow the same rules as for `gtfs_rt`. Vertex reads WZDx v3 and v4 feeds and lists a work zone when it is inside the monitored area, not completed or cancelled, not ended and not scheduled more than a day ahead, and it affects traffic. The agency's own `vehicle_impact` decides that: lanes closed or alternating traffic is listed (all lanes closed becomes a closure), "all lanes open" is not, and a zone that does not say is listed only once its `event_status` is `active`, so a long contract that is merely scheduled does not flood the list. Work zones are never marked as unplanned events, and nearby closures group like any other provider's. Detours are not listed. A feed larger than 8 MB is refused.
+
 ## 5. Check your pack
 
 ```bash
@@ -114,4 +135,4 @@ Include the pack directory only. Say which agency publishes the data and link to
 
 ## What is not declarative yet
 
-Traffic incidents, cameras and outages still need a `builtin` provider. The next declarative kinds planned are `json_rest` and `wzdx` (work zone data). Some things stay built in on purpose: Oregon's forestry feed and TriMet, because installs that never chose a pack still use them (and TriMet's URLs, route types and interval are operator settings), and C-TRAN, whose access terms are unverified. Transit service alerts and calendar filtering are not part of `gtfs_rt` yet.
+Traffic cameras, signs and outages, and incidents that are not WZDx work zones, still need a `builtin` provider. The next declarative kind planned is `json_rest`. Some things stay built in on purpose: Oregon's forestry feed and TriMet, because installs that never chose a pack still use them (and TriMet's URLs, route types and interval are operator settings), and C-TRAN, whose access terms are unverified. Transit service alerts and calendar filtering are not part of `gtfs_rt` yet.

@@ -421,3 +421,73 @@ def test_gtfs_rt_provider_registers_with_its_own_coverage_and_waits_for_its_key(
         assert far["reason"] == "outside_coverage"                                       # not fetched for a far-away area
     finally:
         catalog.PROVIDERS.pop("metro-transit", None)
+
+
+# ── declarative wzdx providers ─────────────────────────────────────────────────────────────────────────────────────────
+def _wzdx(**changes):
+    p = {"id": "metro-workzones", "kind": "wzdx", "provides": ["traffic.incidents"], "attribution": "Metro DOT",
+         "url": "https://workzones.example.org/wzdx/feed", "coverage": [-105.5, 39.5, -104.5, 40.1]}
+    for k, v in changes.items():
+        if v is None:
+            p.pop(k, None)
+        else:
+            p[k] = v
+    return p
+
+
+def _wzdx_pack(provider=None, keys=()):
+    return _pack(providers=[provider or _wzdx()], requires_keys=[{"name": k, "unlocks": ["traffic.incidents"]} for k in keys])
+
+
+def test_wzdx_provider_is_validated_into_a_spec():
+    spec = _validate(_wzdx_pack())["providers"][0]["spec"]
+    assert spec == {"attribution": "Metro DOT", "url": "https://workzones.example.org/wzdx/feed", "link": None, "key": None,
+                    "poll_seconds": 300, "coverage": [-105.5, 39.5, -104.5, 40.1]}
+
+
+@pytest.mark.parametrize("changes, message", [
+    ({"url": "http://workzones.example.org/feed"}, "https"),
+    ({"url": "https://workzones.example.org/feed?api_key=abc"}, "no query string"),
+    ({"url": "https://192.168.1.5/feed"}, "public"),
+    ({"url": None}, "url"),
+    ({"attribution": None}, "attribution"),
+    ({"provides": ["traffic.cameras"]}, "wzdx provides only"),
+    ({"provides": ["traffic.incidents", "traffic.cameras"]}, "wzdx provides only"),
+    ({"poll_seconds": 5}, "poll_seconds"),
+    ({"link": "http://example.org/map"}, "link"),
+    ({"key": {"env": "DATABASE_URL", "param": "k"}}, "must start with PACK_"),
+    ({"key": {"env": "PACK_WZ_KEY"}}, "key needs"),
+])
+def test_wzdx_bad_providers_are_rejected(changes, message):
+    with pytest.raises(packs.PackError, match=message):
+        _validate(_wzdx_pack(_wzdx(**changes), keys=["PACK_WZ_KEY"]))
+
+
+def test_wzdx_key_must_be_declared_and_the_provider_waits_for_it(monkeypatch):
+    import provider_catalog as catalog
+    keyed = _wzdx(key={"env": "PACK_WZ_KEY", "param": "api_key"})
+    with pytest.raises(packs.PackError, match="requires_keys"):
+        _validate(_wzdx_pack(keyed))
+    pack = _validate(_wzdx_pack(keyed, keys=["PACK_WZ_KEY"]))
+    entry = catalog.declared_entries(pack)["metro-workzones"]
+    assert entry["contracts"] == {"traffic.incidents": ["traffic:incidents"]} and entry["env_key"] == "PACK_WZ_KEY"
+    assert entry["bbox"] == (-105.5, 39.5, -104.5, 40.1) and entry["kind"] == "wzdx"
+    here = {"min_lon": -105.2, "max_lon": -104.8, "min_lat": 39.6, "max_lat": 39.9}
+    monkeypatch.delenv("PACK_WZ_KEY", raising=False)
+    try:
+        plan, _ = catalog.provider_plan(["denver"], {"denver": pack}, SimpleNamespace(), here)
+        assert plan["metro-workzones"]["reason"] == "not_configured"
+        monkeypatch.setenv("PACK_WZ_KEY", "fixture-key")
+        assert catalog.provider_plan(["denver"], {"denver": pack}, SimpleNamespace(), here)[0]["metro-workzones"]["reason"] is None
+    finally:
+        catalog.PROVIDERS.pop("metro-workzones", None)
+
+
+def test_the_keyless_wzdx_provider_is_enabled_without_any_key():
+    import provider_catalog as catalog
+    pack = _validate(_wzdx_pack())
+    here = {"min_lon": -105.2, "max_lon": -104.8, "min_lat": 39.6, "max_lat": 39.9}
+    try:
+        assert catalog.provider_plan(["denver"], {"denver": pack}, SimpleNamespace(), here)[0]["metro-workzones"]["reason"] is None
+    finally:
+        catalog.PROVIDERS.pop("metro-workzones", None)

@@ -36,6 +36,7 @@ def build_pollers(plan):
         factories[pid] = lambda pid=pid: GtfsRtPoller(pid)
     from provider_catalog import PROVIDERS
     from pollers.arcgis_fire_danger import ArcgisFireDangerPoller
+    from pollers.wzdx import WzdxPoller
     pollers = []
     for pid, p in plan.items():
         if p["reason"] or not p["contracts"]:
@@ -43,6 +44,8 @@ def build_pollers(plan):
         entry = PROVIDERS[pid]
         if entry.get("kind") == "gtfs_rt":
             pollers.append(GtfsRtPoller(pid, declared_source(pid, entry["declarative"])))
+        elif entry.get("kind") == "wzdx":
+            pollers.append(WzdxPoller(pid, entry["declarative"]))
         elif entry.get("declarative"):
             pollers.append(ArcgisFireDangerPoller(pid, entry["declarative"]))
         else:

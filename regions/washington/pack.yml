@@ -1,7 +1,7 @@
 schema: 1
 id: washington
 name: Washington
-description: Road alerts and traffic-camera snapshots from the WSDOT Traveler API, plus DNR fire danger and burn restrictions, including southwest Washington for Columbia River border regions.
+description: Road alerts and traffic-camera snapshots from the WSDOT Traveler API, work zones from WSDOT's open WZDx feed, plus DNR fire danger and burn restrictions, including southwest Washington for Columbia River border regions.
 maintainers: [d3mocide]
 covers:
   states: [WA]
@@ -26,6 +26,12 @@ providers:
   - id: wsdot-travel
     kind: builtin
     provides: [traffic.incidents, traffic.cameras]
+  - id: wsdot-workzones               # the state's open work-zone feed: no key, planned work only
+    kind: wzdx
+    provides: [traffic.incidents]
+    url: https://wzdx.wsdot.wa.gov/api/v4/WorkZoneFeed
+    attribution: WSDOT
+    link: https://wsdot.com/travel/real-time/map/
   - id: wadnr-fire-danger
     kind: arcgis_featureserver
     provides: [fire.danger]

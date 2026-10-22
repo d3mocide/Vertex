@@ -42,7 +42,7 @@ def test_both_shipped_packs_run_in_border_area():
     assert all(p["reason"] is None for pid, p in plan.items() if pid not in {"trimet-transit", "ctran-transit", "soundtransit-transit"})
     assert plan["ctran-transit"]["reason"] == "access_unverified"
     assert plan["soundtransit-transit"]["reason"] == "outside_coverage"
-    assert provider_plan(["oregon"], installed(), SETTINGS, BORDER)[0].keys() == PROVIDERS.keys() - {"wsdot-travel", "wadnr-fire-danger", "ctran-transit", "soundtransit-transit"}
+    assert provider_plan(["oregon"], installed(), SETTINGS, BORDER)[0].keys() == PROVIDERS.keys() - {"wsdot-travel", "wsdot-workzones", "wadnr-fire-danger", "ctran-transit", "soundtransit-transit"}
 
 
 def test_washington_runs_even_if_center_is_south_of_its_coverage():
@@ -65,7 +65,7 @@ def test_missing_odot_key_does_not_disable_washington():
     assert plan["odot-tripcheck"]["reason"] == "not_configured"
     assert plan["wsdot-travel"]["reason"] is None
     out = capabilities.build(settings, {}, region(["oregon", "washington"]), installed())
-    assert out["contracts"]["traffic.incidents"]["providers"] == ["wsdot-travel"]
+    assert out["contracts"]["traffic.incidents"]["providers"] == ["wsdot-travel", "wsdot-workzones"]
     assert out["contracts"]["traffic.signs"]["reason"] == "not_configured"
 
 
@@ -73,7 +73,7 @@ def test_each_provider_has_independent_freshness_and_no_cross_feed_masking():
     ages = {"provider:odot-tripcheck:traffic:incidents": 1900,
             "provider:wsdot-travel:traffic:incidents": 5, "traffic:incidents": 5}
     contract = capabilities.build(SETTINGS, ages, region(["oregon", "washington"]), installed())["contracts"]["traffic.incidents"]
-    assert set(contract["providers"]) == {"odot-tripcheck", "wsdot-travel"}
+    assert set(contract["providers"]) == {"odot-tripcheck", "wsdot-travel", "wsdot-workzones"}
     assert contract["status"] == "ok"
     assert contract["provider_statuses"]["odot-tripcheck"]["status"] == "down"
     assert contract["provider_statuses"]["wsdot-travel"]["status"] == "ok"
@@ -172,7 +172,7 @@ def test_missing_wsdot_key_keeps_dnr_fire_and_oregon_active():
     settings = SimpleNamespace(**{**vars(SETTINGS), 'wsdot_api_key': ''})
     out = capabilities.build(settings, {}, region(['oregon', 'washington']), installed())
     traffic = out['contracts']['traffic.incidents']
-    assert traffic['providers'] == ['odot-tripcheck']
+    assert traffic['providers'] == ['odot-tripcheck', 'wsdot-workzones']      # the keyless work-zone feed still runs
     assert traffic['provider_statuses']['wsdot-travel']['reason'] == 'not_configured'
     assert traffic['provider_statuses']['wsdot-travel']['requires'] == 'WSDOT_API_KEY'
     assert set(out['contracts']['fire.danger']['providers']) == {'odf-fire-danger', 'wadnr-fire-danger'}
