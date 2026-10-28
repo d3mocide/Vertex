@@ -14,7 +14,7 @@ asyncpg==0.32.0
     # via -r poller/requirements.txt
 bleak==3.0.2
     # via meshcore
-certifi==2026.7.22
+certifi==2026.10.23
     # via
     #   httpcore
     #   httpx
@@ -44,7 +44,7 @@ idna==3.20
     # via
     #   anyio
     #   httpx
-meshcore==2.3.15
+meshcore==2.3.17
     # via -r poller/requirements.txt
 numpy==2.5.3
     # via pymodes
@@ -62,7 +62,7 @@ pydantic==2.13.5
     # via pydantic-settings
 pydantic-core==2.46.5
     # via pydantic
-pydantic-settings==2.15.0
+pydantic-settings==2.16.1
     # via -r poller/requirements.txt
 pymodes==2.22.0
     # via -r poller/requirements.txt
@@ -84,18 +84,19 @@ sgp4==2.27
     # via -r poller/requirements.txt
 six==1.17.0
     # via python-dateutil
-sqlalchemy==2.1.4
+sqlalchemy==2.1.6
     # via -r poller/requirements.txt
 typing-extensions==4.16.0
     # via
     #   anyio
     #   pydantic
     #   pydantic-core
+    #   pydantic-settings
     #   sqlalchemy
     #   typing-inspection
 typing-inspection==0.4.4
     # via
     #   pydantic
     #   pydantic-settings
-websockets==17.2
+websockets==17.3
     # via -r poller/requirements.txt

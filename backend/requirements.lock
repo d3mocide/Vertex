@@ -19,7 +19,7 @@ bcrypt==3.2.2
     # via
     #   -r backend/requirements.txt
     #   passlib
-certifi==2026.7.22
+certifi==2026.10.23
     # via
     #   httpcore
     #   httpx
@@ -27,7 +27,7 @@ cffi==2.1.1
     # via bcrypt
 click==8.5.0
     # via uvicorn
-fastapi==0.143.0
+fastapi==0.162.0
     # via -r backend/requirements.txt
 geoalchemy2==0.20.0
     # via -r backend/requirements.txt
@@ -51,7 +51,7 @@ idna==3.20
     #   httpx
 numpy==2.5.3
     # via shapely
-opentelemetry-api==1.45.0
+opentelemetry-api==1.45.1
     # via fastapi
 packaging==26.3
     # via geoalchemy2
@@ -70,7 +70,7 @@ pydantic==2.14.1
     #   pydantic-settings
 pydantic-core==2.50.1
     # via pydantic
-pydantic-settings==2.15.0
+pydantic-settings==2.16.1
     # via -r backend/requirements.txt
 pyjwt==2.15.1
     # via -r backend/requirements.txt
@@ -92,11 +92,11 @@ shapely==2.2.0
     # via -r backend/requirements.txt
 six==1.17.0
     # via python-dateutil
-sqlalchemy==2.1.4
+sqlalchemy==2.1.6
     # via
     #   -r backend/requirements.txt
     #   geoalchemy2
-starlette==1.7.0
+starlette==1.10.0
     # via
     #   -r backend/requirements.txt
     #   fastapi
@@ -108,6 +108,7 @@ typing-extensions==4.16.0
     #   opentelemetry-api
     #   pydantic
     #   pydantic-core
+    #   pydantic-settings
     #   sqlalchemy
     #   starlette
     #   typing-inspection
