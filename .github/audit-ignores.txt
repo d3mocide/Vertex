@@ -3,9 +3,28 @@
 # scripts/audit_python_locks.py skips these ids and FAILS once the date passes, so each one is re-checked.
 # To remove an entry, upgrade the package (scripts/sync_python_locks.sh -P <package>) and delete the line.
 
+# TRACKING: upstream issue BerriAI/litellm#48394 and PR #48635 ("allow filelock 4.x"), open on 2026-10-28. When a litellm
+# release lifts the cap: bump litellm in transcription/requirements.txt, run scripts/sync_python_locks.sh -P filelock,
+# and delete every filelock line below. Tried 2026-10-28: filelock 4.2.4 imports and runs fine in the transcription image
+# (litellm only uses FileLock/Timeout, and only in its CLI, which we don't use), so a manual override is possible if needed.
 # filelock 3.32.7 is held by litellm (filelock<4, still true in litellm 1.106.5); the fix is only in filelock 4.2.1.
 # Two of the three are Windows-only; CVE-2026-112940 is in ReadWriteLock. The containers run Linux and nothing in
 # the image calls ReadWriteLock (huggingface_hub uses FileLock and SoftFileLock only). Checked 2026-10-28.
 CVE-2026-112940  transcription  2026-12-01  filelock ReadWriteLock (SQLite lock) is not used by transcription or its dependencies
 CVE-2026-112913  transcription  2026-12-01  Windows-only (ReadWriteLock side files); the image runs Linux
 CVE-2026-112907  transcription  2026-12-01  Windows-only (soft-lock marker read by path); the image runs Linux
+
+# Ten more filelock advisories published 2026-10-28 (same fix, same pin). Every one needs ANOTHER LOCAL USER who can
+# plant a symlink, hard link or marker file in the lock's directory (or is Windows-only); the transcription container
+# has a single user and no untrusted local accounts. They cover ReadWriteLock, the strict/soft-lock variants and the
+# soft-lock stale-break path; the image's only callers are huggingface_hub's FileLock/SoftFileLock.
+CVE-2026-112938  transcription  2026-12-01  StrictSoftFileLock symlink race; needs a local user in the lock directory
+CVE-2026-112936  transcription  2026-12-01  ReadWriteLock symlink; needs a local user in the lock directory (fix 4.0.9)
+CVE-2026-112910  transcription  2026-12-01  Windows ignores the lock file mode; the image runs Linux
+CVE-2026-112909  transcription  2026-12-01  UnixFileLock truncates a file a local user renamed or hard-linked; needs another local user
+CVE-2026-112911  transcription  2026-12-01  StrictSoftFileLock/SoftReadWriteLock adopt a directory another local user made; unused locks, single user
+CVE-2026-112939  transcription  2026-12-01  soft-lock marker rewritten by a local user who can write it; single user
+CVE-2026-112915  transcription  2026-12-01  ReadWriteLock loads a planted database; ReadWriteLock is not used
+CVE-2026-112935  transcription  2026-12-01  soft-lock stale-break race between local users; single user
+CVE-2026-112912  transcription  2026-12-01  SoftFileLock symlink check; needs a local user in the lock directory
+CVE-2026-112908  transcription  2026-12-01  StrictSoftFileLock directory modes; unused lock type, single user
