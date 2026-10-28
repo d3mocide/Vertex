@@ -1,0 +1,68 @@
+name: Dependabot lockfiles
+
+# Dependabot edits only the manifests (requirements.txt, package.json), while production and CI install the locks, so
+# its PRs pass against the OLD versions or fail the lock check. This regenerates the locks on its branch, pushes
+# them, and re-runs the tests (a push made with GITHUB_TOKEN does not start CI by itself).
+#
+# pull_request_target is what gives a Dependabot PR a writable token. That is safe here only because the job is limited
+# to Dependabot's own branches and runs nothing from the repository except scripts/sync_python_locks.sh from that branch.
+
+on:
+  pull_request_target:
+    branches: [main]
+    paths:
+      - "backend/requirements.txt"
+      - "poller/requirements.txt"
+      - "transcription/requirements.txt"
+      - "frontend/package.json"
+
+permissions: {}
+
+jobs:
+  sync-locks:
+    name: Regenerate locks
+    if: github.event.pull_request.user.login == 'dependabot[bot]' && github.actor == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Re-resolve Python locks
+        run: |
+          pip install pip-tools==7.5.2 packaging==26.3
+          scripts/sync_python_locks.sh
+          python scripts/check_python_locks.py
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+
+      - name: Re-resolve the npm lock
+        working-directory: frontend
+        run: npm install --package-lock-only --ignore-scripts
+
+      - name: Commit and re-run the tests
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: ${{ github.event.pull_request.head.ref }}
+        run: |
+          if git diff --quiet; then
+            echo "Locks already match the manifests."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "chore(deps): sync lockfiles with the updated manifests"
+          git push origin "HEAD:${BRANCH}"
+          gh workflow run test.yml --ref "${BRANCH}"

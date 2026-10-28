@@ -5,6 +5,10 @@ on:
     branches: [main, "claude/**"]
   pull_request:
     branches: [main]
+  workflow_dispatch:
+  schedule:
+    # Weekly, so a new advisory against an unchanged lock shows up here and not only on the next PR.
+    - cron: "17 6 * * 1"
 
 jobs:
   poller-tests:
@@ -108,9 +112,8 @@ jobs:
         run: |
           pip install pip-audit==2.10.1
           python scripts/check_python_locks.py
-          pip-audit -r backend/requirements.lock
-          pip-audit -r poller/requirements.lock
-          pip-audit -r transcription/requirements.lock
+          python -m unittest discover -s scripts -p 'test_audit_python_locks.py'
+          python scripts/audit_python_locks.py
       - name: Set up Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:

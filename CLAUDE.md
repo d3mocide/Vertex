@@ -467,6 +467,9 @@ pip-audit -r poller/requirements.txt
 ```
 
 A clean audit is zero findings in all three. Do not commit if any findings remain unresolved.
+The one exception is a vulnerability with no fix available (upstream forbids the fixed version): record it in
+`.github/audit-ignores.txt` with a lock, an expiry date and the reason it is safe to wait. `scripts/audit_python_locks.py`
+(the CI audit) skips it until it expires. Never add an entry to make a fixable finding go away.
 
 ---
 

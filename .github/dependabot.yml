@@ -4,8 +4,15 @@ updates:
     directory: /frontend
     schedule:
       interval: weekly
+      day: monday
     open-pull-requests-limit: 3
+    cooldown:
+      default-days: 3
+    labels: ["dependencies"]
     groups:
+      frontend-security:
+        applies-to: security-updates
+        patterns: ["*"]
       frontend-routine:
         applies-to: version-updates
         patterns: ["*"]
@@ -32,8 +39,15 @@ updates:
       - /transcription
     schedule:
       interval: weekly
+      day: monday
     open-pull-requests-limit: 5
+    cooldown:
+      default-days: 3
+    labels: ["dependencies"]
     groups:
+      python-security:
+        applies-to: security-updates
+        patterns: ["*"]
       python-routine:
         applies-to: version-updates
         patterns: ["*"]

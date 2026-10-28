@@ -1,0 +1,11 @@
+# Known Python vulnerabilities that have no usable fix yet, accepted for a limited time.
+# Format: <advisory id>  <lock: backend|poller|transcription>  <expires YYYY-MM-DD>  <why it is safe to wait>
+# scripts/audit_python_locks.py skips these ids and FAILS once the date passes, so each one is re-checked.
+# To remove an entry, upgrade the package (scripts/sync_python_locks.sh -P <package>) and delete the line.
+
+# filelock 3.32.7 is held by litellm (filelock<4, still true in litellm 1.106.5); the fix is only in filelock 4.2.1.
+# Two of the three are Windows-only; CVE-2026-112940 is in ReadWriteLock. The containers run Linux and nothing in
+# the image calls ReadWriteLock (huggingface_hub uses FileLock and SoftFileLock only). Checked 2026-10-28.
+CVE-2026-112940  transcription  2026-12-01  filelock ReadWriteLock (SQLite lock) is not used by transcription or its dependencies
+CVE-2026-112913  transcription  2026-12-01  Windows-only (ReadWriteLock side files); the image runs Linux
+CVE-2026-112907  transcription  2026-12-01  Windows-only (soft-lock marker read by path); the image runs Linux

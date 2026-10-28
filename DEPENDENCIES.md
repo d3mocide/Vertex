@@ -1,6 +1,6 @@
 # Vertex Dependency Maintenance
 
-Last audited: 2026-09-30.
+Last audited: 2026-10-28.
 
 ## Sources of truth
 
@@ -34,82 +34,30 @@ Use Python 3.12 and the audited pip-tools release:
 
 ```bash
 python3.12 -m venv /tmp/vertex-pip-tools
-/tmp/vertex-pip-tools/bin/pip install pip-tools==7.5.2
-/tmp/vertex-pip-tools/bin/pip-compile --upgrade --strip-extras \
-  backend/requirements.txt --output-file backend/requirements.lock
-/tmp/vertex-pip-tools/bin/pip-compile --upgrade --strip-extras \
-  poller/requirements.txt --output-file poller/requirements.lock
-/tmp/vertex-pip-tools/bin/pip-compile --upgrade --strip-extras \
-  transcription/requirements.txt --output-file transcription/requirements.lock
-/tmp/vertex-pip-tools/bin/pip install packaging==26.3
+/tmp/vertex-pip-tools/bin/pip install pip-tools==7.5.2 packaging==26.3
+PATH=/tmp/vertex-pip-tools/bin:$PATH scripts/sync_python_locks.sh              # re-resolve, upgrade nothing
+PATH=/tmp/vertex-pip-tools/bin:$PATH scripts/sync_python_locks.sh -P certifi   # upgrade one package
+PATH=/tmp/vertex-pip-tools/bin:$PATH scripts/sync_python_locks.sh --upgrade    # refresh everything
 /tmp/vertex-pip-tools/bin/python scripts/check_python_locks.py
 ```
 
 Review the complete lock diff. A direct update can legitimately change multiple
 transitive packages; it should never silently remove an application dependency.
+Prefer `-P <package>` over `--upgrade`: a blanket upgrade has moved unrelated packages across major versions.
 
-## Audit commands
+## Dependabot and the locks
 
-Audit what production actually installs:
+Dependabot only edits the direct manifests, so `.github/workflows/dependabot-locks.yml` regenerates the locks on
+its PR branches (`scripts/sync_python_locks.sh`, `npm install --package-lock-only`), pushes them and re-runs the
+tests. Merge a Dependabot PR once its checks are green; there is nothing to do by hand.
 
-```bash
-pip-audit -r backend/requirements.lock
-pip-audit -r poller/requirements.lock
-pip-audit -r transcription/requirements.lock
-npm --prefix frontend audit --audit-level=moderate
-```
+Dependabot never sees a vulnerable *transitive* Python package (`certifi`, `aiohttp`, `opentelemetry-api` sat in
+the locks unflagged). The weekly scheduled run of the Tests workflow audits every lock, so such a finding fails a
+run within a week. Fix it with `scripts/sync_python_locks.sh -P <package>`.
 
-The 2026-10-14 audit returned no known vulnerabilities for all three Python
-locks and zero npm vulnerabilities.
+## Vulnerabilities with no fix yet
 
-## Required validation
-
-For a dependency change, run at minimum:
-
-```bash
-docker build -t vertex-backend ./backend
-docker build -t vertex-poller ./poller
-docker build -t vertex-transcription ./transcription
-docker build -t vertex-frontend ./frontend
-docker run --rm --user root --entrypoint sh vertex-backend \
-  -c 'pip install pytest==9.1.1 pytest-asyncio==1.4.0 && pytest tests/ -q'
-docker run --rm --user root --entrypoint sh vertex-poller \
-  -c 'pip install pytest==9.1.1 pytest-asyncio==1.4.0 && pytest tests/ -q'
-npm --prefix frontend ci
-npm --prefix frontend exec tsc -- --noEmit
-npm --prefix frontend run build
-```
-
-Also render each supported Compose profile and run targeted integration smokes
-for changed services. A clean build or unit suite is not a substitute for the
-operator's live production test.
-
-## Deliberately deferred major upgrades
-
-- `bcrypt` 5: incompatible with Passlib 1.7.4 and rejects passwords longer than
-  72 bytes while Vertex accepts up to 128 characters. This requires a coordinated
-  password-hashing migration.
-- React 19: requires React, ReactDOM, types, and application behavior to move
-  together. ReactDOM remains on the React 18 peer line.
-- Tailwind CSS 4: moves the PostCSS plugin to `@tailwindcss/postcss` and requires
-  a coordinated configuration and stylesheet migration. A direct version bump
-  fails the production build.
-- `pyModeS` 3: replaces the v2 decoder API used by the BEAST ingest path. The
-  current v2-only tests are intentionally required and would otherwise be skipped.
-- Node build-runtime majors: remain on the digest-pinned Node 24 LTS line until a
-  deliberate build-runtime review.
-
-These exclusions are encoded in `.github/dependabot.yml`; see
-[docs/reviews/dependabot-2026-09-29.md](docs/reviews/dependabot-2026-09-29.md) for the PR-by-PR evidence.
-
-## Dependabot workflow
-
-Routine minor and patch updates are grouped, while security updates remain
-independent. Dependabot currently edits Python direct manifests but does not
-regenerate the pip-compile locks. For an accepted Python PR:
-
-1. Apply or reproduce the requested direct pin change.
-2. Regenerate all affected locks with Python 3.12.
-3. Run the lock consistency check, vulnerability audits, tests, and image builds.
-4. Land the consolidated result on `main`; close the superseded bot branch rather
-   than merging a manifest-only PR.
+If an advisory can't be fixed (the fix needs a version an upstream package forbids), add a line to
+`.github/audit-ignores.txt`: advisory id, which lock, an expiry date (weeks, not months) and why it's safe to wait.
+`scripts/audit_python_locks.py` skips it until that date and then fails the audit, so it comes back for review.
+npm findings below the CI threshold (`--audit-level=moderate`) are not blocked; note them in the task log.
