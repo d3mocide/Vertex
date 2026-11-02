@@ -6,8 +6,8 @@ sqlalchemy[asyncio]==2.1.6
 asyncpg==0.32.0
 geoalchemy2==0.20.0
 redis[hiredis]==8.1.0
-pydantic==2.14.1
-pydantic-settings==2.16.1
+pydantic==2.14.2
+pydantic-settings==2.16.2
 httpx==0.28.1
 python-dateutil==2.9.0.post0
 prometheus-fastapi-instrumentator==8.1.0
