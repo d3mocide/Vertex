@@ -51,7 +51,7 @@ idna==3.20
     #   httpx
 numpy==2.5.3
     # via shapely
-opentelemetry-api==1.45.1
+opentelemetry-api==1.45.2
     # via fastapi
 packaging==26.3
     # via geoalchemy2
