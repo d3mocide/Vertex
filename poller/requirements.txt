@@ -4,7 +4,7 @@ httpx==0.28.1
 asyncpg==0.32.0
 sqlalchemy[asyncio]==2.1.6
 pydantic-settings==2.16.1
-python-dateutil==2.9.0.post0
+python-dateutil==4.0.0
 feedparser==6.0.14
 websockets==17.3
 pyModeS==2.22.0
