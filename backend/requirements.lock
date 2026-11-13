@@ -75,7 +75,7 @@ pydantic-settings==2.16.2
     # via -r backend/requirements.txt
 pyjwt==2.15.1
     # via -r backend/requirements.txt
-python-dateutil==2.9.0.post0
+python-dateutil==4.0.0
     # via -r backend/requirements.txt
 python-dotenv==1.2.3
     # via
@@ -91,8 +91,6 @@ redis==8.1.0
     # via -r backend/requirements.txt
 shapely==2.2.0
     # via -r backend/requirements.txt
-six==1.17.0
-    # via python-dateutil
 sqlalchemy==2.1.8
     # via
     #   -r backend/requirements.txt
@@ -118,6 +116,8 @@ typing-inspection==0.4.4
     #   fastapi
     #   pydantic
     #   pydantic-settings
+tzdata==2026.6
+    # via python-dateutil
 uvicorn==0.54.0
     # via -r backend/requirements.txt
 uvloop==0.22.1
