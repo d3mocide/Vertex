@@ -39,7 +39,7 @@ jobs:
 
       - name: Re-resolve Python locks
         run: |
-          pip install pip-tools==7.5.2 packaging==26.3
+          pip install pip-tools==7.6.2 packaging==26.3
           scripts/sync_python_locks.sh
           python scripts/check_python_locks.py
 
