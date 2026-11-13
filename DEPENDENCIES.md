@@ -1,6 +1,6 @@
 # Vertex Dependency Maintenance
 
-Last audited: 2026-10-28.
+Last audited: 2026-11-13.
 
 ## Sources of truth
 
@@ -34,7 +34,7 @@ Use Python 3.12 and the audited pip-tools release:
 
 ```bash
 python3.12 -m venv /tmp/vertex-pip-tools
-/tmp/vertex-pip-tools/bin/pip install pip-tools==7.5.2 packaging==26.3
+/tmp/vertex-pip-tools/bin/pip install pip-tools==7.6.2 packaging==26.3
 PATH=/tmp/vertex-pip-tools/bin:$PATH scripts/sync_python_locks.sh              # re-resolve, upgrade nothing
 PATH=/tmp/vertex-pip-tools/bin:$PATH scripts/sync_python_locks.sh -P certifi   # upgrade one package
 PATH=/tmp/vertex-pip-tools/bin:$PATH scripts/sync_python_locks.sh --upgrade    # refresh everything
@@ -61,3 +61,12 @@ If an advisory can't be fixed (the fix needs a version an upstream package forbi
 `.github/audit-ignores.txt`: advisory id, which lock, an expiry date (weeks, not months) and why it's safe to wait.
 `scripts/audit_python_locks.py` skips it until that date and then fails the audit, so it comes back for review.
 npm findings below the CI threshold (`--audit-level=moderate`) are not blocked; note them in the task log.
+
+## Frontend overrides
+
+`frontend/package.json` pins `glob` to 14.0.2 through `overrides`: `workbox-build` (pulled in by `vite-plugin-pwa`) asks for
+`glob` 11, which is affected by GHSA-3g3m-2fjr-6pw4 (fixed in 14.0.2; its `minimatch` then resolves to the fixed 11.x,
+GHSA-g3hv-75wg-m249). Checked 2026-11-13: `npm run build` still generates the service worker (precache of the built
+files). Remove the override once `workbox-build` depends on a fixed `glob`. Four low-severity `npm audit` findings remain
+(`deepmerge` via `workbox-build`, no patched release); CI audits at `--audit-level=moderate`, so they do not fail it.
+
