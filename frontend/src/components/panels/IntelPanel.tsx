@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { AlertItem, NewsItem, useCivicPick } from '../../store'
+import { NasStatusCard } from './intel/NasStatusCard'
 import { PageHeader, StatusDot, ChipRow, Chip, EmptyState, SectionTitle } from '../common/Page'
 
 /*
@@ -145,6 +146,8 @@ export function IntelPanel() {
             ))}
           </ChipRow>
         </div>
+
+        <NasStatusCard />
 
         {stories.length === 0 && <EmptyState icon="rss_feed">Waiting for the news feeds — nothing received yet.</EmptyState>}
 

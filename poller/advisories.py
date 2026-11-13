@@ -8,7 +8,7 @@ The bar's level is the worst item's level:
 
   red    life-safety: NWS Extreme/Severe, or a nearby structure fire, water
          rescue or violent incident heard on dispatch in the last hour
-  amber  notable: other NWS alerts (and notices heard on NOAA Weather Radio), nearby gas leak / hazmat / rescue /
+  amber  notable (also: a big-event headline such as a nationwide ground stop in the local news): other NWS alerts (and notices heard on NOAA Weather Radio), nearby gas leak / hazmat / rescue /
          person struck, a multi-unit response, any fire / crash / assault
          close to home or inside a zone, a nearby road closure, or a
          FlashAlert notice from a local agency
@@ -218,7 +218,82 @@ def from_flashalert(items: list[dict], places: list[str]) -> list[dict]:
     return out
 
 
+# Headlines that mean something big is happening. Each category yields at most one advisory (the newest story),
+# so four outlets covering one event are one item. Title only: summaries mention these words in passing.
+# (category, pattern, score, needs_local) — events that are not about here need a Portland-area / Oregon story.
+_NEWS_EVENTS = [
+    ("air", re.compile(r"ground stop|flights? (?:halted|grounded|suspended)|halts all flights|grounds? all flights|"
+                       r"nationwide (?:flight|ground)", re.I), 40, False),
+    ("emergency", re.compile(r"state of emergency|emergency declaration|declares? (?:an? )?emergency", re.I), 25, True),
+    ("evacuation", re.compile(r"evacuation (?:orders?|notices?|warnings?)|evacuat\w+ (?:ordered|underway)|"
+                              r"shelter[- ]in[- ]place", re.I), 25, True),
+    ("utility", re.compile(r"boil[- ]water|(?:widespread|major|massive|large-scale|regional) (?:power|internet|phone|"
+                           r"cell|911) outage|911 outage|blackout", re.I), 25, True),
+    ("cyber", re.compile(r"cyber ?attack|ransomware", re.I), 20, True),
+    ("tsunami", re.compile(r"tsunami warning", re.I), 25, True),
+]
+
+
+def from_news(stories: list[dict], now: datetime, max_age: timedelta = timedelta(hours=3)) -> list[dict]:
+    """Big-event headlines from the local news feeds (amber; the poller's rules, never a model's)."""
+    out = []
+    for category, pattern, score, needs_local in _NEWS_EVENTS:
+        hits = []
+        for st in stories or []:
+            ts = _parse_ts(st.get("published"))
+            if ts is None or now - ts > max_age or st.get("topic") in ("Sports", "Obituaries"):
+                continue
+            if needs_local and (st.get("local") or 0) < 1:
+                continue
+            if pattern.search(st.get("title") or ""):
+                hits.append((ts, st))
+        if not hits:
+            continue
+        hits.sort(key=lambda h: h[0], reverse=True)
+        ts, top = hits[0]
+        outlets = sorted({o.get("source") for _, st in hits for o in (st.get("sources") or [{"source": st.get("source")}])
+                          if o.get("source")})
+        out.append({
+            "id": _id("news", category, top.get("id")),
+            "source": "news", "level": "amber", "score": score + min(len(outlets) - 1, 3) * 3,
+            "title": top.get("title") or "News report",
+            "detail": f"reported by {', '.join(outlets[:3])}" + (f" +{len(outlets) - 3}" if len(outlets) > 3 else ""),
+            "ts": ts.isoformat(), "why": f"headline matches a major-event rule ({category})",
+            "target": {"tab": "intel"},
+        })
+    return out
+
+
 _BOTTOM_LINE = re.compile(r"\*{0,2}bottom line:?\*{0,2}:?\s*(.+?)(?:\n\s*\n|\n#|$)", re.I | re.S)
+
+
+def from_nas(data: dict | None, threshold: int = 5) -> list[dict]:
+    """FAA ground stops, ground delay programs and closures at watched airports (amber), plus a top-ranked
+    amber item when `threshold` or more US airports are under a ground stop (a nationwide stop)."""
+    out = []
+    nat = (data or {}).get("national") or {}
+    if nat.get("ground_stops", 0) >= threshold:
+        n = nat["ground_stops"]
+        out.append({"id": _id("nas", "national", "ground_stop"), "source": "faa", "level": "amber", "score": 100,
+                    "title": "National ground stop",
+                    "detail": f"{n} US airports under an FAA ground stop", "ts": None,
+                    "why": f"{n} US airports in ground stop (FAA NAS Status)", "target": {"tab": "intel"}})
+    for pr in (data or {}).get("programs", []):
+        kind, apt = pr.get("kind"), pr.get("airport", "")
+        if kind == "ground_stop":
+            title, score, detail = f"{apt} ground stop", 40, f"{pr.get('reason') or 'FAA ground stop'}" + (f" · until {pr['until']}" if pr.get("until") else "")
+        elif kind == "ground_delay":
+            title, score, detail = f"{apt} ground delay program", 30, f"{pr.get('reason') or 'FAA'} · avg {pr.get('avg') or '?'}"
+        elif kind == "closure" and "CLSD" in (pr.get("reason") or "") and "EXC" not in (pr.get("reason") or "") and " TO " not in (pr.get("reason") or ""):
+            title, score, detail = f"{apt} closed", 35, f"reopens {pr.get('reopen') or 'unknown'}"
+        elif kind == "delay":
+            title, score, detail = f"{apt} {(pr.get('direction') or 'traffic').lower()} delays", 20, f"{pr.get('min') or '?'} to {pr.get('max') or '?'} · {pr.get('trend') or ''}".strip(" ·")
+        else:
+            continue
+        out.append({"id": _id("nas", kind, apt, pr.get("reason")), "source": "faa", "level": "amber", "score": score,
+                    "title": title, "detail": detail[:160], "ts": None, "why": "FAA NAS Status (ATCSCC)",
+                    "target": {"tab": "intel"}})
+    return out
 
 
 def from_briefing(briefing: dict | None, now: datetime, max_age: timedelta = timedelta(hours=2)) -> list[dict]:

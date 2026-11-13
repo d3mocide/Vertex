@@ -2803,3 +2803,29 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 - **API** (`backend/routers/rail.py`): `GET /transit/alerts` (newest first, with agency and route labels); the route list carries an alert count per route and route detail carries that route's alerts plus agency-wide ones.
 - **UI**: Local Transit shows the active alerts (three, then "Show all"), the route browser marks routes that have alerts, and an opened route lists its own. Alert links open the agency's page in a new tab.
 - Tests: four poller cases (scope, active periods, text bounds, link and effect), three backend endpoint cases, alert-URL manifest cases. Sound Transit and C-TRAN have no alert feed configured: Sound Transit's address is unverified and needs a key.
+
+## 2026-11-13 — FAA NAS Status (ATCSCC programs)
+
+- **Poller** (`poller/pollers/nas_status.py`): every 60 s reads the FAA's keyless NAS Status XML (`nasstatus.faa.gov/api/airport-status-information`: ground stops, ground delay programs, arrival/departure delays, closures), keeps the programs at airports inside the `BBOX_*` box (from the bundled `poller/data/us_airports.csv`, an OurAirports extract of US airports with scheduled service or an IATA code; public domain) plus any extra codes in `NAS_STATUS_AIRPORTS` (optional) and stores `feed:faa:nas_status`, republished only on change.
+- **Advisory bar** (`poller/advisories.py` `from_nas`): ground stops, ground delay programs, full airport closures and delays at watched airports become amber items; partial closures (e.g. "closed to non-sked GA") are ignored.
+- **API/UI**: `GET /api/v1/nas-status`; the Intel tab shows an "Airspace · FAA" card (`frontend/src/components/panels/intel/NasStatusCard.tsx`), hidden when nothing is active.
+- Tests: `poller/tests/test_nas_status.py` (parse, code filtering, promotion rules). Not done: the numbered ATCSCC advisory text (reroutes) from fly.faa.gov, which is an HTML scrape.
+
+## 2026-11-13 — Advisory bar is a ticker
+
+- **UI** (`frontend/src/components/layout/AlertStatusBar.tsx`): with more than one advisory the bar no longer swaps them one by one; every advisory scrolls past in rank order, always (each loop copy is at least one bar wide so a short list does not leave a gap). Hover pauses; a tap opens the "+N" list (each item still opens its tab). A single advisory is unchanged (static unless too long, opens directly). The "n/m" counter is gone. `faa` added to the advisory source type and label list.
+
+## 2026-11-13 — National ground stop flag
+
+- **Poller** (`poller/pollers/nas_status.py`): the feed now also carries `national` counts (US airports under a ground stop / ground delay program, whatever the watch list; non-US codes are ignored via the bundled airport list) and a `nationwide` flag when `NAS_STATUS_NATIONAL_THRESHOLD` (default 5) or more US airports are in a ground stop at once.
+- **Advisory bar** (`poller/advisories.py` `from_nas`): "National ground stop" is an amber item scored above everything else. Kept amber, not red: red stays reserved for life-safety and nearby incidents.
+- **UI**: the Intel "Airspace · FAA" card leads with the national count (red-tinted when nationwide) and now shows whenever any US ground stop is active.
+- **Found while checking**: during the 2026-11-13 nationwide stop the local news feeds (OPB, KOIN 6, Portland Tribune) ran four stories within an hour, but the FAA feed and fly.faa.gov showed nothing by 23:04 GMT. Not yet built: promoting such news to the advisory bar.
+- Tests: national counting, threshold and the flag item (`poller/tests/test_nas_status.py`).
+
+## 2026-11-13 — Big-event news headlines in the advisory bar
+
+- **Poller** (`poller/advisories.py` `from_news`, wired in `poller/pollers/advisory.py`): headlines in `feed:news:local` from the last 3 h that match a fixed big-event rule become amber advisories: nationwide ground stop / flights halted, state of emergency, evacuation order / shelter in place, boil-water or widespread power/internet/911 outage, cyberattack, tsunami warning. Title only; one item per category (the newest story, with "reported by" up to three outlets, score up a little per extra outlet); everything except the air rule needs a story with local relevance of Oregon or closer so another state's emergency does not show; Sports and Obituaries ignored.
+- **UI**: `news` source label "News" in the advisory bar and type.
+- Checked against the live feed: the three-outlet ground-stop coverage produces one item and nothing else matched across the 72 current stories. Tests in `poller/tests/test_nas_status.py`.
+- Open: rules are a short list; add categories as they turn up. Local single-outlet crime/fire stories are deliberately not promoted (dispatch and NWS items cover those).

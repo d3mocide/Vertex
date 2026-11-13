@@ -40,6 +40,8 @@ async def build(r, now: datetime) -> dict:
         + adv.from_traffic(await _feed(r, "traffic:incidents", []), now, settings.advisory_radius_km,
                            timedelta(hours=settings.advisory_traffic_max_age_hours))
         + adv.from_flashalert(await _feed(r, "alerts:flash", []), places)
+        + adv.from_nas(await _feed(r, "faa:nas_status", None), settings.nas_status_national_threshold)
+        + adv.from_news(await _feed(r, "news:local", []), now)
         + adv.from_briefing(await _feed(r, "summary:latest", None), now)
     )
     return adv.rank(candidates)

@@ -122,7 +122,7 @@ export interface RadioIncidentFeed {
 /** One ranked item for the advisory bar (poller/advisories.py). */
 export interface Advisory {
   id: string
-  source: 'nws' | 'radio' | 'traffic' | 'flashalert' | 'briefing'
+  source: 'nws' | 'radio' | 'traffic' | 'flashalert' | 'briefing' | 'faa' | 'news'
   level: 'red' | 'amber'
   score: number
   title: string

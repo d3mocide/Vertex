@@ -44,15 +44,18 @@ const SOURCE_LABELS: Record<Advisory['source'], string> = {
   traffic:    'Traffic',
   flashalert: 'FlashAlert',
   briefing:   'Briefing',
+  faa:        'FAA',
+  news:       'News',
 }
 
 const text = (a: Advisory) => stripMarkup(a.detail ? `${a.title} — ${a.detail}` : a.title)
 
 /**
- * The advisory bar: the top item of the ranked advisory feed (poller
+ * The advisory bar: the ranked advisory feed (poller
  * advisories.py — NWS warnings, nearby dispatch incidents, road closures,
- * local agency notices), coloured by the worst item. Tapping opens the
- * item; "+N" lists the rest.
+ * local agency notices), coloured by the worst item. One advisory is shown
+ * and opens directly; several scroll past as a ticker (hover pauses) and a tap
+ * opens the list.
  */
 export function AlertStatusBar() {
   const { mode, advisories, setActiveTab, setFocusIncidentId } = useCivicPick('mode', 'advisories', 'setActiveTab', 'setFocusIncidentId')
@@ -60,17 +63,22 @@ export function AlertStatusBar() {
   const rootRef = useRef<HTMLDivElement>(null)
   const boxRef = useRef<HTMLDivElement>(null)
   const measureRef = useRef<HTMLSpanElement>(null)
-  // Scroll only when the message doesn't fit the bar.
+  // A single advisory scrolls only when it doesn't fit the bar; a ticker always does.
   const [overflows, setOverflows] = useState(false)
+  const [boxWidth, setBoxWidth] = useState(0)
 
   const items = advisories?.items ?? []
   const count = advisories?.count ?? 0
   const level: Level = advisories?.level === 'red' ? 'red' : advisories?.level === 'amber' ? 'yellow' : 'green'
-  // Rotate through every advisory (the colour stays that of the worst one). Hovering or opening the list holds the current one.
-  const [index, setIndex] = useState(0)
+  // With several advisories the bar is a ticker: every one scrolls past in rank order (the colour stays that of the
+  // worst one). Hovering pauses it; tapping opens the list. A single advisory is shown as before and opens directly.
   const [held, setHeld] = useState(false)
-  const top = items.length ? items[index % items.length] : undefined
-  const message = useMemo(() => (top ? text(top) : 'No active advisories'), [top])
+  const top = items[0]
+  const ticker = items.length > 1
+  const message = useMemo(
+    () => (items.length ? items.map(text).join('   •   ') : 'No active advisories'),
+    [items],
+  )
 
   useEffect(() => {
     if (!open) return
@@ -91,7 +99,7 @@ export function AlertStatusBar() {
     const box = boxRef.current
     const text = measureRef.current
     if (!box || !text) return
-    const check = () => setOverflows(text.offsetWidth > box.clientWidth)
+    const check = () => { setOverflows(text.offsetWidth > box.clientWidth); setBoxWidth(box.clientWidth) }
     check()
     const ro = new ResizeObserver(check)
     ro.observe(box)
@@ -99,15 +107,10 @@ export function AlertStatusBar() {
   }, [message])
 
   // One loop moves the text by one copy: ~6 characters a second reads comfortably.
-  const animationDuration = useMemo(() => `${Math.max(12, Math.round(message.length / 6))}s`, [message])
+  const animationDuration = useMemo(() => `${Math.max(12, Math.round(message.length / (ticker ? 8 : 6)))}s`, [message])
 
-  // A message that fits stays 8 s; one that scrolls stays for one full loop so it is read to the end.
-  useEffect(() => {
-    if (items.length < 2 || open || held) return
-    const dwell = overflows ? parseFloat(animationDuration) * 1000 : 8000
-    const id = window.setTimeout(() => setIndex((i) => (i + 1) % items.length), dwell)
-    return () => window.clearTimeout(id)
-  }, [items.length, index, overflows, animationDuration, open, held])
+  // A ticker that fits still scrolls: each copy is at least one bar wide so the loop has no gap.
+  const loopWidth = overflows ? undefined : { minWidth: boxWidth }
 
   const go = (a: Advisory) => {
     setOpen(false)
@@ -129,12 +132,12 @@ export function AlertStatusBar() {
       >
         <button
           type="button"
-          onClick={() => top && go(top)}
+          onClick={() => (ticker ? setOpen((o) => !o) : top && go(top))}
           onMouseEnter={() => setHeld(true)}
           onMouseLeave={() => setHeld(false)}
           role="alert"
           aria-live={items.length > 1 ? 'off' : 'assertive'}   // a rotating message would otherwise be re-announced every few seconds
-          aria-label={top ? `Open advisory: ${message}` : 'No active advisories'}
+          aria-label={ticker ? `${items.length} advisories: ${message}` : top ? `Open advisory: ${message}` : 'No active advisories'}
           className="flex-1 min-w-0 h-full flex items-center gap-3 pl-4 pr-2 text-left"
         >
           <span
@@ -147,20 +150,17 @@ export function AlertStatusBar() {
           <span className="font-bold tracking-widest uppercase shrink-0">
             {LEVEL_LABELS[level]}
           </span>
-          {count > 1 && items.length > 1 && (
-            <span className="font-mono shrink-0 opacity-80">{(index % items.length) + 1}/{items.length}</span>
-          )}
           <div ref={boxRef} className="relative flex-1 min-w-0 overflow-hidden">
             {/* Off-screen copy used to measure the message's natural width. */}
             <span ref={measureRef} className="absolute invisible whitespace-nowrap font-mono" aria-hidden="true">{message}</span>
-            {overflows ? (
+            {overflows || ticker ? (
               <span
-                key={top?.id}
+                key={items.map((i) => i.id).join('|')}
                 className="alert-marquee-track font-mono opacity-80"
-                style={{ animationDuration }}
+                style={{ animationDuration, animationPlayState: held ? 'paused' : 'running' }}
               >
-                <span className="alert-marquee-item">{message}</span>
-                <span className="alert-marquee-item" aria-hidden="true">{message}</span>
+                <span className="alert-marquee-item" style={loopWidth}>{message}</span>
+                <span className="alert-marquee-item" style={loopWidth} aria-hidden="true">{message}</span>
               </span>
             ) : (
               <span className="block truncate font-mono opacity-80">{message}</span>

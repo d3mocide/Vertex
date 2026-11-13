@@ -163,6 +163,12 @@ class Settings(BaseSettings):
     advisory_places: str = ("Tualatin,Tigard,Sherwood,Beaverton,Lake Oswego,West Linn,Wilsonville,"
                             "King City,Durham,Aloha,Hillsboro,Washington County,Clackamas County,TVF&R,"
                             "Tualatin Valley Fire")
+    # FAA NAS Status (ground stops, delays, closures; the ATCSCC advisories' data). Airports inside the
+    # BBOX_* box are watched automatically; list extra FAA or ICAO codes here to add ones outside it,
+    # e.g. "SEA,BOI". Optional.
+    nas_status_airports: str = ""
+    # This many US airports under an FAA ground stop at once raises a "National ground stop" advisory.
+    nas_status_national_threshold: int = 5
     # Self-hosted Nominatim for locating radio incidents (see infra/nominatim/).
     # Blank disables geocoding.
     geocoder_url: str = ""

@@ -25,6 +25,7 @@ from pollers.acars import AcarsPoller
 from pollers.cot_emitter import CotEmitter
 from pollers.cot_receiver import CotReceiver
 from pollers.advisory import AdvisoryPoller
+from pollers.nas_status import NasStatusPoller
 from pollers.anomaly import AnomalyDetectionPoller
 from pollers.mqtt_subscriber import MqttSubscriberPoller
 from pollers.lightning import LightningPoller
@@ -238,6 +239,7 @@ async def main():
         LightningPoller(),
         StreamGaugePoller(),
         GdacsPoller(),
+        NasStatusPoller(),
         NifcPoller(),
         NifcIncidentsPoller(),
         AmtrakPoller(),
