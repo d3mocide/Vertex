@@ -15,6 +15,7 @@ annotated-types==0.8.0
 anyio==4.15.1
     # via
     #   httpx
+    #   litellm
     #   openai
 asyncpg==0.32.0
     # via -r transcription/requirements.txt
@@ -107,7 +108,7 @@ jsonschema==4.26.0
     # via litellm
 jsonschema-specifications==2025.9.1
     # via jsonschema
-litellm==1.106.4
+litellm==1.109.0
     # via -r transcription/requirements.txt
 markupsafe==3.0.3
     # via jinja2
