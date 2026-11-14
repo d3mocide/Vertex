@@ -2829,3 +2829,10 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 - **UI**: `news` source label "News" in the advisory bar and type.
 - Checked against the live feed: the three-outlet ground-stop coverage produces one item and nothing else matched across the 72 current stories. Tests in `poller/tests/test_nas_status.py`.
 - Open: rules are a short list; add categories as they turn up. Local single-outlet crime/fire stories are deliberately not promoted (dispatch and NWS items cover those).
+
+## 2026-11-13 — CI repaired, Dependabot batch merged
+
+- **Lock workflow** (`.github/workflows/dependabot-locks.yml`, `DEPENDENCIES.md`): pip-tools 7.5.2 -> 7.6.2. 7.5.2 crashed on current pip, so no Dependabot Python PR got its lock regenerated. Dependabot lock commits do not trigger the PR checks (the run waits for approval); the dispatched run on the branch is the same suite.
+- **Audits**: `glob` overridden to 14.0.2 in `frontend/package.json` (GHSA-3g3m-2fjr-6pw4; build still emits the service worker); backend lock `opentelemetry-api` 1.45.2 (CVE-2026-126360). Four low `npm audit` findings (deepmerge, unpatched) remain below the CI threshold.
+- **Merged**: #193 (the CI fixes), #194 (Python routine group), #189 (backend `python-dateutil` 4.0.0), #195 (poller `python-dateutil` 4.0.0 and ten frontend bumps, superseding #190 and #191). `@vitejs/plugin-react` is held at 6.1.2: 6.2.1 fails `npm install` with a peer conflict (see `DEPENDENCIES.md`); Dependabot will propose it again.
+- Result: `main` CI is green and no PRs are open. Stack rebuilt locally on the new locks; map and advisory bar load.
