@@ -70,3 +70,7 @@ GHSA-g3hv-75wg-m249). Checked 2026-11-13: `npm run build` still generates the se
 files). Remove the override once `workbox-build` depends on a fixed `glob`. Four low-severity `npm audit` findings remain
 (`deepmerge` via `workbox-build`, no patched release); CI audits at `--audit-level=moderate`, so they do not fail it.
 
+`@vitejs/plugin-react` stays at 6.1.2: 6.2.1 makes `npm install` fail with an unresolvable peer conflict (its optional
+`@rolldown/plugin-babel` peer pulls `@babel/plugin-transform-runtime` 8, which needs `@babel/core` 8). Checked 2026-11-14;
+retry the bump when a newer release resolves it.
+
