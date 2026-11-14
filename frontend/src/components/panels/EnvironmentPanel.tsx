@@ -81,24 +81,9 @@ export function EnvironmentPanel() {
     return () => { cancelled = true; clearInterval(timer) }
   }, [])
 
-  const hazards = [
-    { icon: 'thermostat',            label: 'Heat',   re: /heat|warm/i },
-    { icon: 'water',                 label: 'Flood',  re: /flood|surge/i },
-    { icon: 'tornado',               label: 'Wind',   re: /wind|gust/i },
-    { icon: 'local_fire_department', label: 'Fire',   re: /fire|red flag|smoke/i },
-    { icon: 'ac_unit',               label: 'Winter', re: /freeze|frost|winter|blizzard|snow|ice/i },
-    { icon: 'thunderstorm',          label: 'Storm',  re: /thunderstorm|tornado|hail|squall|severe/i },
-  ].map((h) => {
-    const matching = weather.alerts.filter((a) => h.re.test(a.event))
-    const level: 'none' | 'watch' | 'warning' = matching.length === 0 ? 'none'
-      : matching.some((a) => /warning/i.test(a.event)) ? 'warning' : 'watch'
-    return { ...h, level }
-  })
-
   const aqi = weather.aqi
   const aqiTone = aqi == null ? 'muted' : aqi <= 50 ? 'good' : aqi <= 100 ? 'warn' : 'alert'
   const alertCount = weather.alerts.length
-  const hasWarning = weather.alerts.some((a) => /warning/i.test(a.event))
   const tiles: Stat[] = [
     { label: 'Temperature', value: weather.temp_f != null ? `${Math.round(weather.temp_f)}°F` : '—', hint: weather.condition ?? undefined },
     { label: 'Wind', value: weather.wind_mph != null ? `${Math.round(weather.wind_mph)} mph` : '—',
@@ -107,33 +92,16 @@ export function EnvironmentPanel() {
     { label: 'Air quality', value: aqi ?? '—', tone: aqiTone, hint: weather.aqi_label ?? undefined },
   ]
 
-  // All quiet is one line. Anything active: the alerts themselves, then only the hazards that are lit.
-  const activeHazards = hazards.filter((h) => h.level !== 'none')
-  const statusBlock = alertCount === 0 && activeHazards.length === 0 ? (
+  // All quiet is one line. Active alerts are compact rows, two across on wide screens.
+  const statusBlock = alertCount === 0 ? (
     <div className="hud-panel px-4 py-3 bg-onyx-deep/40 flex items-center gap-3" role="status">
       <span className="ms text-[18px] leading-none text-green-ais" aria-hidden="true">check_circle</span>
       <span className="label-caps text-green-ais!">ALL CLEAR</span>
       <span className="text-[12px] text-on-surface-variant">No NWS alerts for this region</span>
     </div>
   ) : (
-    <section aria-label="Weather advisories" className="stack-y-3">
+    <section aria-label="Weather advisories" className="grid gap-2 lg:grid-cols-2">
       {weather.alerts.map((alert, i) => <WeatherAlertCard key={i} alert={alert} />)}
-      {activeHazards.length > 0 && (
-        <div className="flex items-center gap-2 flex-wrap" role="list" aria-label="Active hazards">
-          {activeHazards.map((h) => (
-            <span
-              key={h.label}
-              role="listitem"
-              className={`h-8 px-2.5 flex items-center gap-1.5 border text-[11px] font-bold uppercase tracking-widest ${
-                h.level === 'warning' ? 'border-red-emergency/50 bg-red-emergency/10 text-red-emergency'
-                : 'border-amber-gold/50 bg-amber-gold/10 text-amber-gold'}`}
-            >
-              <span className="ms text-[16px] leading-none" aria-hidden="true" style={{ fontVariationSettings: "'FILL' 1" }}>{h.icon}</span>
-              {h.label}<span className="font-mono">{h.level}</span>
-            </span>
-          ))}
-        </div>
-      )}
     </section>
   )
 

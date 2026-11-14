@@ -5,40 +5,43 @@ const leadText = (s: number) => (s < 90 ? `${Math.round(s)} s` : `${Math.round(s
 export function WeatherAlertCard({ alert }: { alert: WeatherAlert }) {
   const isSevere = /warning|emergency|critical/i.test(alert.event)
 
+  const showEvent = !alert.headline.toLowerCase().includes(alert.event.toLowerCase())
+  const expires = alert.expires
+    ? new Date(alert.expires).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    : null
+  const radio = alert.source === 'nwr' || alert.rf_heard
+
   return (
-    <div className={`hud-panel p-4 bg-onyx-deep/60 relative overflow-hidden transition-all duration-500 ${isSevere ? 'border-l-2 border-l-red-600' : 'border-l-2 border-l-amber-gold'}`}>
-      <div className="flex items-start justify-between mb-2">
-        <div className="flex flex-col">
-          <span className={`text-[11px] font-black uppercase tracking-widest ${isSevere ? 'text-red-500' : 'text-amber-gold'}`}>
-            {alert.event}
-          </span>
-          <span className="text-[14px] font-bold text-on-surface leading-tight mt-1">
-            {alert.headline}
-          </span>
-          {alert.area_desc && (
-            <span className="text-[11px] text-on-surface-variant mt-1">{alert.area_desc}</span>
-          )}
-          {(alert.source === 'nwr' || alert.rf_heard) && (
-            <span className="status-pill mt-1.5 self-start border border-amber-gold/50 text-amber-gold"
-                  title={alert.nwr_state_label || 'Also announced on NOAA Weather Radio'}>
-              {alert.source === 'nwr' ? 'NWR · RF' : 'RF HEARD'}
-            </span>
-          )}
-        </div>
+    <div className={`hud-panel px-3 py-2 bg-onyx-deep/60 relative overflow-hidden border-l-2 ${isSevere ? 'border-l-red-600' : 'border-l-amber-gold'}`}>
+      <div className="flex items-center gap-2 min-w-0">
         {isSevere && (
-          <span className="ms text-red-500 animate-pulse text-[20px]" aria-hidden="true">warning</span>
+          <span className="ms text-red-500 animate-pulse text-[16px] leading-none" aria-hidden="true">warning</span>
+        )}
+        <span className="flex-1 min-w-0 truncate text-[13px] font-bold text-on-surface" title={alert.headline}>
+          {showEvent && (
+            <span className={`mr-2 text-[11px] font-black uppercase tracking-widest ${isSevere ? 'text-red-500' : 'text-amber-gold'}`}>{alert.event}</span>
+          )}
+          {alert.headline}
+        </span>
+        {radio && (
+          <span className="status-pill shrink-0 border border-amber-gold/50 text-amber-gold"
+                title={alert.nwr_state_label || 'Also announced on NOAA Weather Radio'}>
+            {alert.source === 'nwr' ? 'NWR · RF' : 'RF HEARD'}
+          </span>
+        )}
+        {expires && (
+          <span className="shrink-0 font-mono text-[11px] text-on-surface-variant" title="Expires">
+            EXP <span className="text-on-surface font-bold">{expires}</span>
+          </span>
         )}
       </div>
 
-      <div className="flex items-center gap-3 mt-4">
-        <div className="flex flex-col">
-          <span className="text-[11px] font-mono text-on-surface-variant uppercase tracking-widest">Expires</span>
-          <span className="text-[11px] font-mono text-on-surface uppercase font-bold">{alert.expires ? new Date(alert.expires).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}</span>
-        </div>
-      </div>
+      {alert.area_desc && (
+        <p className="mt-1 truncate text-[11px] text-on-surface-variant" title={alert.area_desc}>{alert.area_desc}</p>
+      )}
 
       {(alert.nwr_lead_s != null || alert.nwr_cap_first) && (
-        <p className="mt-3 font-mono text-[11px] text-on-surface-variant">
+        <p className="mt-1 font-mono text-[11px] text-on-surface-variant">
           {alert.nwr_cap_first
             ? 'The NWS feed already had this when the radio announced it'
             : alert.nwr_lead_s! >= 5
