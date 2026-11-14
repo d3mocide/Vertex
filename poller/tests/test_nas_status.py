@@ -47,32 +47,3 @@ def test_national_counts_us_airports_only_and_flags_a_nationwide_stop():
     assert flag["title"] == "National ground stop" and local["title"] == "PDX ground stop"
     d["national"] = {"ground_stops": 4, "ground_delays": 0}
     assert [i["title"] for i in adv.from_nas(d)] == ["PDX ground stop"]
-
-
-def _story(title, minutes=30, source="KOIN 6", local=2, topic="Transportation", others=()):
-    from datetime import datetime, timedelta, timezone
-    now = datetime(2026, 11, 13, 23, 0, tzinfo=timezone.utc)
-    st = {"id": title[:5], "title": title, "published": (now - timedelta(minutes=minutes)).isoformat(),
-          "source": source, "local": local, "topic": topic,
-          "sources": [{"source": source, "link": ""}] + [{"source": o, "link": ""} for o in others]}
-    return now, st
-
-
-def test_news_headlines_about_a_big_event_become_one_amber_item():
-    now, a = _story("FAA halts all flights in the US. How is that impacting PDX?")
-    _, b = _story("Flights halted at PDX, airports nationwide", 45, "OPB News")
-    _, c = _story("Nationwide FAA ground stop impacts flights at Portland International Airport", 60, "Portland Tribune")
-    [item] = adv.from_news([a, b, c], now)
-    assert item["source"] == "news" and item["level"] == "amber" and item["title"] == a["title"]
-    assert item["detail"] == "reported by KOIN 6, OPB News, Portland Tribune"
-
-
-def test_news_rules_need_recent_and_relevant_and_ignore_sports():
-    now, old = _story("FAA ground stop", minutes=300)
-    assert adv.from_news([old], now) == []                                           # too old
-    _, far = _story("State of emergency declared in Florida", local=0)
-    assert adv.from_news([far], now) == []                                           # not about here
-    _, near = _story("Governor declares state of emergency across Oregon", local=1)
-    assert [i["title"] for i in adv.from_news([near], now)] == [near["title"]]
-    _, game = _story("Blazers ground stop Suns", topic="Sports")
-    assert adv.from_news([game], now) == [] and adv.from_news(None, now) == []

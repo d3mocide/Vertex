@@ -277,6 +277,8 @@ In addition to the settings above:
 | `VITE_MESH_NODE_STALE_HOURS` | Hours since a mesh node's last advert before it shows as stale (keep above one 24-48 h advert cycle) |
 | `COT_ENTITY_TYPES` | Entity types emitted over CoT (comma-separated, empty = all) |
 | `ADVISORY_RADIUS_KM` | "Nearby" radius for the advisory bar and sidebar |
+| `NAS_STATUS_AIRPORTS` | Extra FAA or ICAO airport codes (e.g. `SEA,BOI`) to watch for ground stops, delay programs and closures. Airports inside the `BBOX_*` box are watched automatically; the FAA NAS Status feed needs no key |
+| `NAS_STATUS_NATIONAL_THRESHOLD` | How many US airports under a ground stop at once raise the "National ground stop" advisory (default `5`) |
 | `BOUNDARY_ZIP_LOOKUP_ENABLED` | Geofence ZIP boundaries come from US Census TIGERweb (sends the ZIP to census.gov); `false` keeps lookups local |
 | `PRIVATE_HOST_ALLOWLIST` | JSON list of exact hostnames or IPs intentionally allowed to resolve to private ranges. Prefer the smallest possible list |
 | `ALLOW_PRIVATE_IPS` | Deprecated and ignored; retained only so older environment files fail closed |

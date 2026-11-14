@@ -31,6 +31,11 @@ updates:
       # a coordinated configuration and stylesheet migration.
       - dependency-name: tailwindcss
         update-types: ["version-update:semver-major"]
+      # 6.2.1 makes `npm install` fail with an unresolvable peer conflict
+      # (@rolldown/plugin-babel -> @babel/plugin-transform-runtime 8 needs @babel/core 8).
+      # Checked 2026-11-14; remove this once a newer release resolves it.
+      - dependency-name: "@vitejs/plugin-react"
+        versions: ["6.2.1"]
 
   - package-ecosystem: pip
     directories:

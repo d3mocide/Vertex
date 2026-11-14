@@ -163,6 +163,7 @@ Base path: `/api/v1/`
 | `/traffic` | ODOT incidents, camera streams, flow data |
 | `/radio` | P25 stream metadata |
 | `/utilities` | Geofence CRUD |
+| `/nas-status` | FAA ground stops, delay programs and closures at the airports in the monitoring area, plus US-wide counts (from the FAA NAS Status feed) |
 | `/capabilities` | Which regional data contracts have a provider here (drives what the UI shows) |
 | `/setup/status`, `/setup/packs` | Setup wizard: whether setup is needed and whether the poller needs a restart; installed region packs (covering the given location first) with key status |
 | `/config/region` | The operator's region: `GET` reports it and where it came from, `PUT` (admin) saves it in the database unless `.env` pins it, `POST /resolve` suggests NWS office, zones, timezone and name for a location |

@@ -2836,3 +2836,9 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 - **Audits**: `glob` overridden to 14.0.2 in `frontend/package.json` (GHSA-3g3m-2fjr-6pw4; build still emits the service worker); backend lock `opentelemetry-api` 1.45.2 (CVE-2026-126360). Four low `npm audit` findings (deepmerge, unpatched) remain below the CI threshold.
 - **Merged**: #193 (the CI fixes), #194 (Python routine group), #189 (backend `python-dateutil` 4.0.0), #195 (poller `python-dateutil` 4.0.0 and ten frontend bumps, superseding #190 and #191). `@vitejs/plugin-react` is held at 6.1.2: 6.2.1 fails `npm install` with a peer conflict (see `DEPENDENCIES.md`); Dependabot will propose it again.
 - Result: `main` CI is green and no PRs are open. Stack rebuilt locally on the new locks; map and advisory bar load.
+
+## 2026-11-13 — Touch-ups: Dependabot ignore, docs, test placement
+
+- `.github/dependabot.yml`: ignore `@vitejs/plugin-react` 6.2.1 (peer conflict, see `DEPENDENCIES.md`) so it stops being proposed; remove when a newer release resolves it.
+- Docs: the in-app Help (`frontend/src/docs/content.tsx`) described the advisory bar as an AI-headline scroller; it now covers the ranked ticker and its sources, and the Intel page's Airspace card. `NAS_STATUS_AIRPORTS` and `NAS_STATUS_NATIONAL_THRESHOLD` added to `docs/configuration/environment.md`; `/nas-status` added to the API table in `CLAUDE.md`.
+- Tests: the news-headline cases moved from `poller/tests/test_nas_status.py` to `poller/tests/test_advisories.py`.

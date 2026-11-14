@@ -104,7 +104,7 @@ const interfaceOverview = (
 
     <DocSection title="Advisory Bar & Environment Bar" delay={100}>
       <DocList items={[
-        "Advisory bar: a scrolling summary of the current AI briefing headline.",
+        "Advisory bar: the ranked list of what matters right now (NWS warnings, nearby dispatch incidents, road closures, local agency notices, FAA ground stops and delays at your airports, big-event news headlines and the AI briefing). With several it scrolls them all past as a ticker; hover to pause, tap to open the list. Amber means notable, red means life-safety.",
         "Environment bar: air quality, temperature, wind and whether any NWS alerts are active, plus the region center."
       ]} />
     </DocSection>
@@ -365,7 +365,7 @@ const infoPanels = (
 
     <DocSection title="Intel Feed & Event Log" delay={250}>
       <DocList items={[
-        "Intel Feed: local news and emergency newswire, with category chips and search. Local stories from the past week are pinned at the top as Local Now.",
+        "Intel Feed: local news and emergency newswire, with category chips and search. Local stories from the past week are pinned at the top as Local Now. An Airspace card appears when the FAA has a ground stop, delay program or closure at an airport in your area, or a ground stop at several US airports at once.",
         "Event Log: a timeline of radio calls, zone entries and exits, and anomalies. Filter by type, search, and export a SITREP."
       ]} />
     </DocSection>
