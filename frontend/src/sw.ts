@@ -1,7 +1,7 @@
 import { clientsClaim } from 'workbox-core'
 import { precacheAndRoute, cleanupOutdatedCaches } from 'workbox-precaching'
 import { registerRoute } from 'workbox-routing'
-import { CacheFirst, NetworkOnly, StaleWhileRevalidate } from 'workbox-strategies'
+import { CacheFirst, NetworkFirst, NetworkOnly, StaleWhileRevalidate } from 'workbox-strategies'
 import { ExpirationPlugin } from 'workbox-expiration'
 
 declare let self: ServiceWorkerGlobalScope
@@ -42,6 +42,13 @@ registerRoute(
 registerRoute(
   ({ url }) => url.pathname.startsWith('/api/'),
   new NetworkOnly()
+)
+
+// Per-install settings (/runtime-config.js) — NetworkFirst, so a changed .env takes effect on the next load.
+// Registered before the static-assets route, which would otherwise serve the previous copy first.
+registerRoute(
+  ({ url }) => url.origin === self.location.origin && url.pathname === '/runtime-config.js',
+  new NetworkFirst({ cacheName: 'runtime-config' })
 )
 
 // Static assets — StaleWhileRevalidate

@@ -253,13 +253,18 @@ services:
       - /tmp:size=64m,noexec,nosuid,nodev
     build:
       context: ./frontend
-      args:
-        VITE_RADAR_LAYER: ${VITE_RADAR_LAYER:-RTX-N0B-0}
-        VITE_RADAR_FALLBACK_LAYER: ${VITE_RADAR_FALLBACK_LAYER:-radar}
-        VITE_RADAR_FALLBACK_MAX_ZOOM: ${VITE_RADAR_FALLBACK_MAX_ZOOM:-6}
-        VITE_OBSERVATION_RANGE_KM: ${VITE_OBSERVATION_RANGE_KM:-50}
-        VITE_TILE_URL: ${VITE_TILE_URL:-}
-        VITE_PRESERVE_DRAWING_BUFFER: ${VITE_PRESERVE_DRAWING_BUFFER:-false}
+    # Read when the container starts (frontend/docker-entrypoint.d/40-vertex-runtime-config.sh) and served to the
+    # browser as /runtime-config.js, so changing one needs only `docker compose up -d frontend`, not a rebuild.
+    # Everything here is visible to anyone who can load the app: never put a secret in a VITE_ variable.
+    environment:
+      VITE_RADAR_LAYER: ${VITE_RADAR_LAYER:-RTX-N0B-0}
+      VITE_RADAR_FALLBACK_LAYER: ${VITE_RADAR_FALLBACK_LAYER:-USCOMP-N0Q-0}
+      VITE_RADAR_FALLBACK_MAX_ZOOM: ${VITE_RADAR_FALLBACK_MAX_ZOOM:-6}
+      VITE_OBSERVATION_RANGE_KM: ${VITE_OBSERVATION_RANGE_KM:-50}
+      VITE_MESH_NODE_STALE_HOURS: ${VITE_MESH_NODE_STALE_HOURS:-72}
+      VITE_TILE_URL: ${VITE_TILE_URL:-}
+      VITE_PRESERVE_DRAWING_BUFFER: ${VITE_PRESERVE_DRAWING_BUFFER:-false}
+      VITE_RADIO_STREAM_URL: ${VITE_RADIO_STREAM_URL:-}
     restart: unless-stopped
     deploy:
       resources:

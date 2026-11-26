@@ -7,15 +7,13 @@ RUN npm config set fetch-retries 5 \
     && npm config set fetch-retry-maxtimeout 120000 \
     && npm ci
 COPY . .
-# VITE_ vars are baked into the bundle at build time; pass via docker-compose build.args
-ARG VITE_RADAR_LAYER=RTX-N0Q-0
-ARG VITE_OBSERVATION_RANGE_KM=50
-ENV VITE_RADAR_LAYER=$VITE_RADAR_LAYER
-ENV VITE_OBSERVATION_RANGE_KM=$VITE_OBSERVATION_RANGE_KM
+# No operator settings are baked in: the VITE_* variables are read when the container starts (see
+# docker-entrypoint.d/40-vertex-runtime-config.sh), so the same image works for every install.
 RUN npm run build
 
 # Serve stage
 FROM nginxinc/nginx-unprivileged:alpine@sha256:b5047b9b76845eac124358373c6852377c52e4b05834a47647e955dd91cb8f1e
 COPY --from=build /app/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY --chmod=755 docker-entrypoint.d/40-vertex-runtime-config.sh /docker-entrypoint.d/
 EXPOSE 8080
