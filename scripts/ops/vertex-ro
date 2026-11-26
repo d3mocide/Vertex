@@ -49,6 +49,18 @@ sys.stdout.write(text)
 
 compose() { (cd "$VERTEX_DIR" && docker compose "$@"); }
 
+# git as the checkout's owner and without optional locks: a plain `git status` run as root refreshes .git/index and
+# leaves it owned by root, which then breaks every git step the owner (and vertex-deploy) runs.
+git_ro() {
+  local owner
+  owner=$(stat -c %U "$VERTEX_DIR")
+  if [[ $EUID -eq 0 && $owner != root ]]; then
+    runuser -u "$owner" -- env HOME="$(getent passwd "$owner" | cut -d: -f6)" GIT_OPTIONAL_LOCKS=0 git -c safe.directory="$VERTEX_DIR" -C "$VERTEX_DIR" "$@"
+  else
+    GIT_OPTIONAL_LOCKS=0 git -c safe.directory="$VERTEX_DIR" -C "$VERTEX_DIR" "$@"
+  fi
+}
+
 services() { compose config --services 2>/dev/null; }
 
 valid_service() {
@@ -161,7 +173,7 @@ cmd_env_keys() {
 }
 
 cmd_git() {
-  local g=(git -c safe.directory="$VERTEX_DIR" -C "$VERTEX_DIR")
+  local g=(git_ro)
   "${g[@]}" log -1 --format='commit %H%nshort  %h%ndate   %cI%nsubject %s'
   "${g[@]}" status --short --branch | redact
   local upstream
@@ -209,7 +221,7 @@ cmd_disk() {
   du -xh --max-depth=1 "$VERTEX_DIR" 2>/dev/null | sort -rh | head -n 15 | sed 's/^/  /'
   echo
   echo "untracked or ignored in the checkout (largest first; .env and config are expected):"
-  git -c safe.directory="$VERTEX_DIR" -C "$VERTEX_DIR" status --porcelain --ignored --untracked-files=normal \
+  git_ro status --porcelain --ignored --untracked-files=normal \
     | sed -n 's/^\(!!\|??\) //p' | while read -r p; do du -sh "$VERTEX_DIR/$p" 2>/dev/null; done | sort -rh | head -n 25 | sed 's/^/  /'
   echo
   docker system df -v | redact
