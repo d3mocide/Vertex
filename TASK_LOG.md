@@ -5,6 +5,15 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 
 ---
 
+## 2026-11-26 — Production profile: camera health probes, sources.yml parsing; DB write findings
+
+- Steady state after the airport-lookup fix (#206) was unchanged on production (43.9% vs 45.1% of the poller's 1 core): fine locally, but not production's main cost. `vertex-ro profile poller 60` on production (30 min after a restart): main process ~27% of a core active, the largest item **`_check_camera_health` (~10%)**: every traffic poll (60 s) HEAD-checked every ODOT camera in the region through a new `httpx.AsyncClient` each (fresh SSL context + TLS handshake per camera, all concurrently). That is also the likely source of the poller's symmetric ~11 MB/min network traffic.
+- Fix (`regions/oregon/adapters/traffic.py`): one client per poll with keep-alive, at most 8 probes in flight, each camera's result reused for 10 minutes (`_CAMERA_HEALTH_TTL`); stale entries dropped. Same health values and `last_ok_ts` semantics. Tests: `poller/tests/test_camera_health.py` (statuses, private/empty URLs never requested, concurrency bound, TTL reuse and expiry, forgetting).
+- `config.load_regions` re-parsed `sources.yml` on every call (2.2% in the profile; called each poll by several pollers): the parsed YAML is cached per (path, mtime, size), region objects are still built fresh per call. Tests: `poller/tests/test_load_regions_cache.py`. Poller suite 816 passed.
+- Not CPU: Redis itself is under 2% CPU and JSON encoding is under 1% of the poller. Oddities for later: aircraft entities are ~10 KB each in Redis, and `entity:mesh_node:*` keys are re-SET ~60/s.
+- **Open, database (the ~21 GB/day of writes):** `entities` took 17.9 M updates on 33 k rows with only 0.2% HOT (index bloat: 222 MB total, 12 MB heap), across 49 M separate commits with `synchronous_commit=on` (an fsync each). `p25_recordings` has 137 k sequential scans (54 k rows; likely a missing index). Candidates: batch entity upserts per tick, throttle unchanged-position updates, `synchronous_commit=off` for the poller's session, revisit indexes on frequently updated columns.
+
+
 ## 2026-11-26 — vertex-ro profile: py-spy on production, pinned by hash
 
 - `vertex-ro profile <service> [seconds]` samples a Python service with py-spy (10-120 s, 50 Hz, `--subprocesses`, non-blocking) from a throwaway container of the service's own image that shares only its PID namespace (SYS_PTRACE). The wheel is pinned (`py-spy==0.4.1`, sha256 for x86_64 and aarch64, `--require-hashes --only-binary`; no OSV advisories). Output is summarised per process (innermost `process N:` frame), with inclusive and self time as a share of one core; non-Python services say so.

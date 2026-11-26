@@ -18,18 +18,33 @@ class RegionConfig(BaseModel):
     show_on_map: bool = True
 
 
+# sources.yml parsed once per version of the file: load_regions runs on every poll of several pollers, and parsing the
+# YAML each time showed up in production profiles. Keyed on path, mtime and size, so an edit is picked up at once.
+_regions_yaml_cache: tuple[tuple, list] | None = None
+
+
+def _raw_regions(sources_path: str) -> list:
+    import os
+    import yaml
+    global _regions_yaml_cache
+    st = os.stat(sources_path)
+    key = (sources_path, st.st_mtime_ns, st.st_size)
+    if _regions_yaml_cache is None or _regions_yaml_cache[0] != key:
+        with open(sources_path) as f:
+            data = yaml.safe_load(f) or {}
+        _regions_yaml_cache = (key, data.get("regions") or [])
+    return _regions_yaml_cache[1]
+
+
 def load_regions(settings: Optional["Settings"] = None) -> list[RegionConfig]:
     """Load regions from sources.yml, falling back to the single bbox from settings."""
-    import yaml
     import os
     from config import settings as global_settings
     s = settings or global_settings
     sources_path = os.environ.get("SOURCES_YML", "/config/sources.yml")
     try:
         if os.path.exists(sources_path):
-            with open(sources_path) as f:
-                data = yaml.safe_load(f) or {}
-            raw = data.get("regions") or []
+            raw = _raw_regions(sources_path)
             regions = [RegionConfig(**r) for r in raw if r.get("enabled", True)]
             if regions:
                 return regions

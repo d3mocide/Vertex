@@ -599,35 +599,66 @@ def _is_public_url(url: str) -> bool:
         return False
 
 
-async def _check_camera_health(cameras: list[dict]) -> None:
-    """HEAD-check each camera URL and annotate with health status + last_ok_ts.
+# Camera health changes slowly, but every traffic poll (60 s) used to HEAD every camera in the region through a new
+# client each: a fresh SSL context and TLS handshake per camera, all at once. That was the largest single CPU cost in
+# the production poller and most of its network traffic. Now one client per poll (keep-alive per camera host), a few
+# probes at a time, and each camera's result is reused for _CAMERA_HEALTH_TTL.
+_CAMERA_HEALTH_TTL = 600            # seconds a camera's result is reused
+_CAMERA_PROBE_CONCURRENCY = 8
+_camera_health_cache: dict[str, tuple[float, str, int | None]] = {}   # url -> (checked_at, health, last_ok_ts)
 
-    Health values: ``"ok"`` (200–399), ``"warn"`` (4xx), ``"down"`` (error/timeout).
-    Runs all checks concurrently with a short per-request timeout.
+
+async def _check_camera_health(cameras: list[dict], *, client: httpx.AsyncClient | None = None,
+                               now: float | None = None) -> None:
+    """Annotate each camera with health status + last_ok_ts.
+
+    Health values: ``"ok"`` (200–399), ``"warn"`` (4xx), ``"down"`` (error/timeout), ``"unknown"`` (no public URL).
+    A camera checked within the last _CAMERA_HEALTH_TTL seconds keeps that result without a request.
     """
     import asyncio
-    import time
 
-    async def _probe(cam: dict) -> None:
+    now = time.time() if now is None else now
+    todo: list[dict] = []
+    for cam in cameras:
         url = cam.get("url", "")
         if not url or not _is_public_url(url):
             cam["health"] = "unknown"
             cam["last_ok_ts"] = None
-            return
-        try:
-            async with httpx.AsyncClient(timeout=4) as hc:
-                r = await hc.head(url)
-            if r.status_code < 400:
-                cam["health"] = "ok"
-                cam["last_ok_ts"] = int(time.time())
-            else:
-                cam["health"] = "warn"
-                cam["last_ok_ts"] = None
-        except Exception:
-            cam["health"] = "down"
-            cam["last_ok_ts"] = None
+            continue
+        cached = _camera_health_cache.get(url)
+        if cached and now - cached[0] < _CAMERA_HEALTH_TTL:
+            cam["health"], cam["last_ok_ts"] = cached[1], cached[2]
+            continue
+        todo.append(cam)
 
-    await asyncio.gather(*[_probe(cam) for cam in cameras])
+    if todo:
+        gate = asyncio.Semaphore(_CAMERA_PROBE_CONCURRENCY)
+
+        async def _probe(hc: httpx.AsyncClient, cam: dict) -> None:
+            url = cam["url"]
+            async with gate:
+                try:
+                    r = await hc.head(url)
+                    if r.status_code < 400:
+                        health, last_ok = "ok", int(now)
+                    else:
+                        health, last_ok = "warn", None
+                except Exception:
+                    health, last_ok = "down", None
+            cam["health"], cam["last_ok_ts"] = health, last_ok
+            _camera_health_cache[url] = (now, health, last_ok)
+
+        if client is not None:
+            await asyncio.gather(*[_probe(client, cam) for cam in todo])
+        else:
+            limits = httpx.Limits(max_connections=_CAMERA_PROBE_CONCURRENCY,
+                                  max_keepalive_connections=_CAMERA_PROBE_CONCURRENCY)
+            async with httpx.AsyncClient(timeout=4, limits=limits) as hc:
+                await asyncio.gather(*[_probe(hc, cam) for cam in todo])
+
+    # Forget cameras that left the feed.
+    for url in [u for u, (at, _, _) in _camera_health_cache.items() if now - at > 2 * _CAMERA_HEALTH_TTL]:
+        del _camera_health_cache[url]
 
 
 
