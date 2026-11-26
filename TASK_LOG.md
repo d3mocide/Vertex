@@ -5,6 +5,15 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 
 ---
 
+## 2026-11-26 — Dependabot #198/#200 merged; filelock 4 clears the transcription CVEs
+
+- Local `main` was 89 commits behind `origin/main` (no local changes); fast-forwarded.
+- #200 (frontend routine group: vite 8.3.8, maplibre-gl 6.19.0, tailwind 4.3.5, `@vitejs/plugin-react` 6.3.0, postcss, material-symbols): `npm ci`, `tsc --noEmit`, `npm run build` and `npm audit` (0) clean in a scratch worktree; squash-merged. plugin-react 6.3.0 installs without the 6.2.1 peer conflict, so that `dependabot.yml` ignore is removed.
+- #198 (transcription: litellm 1.106.4 -> 1.109.1, pydantic-settings 2.16.3): squash-merged. litellm 1.109.1 declares `filelock<5` (was `<4`), which lifts the hold on the fix. Upstream PR BerriAI/litellm#48635 was closed unmerged; the cap was lifted in a release anyway.
+- Follow-up: `scripts/sync_python_locks.sh -P filelock` (pip-tools 7.6.2, Python 3.12, as in CI) moved only `filelock` 3.32.7 -> 4.3.1 in `transcription/requirements.lock`. All 13 filelock entries deleted from `.github/audit-ignores.txt` (they expired 2026-12-01); the file now has no exceptions.
+- Verified: `scripts/audit_python_locks.py` (pip-audit 2.10.1) clean on all three locks; its unit tests pass; `tsc --noEmit` exit 0; `docker compose config --quiet` ok (with placeholder passwords); transcription image built and `filelock` 4.3.1, litellm, faster_whisper and huggingface_hub import, `FileLock`/`SoftFileLock` acquire and release. The transcription service was not redeployed.
+
+
 ## 2026-10-28 — Open Dependabot PRs and CVEs, combined on one branch
 
 - All four open PRs (#180-#183) failed the "Dependency vulnerability audit" job, and `main` itself had open findings, so none could pass alone: #180/#181 fix only `fast-uri`/`serialize-javascript` while `main` also carried `certifi`, `opentelemetry-api` and `aiohttp` advisories, and #182/#183 edit manifests but leave the lockfiles stale (same cause as the 2026-10-14 #174 entry).

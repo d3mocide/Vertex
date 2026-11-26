@@ -52,7 +52,7 @@ faster-whisper==1.2.1
     # via -r transcription/requirements.txt
 fastuuid==0.14.0
     # via litellm
-filelock==3.32.7
+filelock==4.3.1
     # via
     #   huggingface-hub
     #   litellm
