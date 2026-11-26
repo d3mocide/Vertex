@@ -28,7 +28,7 @@ cffi==2.1.1
     # via bcrypt
 click==8.5.0
     # via uvicorn
-fastapi==0.162.4
+fastapi==0.165.0
     # via -r backend/requirements.txt
 geoalchemy2==0.21.0
     # via -r backend/requirements.txt
@@ -56,7 +56,7 @@ opentelemetry-api==1.45.2
     # via fastapi
 packaging==26.3
     # via geoalchemy2
-passlib==1.7.4
+passlib==1.9.5
     # via -r backend/requirements.txt
 prometheus-client==0.26.0
     # via prometheus-fastapi-instrumentator
@@ -64,14 +64,14 @@ prometheus-fastapi-instrumentator==8.1.0
     # via -r backend/requirements.txt
 pycparser==3.0
     # via cffi
-pydantic==2.14.3
+pydantic==2.14.4
     # via
     #   -r backend/requirements.txt
     #   fastapi
     #   pydantic-settings
-pydantic-core==2.50.4
+pydantic-core==2.50.5
     # via pydantic
-pydantic-settings==2.16.2
+pydantic-settings==2.16.3
     # via -r backend/requirements.txt
 pyjwt==2.15.1
     # via -r backend/requirements.txt
@@ -81,17 +81,17 @@ python-dotenv==1.2.3
     # via
     #   pydantic-settings
     #   uvicorn
-python-multipart==0.0.33
+python-multipart==0.0.34
     # via -r backend/requirements.txt
-pyyaml==6.0.3
+pyyaml==6.0.4
     # via
     #   -r backend/requirements.txt
     #   uvicorn
-redis==8.1.0
+redis==8.2.0
     # via -r backend/requirements.txt
 shapely==2.2.0
     # via -r backend/requirements.txt
-sqlalchemy==2.1.8
+sqlalchemy==2.1.9
     # via
     #   -r backend/requirements.txt
     #   geoalchemy2
