@@ -5,6 +5,16 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 
 ---
 
+## 2026-11-26 — Prebuilt GHCR images, runtime frontend settings, read-only ops access
+
+- **Images** (`.github/workflows/images.yml`): `vertex-{backend,poller,frontend,transcription}` for linux/amd64 + linux/arm64 on native runners, merged per service into one tag, published to GHCR only after Tests passes on `main` (`workflow_run`), tagged `sha-<commit>` + `latest` (and semver on `v*` tags). Provenance (max) and SBOM attestations; revision label = the tested commit. Trivy scan per image to code scanning, report-only (lock audits remain the gate). Actions pinned by SHA; trivy-action v0.36.0 is a post-incident (March 2026) release, Trivy binary pinned to v0.76.1. `actionlint` clean.
+- **Compose**: each built service names `${VERTEX_IMAGE_REGISTRY:-ghcr.io/d3mocide}/vertex-<svc>:${VERTEX_IMAGE_TAG:-latest}` beside its `build:` (radio shares the poller image). Production pins `VERTEX_IMAGE_TAG=sha-<commit>`, then `pull` + `up -d`; `build` works as before. Behaviour change: with no local image, a plain `up` now pulls instead of building (`--build` for local changes). Documented in `docs/getting-started.md`, `.env.example`, `CLAUDE.md`.
+- **Frontend runtime settings**: the `VITE_*` values are written to `/tmp/runtime-config.js` by `frontend/docker-entrypoint.d/40-vertex-runtime-config.sh` at container start (root fs stays read-only), served by nginx (`no-cache`, falls back to the build's empty placeholder), loaded by `index.html` before the app, read first by `config.ts`. Service worker never precaches it and fetches it network-first. Verified in a read-only container: escaping, empty values skipped, security headers kept, fallback path.
+- Latent bugs fixed on the way: the Dockerfile declared only 2 of the 6 `VITE_*` build args compose passed (so `VITE_TILE_URL`, `VITE_PRESERVE_DRAWING_BUFFER` and the radar fallback never reached Docker builds), and `VITE_MESH_NODE_STALE_HOURS`/`VITE_RADIO_STREAM_URL` were never passed. The documented `VITE_RADAR_FALLBACK_LAYER=radar` is not an IEM layer id (would request `ridge::radar`); default is now `USCOMP-N0Q-0` and `config.ts` ignores values not shaped like an IEM id. **Check production `.env` for `VITE_RADAR_FALLBACK_LAYER=radar`** (harmless now, but should be updated).
+- **`scripts/ops/vertex-ro`**: read-only inspection over SSH via a forced command (`status`, `stats`, `logs`, `errors`, `config`, `env-keys`, `git`, `images`, `health`, `host`, `report`). Installed as a root-owned copy, reached only through `sudo` with `SSH_ORIGINAL_COMMAND` kept; requests limited to `[A-Za-z0-9 _.-]`, services validated against compose, line counts bounded. Secret-named env values, URL credentials, `key=`/`token=` parameters and bearer tokens are masked; tested against a scratch stack seeded with fake secrets (zero leaks). shellcheck clean.
+- Validation: `tsc --noEmit` exit 0, `npm run build` ok (precache unchanged at 10 entries), scripts tests 41 OK, `envtool.py example --check` ok, `docker compose config --quiet` ok.
+
+
 ## 2026-11-26 — Dependabot #198/#200 merged; filelock 4 clears the transcription CVEs
 
 - Local `main` was 89 commits behind `origin/main` (no local changes); fast-forwarded.

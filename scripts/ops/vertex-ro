@@ -1,0 +1,227 @@
+#!/usr/bin/env bash
+# vertex-ro: read-only inspection of a Vertex deployment over SSH, for an agent or a monitoring key.
+#
+# Installed as /usr/local/bin/vertex-ro (root-owned, copied, never run from the checkout) and reached only through a
+# forced command, so the key can do nothing else:
+#
+#   authorized_keys:  restrict,command="sudo -n /usr/local/bin/vertex-ro" ssh-ed25519 AAAA... vertex-ro
+#   sudoers:          Defaults!/usr/local/bin/vertex-ro env_keep += "SSH_ORIGINAL_COMMAND"
+#                     <user> ALL=(root) NOPASSWD: /usr/local/bin/vertex-ro
+#
+# Usage from the client:  ssh <host> <command> [args]     (ssh <host> help lists them)
+#
+# It runs as root because Docker access is root-equivalent; that is why the commands are a fixed list, arguments are
+# validated, nothing is passed to a shell, and every output that could carry configuration is filtered: environment
+# values whose names look secret are replaced, URL credentials and key=/token= parameters are masked. Nothing here
+# starts, stops, edits or pulls anything.
+#
+# Optional settings in /etc/default/vertex-ro (root-owned):  VERTEX_DIR=/opt/Vertex   COMPOSE_FILE=docker-compose.yml:...
+set -euo pipefail
+umask 077
+export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin LC_ALL=C.UTF-8
+
+VERTEX_DIR=/opt/Vertex
+COMPOSE_FILE=
+if [[ -f /etc/default/vertex-ro && ! -L /etc/default/vertex-ro && $(stat -c %u /etc/default/vertex-ro) == 0 ]]; then
+  # shellcheck disable=SC1091
+  . /etc/default/vertex-ro
+fi
+[[ -n $COMPOSE_FILE ]] && export COMPOSE_FILE
+
+die() { echo "vertex-ro: $*" >&2; exit 2; }
+
+# Masks credentials in free text (logs, compose output).
+redact() {
+  python3 -I -c '
+import re, sys
+patterns = [
+    (re.compile(r"(://[^/\s:@]+:)[^@\s/]+@"), r"\1***@"),
+    (re.compile(r"(?i)(\b(?:api[_-]?key|apikey|access[_-]?key|token|secret|password|passwd|pwd|auth|signature|sig|key|client[_-]?secret)\s*[=:]\s*[\"\x27]?)[^&\s\"\x27,;}]+"), r"\1***"),
+    (re.compile(r"(?i)(bearer\s+)[A-Za-z0-9._~+/=-]+"), r"\1***"),
+    (re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----.*?-----END [A-Z ]*PRIVATE KEY-----", re.S), "***PRIVATE KEY***"),
+]
+text = sys.stdin.read()
+for rx, repl in patterns:
+    text = rx.sub(repl, text)
+sys.stdout.write(text)
+'
+}
+
+compose() { (cd "$VERTEX_DIR" && docker compose "$@"); }
+
+services() { compose config --services 2>/dev/null; }
+
+valid_service() {
+  local s=$1
+  [[ $s =~ ^[a-z0-9][a-z0-9_-]{0,40}$ ]] || return 1
+  services | grep -qxF -- "$s"
+}
+
+valid_lines() { [[ $1 =~ ^[0-9]{1,4}$ ]] && (( $1 >= 1 && $1 <= 5000 )); }
+
+cmd_help() {
+  cat <<'EOF'
+vertex-ro commands (all read-only):
+  status              containers, health, uptime and the commit each image was built from
+  stats               CPU, memory, network and disk I/O per container (one sample)
+  logs <svc> [N]      last N log lines of one service (default 200, max 5000), credentials masked
+  errors [N]          lines that look like errors or warnings across all services, last N per service (default 500)
+  config              effective docker compose config with secret values replaced
+  env-keys            the names set in .env (no values)
+  git                 checkout commit, branch, local changes, and how it compares with origin (as of last fetch)
+  images              Vertex images on the host with their tags, size and source commit
+  health              backend /health through the frontend's published port
+  host                load, memory, disk, Docker disk use, kernel and uptime
+  report              status + stats + git + host + health in one go
+EOF
+}
+
+cmd_status() {
+  compose ps --all --format 'table {{.Service}}\t{{.State}}\t{{.Status}}\t{{.Image}}'
+  echo
+  printf '%-15s %-12s %s\n' SERVICE REVISION CREATED
+  local id svc image rev created
+  for id in $(compose ps -q); do
+    svc=$(docker inspect -f '{{ index .Config.Labels "com.docker.compose.service" }}' "$id")
+    image=$(docker inspect -f '{{ .Image }}' "$id")
+    rev=$(docker image inspect -f '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$image")
+    created=$(docker image inspect -f '{{ .Created }}' "$image")
+    rev=${rev:-(local)}
+    printf '%-15s %-12s %s\n' "$svc" "${rev:0:12}" "$created"
+  done
+}
+
+cmd_stats() {
+  docker stats --no-stream --format 'table {{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}\t{{.MemPerc}}\t{{.NetIO}}\t{{.BlockIO}}\t{{.PIDs}}'
+}
+
+cmd_logs() {
+  local svc=${1:-} n=${2:-200}
+  [[ -n $svc ]] || die "usage: logs <service> [lines]"
+  valid_service "$svc" || die "unknown service: $svc (services: $(services | tr '\n' ' '))"
+  valid_lines "$n" || die "lines must be 1-5000"
+  compose logs --no-color --timestamps --tail "$n" "$svc" 2>&1 | redact
+}
+
+cmd_errors() {
+  local n=${1:-500} svc
+  valid_lines "$n" || die "lines must be 1-5000"
+  for svc in $(services); do
+    compose logs --no-color --timestamps --tail "$n" "$svc" 2>&1 \
+      | grep -E -i '\b(error|exception|traceback|critical|fatal|warn(ing)?|oom|killed|refused|timeout|timed out)\b' \
+      | tail -n 50 | redact || true
+  done
+}
+
+cmd_config() {
+  compose config --format json | python3 -I -c '
+import json, re, sys
+secret_name = re.compile(r"(?i)(pass|secret|token|key|credential|auth|private|salt|cookie|session|dsn|cert)")
+cred_url = re.compile(r"(://[^/\s:@]+:)[^@\s/]+@")
+def clean(name, value):
+    if not isinstance(value, str):
+        return value
+    if secret_name.search(name or ""):
+        return "***" if value else value
+    return cred_url.sub(r"\1***@", value)
+def walk(node, name=None):
+    if isinstance(node, dict):
+        return {k: walk(v, k) for k, v in node.items()}
+    if isinstance(node, list):
+        return [walk(v, name) for v in node]
+    return clean(name, node)
+cfg = json.load(sys.stdin)
+for svc in cfg.get("services", {}).values():
+    env = svc.get("environment") or {}
+    svc["environment"] = {k: clean(k, v) for k, v in env.items()}
+    for key in ("healthcheck", "command", "entrypoint"):
+        if key in svc:
+            svc[key] = walk(svc[key])
+cfg.pop("secrets", None)
+json.dump(cfg, sys.stdout, indent=2, sort_keys=True)
+print()
+' | redact
+}
+
+cmd_env_keys() {
+  [[ -f $VERTEX_DIR/.env ]] || die "no .env in $VERTEX_DIR"
+  grep -E '^[[:space:]]*(export[[:space:]]+)?[A-Za-z_][A-Za-z0-9_]*=' "$VERTEX_DIR/.env" \
+    | sed -E 's/^[[:space:]]*(export[[:space:]]+)?([A-Za-z_][A-Za-z0-9_]*)=.*/\2/' | sort
+  echo
+  stat -c '.env  mode %a  owner %U:%G' "$VERTEX_DIR/.env"
+}
+
+cmd_git() {
+  local g=(git -c safe.directory="$VERTEX_DIR" -C "$VERTEX_DIR")
+  "${g[@]}" log -1 --format='commit %H%nshort  %h%ndate   %cI%nsubject %s'
+  "${g[@]}" status --short --branch | redact
+  local upstream
+  if upstream=$("${g[@]}" rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null); then
+    echo "vs $upstream (as of last fetch): $("${g[@]}" rev-list --left-right --count HEAD..."$upstream" | awk '{print $1 " ahead, " $2 " behind"}')"
+    stat -c 'last fetch: %y' "$VERTEX_DIR/.git/FETCH_HEAD" 2>/dev/null || echo "last fetch: never"
+  fi
+}
+
+cmd_images() {
+  docker image ls --format '{{.Repository}}:{{.Tag}}\t{{.ID}}\t{{.Size}}\t{{.CreatedSince}}' | grep -i vertex | while IFS=$'\t' read -r ref id size age; do
+    printf '%-60s %-14s %-9s %-16s %s\n' "$ref" "$id" "$size" "$age" \
+      "$(docker image inspect -f '{{ with index .Config.Labels "org.opencontainers.image.revision" }}{{ . }}{{ else }}(local build){{ end }}' "$id" | cut -c1-12)"
+  done
+}
+
+cmd_health() {
+  local port
+  port=$(compose port frontend 8080 2>/dev/null | head -1) || true
+  [[ -n $port ]] || die "frontend has no published port"
+  port=${port/0.0.0.0/127.0.0.1}
+  port=${port/\[::\]/127.0.0.1}
+  curl -fsS -m 10 -w '\nHTTP %{http_code} in %{time_total}s\n' "http://$port/health" | redact
+}
+
+cmd_host() {
+  echo "host: $(uname -srm)   up $(uptime -p)"
+  echo "load: $(cut -d' ' -f1-3 /proc/loadavg)   cpus: $(nproc)"
+  echo
+  free -h
+  echo
+  df -h -x tmpfs -x devtmpfs -x overlay -x squashfs 2>/dev/null
+  echo
+  docker system df
+  echo
+  echo "failed units:"; systemctl --failed --no-legend --plain 2>/dev/null | sed 's/^/  /' || true
+  echo
+  echo "kernel OOM kills (this boot):"; journalctl -k -b --no-pager -q 2>/dev/null | grep -i 'killed process' | tail -n 10 | sed 's/^/  /' || true
+}
+
+cmd_report() {
+  for section in status stats git host health; do
+    echo "===== $section ====="
+    ( "cmd_$section" ) || echo "($section failed)"
+    echo
+  done
+}
+
+[[ -d $VERTEX_DIR ]] || die "VERTEX_DIR $VERTEX_DIR does not exist"
+
+# The forced command passes the client's request in SSH_ORIGINAL_COMMAND; plain words only, split on whitespace.
+request=${SSH_ORIGINAL_COMMAND:-${*:-help}}
+[[ $request =~ ^[A-Za-z0-9\ _.-]*$ ]] || die "unsupported characters in request"
+read -r -a argv <<< "$request"
+command=${argv[0]:-help}
+args=("${argv[@]:1}")
+
+case $command in
+  help|-h|--help) cmd_help ;;
+  status)   cmd_status ;;
+  stats)    cmd_stats ;;
+  logs)     cmd_logs "${args[@]}" ;;
+  errors)   cmd_errors "${args[@]}" ;;
+  config)   cmd_config ;;
+  env-keys) cmd_env_keys ;;
+  git)      cmd_git ;;
+  images)   cmd_images ;;
+  health)   cmd_health ;;
+  host)     cmd_host ;;
+  report)   cmd_report ;;
+  *) die "unknown command '$command' (try: help)" ;;
+esac
