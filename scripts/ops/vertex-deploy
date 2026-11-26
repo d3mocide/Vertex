@@ -15,6 +15,12 @@
 # what changed, waits for the containers to be healthy, and puts the previous commit and tag back if they are not.
 # Nothing is ever built on the server. Each deploy is appended to /var/lib/vertex-deploy/history.
 #
+# After a successful deploy it installs scripts/ops/vertex-ro and vertex-deploy from the deployed commit, so the
+# operations tooling follows main like everything else (`update-ops` does it without a deploy). Trust note: this means
+# whoever can merge to main decides what these root-run scripts do. That is the same trust main already has, since a
+# merged docker-compose.yml can mount the host or run privileged containers once deployed. The scripts are read from
+# the git object at that commit (never the working tree), syntax-checked, and swapped in by an atomic rename.
+#
 # Shares /etc/default/vertex-ro (VERTEX_DIR, COMPOSE_FILE) with vertex-ro.
 set -euo pipefail
 umask 022
@@ -23,6 +29,7 @@ export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin LC_ALL=
 VERTEX_DIR=/opt/Vertex
 COMPOSE_FILE=
 STATE_DIR=/var/lib/vertex-deploy
+BIN_DIR=/usr/local/bin
 HEALTH_TIMEOUT=240
 if [[ -f /etc/default/vertex-ro && ! -L /etc/default/vertex-ro && $(stat -c %u /etc/default/vertex-ro) == 0 ]]; then
   # shellcheck disable=SC1091
@@ -105,12 +112,46 @@ running_services() { compose ps --status running --format '{{.Service}}' | sort 
 
 checkout() { git_ checkout -q -B main "$1"; }
 
-# Files in .git that the owner cannot write (left by a `sudo git ...`) make every git step fail half way.
+# Files in .git the owner does not own (left by a `sudo git ...`) make every git step fail half way. Hand them back
+# to the owner: only inside .git, and only ever to the checkout's own owner.
 check_checkout() {
   local foreign
   foreign=$(find "$VERTEX_DIR/.git" ! -user "$OWNER" -print -quit 2>/dev/null)
-  [[ -z $foreign ]] || die "files in $VERTEX_DIR/.git are not owned by $OWNER (e.g. ${foreign#"$VERTEX_DIR"/}); nothing changed.
-  Fix on the server: sudo chown -R $OWNER: $VERTEX_DIR && sudo chmod 600 $VERTEX_DIR/.env   (and never run git there with sudo)"
+  [[ -n $foreign ]] || return 0
+  [[ $EUID -eq 0 ]] || die "files in $VERTEX_DIR/.git are not owned by $OWNER (e.g. ${foreign#"$VERTEX_DIR"/}); nothing changed"
+  log "giving $VERTEX_DIR/.git back to $OWNER (e.g. ${foreign#"$VERTEX_DIR"/} was not theirs)"
+  chown -R --no-dereference "$OWNER": "$VERTEX_DIR/.git"
+}
+
+# Installs the ops scripts from commit $1 (on origin/main) into BIN_DIR when they differ from the installed copies.
+install_ops() {
+  local commit=$1 name tmp target
+  for name in vertex-ro vertex-deploy; do
+    target=$BIN_DIR/$name
+    [[ -f $target ]] || continue            # only update what an operator installed
+    tmp=$(mktemp "$BIN_DIR/.$name.XXXXXX")
+    if ! git_ show "$commit:scripts/ops/$name" > "$tmp" 2>/dev/null || [[ ! -s $tmp ]]; then
+      rm -f "$tmp"; log "ops: $name is not in ${commit:0:7}; kept the installed copy"; continue
+    fi
+    if ! bash -n "$tmp" 2>/dev/null; then
+      rm -f "$tmp"; log "ops: $name from ${commit:0:7} fails a syntax check; kept the installed copy"; continue
+    fi
+    if cmp -s "$tmp" "$target"; then rm -f "$tmp"; continue; fi
+    chown root:root "$tmp" 2>/dev/null || true
+    chmod 0755 "$tmp"
+    mv -f "$tmp" "$target"
+    log "ops: updated $name from ${commit:0:7} (sha256 $(sha256sum "$target" | cut -c1-16))"
+  done
+}
+
+do_update_ops() {
+  check_checkout
+  git_ fetch -q origin main || die "git fetch failed"
+  local head
+  head=$(git_ rev-parse HEAD)
+  git_ merge-base --is-ancestor "$head" origin/main || die "the checkout (${head:0:7}) is not on origin/main"
+  install_ops "$head"
+  record "$head" "$head" "ops-updated"
 }
 
 do_deploy() {
@@ -144,6 +185,7 @@ do_deploy() {
   if wait_healthy "$running"; then
     record "$prev_commit" "$full" "ok"
     log "deployed $short"
+    install_ops "$full"
     compose ps --format 'table {{.Service}}\t{{.State}}\t{{.Status}}\t{{.Image}}'
     return 0
   fi
@@ -187,6 +229,7 @@ vertex-deploy commands:
   rollback            redeploy the commit that was running before the last successful deploy
   restart <service>   restart one compose service
   prune               remove images no container uses, and the build cache
+  update-ops          install vertex-ro and vertex-deploy from the deployed commit (deploy does this too)
   history             past deploys: time, from, to, result, who
 EOF
 }
@@ -217,5 +260,6 @@ case $command in
   rollback) do_rollback ;;
   restart)  do_restart "${args[@]}" ;;
   prune)    do_prune ;;
+  update-ops) do_update_ops ;;
   *) die "unknown command '$command' (try: help)" ;;
 esac

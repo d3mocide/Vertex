@@ -5,6 +5,14 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 
 ---
 
+## 2026-11-26 — Ops scripts update themselves; .git ownership kept intact
+
+- Root cause of `.git/index` turning root-owned again after the manual `chown`: `vertex-ro git` / `disk` ran `git status` as root, and a plain `git status` refreshes and rewrites the index (reproduced; with `GIT_OPTIONAL_LOCKS=0` it does not). `vertex-ro` now runs git as the checkout's owner (with their HOME) and without optional locks.
+- `vertex-deploy` hands `.git` back to the checkout's owner itself (only inside `.git`, only to that owner) instead of refusing, and after a successful deploy installs `scripts/ops/vertex-ro` and `vertex-deploy` from the deployed commit (read from the git object, `bash -n` checked, skipped when unchanged, atomic rename so a running script is never rewritten in place; only scripts already installed are updated). `update-ops` does the same for the current checkout without a deploy. Trust note in the header: whoever can merge to main decides what these root-run scripts do, which is the trust a merged docker-compose.yml already has.
+- Tested in a scratch repo: update, unchanged (no-op), syntax-broken script kept while the other updated, script missing from the commit kept, no temp files left, history recorded.
+- Bootstrapping: the copies installed before this change cannot update themselves, so one last manual install is needed.
+
+
 ## 2026-11-26 — Poller CPU: cache airport reference data in the ADS-B snapshot
 
 - Profiled the poller with py-spy (sampling, from a throwaway container sharing its PID namespace) on a local stack running production's exact images and settings. Half of the main process's CPU was `_airport_reference` -> `NavaidsDb.nearest`: for every aircraft with a route, on every snapshot, a haversine against every VOR/NDB navaid to find the one nearest the origin and destination airports, an answer that never changes.
