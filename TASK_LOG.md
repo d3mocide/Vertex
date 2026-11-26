@@ -5,6 +5,15 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 
 ---
 
+## 2026-11-26 — Poller CPU: cache airport reference data in the ADS-B snapshot
+
+- Profiled the poller with py-spy (sampling, from a throwaway container sharing its PID namespace) on a local stack running production's exact images and settings. Half of the main process's CPU was `_airport_reference` -> `NavaidsDb.nearest`: for every aircraft with a route, on every snapshot, a haversine against every VOR/NDB navaid to find the one nearest the origin and destination airports, an answer that never changes.
+- Fix: `AdsbPoller._airport_reference` builds each airport's reference data once (`_airport_ref_cache`, cleared at 4096 entries) and returns a fresh copy per call, since callers add `metar` to it. `NavaidsDb.nearest` also skips any navaid further than `max_km` in latitude alone before computing a distance (exact: the meridian arc is a lower bound on the great-circle distance).
+- Measured locally (about 30 aircraft): poller 14.3% -> 7.4% of a core; the airport/navaid frames went from 7.1% to 0.0%. Production sees more aircraft, so the saving should be larger there.
+- Tests: `poller/tests/test_airport_reference.py` (prefiltered nearest matches a brute-force scan on 400 random points at three ranges, pole/antimeridian edges, build-once cache, independent copies, invalid codes not cached). Poller suite 811 passed.
+- Seen while profiling, not changed: the rail-infrastructure OSM fetch child dies at startup ("process in the process pool was terminated abruptly", as on production in October) after pulling ~50 MB; `radio_incident_poller._refresh_streets` / `address_points.refresh_if_stale` (~3% of a core) and GTFS-RT `normalize_vehicles` (~2%) are the next biggest. Production's steady network traffic comes from database-configured sources (ADS-B, AIS, P25, MeshCore) that an empty local database does not have.
+
+
 ## 2026-11-26 — vertex-ro diagnostics (top, redis, db); masking and deploy pre-check fixes
 
 - `vertex-ro top`: processes per container with CPU/memory. `vertex-ro redis`: commandstats by total time, net/memory/keyspace stats, a 5 s `MONITOR` sample summarised by client service, command and key pattern (sizes and counts only, hex/number ids in key names replaced, AUTH arrives already redacted), an estimated read volume (reads x `MEMORY USAGE` of one key per pattern), and `--bigkeys`. `vertex-ro db`: largest tables, write activity per table, database totals and key settings, connections by app/state, and `pg_stat_statements` when enabled. All fixed, read-only commands run inside the containers with their own credentials. Tested against a local db/redis.

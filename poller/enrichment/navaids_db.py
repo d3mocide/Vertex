@@ -24,8 +24,14 @@ class NavaidsDb:
 
         best: dict | None = None
         best_distance = float("inf")
+        # Two points are at least as far apart as their difference in latitude (a meridian arc of 111.19 km per degree),
+        # so anything further than max_km in latitude alone can be skipped without computing the distance. 110 keeps
+        # the window slightly wider than needed.
+        lat_window = max_km / 110.0
 
         for item in self._items:
+            if abs(item["lat"] - lat) > lat_window:
+                continue
             dist = _haversine_km(lat, lon, item["lat"], item["lon"])
             if dist <= max_km and dist < best_distance:
                 best_distance = dist
