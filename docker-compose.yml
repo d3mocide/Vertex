@@ -96,6 +96,7 @@ services:
     security_opt: ["no-new-privileges:true"]
     tmpfs:
       - /tmp:size=64m,noexec,nosuid,nodev
+    image: ${VERTEX_IMAGE_REGISTRY:-ghcr.io/d3mocide}/vertex-backend:${VERTEX_IMAGE_TAG:-latest}
     build:
       context: ./backend
     restart: unless-stopped
@@ -147,6 +148,7 @@ services:
     security_opt: ["no-new-privileges:true"]
     tmpfs:
       - /tmp:size=64m,noexec,nosuid,nodev
+    image: ${VERTEX_IMAGE_REGISTRY:-ghcr.io/d3mocide}/vertex-poller:${VERTEX_IMAGE_TAG:-latest}
     build:
       context: ./poller
       args:
@@ -208,6 +210,7 @@ services:
     security_opt: ["no-new-privileges:true"]
     tmpfs:
       - /tmp:size=64m,noexec,nosuid,nodev
+    image: ${VERTEX_IMAGE_REGISTRY:-ghcr.io/d3mocide}/vertex-poller:${VERTEX_IMAGE_TAG:-latest}
     build:
       context: ./poller
       args:
@@ -251,6 +254,7 @@ services:
     security_opt: ["no-new-privileges:true"]
     tmpfs:
       - /tmp:size=64m,noexec,nosuid,nodev
+    image: ${VERTEX_IMAGE_REGISTRY:-ghcr.io/d3mocide}/vertex-frontend:${VERTEX_IMAGE_TAG:-latest}
     build:
       context: ./frontend
     # Read when the container starts (frontend/docker-entrypoint.d/40-vertex-runtime-config.sh) and served to the
@@ -293,6 +297,7 @@ services:
     # An ffmpeg abort once wrote a ~170 MB core per call and filled the host disk.
     ulimits:
       core: 0
+    image: ${VERTEX_IMAGE_REGISTRY:-ghcr.io/d3mocide}/vertex-transcription:${VERTEX_IMAGE_TAG:-latest}
     build:
       context: ./transcription
     restart: unless-stopped

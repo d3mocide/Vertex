@@ -95,6 +95,34 @@ Check that:
 - side panels populate with weather, traffic, alerts, or radio content
 - live updates continue through the WebSocket connection
 
+## Prebuilt Images and Updates
+
+Every commit to `main` that passes the tests is published to GitHub Container Registry for `linux/amd64` and `linux/arm64` (Raspberry Pi 5):
+
+| Image | Used by |
+|-------|---------|
+| `ghcr.io/d3mocide/vertex-backend` | `backend` |
+| `ghcr.io/d3mocide/vertex-poller` | `poller`, `radio` |
+| `ghcr.io/d3mocide/vertex-frontend` | `frontend` |
+| `ghcr.io/d3mocide/vertex-transcription` | `transcription` |
+
+Each image is tagged `sha-<commit>` (for example `sha-1a2b3c4`), and also `latest` for `main` and `<version>` for releases. The commit is recorded in the image as well: `docker inspect -f '{{ index .Config.Labels "org.opencontainers.image.revision" }}' <image>`. The images are scanned with Trivy, and the findings appear under the repository's Security tab.
+
+To run prebuilt images, keep the repository checked out (compose files, `config/`, `db/` init scripts) at the same commit as the images, and pin that commit in `.env`:
+
+```bash
+git pull                                   # compose and config at the new commit
+echo "VERTEX_IMAGE_TAG=sha-$(git rev-parse HEAD | cut -c1-7)" >> .env   # or edit the existing line
+docker compose pull                        # fetch that commit's images
+docker compose up -d                       # recreate only what changed
+```
+
+To roll back, set `VERTEX_IMAGE_TAG` to the earlier commit (and `git checkout` it), then `pull` and `up -d` again.
+
+Building from source still works exactly as before (`docker compose build` or `up -d --build`), and a local build takes the same image name, so a later `pull` replaces it. One difference: when no image exists locally yet, a plain `docker compose up -d` pulls the published one instead of building, so use `--build` when you want your own changes.
+
+The frontend's `VITE_*` settings are read when its container starts, so the published frontend image honours your `.env` without a rebuild.
+
 ## Development Validation
 
 Common validation commands for local changes:
