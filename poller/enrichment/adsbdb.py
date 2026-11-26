@@ -8,7 +8,7 @@ from typing import Optional
 import httpx
 
 from config import settings
-from .cache import CachedLookup, HttpThrottle, UpstreamRateLimitedError, load_gzip_json, save_gzip_json
+from .cache import CachedLookup, DebouncedCacheSaver, HttpThrottle, UpstreamRateLimitedError, load_gzip_json
 
 _ICAO_RE = re.compile(r"^[0-9a-f]{1,6}$")
 
@@ -16,8 +16,6 @@ logger = logging.getLogger(__name__)
 
 
 class AdsbdbClient:
-    _PERSIST_EVERY = 20  # write cache file after this many new fetches
-
     def __init__(self):
         throttle = HttpThrottle(min_interval_seconds=1.2, default_cooldown_seconds=60)
         self._cache_path = os.path.join(settings.adsb_enrichment_cache_dir, "flight_routes.json.gz")
@@ -33,9 +31,9 @@ class AdsbdbClient:
             max_size=10000,
             throttle=throttle,
         )
-        self._route_dirty_count: int = 0
-        self._aircraft_dirty_count: int = 0
         self._load_cache()
+        # Saved after real fetches only, at most every five minutes, plus on shutdown (flush).
+        self._saver = DebouncedCacheSaver(self._cache_path, self._cache_payload, [self._routes, self._aircraft])
 
     @staticmethod
     def normalize_callsign(callsign: str | None) -> str | None:
@@ -74,7 +72,7 @@ class AdsbdbClient:
         if not key:
             return None
         result = await self._routes.get(key, self._fetch_route)
-        self._mark_route_dirty()
+        self._saver.maybe_save()
         return result
 
     async def lookup_aircraft(self, icao: str | None) -> dict | None:
@@ -82,29 +80,12 @@ class AdsbdbClient:
         if not key:
             return None
         result = await self._aircraft.get(key, self._fetch_aircraft)
-        self._mark_aircraft_dirty()
+        self._saver.maybe_save()
         return result
-
-    def _mark_route_dirty(self) -> None:
-        """Increment the route dirty counter and flush to disk every _PERSIST_EVERY fetches.
-
-        Batching writes prevents a gzip I/O call (blocking) on every single enrichment
-        lookup. The cache is also flushed at poller shutdown via flush().
-        """
-        self._route_dirty_count += 1
-        if self._route_dirty_count % self._PERSIST_EVERY == 0:
-            self._persist_cache()
-
-    def _mark_aircraft_dirty(self) -> None:
-        """Increment the aircraft dirty counter and flush to disk every _PERSIST_EVERY fetches."""
-        self._aircraft_dirty_count += 1
-        if self._aircraft_dirty_count % self._PERSIST_EVERY == 0:
-            self._persist_cache()
 
     def flush(self) -> None:
         """Force an immediate cache flush — call on poller shutdown."""
-        if self._route_dirty_count > 0 or self._aircraft_dirty_count > 0:
-            self._persist_cache()
+        self._saver.flush()
 
     def _load_cache(self):
         payload = load_gzip_json(self._cache_path) or {}
@@ -115,13 +96,12 @@ class AdsbdbClient:
         self._routes.import_entries(payload.get("routes"))
         self._aircraft.import_entries(payload.get("aircraft"))
 
-    def _persist_cache(self):
-        payload = {
+    def _cache_payload(self) -> dict:
+        return {
             "schema_version": 1,
             "routes": self._routes.export_entries(),
             "aircraft": self._aircraft.export_entries(),
         }
-        save_gzip_json(self._cache_path, payload)
 
     async def _fetch_route(self, key: str) -> Optional[dict]:
         url = f"https://api.adsbdb.com/v0/callsign/{key}"

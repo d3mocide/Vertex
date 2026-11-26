@@ -12,6 +12,22 @@ services:
         reservations:
           memory: 256m
           cpus: '0.5'
+    # Tuned to write less to disk. The poller commits thousands of small transactions a minute:
+    # - synchronous_commit=off: commits no longer each wait for an fsync. A power cut can lose the last fraction of a
+    #   second of writes (never corrupts the database), which is fine for a live feed that re-sends its state.
+    # - Checkpoints every 15 min instead of 5, and compressed WAL: the first change to a page after each checkpoint
+    #   writes the whole 8 kB page to the WAL, so fewer checkpoints and lz4 cut that volume. Crash recovery replays
+    #   up to 15 min of WAL, a few seconds on this workload.
+    command:
+      - postgres
+      - -c
+      - synchronous_commit=off
+      - -c
+      - checkpoint_timeout=15min
+      - -c
+      - max_wal_size=2GB
+      - -c
+      - wal_compression=lz4
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-vertex}
       POSTGRES_USER: ${POSTGRES_USER:-vertex}

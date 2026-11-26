@@ -52,6 +52,8 @@ async def init_db():
         "ALTER TABLE alert_rules ADD COLUMN IF NOT EXISTS max_per_hour INTEGER",
         "ALTER TABLE alert_rules ADD COLUMN IF NOT EXISTS dedup_key VARCHAR(256)",
         "ALTER TABLE p25_recordings ADD COLUMN IF NOT EXISTS transcription TEXT",
+        # The transcription service looks each new recording up by its file; without this every lookup read the table.
+        "CREATE INDEX IF NOT EXISTS ix_p25_recordings_file_path ON p25_recordings (file_path)",
         "ALTER TABLE mesh_messages ADD COLUMN IF NOT EXISTS channel_name VARCHAR(128)",
         """
         WITH ranked AS (

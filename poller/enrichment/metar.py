@@ -8,7 +8,7 @@ from urllib.parse import quote
 import httpx
 
 from config import settings
-from .cache import CachedLookup, HttpThrottle, UpstreamRateLimitedError, load_gzip_json, save_gzip_json
+from .cache import CachedLookup, DebouncedCacheSaver, HttpThrottle, UpstreamRateLimitedError, load_gzip_json
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +25,7 @@ class MetarClient:
             throttle=HttpThrottle(min_interval_seconds=2.0, default_cooldown_seconds=120),
         )
         self._load_cache()
+        self._saver = DebouncedCacheSaver(self._cache_path, self._cache_payload, [self._lookup])
 
     @staticmethod
     def normalize_icao(icao: str | None) -> str | None:
@@ -46,7 +47,7 @@ class MetarClient:
         if not key:
             return None
         result = await self._lookup.get(key, self._fetch_one)
-        self._persist_cache()
+        self._saver.maybe_save()
         return result
 
     async def lookup_many(self, icaos: list[str]) -> dict[str, dict | None]:
@@ -78,10 +79,17 @@ class MetarClient:
                     logger.warning("[metar] batch lookup failed for %d ICAOs: %s", len(missing), exc)
 
             fetched = self._lookup.get_stale_many(missing)
+        else:
+            # Cache what came back (None for no observation), so the next call does not ask again.
+            for icao, value in fetched.items():
+                self._lookup.store(icao, value)
 
         result.update(fetched)
-        self._persist_cache()
+        self._saver.maybe_save()
         return result
+
+    def flush(self) -> None:
+        self._saver.flush()
 
     def _load_cache(self):
         payload = load_gzip_json(self._cache_path) or {}
@@ -91,12 +99,11 @@ class MetarClient:
             return
         self._lookup.import_entries(payload.get("entries"))
 
-    def _persist_cache(self):
-        payload = {
+    def _cache_payload(self) -> dict:
+        return {
             "schema_version": 1,
             "entries": self._lookup.export_entries(),
         }
-        save_gzip_json(self._cache_path, payload)
 
     async def _fetch_one(self, key: str) -> Optional[dict]:
         result = await self._fetch_batch([key])
