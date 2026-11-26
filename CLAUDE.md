@@ -309,6 +309,7 @@ Update `TASK_LOG.md` using the `/update-task-log` skill or by appending an entry
 1. Edit `docker-compose.yml`
 2. Validate: `docker compose config --quiet`
 3. For Dockerfile changes, do a full build: `docker compose build <service>`
+4. The app images are also published to GHCR by `.github/workflows/images.yml` (amd64 + arm64, tagged `sha-<commit>` and `latest`); `VERTEX_IMAGE_TAG` in `.env` picks the tag. Anything an image needs at runtime must come from the environment, not a build arg, or the published image cannot honour it (the frontend's `VITE_*` settings are written to `/runtime-config.js` at container start for this reason).
 
 ---
 

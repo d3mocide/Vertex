@@ -1,12 +1,32 @@
 export const API_BASE = '/api/v1'
 
+// Operator settings (the VITE_* variables in .env). In Docker they are read when the frontend container starts:
+// its entrypoint writes /runtime-config.js (frontend/docker-entrypoint.d/40-vertex-runtime-config.sh), which
+// index.html loads before the app, so a prebuilt image honours each install's .env. The dev server and builds
+// outside Docker fall back to import.meta.env. An empty runtime value counts as unset.
+type RuntimeConfig = Partial<Record<string, string>>
+const _runtime: RuntimeConfig = (window as Window & { __VERTEX_CONFIG__?: RuntimeConfig }).__VERTEX_CONFIG__ ?? {}
+
+function setting(name: string, buildValue: string | undefined): string | undefined {
+  const value = _runtime[name]?.trim()
+  return value ? value : buildValue
+}
+
+// IEM layer slugs look like RTX-N0B-0 or USCOMP-N0Q-0; anything else would request tiles that do not exist.
+function radarLayer(value: string | undefined, fallback: string): string {
+  const slug = value?.trim() ?? ''
+  if (/^[A-Z0-9]+-[A-Z0-9]+-\d+$/.test(slug)) return slug
+  if (slug) console.warn(`Ignoring radar layer "${slug}": expected an IEM layer id such as ${fallback}.`)
+  return fallback
+}
+
 export const WS_URL =
   `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`
 
 // Map style — override with VITE_TILE_URL for offline/self-hosted tiles.
 // When VITE_TILE_URL is set it should point to a tileserver-gl style endpoint,
 // e.g. http://localhost:8080/styles/basic-preview/style.json
-const _rawOfflineTileUrl = (import.meta.env.VITE_TILE_URL as string | undefined)?.trim()
+const _rawOfflineTileUrl = setting('VITE_TILE_URL', import.meta.env.VITE_TILE_URL as string | undefined)?.trim()
 const _invalidOfflineTileUrl = Boolean(
   _rawOfflineTileUrl && /\{z\}|\{x\}|\{y\}/i.test(_rawOfflineTileUrl)
 )
@@ -20,7 +40,8 @@ if (_invalidOfflineTileUrl) {
 const _offlineTileUrl = _invalidOfflineTileUrl ? '' : (_rawOfflineTileUrl ?? '')
 export const MAP_STYLE = _offlineTileUrl || 'https://tiles.openfreemap.org/styles/dark'
 export const OFFLINE_TILES = Boolean(_offlineTileUrl)
-export const PRESERVE_DRAWING_BUFFER = (import.meta.env.VITE_PRESERVE_DRAWING_BUFFER || 'false') === 'true'
+export const PRESERVE_DRAWING_BUFFER =
+  (setting('VITE_PRESERVE_DRAWING_BUFFER', import.meta.env.VITE_PRESERVE_DRAWING_BUFFER) || 'false') === 'true'
 
 
 
@@ -45,7 +66,8 @@ export const DEFAULT_ZOOM = 10
 
 // Audio stream — stream URL is sourced from the radio_streams DB table.
 // This env var is an escape hatch for a default fallback; leave empty if all streams are DB-configured.
-export const STREAM_URL = (import.meta.env.VITE_RADIO_STREAM_URL as string | undefined)?.trim() ?? ''
+export const STREAM_URL =
+  setting('VITE_RADIO_STREAM_URL', import.meta.env.VITE_RADIO_STREAM_URL as string | undefined)?.trim() ?? ''
 
 // Polling intervals (ms)
 export const HEALTH_POLL_MS   = 15_000
@@ -59,16 +81,19 @@ export const RADAR_REFRESH_MS = 5 * 60_000  // IEM NEXRAD updates every ~5 min
 
 // Radar layer slug for IEM tile service, e.g. "USCOMP-N0Q-0" or "RTX-N0Q-0".
 // Defaulting to RTX gives much better local detail around the current map center.
-export const RADAR_LAYER = import.meta.env.VITE_RADAR_LAYER || 'RTX-N0B-0'
+export const RADAR_LAYER = radarLayer(setting('VITE_RADAR_LAYER', import.meta.env.VITE_RADAR_LAYER), 'RTX-N0B-0')
 
 // When zoomed out at or below this threshold, switch to a broad composite
 // product so users still see regional context outside local radar coverage.
-export const RADAR_FALLBACK_MAX_ZOOM = Number(import.meta.env.VITE_RADAR_FALLBACK_MAX_ZOOM || 6)
-export const RADAR_FALLBACK_LAYER = import.meta.env.VITE_RADAR_FALLBACK_LAYER || 'USCOMP-N0Q-0'
+export const RADAR_FALLBACK_MAX_ZOOM =
+  Number(setting('VITE_RADAR_FALLBACK_MAX_ZOOM', import.meta.env.VITE_RADAR_FALLBACK_MAX_ZOOM) || 6)
+export const RADAR_FALLBACK_LAYER =
+  radarLayer(setting('VITE_RADAR_FALLBACK_LAYER', import.meta.env.VITE_RADAR_FALLBACK_LAYER), 'USCOMP-N0Q-0')
 
 // Observation range ring — radius in km centered on DEFAULT_CENTER.
 // Set VITE_OBSERVATION_RANGE_KM=0 to hide the ring.
-export const OBSERVATION_RANGE_KM = Number(import.meta.env.VITE_OBSERVATION_RANGE_KM ?? 50)
+export const OBSERVATION_RANGE_KM =
+  Number(setting('VITE_OBSERVATION_RANGE_KM', import.meta.env.VITE_OBSERVATION_RANGE_KM) ?? 50)
 
 // Mesh node staleness window. A mesh node's last_seen is its last advert
 // timestamp, and MeshCore nodes typically advert only once every 24–48 h, so a
@@ -76,4 +101,4 @@ export const OBSERVATION_RANGE_KM = Number(import.meta.env.VITE_OBSERVATION_RANG
 // stale. Default 72 h flags a node only after it has missed roughly two advert
 // cycles. Override with VITE_MESH_NODE_STALE_HOURS.
 export const MESH_NODE_STALE_MS =
-  Number(import.meta.env.VITE_MESH_NODE_STALE_HOURS ?? 72) * 60 * 60 * 1000
+  Number(setting('VITE_MESH_NODE_STALE_HOURS', import.meta.env.VITE_MESH_NODE_STALE_HOURS) ?? 72) * 60 * 60 * 1000

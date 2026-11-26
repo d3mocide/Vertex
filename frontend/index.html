@@ -31,6 +31,10 @@
        first paint. -->
   <script src="/ios-shim.js"></script>
 
+  <!-- Per-install settings (the VITE_* variables in .env), written by the container at startup. Must load before
+       the app module; see src/config.ts. -->
+  <script src="/runtime-config.js"></script>
+
   <!-- Loading Screen Styles -->
   <style>
     /* Tailwind 4 puts its CSS in cascade layers, and unlayered rules beat every layer, so these loading-screen rules

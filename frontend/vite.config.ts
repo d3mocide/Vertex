@@ -36,6 +36,8 @@ export default defineConfig({
         swSrc: 'src/sw.ts',
         swDest: 'dist/sw.js',
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
+        // Written per install when the container starts; precaching the build's placeholder would hide it.
+        globIgnores: ['**/node_modules/**', 'runtime-config.js'],
       },
     }),
   ],

@@ -237,7 +237,7 @@ def load_schema(root: Path = ROOT) -> Schema:
 
 
 def frontend_vars(root: Path) -> set[str]:
-    """VITE_* names the frontend reads (baked in at build time, so they only reach a Docker build as build args)."""
+    """VITE_* names the frontend reads (in Docker they reach it through the frontend service's environment)."""
     found: set[str] = set()
     base = root / "frontend"
     for pattern in ("src/**/*.ts", "src/**/*.tsx", "*.ts"):
@@ -412,8 +412,8 @@ def cmd_check(args, schema: Schema) -> int:
                       if k in schema.frontend and k not in schema.compose})
     if unwired:
         warnings += len(unwired)
-        print("\nNOT WIRED: the frontend reads these at build time but docker-compose.yml never passes them to the "
-              "build, so setting them in .env changes nothing for Docker deployments:")
+        print("\nNOT WIRED: the frontend reads these but docker-compose.yml never passes them to the frontend "
+              "container, so setting them in .env changes nothing for Docker deployments:")
         print("  " + ", ".join(unwired))
     set_keys = {e.key.upper() for e in entries}
     missing = sorted(k for k, v in schema.compose.items() if v.required and k not in set_keys)
