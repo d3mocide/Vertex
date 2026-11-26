@@ -1,0 +1,212 @@
+#!/usr/bin/env bash
+# vertex-deploy: the only things a deploy key can do to a Vertex server running the published images.
+#
+# Installed as /usr/local/bin/vertex-deploy (root-owned copy, never run from the checkout) behind a forced command,
+# exactly like scripts/ops/vertex-ro, with its own key:
+#
+#   authorized_keys:  restrict,command="sudo -n /usr/local/bin/vertex-deploy" ssh-ed25519 AAAA... vertex-deploy
+#   sudoers:          Defaults!/usr/local/bin/vertex-deploy env_keep += "SSH_ORIGINAL_COMMAND"
+#                     <user> ALL=(root) NOPASSWD: /usr/local/bin/vertex-deploy
+#
+# Usage from the client:  ssh <host> deploy <commit> | rollback | restart <service> | prune | history | help
+#
+# deploy only accepts a commit on origin/main whose images CI has published (sha-<7 chars> tags). It checks out that
+# commit as the checkout's owner, pulls every image before touching anything, writes VERTEX_IMAGE_TAG to .env, recreates
+# what changed, waits for the containers to be healthy, and puts the previous commit and tag back if they are not.
+# Nothing is ever built on the server. Each deploy is appended to /var/lib/vertex-deploy/history.
+#
+# Shares /etc/default/vertex-ro (VERTEX_DIR, COMPOSE_FILE) with vertex-ro.
+set -euo pipefail
+umask 022
+export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin LC_ALL=C.UTF-8
+
+VERTEX_DIR=/opt/Vertex
+COMPOSE_FILE=
+STATE_DIR=/var/lib/vertex-deploy
+HEALTH_TIMEOUT=240
+if [[ -f /etc/default/vertex-ro && ! -L /etc/default/vertex-ro && $(stat -c %u /etc/default/vertex-ro) == 0 ]]; then
+  # shellcheck disable=SC1091
+  . /etc/default/vertex-ro
+fi
+[[ -n $COMPOSE_FILE ]] && export COMPOSE_FILE
+
+die() { echo "vertex-deploy: $*" >&2; exit 2; }
+log() { echo "[$(date -u +%H:%M:%S)] $*"; }
+
+[[ -d $VERTEX_DIR/.git ]] || die "$VERTEX_DIR is not a git checkout"
+OWNER=$(stat -c %U "$VERTEX_DIR")
+OWNER_HOME=$(getent passwd "$OWNER" | cut -d: -f6)
+
+# git runs as the checkout's owner so no root-owned files end up in it.
+as_owner() {
+  if [[ $EUID -eq 0 && $OWNER != root ]]; then
+    runuser -u "$OWNER" -- env HOME="$OWNER_HOME" "$@"
+  else
+    "$@"
+  fi
+}
+git_() { as_owner git -C "$VERTEX_DIR" "$@"; }
+compose() { (cd "$VERTEX_DIR" && docker compose "$@"); }
+
+current_tag() { sed -n 's/^VERTEX_IMAGE_TAG=//p' "$VERTEX_DIR/.env" | tail -n 1; }
+
+# Rewrites VERTEX_IMAGE_TAG in .env in place (an empty tag removes the line): same owner and mode, atomic rename,
+# every other line untouched.
+set_tag() {
+  python3 -I - "$VERTEX_DIR/.env" "$1" <<'EOF'
+import os, re, sys, tempfile
+path, tag = sys.argv[1], sys.argv[2]
+st = os.stat(path)
+lines = open(path).read().splitlines()
+out, done = [], False
+for line in lines:
+    if re.match(r"\s*VERTEX_IMAGE_TAG=", line):
+        if not done and tag:
+            out.append(f"VERTEX_IMAGE_TAG={tag}")
+        done = True
+        continue
+    out.append(line)
+if not done and tag:
+    out.append(f"VERTEX_IMAGE_TAG={tag}")
+fd, tmp = tempfile.mkstemp(dir=os.path.dirname(path), prefix=".env.")
+with os.fdopen(fd, "w") as f:
+    f.write("\n".join(out) + "\n")
+os.chown(tmp, st.st_uid, st.st_gid)
+os.chmod(tmp, st.st_mode & 0o777)
+os.replace(tmp, path)
+EOF
+}
+
+record() {
+  install -d -m 0755 "$STATE_DIR"
+  printf '%s\t%s\t%s\t%s\t%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$1" "$2" "$3" "${SUDO_USER:-$USER}" >> "$STATE_DIR/history"
+}
+
+# Waits until every container of the project is running and none is starting or unhealthy.
+wait_healthy() {
+  local deadline=$((SECONDS + HEALTH_TIMEOUT)) bad
+  while (( SECONDS < deadline )); do
+    bad=$(compose ps --format '{{.Service}} {{.State}} {{.Health}}' | awk '
+      $2 != "running" && $2 != "exited" { print; next }
+      $3 == "starting" || $3 == "unhealthy" { print }')
+    # A service that was running before must still be running (an exit right after start is a crash).
+    bad+=$(compose ps --format '{{.Service}} {{.State}}' | awk -v want="$1" '
+      BEGIN { n = split(want, w, " "); for (i = 1; i <= n; i++) keep[w[i]] = 1 }
+      ($1 in keep) && $2 != "running" { print "\n" $0 " (was running)" }')
+    [[ -z $bad ]] && return 0
+    sleep 5
+  done
+  echo "not healthy after ${HEALTH_TIMEOUT}s:" >&2
+  echo "$bad" >&2
+  return 1
+}
+
+running_services() { compose ps --status running --format '{{.Service}}' | sort -u | tr '\n' ' '; }
+
+checkout() { git_ checkout -q -B main "$1"; }
+
+do_deploy() {
+  local want=$1 full short tag prev_commit prev_tag running
+  git_ fetch -q origin main
+  full=$(git_ rev-parse --verify -q "${want}^{commit}") || die "unknown commit: $want"
+  git_ merge-base --is-ancestor "$full" origin/main || die "$want is not on origin/main"
+  [[ -z $(git_ status --porcelain --untracked-files=no) ]] || die "the checkout has local changes to tracked files; refusing"
+  short=${full:0:7}
+  tag=sha-$short
+  prev_commit=$(git_ rev-parse HEAD)
+  prev_tag=$(current_tag)
+  running=$(running_services)
+
+  log "deploying $short ($(git_ log -1 --format=%s "$full")) over ${prev_commit:0:7} / ${prev_tag:-none}"
+  checkout "$full"
+  log "pulling $tag"
+  # compose only warns when an image of a service that also has build: fails to pull, so check each one is here.
+  local images
+  images=$(VERTEX_IMAGE_TAG=$tag compose config --images | grep -F ":$tag" || true)
+  if [[ -z $images ]] || ! VERTEX_IMAGE_TAG=$tag compose pull --quiet 2>&1 | tail -n 20 \
+     || ! xargs -n1 docker image inspect >/dev/null 2>&1 <<< "$images"; then
+    checkout "$prev_commit"
+    record "$prev_commit" "$full" "pull-failed"
+    die "images for $tag are not all available (has CI published this commit?); nothing changed"
+  fi
+  set_tag "$tag"
+  log "recreating containers"
+  compose up -d --no-build --pull never 2>&1 | tail -n 20
+  if wait_healthy "$running"; then
+    record "$prev_commit" "$full" "ok"
+    log "deployed $short"
+    compose ps --format 'table {{.Service}}\t{{.State}}\t{{.Status}}\t{{.Image}}'
+    return 0
+  fi
+  log "unhealthy: rolling back to ${prev_commit:0:7} / ${prev_tag:-none}"
+  compose logs --no-color --tail 40 2>&1 | tail -n 80 >&2 || true
+  checkout "$prev_commit"
+  set_tag "$prev_tag"
+  compose up -d --no-build --pull never 2>&1 | tail -n 20
+  wait_healthy "$running" || log "WARNING: the rollback is not healthy either; check the server"
+  record "$prev_commit" "$full" "rolled-back"
+  die "deploy of $short failed and was rolled back"
+}
+
+do_rollback() {
+  [[ -f $STATE_DIR/history ]] || die "no deploy history"
+  local prev
+  prev=$(awk -F'\t' '$4 == "ok" { from = $2 } END { print from }' "$STATE_DIR/history")
+  [[ -n $prev ]] || die "no successful deploy to roll back from"
+  log "rolling back to ${prev:0:7}, the commit before the last successful deploy"
+  do_deploy "$prev"
+}
+
+do_restart() {
+  local svc=${1:-}
+  [[ $svc =~ ^[a-z0-9][a-z0-9_-]{0,40}$ ]] || die "usage: restart <service>"
+  compose config --services | grep -qxF -- "$svc" || die "unknown service: $svc"
+  compose restart "$svc"
+  compose ps "$svc" --format 'table {{.Service}}\t{{.State}}\t{{.Status}}'
+}
+
+do_prune() {
+  docker image prune -af
+  docker builder prune -af
+  docker system df
+}
+
+do_help() {
+  cat <<'EOF'
+vertex-deploy commands:
+  deploy <commit>     deploy a commit on origin/main whose images CI published (7-40 hex chars); rolls back if unhealthy
+  rollback            redeploy the commit that was running before the last successful deploy
+  restart <service>   restart one compose service
+  prune               remove images no container uses, and the build cache
+  history             past deploys: time, from, to, result, who
+EOF
+}
+
+request=${SSH_ORIGINAL_COMMAND:-${*:-help}}
+[[ $request =~ ^[A-Za-z0-9\ _.-]*$ ]] || die "unsupported characters in request"
+read -r -a argv <<< "$request"
+command=${argv[0]:-help}
+args=("${argv[@]:1}")
+
+case $command in
+  help|-h|--help) do_help; exit 0 ;;
+  history)
+    if [[ -f $STATE_DIR/history ]]; then tail -n 30 "$STATE_DIR/history"; else echo "no deploys yet"; fi
+    exit 0 ;;
+esac
+
+# One change at a time.
+lock=/run/lock/vertex-deploy.lock
+[[ -w /run/lock ]] || lock=${TMPDIR:-/tmp}/vertex-deploy.lock
+exec 9>"$lock"
+flock -n 9 || die "another vertex-deploy is running"
+
+case $command in
+  deploy)
+    [[ ${#args[@]} -eq 1 && ${args[0]} =~ ^[0-9a-f]{7,40}$ ]] || die "usage: deploy <commit sha, 7-40 lowercase hex>"
+    do_deploy "${args[0]}" ;;
+  rollback) do_rollback ;;
+  restart)  do_restart "${args[@]}" ;;
+  prune)    do_prune ;;
+  *) die "unknown command '$command' (try: help)" ;;
+esac

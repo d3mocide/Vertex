@@ -71,6 +71,8 @@ vertex-ro commands (all read-only):
   git                 checkout commit, branch, local changes, and how it compares with origin (as of last fetch)
   images              Vertex images on the host with their tags, size and source commit
   health              backend /health through the frontend's published port
+  disk                what uses space: the checkout (tracked vs ignored), Docker images, volumes and build cache
+  deploys             the vertex-deploy history (time, from, to, result, who)
   host                load, memory, disk, Docker disk use, kernel and uptime
   report              status + stats + git + host + health in one go
 EOF
@@ -117,11 +119,14 @@ cmd_config() {
   compose config --format json | python3 -I -c '
 import json, re, sys
 secret_name = re.compile(r"(?i)(pass|secret|token|key|credential|auth|private|salt|cookie|session|dsn|cert)")
+# Names that match the pattern above but hold no secret (an allowlist of hosts, a switch, a limit).
+not_secret = re.compile(r"(?i)^(ALLOW_PRIVATE_IPS|PRIVATE_HOST_ALLOWLIST|.*_MAX_TOKENS|.*_TOKEN_EXPIRE_.*|TLS_(CERT|KEY)_PATH)$")
+plain = re.compile(r"(?i)^(true|false|yes|no|on|off|-?[0-9]+(\.[0-9]+)?)$")
 cred_url = re.compile(r"(://[^/\s:@]+:)[^@\s/]+@")
 def clean(name, value):
     if not isinstance(value, str):
         return value
-    if secret_name.search(name or ""):
+    if secret_name.search(name or "") and not not_secret.match(name or "") and not plain.match(value):
         return "***" if value else value
     return cred_url.sub(r"\1***@", value)
 def walk(node, name=None):
@@ -193,6 +198,23 @@ cmd_host() {
   echo "kernel OOM kills (this boot):"; journalctl -k -b --no-pager -q 2>/dev/null | grep -i 'killed process' | tail -n 10 | sed 's/^/  /' || true
 }
 
+cmd_disk() {
+  df -h "$VERTEX_DIR" /var/lib/docker 2>/dev/null | awk 'NR == 1 || !seen[$1]++'
+  echo
+  echo "checkout $VERTEX_DIR: $(du -sh "$VERTEX_DIR" 2>/dev/null | cut -f1) total"
+  du -xh --max-depth=1 "$VERTEX_DIR" 2>/dev/null | sort -rh | head -n 15 | sed 's/^/  /'
+  echo
+  echo "untracked or ignored in the checkout (largest first; .env and config are expected):"
+  git -c safe.directory="$VERTEX_DIR" -C "$VERTEX_DIR" status --porcelain --ignored --untracked-files=normal \
+    | sed -n 's/^\(!!\|??\) //p' | while read -r p; do du -sh "$VERTEX_DIR/$p" 2>/dev/null; done | sort -rh | head -n 25 | sed 's/^/  /'
+  echo
+  docker system df -v | redact
+}
+
+cmd_deploys() {
+  if [[ -f /var/lib/vertex-deploy/history ]]; then tail -n 30 /var/lib/vertex-deploy/history; else echo "no deploys yet"; fi
+}
+
 cmd_report() {
   for section in status stats git host health; do
     echo "===== $section ====="
@@ -222,6 +244,8 @@ case $command in
   images)   cmd_images ;;
   health)   cmd_health ;;
   host)     cmd_host ;;
+  disk)     cmd_disk ;;
+  deploys)  cmd_deploys ;;
   report)   cmd_report ;;
   *) die "unknown command '$command' (try: help)" ;;
 esac

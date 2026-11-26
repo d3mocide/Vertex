@@ -123,6 +123,15 @@ Building from source still works exactly as before (`docker compose build` or `u
 
 The frontend's `VITE_*` settings are read when its container starts, so the published frontend image honours your `.env` without a rebuild.
 
+### Remote inspection and deploys (optional)
+
+`scripts/ops/` holds two commands meant for SSH keys locked to them with a forced command, each installed as a root-owned copy in `/usr/local/bin` with a matching sudoers rule (see the header of each script):
+
+- `vertex-ro`: read-only. Status and the commit each container runs, resource use, logs and errors with credentials masked, the compose config with secrets replaced, `.env` key names, git state, disk use, health.
+- `vertex-deploy`: `deploy <commit>` (a commit on `main` whose images CI published: it pulls everything first, updates `VERTEX_IMAGE_TAG`, recreates, waits for health and rolls back on failure), `rollback`, `restart <service>`, `prune`, `history`. It never builds on the server.
+
+Give each its own user and key, so read access never implies deploy access.
+
 ## Development Validation
 
 Common validation commands for local changes:

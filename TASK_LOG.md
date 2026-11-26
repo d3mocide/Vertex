@@ -5,6 +5,14 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 
 ---
 
+## 2026-11-26 — Deploy key command, vertex-ro disk/deploys, dev .env parity
+
+- **`scripts/ops/vertex-deploy`** (forced-command key, own server user): `deploy <commit>` accepts only commits on `origin/main` whose `sha-<7>` images exist; checks out as the checkout's owner (`checkout -B main`), refuses local edits to tracked files, pulls and verifies every app image before changing anything (compose only *warns* when a buildable service's pull fails), rewrites `VERTEX_IMAGE_TAG` atomically (owner and mode kept), `up -d --no-build --pull never`, waits for health, and restores the previous commit + tag if anything is unhealthy or a previously running service stopped. Also `rollback`, `restart`, `prune`, `history`; one at a time (flock); history in `/var/lib/vertex-deploy/history`. Tested end to end against a local registry and scratch origin: ok deploy, unpublished commit (nothing changed), unhealthy commit (rolled back), unknown / off-main / dirty checkout / injection refused, rollback, `.env` untouched otherwise.
+- **`vertex-ro`**: `disk` (checkout breakdown, untracked/ignored files by size, `docker system df -v`) and `deploys`. Secret masking no longer hides switches, numbers and known non-secret names (`ALLOW_PRIVATE_IPS`, `PRIVATE_HOST_ALLOWLIST`, `*_MAX_TOKENS`, `*_TOKEN_EXPIRE_*`, TLS paths).
+- Production now runs the published `sha-dc0ad14` images for every app service, matching its checkout (before: a mix of Oct 28 and Nov 13 local builds). A local dev `.env` was generated from production's settings with its own database/Redis/auth secrets and API keys left blank (not committed).
+- Seen on production after the switch: aisstream.io handshake timeouts (reproduced from a second network, upstream), APRS first-server login rejection (recovers on the next server), a Blitzortung server with a mismatched certificate (rotates away).
+
+
 ## 2026-11-26 — Prebuilt GHCR images, runtime frontend settings, read-only ops access
 
 - **Images** (`.github/workflows/images.yml`): `vertex-{backend,poller,frontend,transcription}` for linux/amd64 + linux/arm64 on native runners, merged per service into one tag, published to GHCR only after Tests passes on `main` (`workflow_run`), tagged `sha-<commit>` + `latest` (and semver on `v*` tags). Provenance (max) and SBOM attestations; revision label = the tested commit. Trivy scan per image to code scanning, report-only (lock audits remain the gate). Actions pinned by SHA; trivy-action v0.36.0 is a post-incident (March 2026) release, Trivy binary pinned to v0.76.1. `actionlint` clean.
