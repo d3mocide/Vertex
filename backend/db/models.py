@@ -42,7 +42,9 @@ class Entity(Base):
     identity: Mapped[Optional[dict]] = mapped_column(JSON)
     tags: Mapped[Optional[list]] = mapped_column(JSON)
     first_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True))
-    last_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    # Not indexed on purpose: it changes on almost every write, and an index on it would stop those updates being
+    # done in place (see db/init/01_schema.sql). The poller sets fillfactor 70 on this table.
+    last_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     region_id: Mapped[Optional[str]] = mapped_column(String(64), nullable=True, index=True)
 
     observations: Mapped[list["Observation"]] = relationship(back_populates="entity")
@@ -283,7 +285,7 @@ class P25Recording(Base):
     call_id: Mapped[str] = mapped_column(String(64), index=True)
     tgid: Mapped[int] = mapped_column(index=True)
     tag: Mapped[str] = mapped_column(String(128), default="")
-    file_path: Mapped[str] = mapped_column(String(512))
+    file_path: Mapped[str] = mapped_column(String(512), index=True)
     started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
     ended_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     duration_s: Mapped[Optional[float]] = mapped_column(Float, nullable=True)

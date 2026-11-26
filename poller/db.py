@@ -47,9 +47,13 @@ _OBS_HEARTBEAT = 3600.0
 _last_obs_state: dict[str, tuple[float, tuple]] = {}
 
 
-# Throttle entities table upsert to avoid continuous DB writes for active entities.
-_ENTITY_MIN_INTERVAL = 15.0
+# Throttle the entities row upsert: an active entity's row is rewritten at most once a minute (its last_seen; the
+# live position lives in Redis and observations). Every rewrite is a new row version in Postgres, so at 15 s the
+# table took ~18M updates in a fortnight. Nothing reads last_seen more finely than "the last 10 minutes".
+# A new entity or a changed display name is written at once.
+_ENTITY_MIN_INTERVAL = 60.0
 _last_entity_write_ts: dict[str, float] = {}
+_last_entity_name: dict[str, str | None] = {}
 
 
 def get_pool() -> asyncpg.Pool:
@@ -143,7 +147,38 @@ async def init_db():
                 END IF;
             END $$
         """)
+        await _tune_entities_table(conn)
     logger.info("DB pool initialized")
+
+
+async def _tune_entities_table(conn) -> None:
+    """Let entity row updates happen in place (HOT): drop the last_seen index and leave free space on each page.
+
+    Every entity update changed last_seen, which was indexed, so each one wrote a new entry into all five indexes:
+    18M updates in a fortnight left a 12 MB table with 210 MB of indexes. The one-time VACUUM FULL rewrites the table
+    and its indexes compactly at the new fillfactor (a second or two on a typical install); it runs once, when the
+    fillfactor is first set.
+    """
+    try:
+        options = await conn.fetchval("SELECT reloptions FROM pg_class WHERE oid = 'entities'::regclass") or []
+        if "fillfactor=70" in options:
+            return
+        async with conn.transaction():
+            await conn.execute("SET LOCAL lock_timeout = '10s'")
+            await conn.execute("DROP INDEX IF EXISTS ix_entities_last_seen")
+            await conn.execute("ALTER TABLE entities SET (fillfactor = 70)")
+        await conn.execute("SET lock_timeout = '30s'")
+        try:
+            await conn.execute("VACUUM FULL entities")
+        except Exception:
+            # Unset the marker so the next start tries the compaction again.
+            await conn.execute("ALTER TABLE entities RESET (fillfactor)")
+            raise
+        finally:
+            await conn.execute("RESET lock_timeout")
+        logger.info("[db] entities table compacted for in-place updates")
+    except Exception as exc:
+        logger.warning("[db] could not tune the entities table (will retry at next start): %s", exc)
 
 
 async def open_pool(min_size: int = 1, max_size: int = 3):
@@ -200,22 +235,17 @@ async def write_entity_observation(entity: dict, record_observation: bool = True
         lon = None
         record_observation = False
 
-    # Determine if we should update the entity row
-    should_write_entity = False
-    last_write = _last_entity_write_ts.get(entity_id_key, 0.0)
-    if now_ts - last_write >= _ENTITY_MIN_INTERVAL:
-        should_write_entity = True
-    else:
-        # If critical display or identity metadata changed, update immediately
-        from bus import _entity_cache
-        prev_entry = _entity_cache.get(entity_id_key)
-        prev = prev_entry[1] if prev_entry else None
-        if prev and (prev.get("display_name") != entity.get("display_name") or prev.get("identity") != entity.get("identity")):
-            should_write_entity = True
+    # Write the entity row when it is due, new, or renamed; identity and tag changes ride along with the next write.
+    display_name = entity.get("display_name")
+    should_write_entity = (
+        now_ts - _last_entity_write_ts.get(entity_id_key, 0.0) >= _ENTITY_MIN_INTERVAL
+        or _last_entity_name.get(entity_id_key, display_name) != display_name
+    )
 
     async with _pool.acquire() as conn:
         if should_write_entity:
             _last_entity_write_ts[entity_id_key] = now_ts
+            _last_entity_name[entity_id_key] = display_name
             await conn.execute(
                 """
                 INSERT INTO entities

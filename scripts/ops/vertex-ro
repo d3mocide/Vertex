@@ -343,6 +343,16 @@ cmd_db() {
   echo "== database"
   psql_ "SELECT pg_size_pretty(pg_database_size(current_database())) AS size, xact_commit AS commits, blks_read, blks_hit, tup_inserted, tup_updated, tup_deleted, temp_bytes, stats_reset::timestamp(0) FROM pg_stat_database WHERE datname = current_database()"
   psql_ "SELECT name, setting, unit FROM pg_settings WHERE name IN ('shared_buffers','work_mem','wal_level','max_wal_size','checkpoint_timeout','synchronous_commit','autovacuum','wal_compression')"
+  echo "== WAL and checkpoints since stats reset (fpi = whole pages written after a checkpoint)"
+  psql_ "SELECT wal_records, wal_fpi, pg_size_pretty(wal_bytes) AS wal, wal_sync, stats_reset::timestamp(0) FROM pg_stat_wal"
+  psql_ "SELECT checkpoints_timed AS timed, checkpoints_req AS requested, pg_size_pretty(buffers_checkpoint * 8192::numeric) AS checkpoint_writes, pg_size_pretty(buffers_backend * 8192::numeric) AS backend_writes FROM pg_stat_bgwriter"
+  echo "== WAL written over 30 s"
+  local lsn
+  lsn=$(psql_ "SELECT pg_current_wal_lsn()" | sed -n '3p' | tr -d ' ')
+  if [[ $lsn =~ ^[0-9A-F]+/[0-9A-F]+$ ]]; then
+    sleep 30
+    psql_ "SELECT pg_size_pretty(pg_wal_lsn_diff(pg_current_wal_lsn(), '$lsn')) AS per_30s, pg_size_pretty(pg_wal_lsn_diff(pg_current_wal_lsn(), '$lsn') * 2880) AS per_day_at_this_rate"
+  fi
   echo "== connections"
   psql_ "SELECT coalesce(nullif(application_name, ''), '(none)') AS app, state, count(*) FROM pg_stat_activity WHERE datname = current_database() GROUP BY 1, 2 ORDER BY 3 DESC"
   echo "== slowest statements (pg_stat_statements)"

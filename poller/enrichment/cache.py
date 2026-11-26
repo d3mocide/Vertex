@@ -69,6 +69,16 @@ class CachedLookup(Generic[T]):
         self._throttle = throttle
         self._entries: dict[str, CacheEntry[T]] = {}
         self._inflight: dict[str, asyncio.Task[T | None]] = {}
+        # Bumped whenever an entry is stored, so a saver can tell whether there is anything new to write.
+        self.version = 0
+
+    def store(self, key: str, value: T | None):
+        """Cache a value (None is a negative result) and count the change."""
+        ttl = self._negative_ttl if value is None else self._positive_ttl
+        self._entries[key] = CacheEntry(data=value, expires_at=time.time() + ttl)
+        self.version += 1
+        if len(self._entries) > self._max_size:
+            self._prune_expired()
 
     def export_entries(self) -> dict[str, dict]:
         now = time.time()
@@ -136,26 +146,82 @@ class CachedLookup(Generic[T]):
             logger.warning("[enrichment] rate-limited for %s; serving stale if available", key)
             if stale_fallback is not None:
                 return stale_fallback
-            self._entries[key] = CacheEntry(data=None, expires_at=time.time() + self._negative_ttl)
+            self.store(key, None)
             return None
         except Exception as exc:
             logger.warning("[enrichment] fetch failed for %s: %s", key, exc)
             if stale_fallback is not None:
                 return stale_fallback
-            self._entries[key] = CacheEntry(data=None, expires_at=time.time() + self._negative_ttl)
+            self.store(key, None)
             return None
 
-        ttl = self._positive_ttl if value is not None else self._negative_ttl
-        self._entries[key] = CacheEntry(data=value, expires_at=time.time() + ttl)
-
-        if len(self._entries) > self._max_size:
-            self._prune_expired()
+        self.store(key, value)
 
         return value
 
     def _prune_expired(self):
         now = time.time()
         self._entries = {k: v for k, v in self._entries.items() if v.is_fresh(now)}
+
+
+class DebouncedCacheSaver:
+    """Writes a cache file only when its lookups changed, and at most once per `min_interval` seconds.
+
+    Every write re-serialises and gzips the whole cache, so saving after each lookup (hits included) cost CPU on
+    the event loop and rewrote the file constantly. The write runs in a worker thread; `flush()` writes
+    synchronously, for shutdown.
+    """
+
+    def __init__(self, path: str, build_payload: Callable[[], dict], lookups: list[CachedLookup],
+                 min_interval: float = 300.0):
+        self._path = path
+        self._build = build_payload
+        self._lookups = lookups
+        self._min_interval = min_interval
+        self._saved_version = self._version()
+        self._last_save = time.time()
+        self._writing: asyncio.Future | None = None
+
+    def _version(self) -> int:
+        return sum(lookup.version for lookup in self._lookups)
+
+    @property
+    def dirty(self) -> bool:
+        return self._version() != self._saved_version
+
+    def maybe_save(self, now: float | None = None) -> bool:
+        """Start a background write if something changed and the interval has passed. True when one started."""
+        now = time.time() if now is None else now
+        if not self.dirty or now - self._last_save < self._min_interval:
+            return False
+        if self._writing is not None and not self._writing.done():
+            return False
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            self.flush()
+            return True
+        version, payload = self._version(), self._build()
+        self._last_save = now
+        self._saved_version = version
+        self._writing = loop.run_in_executor(None, _save_logged, self._path, payload)
+        return True
+
+    def flush(self) -> None:
+        """Write now if anything changed since the last save."""
+        if not self.dirty:
+            return
+        version, payload = self._version(), self._build()
+        _save_logged(self._path, payload)
+        self._last_save = time.time()
+        self._saved_version = version
+
+
+def _save_logged(path: str, payload: dict) -> None:
+    try:
+        save_gzip_json(path, payload)
+    except Exception as exc:
+        logger.warning("[enrichment] failed to save cache %s: %s", path, exc)
 
 
 def save_gzip_json(path: str, payload: dict):

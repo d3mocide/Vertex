@@ -454,6 +454,7 @@ class AdsbPoller(BasePoller):
         # Flush any un-persisted enrichment cache entries accumulated since the
         # last batch write so they survive the restart.
         self._adsbdb.flush()
+        self._metar.flush()
 
     def _seed_decoder_reference(self, icao: str, entity: dict) -> None:
         """Feed another source's position into the BEAST decoder as a CPR reference.

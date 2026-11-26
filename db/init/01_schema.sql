@@ -15,11 +15,13 @@ CREATE TABLE IF NOT EXISTS entities (
     tags         JSONB,
     first_seen   TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
     last_seen    TIMESTAMPTZ  NOT NULL DEFAULT NOW()
-);
+) WITH (fillfactor = 70);
 
+-- last_seen changes on nearly every write, so it is deliberately not indexed: with no indexed column changing and
+-- free space left on each page (fillfactor), Postgres updates the row in place (a HOT update) instead of writing a
+-- new entry into every index. The table is small enough that filtering on last_seen reads it quickly anyway.
 CREATE INDEX IF NOT EXISTS ix_entities_type     ON entities (entity_type);
 CREATE INDEX IF NOT EXISTS ix_entities_source   ON entities (source);
-CREATE INDEX IF NOT EXISTS ix_entities_last_seen ON entities (last_seen DESC);
 
 -- -------------------------------------------------------------------------
 -- observations: time-series position/state updates per entity

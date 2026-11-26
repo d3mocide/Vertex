@@ -45,10 +45,13 @@ import db  # noqa: E402
 
 class _FakeConn:
     inserts = 0
+    entity_writes = 0
 
     async def execute(self, sql, *args, **kwargs):
         if "INSERT INTO observations" in sql:
             _FakeConn.inserts += 1
+        if "INSERT INTO entities" in sql:
+            _FakeConn.entity_writes += 1
         return "INSERT 0 1"
 
     async def fetch(self, *args, **kwargs):
@@ -75,9 +78,11 @@ class _FakePool:
 def _reset_state():
     bus._entity_cache.clear()
     db._last_entity_write_ts.clear()
+    db._last_entity_name.clear()
     db._last_obs_ts.clear()
     db._last_obs_state.clear()
     _FakeConn.inserts = 0
+    _FakeConn.entity_writes = 0
     db._pool = _FakePool()
     yield
     db._pool = None
@@ -103,6 +108,29 @@ async def test_write_entity_observation_handles_tuple_cache_entry():
 
     # Previously raised AttributeError: 'tuple' object has no attribute 'get'
     await db.write_entity_observation(new_entity, record_observation=False, sanitized=True)
+
+
+@pytest.mark.asyncio
+async def test_entity_row_written_once_per_interval_unless_new_or_renamed():
+    ac = {"entity_id": "aircraft:abc123", "entity_type": "aircraft", "source": "adsb",
+          "display_name": "N1", "identity": {"squawk": "1200"}}
+    await db.write_entity_observation(ac, record_observation=False, sanitized=True)
+    assert _FakeConn.entity_writes == 1                      # new entity: written at once
+
+    # Position and identity churn inside the interval do not rewrite the row.
+    for squawk in ("1201", "1202", "1203"):
+        await db.write_entity_observation(dict(ac, identity={"squawk": squawk}), record_observation=False,
+                                          sanitized=True)
+    assert _FakeConn.entity_writes == 1
+
+    # A new display name is written straight away.
+    await db.write_entity_observation(dict(ac, display_name="UAL12"), record_observation=False, sanitized=True)
+    assert _FakeConn.entity_writes == 2
+
+    # Once the interval has passed, the next update writes last_seen again.
+    db._last_entity_write_ts[ac["entity_id"]] -= db._ENTITY_MIN_INTERVAL + 1
+    await db.write_entity_observation(dict(ac, display_name="UAL12"), record_observation=False, sanitized=True)
+    assert _FakeConn.entity_writes == 3
 
 
 def _gauge(**over):
