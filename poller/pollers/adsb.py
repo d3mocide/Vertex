@@ -82,6 +82,9 @@ class AdsbPoller(BasePoller):
         self._airports_db = AirportsDb()
         self._airlines_db = AirlinesDb()
         self._navaids_db = NavaidsDb()
+        # Airport reference data (and the navaid nearest each airport) never changes while the poller runs, but it was
+        # rebuilt for every routed aircraft on every snapshot: a scan of every navaid each time.
+        self._airport_ref_cache: dict[str, dict | None] = {}
         self._tick_count: int = 0
         self._last_source_refresh: float = 0.0
 
@@ -1111,9 +1114,22 @@ class AdsbPoller(BasePoller):
 
         return None
 
+    _AIRPORT_REF_CACHE_MAX = 4096
+
     def _airport_reference(self, code: str | None) -> dict | None:
+        """Reference data for a 4-letter airport code, built once per code. Each call returns a fresh copy, because
+        callers add fields (metar) to what they get back."""
         if not isinstance(code, str) or len(code) != 4:
             return None
+        cache = self._airport_ref_cache
+        if code not in cache:
+            if len(cache) >= self._AIRPORT_REF_CACHE_MAX:
+                cache.clear()
+            cache[code] = self._build_airport_reference(code)
+        cached = cache[code]
+        return dict(cached) if cached else None
+
+    def _build_airport_reference(self, code: str) -> dict | None:
         airport_info = self._airports_db.lookup(code)
         if not airport_info:
             return None
