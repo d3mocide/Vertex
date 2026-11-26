@@ -5,6 +5,14 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 
 ---
 
+## 2026-11-26 — vertex-ro diagnostics (top, redis, db); masking and deploy pre-check fixes
+
+- `vertex-ro top`: processes per container with CPU/memory. `vertex-ro redis`: commandstats by total time, net/memory/keyspace stats, a 5 s `MONITOR` sample summarised by client service, command and key pattern (sizes and counts only, hex/number ids in key names replaced, AUTH arrives already redacted), an estimated read volume (reads x `MEMORY USAGE` of one key per pattern), and `--bigkeys`. `vertex-ro db`: largest tables, write activity per table, database totals and key settings, connections by app/state, and `pg_stat_statements` when enabled. All fixed, read-only commands run inside the containers with their own credentials. Tested against a local db/redis.
+- Masking: numbers under secret-looking names are masked again (a passcode or PIN is a number); only on/off switches are shown.
+- `vertex-deploy`: refuses up front, with the fix, when `.git` has files the checkout owner does not own (left by `sudo git`), instead of a raw `fatal:` half way; a failed `git fetch` is reported cleanly.
+- Production baseline that prompted this: poller ~50% of its 1-CPU limit right after a restart and ~17 MB/min each way on the network (Redis moved ~270 GB out in two weeks); Postgres ~21 GB/day of block writes.
+
+
 ## 2026-11-26 — Deploy key command, vertex-ro disk/deploys, dev .env parity
 
 - **`scripts/ops/vertex-deploy`** (forced-command key, own server user): `deploy <commit>` accepts only commits on `origin/main` whose `sha-<7>` images exist; checks out as the checkout's owner (`checkout -B main`), refuses local edits to tracked files, pulls and verifies every app image before changing anything (compose only *warns* when a buildable service's pull fails), rewrites `VERTEX_IMAGE_TAG` atomically (owner and mode kept), `up -d --no-build --pull never`, waits for health, and restores the previous commit + tag if anything is unhealthy or a previously running service stopped. Also `rollback`, `restart`, `prune`, `history`; one at a time (flock); history in `/var/lib/vertex-deploy/history`. Tested end to end against a local registry and scratch origin: ok deploy, unpublished commit (nothing changed), unhealthy commit (rolled back), unknown / off-main / dirty checkout / injection refused, rollback, `.env` untouched otherwise.
