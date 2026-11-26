@@ -5,6 +5,13 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 
 ---
 
+## 2026-11-26 — vertex-ro profile: py-spy on production, pinned by hash
+
+- `vertex-ro profile <service> [seconds]` samples a Python service with py-spy (10-120 s, 50 Hz, `--subprocesses`, non-blocking) from a throwaway container of the service's own image that shares only its PID namespace (SYS_PTRACE). The wheel is pinned (`py-spy==0.4.1`, sha256 for x86_64 and aarch64, `--require-hashes --only-binary`; no OSV advisories). Output is summarised per process (innermost `process N:` frame), with inclusive and self time as a share of one core; non-Python services say so.
+- Why: after deploying the airport-lookup fix, production's poller read 68.8% five minutes after the restart (vs 45.1% on a poller up about an hour), so startup work and steady state need telling apart on the real workload; the local stack lacks production's database-configured sources.
+- Reaches production through the deploy self-update; no manual install.
+
+
 ## 2026-11-26 — Ops scripts update themselves; .git ownership kept intact
 
 - Root cause of `.git/index` turning root-owned again after the manual `chown`: `vertex-ro git` / `disk` ran `git status` as root, and a plain `git status` refreshes and rewrites the index (reproduced; with `GIT_OPTIONAL_LOCKS=0` it does not). `vertex-ro` now runs git as the checkout's owner (with their HOME) and without optional locks.

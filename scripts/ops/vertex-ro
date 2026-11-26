@@ -88,6 +88,7 @@ vertex-ro commands (all read-only):
   top                 processes inside each container with their CPU and memory
   redis               Redis load: commands, memory, biggest keys, and a 5 s traffic sample by client and key pattern
   db                  Postgres: table sizes, write activity per table, connections, slowest statements (if tracked)
+  profile <svc> [s]   sample a Python service's CPU with py-spy for s seconds (10-120, default 30) and summarise it
   host                load, memory, disk, Docker disk use, kernel and uptime
   report              status + stats + git + host + health in one go
 EOF
@@ -349,6 +350,72 @@ cmd_db() {
     || echo "(pg_stat_statements is not enabled)"
 }
 
+# py-spy runs in a throwaway container from the service's own image, sharing only its PID namespace, with ptrace. The
+# wheel is pinned by version and sha256 (both architectures), so nothing unverified ever attaches to a production process.
+PYSPY_REQ='py-spy==0.4.1 \
+  --hash=sha256:6a80ec05eb8a6883863a367c6a4d4f2d57de68466f7956b6367d4edd5c61bb29 \
+  --hash=sha256:ee776b9d512a011d1ad3907ed53ae32ce2f3d9ff3e1782236554e22103b5c084'
+
+cmd_profile() {
+  local svc=${1:-} secs=${2:-30} id image
+  [[ -n $svc ]] || die "usage: profile <service> [seconds]"
+  valid_service "$svc" || die "unknown service: $svc"
+  if ! [[ $secs =~ ^[0-9]{2,3}$ ]] || (( secs < 10 || secs > 120 )); then die "seconds must be 10-120"; fi
+  id=$(compose ps -q "$svc" | head -n 1)
+  [[ -n $id ]] || die "$svc is not running"
+  image=$(docker inspect -f '{{ .Image }}' "$id")
+  docker run --rm --pid="container:$id" --cap-add SYS_PTRACE --entrypoint sh --user 0 \
+    -e PYSPY_REQ="$PYSPY_REQ" -e SECS="$secs" "$image" -c '
+      set -e
+      printf "%s\n" "$PYSPY_REQ" > /tmp/req.txt
+      pip install -q --no-cache-dir --disable-pip-version-check --root-user-action=ignore --require-hashes \
+        --only-binary :all: --target /tmp/pyspy -r /tmp/req.txt >/dev/null 2>&1 || { echo "py-spy install failed" >&2; exit 3; }
+      /tmp/pyspy/bin/py-spy record --pid 1 --subprocesses --duration "$SECS" --rate 50 --nonblocking \
+        --format raw --output /tmp/profile.txt >/dev/null 2>&1 || { echo "py-spy record failed" >&2; exit 4; }
+      cat /tmp/profile.txt' \
+  | SECS="$secs" python3 -I -c '
+import collections, os, re, sys
+secs = int(os.environ["SECS"]); rate = 50
+per_proc = collections.Counter(); incl = collections.defaultdict(collections.Counter); self_ = collections.defaultdict(collections.Counter)
+def frame(f):
+    m = re.match(r"(.*?) \((?:/app/|/usr/local/lib/python3\.\d+/(?:site-packages/)?)?([^:)]*)(?::\d+)?\)", f)
+    return f"{m[1]} ({m[2]})" if m else f
+for line in sys.stdin:
+    line = line.rstrip()
+    if not line or " " not in line: continue
+    stack, n = line.rsplit(" ", 1)
+    try: n = int(n)
+    except ValueError: continue
+    parts = stack.split(";")
+    # With --subprocesses each process appears as a "process N:<cmdline>" frame under its parent; label the samples
+    # with the innermost one.
+    marks = [i for i, f in enumerate(parts) if re.match(r"process \d+:", f)]
+    if marks:
+        proc = re.sub(r"^process \d+:", "", parts[marks[-1]]).strip("\"").strip()
+        proc = re.sub(r"from multiprocessing\.(\w+) import .*", r"multiprocessing \1 worker", proc)[:70]
+        frames = [frame(f) for f in parts[marks[-1] + 1:] if f]
+    else:
+        proc, frames = "?", [frame(f) for f in parts if f]
+    per_proc[proc] += n
+    for f in set(frames): incl[proc][f] += n
+    if frames: self_[proc][frames[-1]] += n
+def pct(n): return f"{n / rate / secs * 100:5.1f}%"
+if not per_proc:
+    print("no samples: py-spy could not attach (is this a Python service?)"); sys.exit(1)
+print(f"CPU over {secs} s, as % of one core (sampled at {rate} Hz):")
+for proc, n in per_proc.most_common():
+    print(f"\n== {pct(n)}  {proc}")
+    print("   inclusive (time in this function and what it calls):")
+    shown = 0
+    for f, c in incl[proc].most_common():
+        if f.startswith(("<module>", "run (asyncio", "run_forever", "_run_once", "_run (asyncio", "run_until_complete")): continue
+        print(f"   {pct(c)}  {f[:110]}"); shown += 1
+        if shown >= 20: break
+    print("   self (time in the function itself):")
+    for f, c in self_[proc].most_common(10): print(f"   {pct(c)}  {f[:110]}")
+'
+}
+
 cmd_deploys() {
   if [[ -f /var/lib/vertex-deploy/history ]]; then tail -n 30 /var/lib/vertex-deploy/history; else echo "no deploys yet"; fi
 }
@@ -387,6 +454,7 @@ case $command in
   top)      cmd_top ;;
   redis)    cmd_redis ;;
   db)       cmd_db ;;
+  profile)  cmd_profile "${args[@]}" ;;
   report)   cmd_report ;;
   *) die "unknown command '$command' (try: help)" ;;
 esac
