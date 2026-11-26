@@ -105,9 +105,18 @@ running_services() { compose ps --status running --format '{{.Service}}' | sort 
 
 checkout() { git_ checkout -q -B main "$1"; }
 
+# Files in .git that the owner cannot write (left by a `sudo git ...`) make every git step fail half way.
+check_checkout() {
+  local foreign
+  foreign=$(find "$VERTEX_DIR/.git" ! -user "$OWNER" -print -quit 2>/dev/null)
+  [[ -z $foreign ]] || die "files in $VERTEX_DIR/.git are not owned by $OWNER (e.g. ${foreign#"$VERTEX_DIR"/}); nothing changed.
+  Fix on the server: sudo chown -R $OWNER: $VERTEX_DIR && sudo chmod 600 $VERTEX_DIR/.env   (and never run git there with sudo)"
+}
+
 do_deploy() {
   local want=$1 full short tag prev_commit prev_tag running
-  git_ fetch -q origin main
+  check_checkout
+  git_ fetch -q origin main || die "git fetch failed; nothing changed"
   full=$(git_ rev-parse --verify -q "${want}^{commit}") || die "unknown commit: $want"
   git_ merge-base --is-ancestor "$full" origin/main || die "$want is not on origin/main"
   [[ -z $(git_ status --porcelain --untracked-files=no) ]] || die "the checkout has local changes to tracked files; refusing"
