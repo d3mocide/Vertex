@@ -255,6 +255,10 @@ export interface WeatherAlert {
   /** The NWS feed already had it when the radio alert first appeared. */
   nwr_cap_first?:   boolean
   test?:            boolean
+  /** Weather Radio alert id (Tocsin). */
+  nwr_id?:          string
+  /** When the alert took effect (or was first heard on Weather Radio). */
+  effective?:       string
 }
 
 export interface WeatherState {

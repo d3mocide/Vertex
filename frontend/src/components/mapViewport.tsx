@@ -74,11 +74,15 @@ export function useMapSlot(ref: RefObject<HTMLDivElement | null>, active: boolea
     publish()
     const ro = new ResizeObserver(schedule)
     ro.observe(el)
+    // The slot also moves without resizing when content above it grows (data arriving in the KPI row);
+    // a ResizeObserver does not see that, so re-measure on a light timer too.
+    const poll = setInterval(publish, 400)
     window.addEventListener('resize', schedule)
     window.addEventListener('scroll', schedule, true)
 
     return () => {
       if (rafId) cancelAnimationFrame(rafId)
+      clearInterval(poll)
       ro.disconnect()
       window.removeEventListener('resize', schedule)
       window.removeEventListener('scroll', schedule, true)
@@ -111,6 +115,11 @@ export function useSyncMapResize(dep: unknown): void {
     const id = requestAnimationFrame(() => {
       getDevMap()?.resize()
     })
-    return () => cancelAnimationFrame(id)
+    // Animation frames pause in background tabs (a wall display behind another window); resize anyway.
+    const late = setTimeout(() => getDevMap()?.resize(), 300)
+    return () => {
+      cancelAnimationFrame(id)
+      clearTimeout(late)
+    }
   }, [dep])
 }

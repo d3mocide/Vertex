@@ -2,8 +2,6 @@ import { useEffect, useRef, useState } from 'react'
 import { useCivicPick } from '../../store'
 import type { SummaryPosture } from '../../storeTypes'
 import { regionInfo } from '../../config'
-import { roleMeta } from '../../aircraftRoles'
-import { CATEGORY } from './RadioIncidents'
 import { flyMapTo, useMapSlot } from '../mapViewport'
 import {
   formatRelativeAge,
@@ -11,6 +9,9 @@ import {
   useNearestMetar,
   useRecentP25Calls,
 } from './dashboard/useDashboardData'
+import { useDashboardHistory, useForecast } from './dashboard/feeds'
+import { GlassCard } from './dashboard/ui'
+import { BriefingView, ForecastView, KpiTile, SituationCounts, SituationList } from './dashboard/sections'
 
 function postureWallClass(posture: SummaryPosture): string {
   if (posture === 'HIGH') return 'border-red-emergency bg-red-emergency/20 text-red-emergency shadow-red-glow'
@@ -30,9 +31,8 @@ export function WallDisplay() {
   const mapSlotRef = useRef<HTMLDivElement | null>(null)
   useMapSlot(mapSlotRef, true)
 
-  const { setWallMode, selectEntity, radarVisible, setRadarVisible } = useCivicPick(
+  const { setWallMode, radarVisible, setRadarVisible } = useCivicPick(
     'setWallMode',
-    'selectEntity',
     'radarVisible',
     'setRadarVisible',
   )
@@ -40,6 +40,8 @@ export function WallDisplay() {
   const data = useDashboardData()
   const recentCalls = useRecentP25Calls(true)
   const metar = useNearestMetar(true)
+  const history = useDashboardHistory()
+  const forecast = useForecast()
 
   const [clock, setClock] = useState(() =>
     new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }),
@@ -65,8 +67,10 @@ export function WallDisplay() {
     ? (data.radio?.tag || (data.radio?.tgid ? `TG ${data.radio.tgid}` : 'LIVE TRANSMISSION'))
     : (latestCall?.tag || (latestCall ? `TG ${latestCall.tgid}` : 'P25 STANDBY'))
 
-  const airTiles = data.notableAir.slice(0, 2)
-  const seaTiles = data.notableVessels.slice(0, 2)
+  const s = history?.series
+  const t = history?.totals
+  const callsThisHour = s ? s.radio_call[s.radio_call.length - 1] ?? null : null
+  const life = data.situation.filter((i) => i.tone === 'red').length
   const regionLabel = regionInfo.name ? `${regionInfo.name.toUpperCase()} SECTOR` : 'SITUATIONAL AWARENESS'
 
   return (
@@ -76,7 +80,12 @@ export function WallDisplay() {
       aria-label="Wall display mode"
     >
       {/* Top Telemetry Bar */}
-      <header className="pointer-events-auto shrink-0 bg-onyx-deep border-b border-amber-gold/40 px-4 py-2.5 flex items-center justify-between gap-4">
+      <header className="relative pointer-events-auto shrink-0 bg-white/3 backdrop-blur-md border-b border-white/6 shadow-[0_4px_30px_rgba(0,0,0,0.5)] px-4 py-2.5 flex items-center justify-between gap-4">
+        <div
+          className="absolute left-0 right-0 -bottom-px h-px pointer-events-none"
+          style={{ background: 'linear-gradient(90deg, transparent, #FFB800 20%, #FFB800 80%, transparent)', opacity: 0.35 }}
+          aria-hidden="true"
+        />
         <div className="flex items-center gap-3 min-w-0">
           {/* Canonical Scope mark — Direction 07 */}
           <svg width="28" height="28" viewBox="0 0 32 32" aria-hidden="true" className="shrink-0 text-white">
@@ -156,8 +165,8 @@ export function WallDisplay() {
       </header>
 
       {/* Main Zero-Scroll Ops Board */}
-      <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-[1.22fr_1fr] gap-3 p-3 pointer-events-none">
-        {/* LEFT: Large Live Tactical Map + High-Contrast P25 Transcript Banner */}
+      <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)] gap-3 p-3 pointer-events-none">
+        {/* LEFT: live map, the day in numbers, and the radio */}
         <div className="flex flex-col gap-3 min-h-0 pointer-events-none">
           <div
             ref={mapSlotRef}
@@ -170,31 +179,36 @@ export function WallDisplay() {
                 className={`pointer-events-auto px-2.5 py-1 font-mono text-[11px] font-bold uppercase tracking-wider border backdrop-blur-md ${
                   radarVisible
                     ? 'bg-amber-gold/20 border-amber-gold text-amber-gold'
-                    : 'bg-onyx-black/85 border-white/20 text-on-surface-variant'
+                    : 'bg-onyx-black/70 border-white/20 text-on-surface-variant'
                 }`}
               >
                 LIVE MAP · RADAR {radarVisible ? 'ON' : 'OFF'}
               </button>
-              <div className="pointer-events-auto px-2.5 py-1 bg-onyx-black/85 border border-white/20 backdrop-blur-md font-mono text-[11px] tracking-wider flex items-center gap-2.5">
-                <span className="text-cyan-adsb font-bold">AIR {data.totalAircraft}</span>
-                <span className="text-white/25">·</span>
-                <span className="text-green-ais font-bold">SEA {data.totalVessels}</span>
-                <span className="text-white/25">·</span>
-                <span className="text-lime-rf font-bold">MESH {data.meshNodeCount}</span>
+              <div className="pointer-events-auto px-2.5 py-1 bg-onyx-black/70 border border-white/20 backdrop-blur-md font-mono text-[11px] tracking-wider flex items-center gap-2">
                 <span
                   className={`w-2 h-2 rounded-full ${data.connected ? 'bg-green-ais animate-pulse' : 'bg-red-emergency'}`}
-                  title={data.connected ? 'WebSocket live' : 'Disconnected'}
+                  aria-hidden="true"
                 />
+                <span className={data.connected ? 'text-green-ais' : 'text-red-emergency'}>{data.connected ? 'LIVE' : 'OFFLINE'}</span>
               </div>
             </div>
           </div>
 
-          {/* High-Contrast Live P25 Transcript Banner */}
+          <div className="grid grid-cols-5 gap-3 shrink-0 pointer-events-none">
+            <KpiTile size="wall" icon="flight" label="Aircraft" colorClass="text-cyan-adsb" now={data.totalAircraft} total={t?.aircraft} series={s?.aircraft} />
+            <KpiTile size="wall" icon="sailing" label="Vessels" colorClass="text-green-ais" now={data.totalVessels} total={t?.vessel} series={s?.vessel} />
+            <KpiTile size="wall" icon="cell_tower" label="Radio calls" colorClass="text-amber-p25" now={callsThisHour ?? '—'} nowLabel="this hr" total={t?.radio_call} series={s?.radio_call} />
+            <KpiTile
+              size="wall" icon="emergency" label="Dispatch" colorClass={life > 0 ? 'text-red-emergency' : 'text-amber-gold'}
+              now={data.activeDispatch.length} nowLabel="active" total={t?.dispatch_incident} series={s?.dispatch_incident}
+            />
+            <KpiTile size="wall" icon="hub" label="Mesh" colorClass="text-lime-rf" now={data.meshNodeCount} nowLabel="nodes" total={t?.mesh_node} totalLabel="24H" series={s?.mesh_node} />
+          </div>
+
+          {/* High-contrast P25 transcript banner */}
           <section
-            className={`pointer-events-auto shrink-0 border p-3.5 ${
-              radioActive
-                ? 'border-amber-p25 bg-amber-p25/12'
-                : 'border-white/15 bg-onyx-deep/95'
+            className={`pointer-events-auto shrink-0 border backdrop-blur-md p-3.5 ${
+              radioActive ? 'border-amber-p25 bg-amber-p25/12' : 'border-white/10 bg-onyx-black/55'
             }`}
             aria-label="Live P25 radio transcript"
           >
@@ -227,190 +241,41 @@ export function WallDisplay() {
           </section>
         </div>
 
-        {/* RIGHT: 3 High-Contrast Zero-Scroll Blocks */}
+        {/* RIGHT: briefing, the situation board and the forecast */}
         <div className="flex flex-col gap-3 min-h-0 pointer-events-none">
-          {/* 1. Active Incidents */}
-          <section
-            className="pointer-events-auto bg-onyx-deep/95 border border-white/15 p-3.5 shrink-0"
-            aria-label="Active incidents"
+          <GlassCard
+            icon="psychology"
+            title="AI Briefing"
+            tone={data.posture === 'HIGH' ? 'red' : data.posture === 'ELEVATED' ? 'amber' : undefined}
+            className="shrink-0 max-h-[34%]"
+            bodyClass="overflow-hidden"
+            right={data.summary.ts ? <span className="font-mono text-[11px] text-on-surface-variant">{formatRelativeAge(data.summary.ts, data.nowMs)} AGO</span> : null}
           >
-            <div className="flex items-center justify-between gap-2 pb-2 mb-2.5 border-b border-white/10">
-              <h2 className="section-heading mb-0! text-[12px]!">ACTIVE INCIDENTS</h2>
-              <span className="font-mono text-[11px] text-amber-gold uppercase">
-                {data.activeDispatch.length} DISPATCH · {data.weatherAlerts.length} NWS
-              </span>
-            </div>
+            <BriefingView digest={data.briefing} ts={null} nowMs={data.nowMs} size="wall" maxPoints={2} />
+          </GlassCard>
 
-            {data.isQuiet ? (
-              <div className="px-3 py-3 border-l-4 border-l-green-ais bg-green-ais/10 font-mono text-[13px] font-bold text-green-ais uppercase">
-                ALL CLEAR — NO ACTIVE DISPATCH OR SEVERE WEATHER ALERTS
-              </div>
-            ) : (
-              <div className="stack-y-2">
-                {data.activeDispatch.slice(0, 2).map((inc) => (
-                  <button
-                    key={inc.id}
-                    type="button"
-                    onClick={() => {
-                      if (inc.lon != null && inc.lat != null) flyMapTo(inc.lon, inc.lat, 13)
-                    }}
-                    className={`w-full text-left px-3 py-2 border-l-4 transition-colors hover:bg-white/5 ${
-                      inc.severity >= 5
-                        ? 'border-l-red-emergency bg-red-emergency/15'
-                        : 'border-l-amber-gold bg-amber-gold/10'
-                    }`}
-                  >
-                    <div className="flex items-baseline justify-between gap-2">
-                      <span className="text-[14px] font-bold text-white truncate">
-                        {(inc.nature ?? CATEGORY[inc.category]?.label ?? 'Dispatch').toUpperCase()}
-                        {inc.location ? ` · ${inc.location}` : ''}
-                      </span>
-                      <span className={`font-mono text-[11px] font-bold shrink-0 ${inc.severity >= 5 ? 'text-red-emergency' : 'text-amber-gold'}`}>
-                        {formatRelativeAge(inc.last_seen, data.nowMs)}
-                      </span>
-                    </div>
-                    <div className="font-mono text-[11px] text-on-surface-variant truncate mt-0.5">
-                      {[
-                        inc.units.length > 0 ? inc.units.slice(0, 5).join(', ') : null,
-                        inc.status === 'on_scene' ? 'ON SCENE' : 'ACTIVE',
-                        inc.dist_km != null ? `${inc.dist_km.toFixed(1)} KM` : null,
-                      ].filter(Boolean).join(' · ')}
-                    </div>
-                  </button>
-                ))}
-
-                {data.weatherAlerts.slice(0, data.activeDispatch.length >= 2 ? 1 : 2).map((alert, idx) => (
-                  <div
-                    key={`wall-wx-${idx}`}
-                    className="px-3 py-2 border-l-4 border-l-amber-gold bg-amber-gold/10"
-                  >
-                    <div className="flex items-baseline justify-between gap-2">
-                      <span className="text-[13px] font-bold text-white uppercase truncate">
-                        NWS · {alert.event}
-                      </span>
-                      <span className="font-mono text-[11px] text-amber-gold uppercase shrink-0">
-                        {alert.severity}
-                      </span>
-                    </div>
-                    <div className="font-mono text-[11px] text-on-surface-variant truncate mt-0.5">
-                      {alert.area_desc || alert.headline}
-                    </div>
-                  </div>
-                ))}
-
-                {data.activeDispatch.length === 0 && data.weatherAlerts.length === 0 && data.briefingLead && (
-                  <p className="text-[13px] text-on-surface leading-snug line-clamp-3">{data.briefingLead}</p>
-                )}
-              </div>
-            )}
-          </section>
-
-          {/* 2. Notable Air & Sea 2x2 Grid */}
-          <section
-            className="pointer-events-auto bg-onyx-deep/95 border border-white/15 p-3.5 shrink-0"
-            aria-label="Notable air and sea tracks"
+          <GlassCard
+            icon="report"
+            title="Situation"
+            tone={life > 0 ? 'red' : data.situation.length > 0 ? 'amber' : undefined}
+            className="flex-1 min-h-[140px]"
+            bodyClass="overflow-hidden"
+            right={<SituationCounts items={data.situation} />}
           >
-            <div className="flex items-center justify-between gap-2 pb-2 mb-2.5 border-b border-white/10">
-              <h2 className="section-heading mb-0! text-[12px]! text-cyan-adsb!">NOTABLE AIR &amp; SEA</h2>
-              <span className="font-mono text-[11px] text-on-surface-variant">
-                {data.totalAircraft} AIR · {data.totalVessels} SEA
-              </span>
-            </div>
+            <SituationList
+              items={data.situation}
+              nowMs={data.nowMs}
+              size="wall"
+              limit={8}
+              onSelect={(it) => {
+                if (it.lon != null && it.lat != null) flyMapTo(it.lon, it.lat, 13)
+              }}
+            />
+          </GlassCard>
 
-            <div className="grid grid-cols-2 gap-2">
-              {airTiles.map((air) => {
-                const rm = roleMeta(air.role)
-                return (
-                  <button
-                    key={air.id}
-                    type="button"
-                    onClick={() => {
-                      selectEntity(air.id)
-                      if (air.lon != null && air.lat != null) flyMapTo(air.lon, air.lat, 11.5)
-                    }}
-                    className="text-left p-2.5 bg-white/2 border border-white/10 border-l-2 border-l-cyan-adsb hover:bg-white/5 transition-colors"
-                  >
-                    <div className="font-mono text-[14px] font-bold text-cyan-adsb truncate">{air.callsign}</div>
-                    <div className={`font-mono text-[11px] font-bold truncate mt-0.5 ${air.alert ? 'text-red-emergency' : rm ? rm.text : 'text-on-surface'}`}>
-                      {air.alertLabel ?? air.roleLabel ?? 'NEARBY'}
-                      {air.altFt != null ? ` · ${air.altFt.toLocaleString()} FT` : ''}
-                    </div>
-                    <div className="font-mono text-[10px] text-on-surface-variant truncate mt-0.5">
-                      {[
-                        air.distKm != null ? `${air.distKm.toFixed(1)} KM` : null,
-                        air.speedKt != null ? `${air.speedKt} KT` : null,
-                      ].filter(Boolean).join(' · ') || 'ADS-B LIVE'}
-                    </div>
-                  </button>
-                )
-              })}
-
-              {seaTiles.map((v) => (
-                <button
-                  key={v.id}
-                  type="button"
-                  onClick={() => {
-                    selectEntity(v.id)
-                    if (v.lon != null && v.lat != null) flyMapTo(v.lon, v.lat, 12)
-                  }}
-                  className="text-left p-2.5 bg-white/2 border border-white/10 border-l-2 border-l-green-ais hover:bg-white/5 transition-colors"
-                >
-                  <div className="font-mono text-[14px] font-bold text-green-ais truncate">{v.name}</div>
-                  <div className="font-mono text-[11px] text-on-surface truncate mt-0.5">
-                    {(v.shipType ?? (v.underway ? 'UNDERWAY' : 'VESSEL')).toUpperCase()}
-                    {v.speedKt != null ? ` · ${v.speedKt} KT` : ''}
-                  </div>
-                  <div className="font-mono text-[10px] text-on-surface-variant truncate mt-0.5">
-                    {v.distKm != null ? `${v.distKm.toFixed(1)} KM · AIS` : 'AIS LIVE'}
-                  </div>
-                </button>
-              ))}
-
-              {airTiles.length === 0 && seaTiles.length === 0 && (
-                <div className="col-span-2 font-mono text-[12px] text-on-surface-variant py-2">
-                  No flagged aircraft or vessels in range.
-                </div>
-              )}
-            </div>
-          </section>
-
-          {/* 3. MeshCore Live */}
-          <section
-            className="pointer-events-auto bg-onyx-deep/95 border border-white/15 p-3.5 flex-1 min-h-0 flex flex-col"
-            aria-label="MeshCore live feed"
-          >
-            <div className="flex items-center justify-between gap-2 pb-2 mb-2.5 border-b border-white/10 shrink-0">
-              <h2 className="section-heading mb-0! text-[12px]! text-lime-rf!">MESHCORE LIVE</h2>
-              <span className="font-mono text-[11px] text-lime-rf uppercase">
-                {data.meshNodeCount} NODES ONLINE
-              </span>
-            </div>
-
-            {data.latestMesh.length === 0 ? (
-              <div className="font-mono text-[12px] text-on-surface-variant">
-                No MeshCore messages received yet.
-              </div>
-            ) : (
-              <div className="stack-y-2.5 flex-1 min-h-0 overflow-hidden">
-                {data.latestMesh.slice(0, 3).map((msg, i) => (
-                  <div
-                    key={msg.key}
-                    className={`border-l-2 pl-2.5 ${i === 0 ? 'border-l-lime-rf' : 'border-l-lime-rf/40'}`}
-                  >
-                    <div className="font-mono text-[11px] text-lime-rf flex items-center gap-2">
-                      <span className="font-bold truncate">{msg.sender}</span>
-                      <span className="text-on-surface-variant shrink-0">
-                        · #{msg.channel} · {formatRelativeAge(msg.timestamp, data.nowMs)}
-                      </span>
-                    </div>
-                    <p className="text-[13px] text-on-surface leading-snug line-clamp-2 mt-0.5">
-                      {msg.text}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
+          <GlassCard icon="partly_cloudy_day" title="Next Hours" className="shrink-0">
+            <ForecastView forecast={forecast} size="wall" hours={10} />
+          </GlassCard>
         </div>
       </div>
     </div>

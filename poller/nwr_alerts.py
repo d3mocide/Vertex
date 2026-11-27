@@ -23,6 +23,11 @@ _STATE_FIPS = {
 # Tocsin's dispatch tiers: A immediate-threat warnings, B watches and advisories, C tests and routine programming.
 _SEVERITY_BY_TIER = {"A": "Severe", "B": "Moderate", "C": "Minor"}
 
+# An alert that carries no end time (a TRANSCRIPT_ONLY keyword match has no SAME purge time and no CAP twin) would
+# otherwise stay listed for as long as Tocsin keeps the record, which can be weeks. Treat it as current for this long
+# after it was heard; a real warning is re-broadcast and so re-heard well inside that window.
+NO_EXPIRY_HOURS = 6
+
 # Tocsin's fusion states, in the words an operator reads.
 STATE_LABELS = {
     "RF_ONLY": "Heard on NWR, not yet in the NWS feed",
@@ -91,6 +96,8 @@ def normalize(alert: dict, now: datetime | None = None, transcript: str = "", co
     if expires is None:
         for src in alert.get("sources") or []:
             expires = _parse_time((src.get("alert") or {}).get("ends")) or expires
+    if expires is None:
+        expires = started + timedelta(hours=NO_EXPIRY_HOURS)
     if expires is not None and expires <= now:
         return None
     event = alert.get("event_name") or rf.get("event_name") or "NOAA Weather Radio alert"
