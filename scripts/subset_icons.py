@@ -86,7 +86,11 @@ def generate() -> int:
     options.layout_features = ["liga", "rlig", "calt", "ccmp"]
     options.notdef_outline = True
     subsetter = subset.Subsetter(options)
-    subsetter.populate(glyphs=[ligatures[i] for i in icons], unicodes=sorted({ord(c) for c in "".join(icons)}))
+    # Upper case too: the font maps A-Z onto the same letters, so an icon inside an `uppercase` element still forms
+    # its ligature. Leaving them out turned such icons into their names (#212).
+    letters = set("".join(icons))
+    letters |= {c.upper() for c in letters}
+    subsetter.populate(glyphs=[ligatures[i] for i in icons], unicodes=sorted(ord(c) for c in letters))
     subsetter.subset(font)
 
     buf = io.BytesIO()
