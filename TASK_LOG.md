@@ -14,6 +14,10 @@ Format: `## YYYY-MM-DD — <summary>` with bullet points for details.
 - **First-run setup validation fix (`frontend/src/components/LoginPage.tsx`)**: matched client password minimum length to the backend's 12-character `SetupRequest` requirement (was 8) and safely formatted FastAPI 422 validation error arrays instead of passing objects as React children.
 - **Validation**: `cd frontend && npx tsc --noEmit` exit 0, `npm run build` clean (PWA precache 10 entries), privacy diff scan clean (`docker-compose.yml` untouched).
 
+## 2026-11-27 — Fix: icons inside uppercase text showed their names
+
+- Regression from the icon subset (#212): icons inside an `uppercase` element (map tools button, glance sheet toggle, radio list button) rendered as text (CONSTRUCTION, EXPAND_LESS). The full font maps A-Z onto the same letters, so upper-case names still formed ligatures; the subset kept only the lower-case letters. `scripts/subset_icons.py` now keeps A-Z too (same glyphs, size unchanged at 199 KB), and the `.ms` utility (`frontend/src/index.css`) sets `text-transform: none` and `letter-spacing: normal` as the package's own class did, so a parent's text styling never changes the shaped name. Verified with HarfBuzz: all 253 icons shape to one glyph in lower, upper and title case.
+
 ## 2026-11-27 — Default tab setting, airport METAR endpoint, icon font subset
 
 - **`VITE_DEFAULT_TAB`** (`frontend/src/config.ts`, `store.ts`, runtime-config entrypoint, compose, `.env.example`, `docs/configuration/environment.md`): the tab the app opens on is now an instance setting: `dashboard` (default, as #211 shipped), `map`, `incidents`, `infrastructure`, `environment`, `intel`, `comms`, `flightlog` or `events`. Phones open the map when it is `dashboard` (desktop-only view). Read at container start like the other `VITE_*` settings.

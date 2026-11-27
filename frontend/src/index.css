@@ -240,6 +240,9 @@
   white-space: nowrap;
   word-wrap: normal;
   direction: ltr;
+  /* An icon is its ligature name: a parent's uppercase or letter-spacing must not change the text that is shaped. */
+  text-transform: none;
+  letter-spacing: normal;
   -webkit-font-feature-settings: 'liga';
   font-feature-settings: 'liga';
   user-select: none;
