@@ -56,6 +56,7 @@ export interface CivicStore {
   // UI
   mode:             AppMode
   activeTab:        NavTab
+  wallMode:         boolean
   selectedEntityId: string | null
   // Route and stop picked in the Infrastructure transit browser; the map draws them
   transitBrowse:    TransitRouteDetail | null
@@ -110,6 +111,7 @@ export interface CivicStore {
   // Actions — UI
   setMode:             (mode: AppMode) => void
   setActiveTab:        (tab: NavTab) => void
+  setWallMode:         (v: boolean) => void
   selectEntity:        (id: string | null) => void
   setTransitBrowse:    (route: TransitRouteDetail | null, stopId?: string | null) => void
   setLdiMode:          (v: boolean) => void
@@ -378,6 +380,16 @@ const defaultSummary: SummaryState = {
   dataGaps: [],
 }
 
+function initialNavTab(): NavTab {
+  if (typeof window === 'undefined') return 'safety'
+  return window.innerWidth >= 1024 ? 'dashboard' : 'safety'
+}
+
+function initialWallMode(): boolean {
+  if (typeof window === 'undefined') return false
+  return new URLSearchParams(window.location.search).get('wall') === '1'
+}
+
 export const useCivicStore = create<CivicStore>()(
   persist(
     (set) => ({
@@ -415,7 +427,8 @@ export const useCivicStore = create<CivicStore>()(
 
   // UI
   mode:             'calm',
-  activeTab:        'safety',
+  activeTab:        initialNavTab(),
+  wallMode:         initialWallMode(),
   selectedEntityId: null,
   transitBrowse:    null,
   transitBrowseStop: null,
@@ -669,7 +682,8 @@ export const useCivicStore = create<CivicStore>()(
 
   // UI actions
   setMode:           (mode)           => set({ mode }),
-  setActiveTab:      (activeTab)      => set({ activeTab }),
+  setActiveTab:      (activeTab)      => set({ activeTab, wallMode: false }),
+  setWallMode:       (wallMode)       => set({ wallMode }),
   selectEntity:      (selectedEntityId) => set({ selectedEntityId }),
   setTransitBrowse:  (transitBrowse, transitBrowseStop = null) => set({ transitBrowse, transitBrowseStop }),
   setLdiMode:        (ldiMode)        => set({ ldiMode }),

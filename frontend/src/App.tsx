@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useCivicPick } from './store'
 import { useAlerts } from './hooks/useAlerts'
 import { useSystemHealth } from './hooks/useSystemHealth'
@@ -17,6 +17,10 @@ import { MobileNav }         from './components/layout/MobileNav'
 import { SettingsPanel }     from './components/layout/SettingsPanel'
 import { HelpPanel }         from './components/panels/HelpPanel'
 import { Map }               from './components/Map'
+import { MapViewportContext, useSyncMapResize, type MapViewportRect } from './components/mapViewport'
+import { DesktopDashboard }  from './components/panels/DesktopDashboard'
+import { WallDisplay }       from './components/panels/WallDisplay'
+import { MobileGlanceSheet } from './components/panels/MobileGlanceSheet'
 import { TacticalAudio }     from './components/panels/TacticalAudio'
 import { EntityDetail }      from './components/panels/EntityDetail'
 import { InfrastructureGrid } from './components/panels/InfrastructureGrid'
@@ -62,29 +66,74 @@ function Dashboard() {
     })
   }, [news, appendSystemEvent])
 
-  const { activeTab, mode } = useCivicPick('activeTab', 'mode')
+  const { activeTab, setActiveTab, wallMode, mode, selectedEntityId, selectedCamId } = useCivicPick(
+    'activeTab',
+    'setActiveTab',
+    'wallMode',
+    'mode',
+    'selectedEntityId',
+    'selectedCamId',
+  )
   // Phones: map tools (replay / zones / annotate) sit behind one button.
   const [mapToolsOpen, setMapToolsOpen] = useState(false)
   // On phones the Layers sheet covers the other tools, so they step aside while it is open.
   const [layersOpen, setLayersOpen] = useState(false)
+  const [mapSlotRect, setMapSlotRect] = useState<MapViewportRect | null>(null)
   const isCritical = mode === 'critical'
 
+  // Mobile uses the Map + Quick Glance Sheet flow rather than the desktop bento tab.
+  useEffect(() => {
+    const syncBreakpoint = () => {
+      if (!wallMode && activeTab === 'dashboard' && window.innerWidth < 1024) {
+        setActiveTab('safety')
+      }
+    }
+    syncBreakpoint()
+    window.addEventListener('resize', syncBreakpoint)
+    return () => window.removeEventListener('resize', syncBreakpoint)
+  }, [activeTab, wallMode, setActiveTab])
+
+  const mapViewportValue = useMemo(() => ({ setSlotRect: setMapSlotRect }), [])
+  const mapSlotted = (wallMode || activeTab === 'dashboard') && mapSlotRect !== null
+  const mapVisible = wallMode || activeTab === 'safety' || activeTab === 'dashboard'
+  useSyncMapResize(mapSlotted && mapSlotRect ? `${mapSlotRect.top}:${mapSlotRect.left}:${mapSlotRect.width}:${mapSlotRect.height}` : `${wallMode}:${activeTab}`)
+
   return (
+    <MapViewportContext.Provider value={mapViewportValue}>
     <div
-      className="dark h-full w-full overflow-hidden flex flex-col font-body text-sm antialiased bg-onyx-black text-on-surface lg:pt-safe-chrome pb-[calc(3.5rem+env(safe-area-inset-bottom))] lg:pb-0"
+      className={`dark h-full w-full overflow-hidden flex flex-col font-body text-sm antialiased bg-onyx-black text-on-surface lg:pt-safe-chrome ${wallMode ? 'pb-0' : 'pb-[calc(3.5rem+env(safe-area-inset-bottom))] lg:pb-0'}`}
       data-mode={mode}
     >
-      {/* Map Background Layer */}
+      {/* Single shared MapLibre + Deck.gl instance — full-bleed on Map, slotted on Dashboard/Wall */}
       <div
-        className={`
-          fixed inset-0 transition-opacity duration-300
-          ${activeTab === 'safety' ? 'opacity-100 z-0' : 'opacity-30 z-0'}
-        `}
-        aria-hidden={activeTab !== 'safety'}
+        className={`fixed z-0 overflow-hidden ${
+          mapSlotted
+            ? 'opacity-100'
+            : `inset-0 transition-opacity duration-300 ${activeTab === 'safety' ? 'opacity-100' : 'opacity-30 pointer-events-none'}`
+        }`}
+        style={
+          mapSlotted && mapSlotRect
+            ? {
+                top: mapSlotRect.top,
+                left: mapSlotRect.left,
+                width: mapSlotRect.width,
+                height: mapSlotRect.height,
+              }
+            : undefined
+        }
+        aria-hidden={!mapVisible}
       >
         <MapErrorBoundary><Map /></MapErrorBoundary>
       </div>
 
+      {wallMode ? (
+        <>
+          <WallDisplay />
+          <EntityDetail />
+          <CameraModal />
+        </>
+      ) : (
+      <>
       {/* Status-bar band (iPad / large screens) — a solid backdrop for the
           status bar. Solid rather than frosted: a blurred live map read as a
           smear. Collapses to 0 height where there is no inset. */}
@@ -122,10 +171,21 @@ function Dashboard() {
 
           <div className="absolute inset-0 overflow-hidden pointer-events-none *:pointer-events-auto">
 
+            {/* Centralized Desktop Triage Dashboard — keeps pointer-events-none
+                on the outer frame so the transparent map cutout stays interactive. */}
+            {activeTab === 'dashboard' && (
+              <>
+                <div className="absolute top-0 lg:top-24 inset-x-0 bottom-0 z-10 pointer-events-none!">
+                  <DesktopDashboard />
+                </div>
+                <EntityDetail />
+              </>
+            )}
+
             {/* Page scroller. Bottom padding reserves room for the audio bar
                 (docked above the nav on mobile, floating on desktop) so it
                 never covers the end of a page. */}
-            {activeTab !== 'safety' && (
+            {activeTab !== 'safety' && activeTab !== 'dashboard' && (
               <div id="page-scroll" className="absolute top-0 lg:top-24 inset-x-0 bottom-0 z-10 bg-onyx-black/40 backdrop-blur-xs overflow-y-auto pb-14 lg:pb-24">
                 {activeTab === 'infrastructure' && <InfrastructureGrid />}
                 {activeTab === 'environment'    && <EnvironmentPanel   />}
@@ -165,10 +225,11 @@ function Dashboard() {
                     <LayersController onOpenChange={setLayersOpen} />
                   </div>
                 </div>
+                <MobileGlanceSheet hidden={layersOpen || Boolean(selectedEntityId) || Boolean(selectedCamId)} />
               </>
             )}
 
-            {isCritical && activeTab !== 'safety' && (
+            {isCritical && activeTab !== 'safety' && activeTab !== 'dashboard' && (
               <>
                 <EntityDetail />
               </>
@@ -179,6 +240,10 @@ function Dashboard() {
         </div>
       </div>
 
+      <MobileNav />
+      </>
+      )}
+
       <a
         href="#main-content"
         className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 btn-primary"
@@ -186,12 +251,12 @@ function Dashboard() {
         Skip to main content
       </a>
 
-      <MobileNav />
       <SettingsPanel />
       <HelpPanel />
       <InstallPrompt />
       <DevTools />
     </div>
+    </MapViewportContext.Provider>
   )
 }
 

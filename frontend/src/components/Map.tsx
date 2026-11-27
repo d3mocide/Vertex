@@ -189,7 +189,19 @@ export function Map() {
       setMap(m)
     })
 
+    let resizeRaf = 0
+    const resizeObserver = new ResizeObserver(() => {
+      if (resizeRaf) return
+      resizeRaf = requestAnimationFrame(() => {
+        resizeRaf = 0
+        m.resize()
+      })
+    })
+    resizeObserver.observe(containerRef.current)
+
     return () => {
+      if (resizeRaf) cancelAnimationFrame(resizeRaf)
+      resizeObserver.disconnect()
       regionMarker.remove()
       removeStylePriority()
       m.remove()

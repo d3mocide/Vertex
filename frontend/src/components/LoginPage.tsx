@@ -18,8 +18,23 @@ function validateUsername(v: string): string {
 }
 
 function validatePassword(v: string): string {
-  if (v.length < 8) return 'At least 8 characters required.'
+  if (v.length < 12) return 'At least 12 characters required.'
   return ''
+}
+
+function extractErrorDetail(body: unknown, fallback: string): string {
+  if (!body || typeof body !== 'object') return fallback
+  const detail = (body as { detail?: unknown }).detail
+  if (typeof detail === 'string' && detail.trim()) return detail
+  if (Array.isArray(detail)) {
+    const msgs = detail
+      .map((item) => (item && typeof item === 'object' && typeof (item as { msg?: unknown }).msg === 'string'
+        ? (item as { msg: string }).msg
+        : null))
+      .filter((m): m is string => Boolean(m))
+    if (msgs.length > 0) return msgs.join(' · ')
+  }
+  return fallback
 }
 
 // ── Scope logo mark ───────────────────────────────────────────────────────────
@@ -176,7 +191,7 @@ function SetupView({ onDone }: { onDone: () => void }) {
       }
       if (!res.ok) {
         const body = await res.json().catch(() => ({}))
-        setServerError((body as { detail?: string }).detail ?? 'Setup failed.')
+        setServerError(extractErrorDetail(body, 'Setup failed.'))
         return
       }
       const { access_token } = await res.json() as { access_token: string }

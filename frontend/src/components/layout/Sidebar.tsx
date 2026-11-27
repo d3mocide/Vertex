@@ -25,6 +25,7 @@ export function Sidebar() {
     weather,
     advisories,
     lightningStrikes,
+    activeTab,
     setActiveTab,
     entityFilter,
     setEntityFilter,
@@ -40,7 +41,7 @@ export function Sidebar() {
     dispatchVisible,
     setDispatchVisible,
     radioIncidents,
-  } = useCivicPick('alerts', 'advisories', 'health', 'entities', 'connected', 'cameras', 'weather', 'lightningStrikes', 'setActiveTab', 'entityFilter', 'setEntityFilter', 'setEntitySearchQuery', 'setEntityAltRange', 'setEntitySpeedRange', 'camerasVisible', 'setCamerasVisible', 'gaugesVisible', 'setGaugesVisible', 'lightningVisible', 'setLightningVisible', 'dispatchVisible', 'setDispatchVisible', 'radioIncidents')
+  } = useCivicPick('alerts', 'advisories', 'health', 'entities', 'connected', 'cameras', 'weather', 'lightningStrikes', 'activeTab', 'setActiveTab', 'entityFilter', 'setEntityFilter', 'setEntitySearchQuery', 'setEntityAltRange', 'setEntitySpeedRange', 'camerasVisible', 'setCamerasVisible', 'gaugesVisible', 'setGaugesVisible', 'lightningVisible', 'setLightningVisible', 'dispatchVisible', 'setDispatchVisible', 'radioIncidents')
 
   const entityList = Object.values(entities)
   const aircraft     = entityList.filter((e) => e.entity_type === 'aircraft').length
@@ -106,19 +107,30 @@ export function Sidebar() {
     }
   }
 
+  // Keep the sidebar collapsed to the icon rail on the centralized Dashboard
+  // so SituationRail isn't duplicated alongside the dashboard stream cards.
+  const effectiveCollapsed = sidebarCollapsed || activeTab === 'dashboard'
+
   return (
     <aside
-      className={`h-full sidebar-panel flex flex-col shrink-0 z-30 transition-all duration-300 ${sidebarCollapsed ? 'w-16' : 'w-80'}`}
+      className={`h-full sidebar-panel flex flex-col shrink-0 z-30 transition-all duration-300 ${effectiveCollapsed ? 'w-16' : 'w-80'}`}
       aria-label="Vertex sidebar"
     >
       {/* Brand header — logo is the sidebar collapse/expand toggle */}
-      <div className={`flex items-center border-b border-white/5 bg-onyx-deep/40 backdrop-blur-md shrink-0 ${sidebarCollapsed ? 'py-4 justify-center' : 'h-16 px-5 justify-between flex-row'}`}>
+      <div className={`flex items-center border-b border-white/5 bg-onyx-deep/40 backdrop-blur-md shrink-0 ${effectiveCollapsed ? 'py-4 justify-center' : 'h-16 px-5 justify-between flex-row'}`}>
         <button
           type="button"
-          onClick={() => setSidebarCollapsed((v) => !v)}
+          onClick={() => {
+            if (activeTab === 'dashboard') {
+              setActiveTab('safety')
+              setSidebarCollapsed(false)
+            } else {
+              setSidebarCollapsed((v) => !v)
+            }
+          }}
           className="flex items-center gap-3 min-w-0 opacity-90 hover:opacity-100 transition-opacity focus:outline-hidden focus-visible:ring-1 focus-visible:ring-amber-gold"
-          aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-          title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          aria-label={effectiveCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          title={effectiveCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
         >
           {/* Scope mark — Direction 07 · adopted 2026-05-01 */}
           <svg width="28" height="28" viewBox="0 0 32 32" aria-hidden="true" className="shrink-0 text-white">
@@ -132,7 +144,7 @@ export function Sidebar() {
             <rect x="14" y="14" width="4" height="4" fill="#FFB800"/>
           </svg>
 
-          {!sidebarCollapsed && (
+          {!effectiveCollapsed && (
             <div className="flex flex-col leading-none gap-1 min-w-0 items-start">
               <span className="text-[16px] font-black tracking-wider text-white uppercase select-none leading-none">
                 VERTEX
@@ -145,16 +157,25 @@ export function Sidebar() {
         </button>
       </div>
 
-      {sidebarCollapsed ? (
-        <div className="flex-1 flex flex-col items-center gap-4 py-3 border-r border-white/10">
+      {effectiveCollapsed ? (
+        <div className="flex-1 flex flex-col items-center gap-3.5 py-3 border-r border-white/10">
+          <button
+            type="button"
+            onClick={() => setActiveTab('dashboard')}
+            className={`${activeTab === 'dashboard' ? 'text-amber-gold' : 'text-on-surface-variant'} hover:text-amber-gold transition-colors focus:outline-hidden focus-visible:ring-1 focus-visible:ring-amber-gold`}
+            aria-label="Dashboard"
+            title="Dashboard"
+          >
+            <span className="ms text-[20px]" aria-hidden="true">space_dashboard</span>
+          </button>
           <button
             type="button"
             onClick={() => setActiveTab('safety')}
-            className="text-on-surface-variant hover:text-amber-gold transition-colors focus:outline-hidden focus-visible:ring-1 focus-visible:ring-amber-gold"
-            aria-label="Overview"
-            title="Overview"
+            className={`${activeTab === 'safety' ? 'text-amber-gold' : 'text-on-surface-variant'} hover:text-amber-gold transition-colors focus:outline-hidden focus-visible:ring-1 focus-visible:ring-amber-gold`}
+            aria-label="Map"
+            title="Map"
           >
-            <span className="ms text-[20px]" aria-hidden="true">dashboard</span>
+            <span className="ms text-[20px]" aria-hidden="true">map</span>
           </button>
           <button
             type="button"

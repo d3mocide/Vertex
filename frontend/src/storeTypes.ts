@@ -490,7 +490,7 @@ export interface TransitRouteDetail {
   alerts?: TransitAlert[]
 }
 
-export type NavTab   = 'safety' | 'infrastructure' | 'environment' | 'intel' | 'events' | 'incidents' | 'comms' | 'flightlog'
+export type NavTab   = 'dashboard' | 'safety' | 'infrastructure' | 'environment' | 'intel' | 'events' | 'incidents' | 'comms' | 'flightlog'
 export type EntityTypeFilter = {
   aircraft: boolean
   adsbLocal: boolean
