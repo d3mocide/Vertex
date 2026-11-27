@@ -149,6 +149,7 @@ Cursor-on-Target (CoT) output sends entity positions to TAK-compatible receivers
 | `VITE_RADAR_FALLBACK_MAX_ZOOM` | Zoom threshold below which fallback layer activates | Frontend, read at container start |
 | `VITE_OBSERVATION_RANGE_KM` | Trail/history display radius | Frontend, read at container start |
 | `VITE_PRESERVE_DRAWING_BUFFER` | Enables WebGL drawing buffer preservation (needed for canvas exports) | Frontend, read at container start |
+| `VITE_DEFAULT_TAB` | Tab the app opens on: `dashboard` (default), `map`, `incidents`, `infrastructure`, `environment`, `intel`, `comms`, `flightlog` or `events`. Phones open `map` when this is `dashboard` (the Dashboard is desktop-only) | Frontend, read at container start |
 
 The `VITE_*` settings are written to `/runtime-config.js` when the frontend container starts, so the same image works for every install and a change needs only `docker compose up -d frontend`. They are public to anyone who can load the app, so never put a secret in one. The dev server (`npm run dev`) still reads them from the environment as usual.
 

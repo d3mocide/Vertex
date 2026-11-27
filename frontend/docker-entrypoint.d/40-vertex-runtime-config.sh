@@ -17,7 +17,8 @@ json_escape() {
   printf 'window.__VERTEX_CONFIG__ = {'
   sep=''
   for name in VITE_RADAR_LAYER VITE_RADAR_FALLBACK_LAYER VITE_RADAR_FALLBACK_MAX_ZOOM VITE_OBSERVATION_RANGE_KM \
-              VITE_MESH_NODE_STALE_HOURS VITE_TILE_URL VITE_PRESERVE_DRAWING_BUFFER VITE_RADIO_STREAM_URL; do
+              VITE_MESH_NODE_STALE_HOURS VITE_TILE_URL VITE_PRESERVE_DRAWING_BUFFER VITE_RADIO_STREAM_URL \
+              VITE_DEFAULT_TAB; do
     eval "value=\${$name-}"
     [ -n "$value" ] || continue
     printf '%s"%s":"%s"' "$sep" "$name" "$(json_escape "$value")"

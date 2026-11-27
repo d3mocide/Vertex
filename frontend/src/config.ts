@@ -1,3 +1,5 @@
+import type { NavTab } from './storeTypes'
+
 export const API_BASE = '/api/v1'
 
 // Operator settings (the VITE_* variables in .env). In Docker they are read when the frontend container starts:
@@ -66,6 +68,18 @@ export const DEFAULT_ZOOM = 10
 
 // Audio stream — stream URL is sourced from the radio_streams DB table.
 // This env var is an escape hatch for a default fallback; leave empty if all streams are DB-configured.
+// The tab the app opens on (VITE_DEFAULT_TAB): dashboard (default), map, incidents, infrastructure, environment,
+// intel, comms, flightlog or events. The Dashboard is desktop-only, so phones open the map instead of it.
+const _TABS: Record<string, NavTab> = {
+  dashboard: 'dashboard', map: 'safety', incidents: 'incidents', infrastructure: 'infrastructure',
+  environment: 'environment', intel: 'intel', comms: 'comms', flightlog: 'flightlog', events: 'events',
+}
+const _rawDefaultTab = setting('VITE_DEFAULT_TAB', import.meta.env.VITE_DEFAULT_TAB as string | undefined)?.trim().toLowerCase()
+if (_rawDefaultTab && !_TABS[_rawDefaultTab]) {
+  console.warn(`Ignoring VITE_DEFAULT_TAB "${_rawDefaultTab}": expected one of ${Object.keys(_TABS).join(', ')}.`)
+}
+export const DEFAULT_TAB: NavTab = (_rawDefaultTab && _TABS[_rawDefaultTab]) || 'dashboard'
+
 export const STREAM_URL =
   setting('VITE_RADIO_STREAM_URL', import.meta.env.VITE_RADIO_STREAM_URL as string | undefined)?.trim() ?? ''
 

@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { useShallow } from 'zustand/react/shallow'
 import { entityToTrack, mergeEntityState, loadFavoriteCamIds } from './entityUtils'
+import { DEFAULT_TAB } from './config'
 
 // Re-export all types so existing imports from '../../store' keep working.
 export * from './storeTypes'
@@ -381,8 +382,9 @@ const defaultSummary: SummaryState = {
 }
 
 function initialNavTab(): NavTab {
-  if (typeof window === 'undefined') return 'safety'
-  return window.innerWidth >= 1024 ? 'dashboard' : 'safety'
+  // The operator's VITE_DEFAULT_TAB; the Dashboard is desktop-only, so a phone opens the map instead.
+  if (DEFAULT_TAB === 'dashboard' && (typeof window === 'undefined' || window.innerWidth < 1024)) return 'safety'
+  return DEFAULT_TAB
 }
 
 function initialWallMode(): boolean {
