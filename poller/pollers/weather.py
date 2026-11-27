@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import math
 import re
 import time
 import httpx
@@ -7,6 +8,7 @@ from config import settings
 from security import validate_request_url
 from bus import set_feed
 from db import latest_weather_aqi, write_weather_obs
+from normalizers.beast_math import haversine_km
 from normalizers.weather import normalize_observation
 from .base import BasePoller
 
@@ -14,6 +16,9 @@ logger = logging.getLogger(__name__)
 
 NWS_BASE = "https://api.weather.gov"
 _HEADERS = {"User-Agent": "Vertex/0.1 (vertex; contact@localhost)"}
+_AVIATION_URL = "https://aviationweather.gov/api/data/metar"
+_AVIATION_RADIUS_KM = 60     # airports this close to the region centre
+_AVIATION_MAX_STATIONS = 6
 _AQI_KEEP_S = 3 * 3600   # how long the last good AirNow reading stands in for a failed one
 
 
@@ -73,6 +78,7 @@ class WeatherPoller(BasePoller):
         # Trigger NWWS fetch on first cycle
         self._nwws_tick = 999
         self._forecast_tick = 999
+        self._aviation_tick = 999
         self._forecast_urls: tuple[str, str] | None = None
 
     async def poll(self):
@@ -110,6 +116,14 @@ class WeatherPoller(BasePoller):
                 except Exception as exc:
                     logger.debug("[weather] could not persist %s: %s", st.get("id"), exc)
 
+        # Airport METARs (flight category) every 10 min; airports report hourly, specials in between.
+        self._aviation_tick += 1
+        if self._aviation_tick >= (600 // self.interval):
+            self._aviation_tick = 0
+            aviation = await self._fetch_aviation_obs()
+            if aviation is not None:
+                await set_feed("weather:aviation", aviation)
+
         # Forecast every 30 min (NWS refreshes the grid roughly hourly)
         self._forecast_tick += 1
         if self._forecast_tick >= (1800 // self.interval):
@@ -125,6 +139,24 @@ class WeatherPoller(BasePoller):
             products = await self._fetch_nwws_products()
             if products:
                 await set_feed("weather:nwws_products", products)
+
+    async def _fetch_aviation_obs(self) -> list[dict] | None:
+        """Latest METAR at the airports nearest the region centre (aviationweather.gov). None on failure, so the
+        last good list stays up."""
+        lat, lon = settings.region_lat, settings.region_lon
+        dlat = _AVIATION_RADIUS_KM / 111.0
+        dlon = dlat / max(0.2, math.cos(math.radians(lat)))
+        bbox = f"{lat - dlat:.3f},{lon - dlon:.3f},{lat + dlat:.3f},{lon + dlon:.3f}"
+        try:
+            async with httpx.AsyncClient(timeout=15, headers={"User-Agent": "Vertex/1.0 (METAR)"}) as client:
+                resp = await client.get(_AVIATION_URL, params={"bbox": bbox, "format": "json"})
+            if resp.status_code == 204:
+                return []
+            resp.raise_for_status()
+            return normalize_aviation_obs(resp.json(), lat, lon)
+        except Exception as exc:
+            logger.warning("[weather] airport METAR fetch failed: %s", exc)
+            return None
 
     async def _fetch_observation(self) -> dict:
         if not settings.nws_station_primary:
@@ -297,3 +329,37 @@ class WeatherPoller(BasePoller):
                 except Exception as exc:
                     logger.debug("[weather] NWWS %s fetch failed: %s", code, exc)
         return results
+
+
+def normalize_aviation_obs(payload, lat: float, lon: float, radius_km: float = _AVIATION_RADIUS_KM,
+                           limit: int = _AVIATION_MAX_STATIONS) -> list[dict]:
+    """aviationweather.gov METAR JSON → the nearest stations first, with their flight category (VFR, MVFR, IFR, LIFR)."""
+    out = []
+    for item in payload if isinstance(payload, list) else []:
+        if not isinstance(item, dict):
+            continue
+        icao, slat, slon = item.get("icaoId"), item.get("lat"), item.get("lon")
+        if not isinstance(icao, str) or not isinstance(slat, (int, float)) or not isinstance(slon, (int, float)):
+            continue
+        dist = haversine_km(lat, lon, slat, slon)
+        if dist > radius_km:
+            continue
+        category = item.get("fltCat")
+        out.append({
+            "icao": icao.upper(),
+            "name": item.get("name"),
+            "lat": slat,
+            "lon": slon,
+            "dist_km": round(dist, 1),
+            "flight_category": category.upper() if isinstance(category, str) and category else None,
+            "obs_time": item.get("reportTime"),
+            "raw": item.get("rawOb"),
+            "temp_c": item.get("temp"),
+            "wind_dir": item.get("wdir"),
+            "wind_kt": item.get("wspd"),
+            "gust_kt": item.get("wgst"),
+            "visibility": item.get("visib"),
+            "wx": item.get("wxString"),
+        })
+    out.sort(key=lambda s: s["dist_km"])
+    return out[:limit]

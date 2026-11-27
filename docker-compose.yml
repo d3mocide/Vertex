@@ -285,6 +285,7 @@ services:
       VITE_TILE_URL: ${VITE_TILE_URL:-}
       VITE_PRESERVE_DRAWING_BUFFER: ${VITE_PRESERVE_DRAWING_BUFFER:-false}
       VITE_RADIO_STREAM_URL: ${VITE_RADIO_STREAM_URL:-}
+      VITE_DEFAULT_TAB: ${VITE_DEFAULT_TAB:-dashboard}
     restart: unless-stopped
     deploy:
       resources:

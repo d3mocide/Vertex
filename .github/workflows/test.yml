@@ -81,6 +81,9 @@ jobs:
       - name: Frontend production build
         run: npm run build
 
+      - name: Icon font subset covers the icons in use
+        run: python3 ../scripts/subset_icons.py --check
+
   env-example:
     name: .env.example matches the code
     runs-on: ubuntu-latest

@@ -207,6 +207,12 @@ async def get_weather_stations():
     return await _feed_or("feed:weather:stations", [])
 
 
+@router.get("/aviation/obs")
+async def get_aviation_obs():
+    """Latest METAR at the airports nearest the region, nearest first, with the flight category."""
+    return await _feed_or("feed:weather:aviation", [])
+
+
 @router.get("/rwis")
 async def get_rwis_stations():
     """ODOT road-weather stations near the region, nearest first."""
