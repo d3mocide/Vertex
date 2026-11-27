@@ -4,14 +4,15 @@ import { exportDashboardSnapshot } from '../../snapshotExport'
 import { EnvChips } from './EnvBar'
 
 const TABS: { id: NavTab; label: string; icon: string }[] = [
-  { id: 'safety',         label: 'Overview',       icon: 'dashboard'      },
-  { id: 'incidents',      label: 'Incidents',       icon: 'report'         },
-  { id: 'infrastructure', label: 'Infrastructure',  icon: 'traffic'        },
-  { id: 'environment',    label: 'Environment',     icon: 'eco'            },
-  { id: 'intel',          label: 'Intel Feed',      icon: 'psychology'     },
-  { id: 'comms',          label: 'Comms',           icon: 'forum'          },
-  { id: 'flightlog',      label: 'Flight Log',      icon: 'flight'         },
-  { id: 'events',         label: 'Event Log',       icon: 'history'        },
+  { id: 'dashboard',      label: 'Dashboard',      icon: 'space_dashboard' },
+  { id: 'safety',         label: 'Map',            icon: 'map'             },
+  { id: 'incidents',      label: 'Incidents',      icon: 'report'          },
+  { id: 'infrastructure', label: 'Infrastructure', icon: 'traffic'         },
+  { id: 'environment',    label: 'Environment',    icon: 'eco'             },
+  { id: 'intel',          label: 'Intel Feed',     icon: 'psychology'      },
+  { id: 'comms',          label: 'Comms',          icon: 'forum'           },
+  { id: 'flightlog',      label: 'Flight Log',     icon: 'flight'          },
+  { id: 'events',         label: 'Event Log',      icon: 'history'         },
 ]
 
 function NotificationsDropdown({ events, onClose }: { events: SystemEvent[]; onClose: () => void }) {
@@ -53,7 +54,7 @@ function NotificationsDropdown({ events, onClose }: { events: SystemEvent[]; onC
 /** `flush`: no background of its own — the phone top bar (App.tsx) paints
     one surface behind the header and the space under the status bar. */
 export function Header({ flush = false }: { flush?: boolean } = {}) {
-  const { activeTab, setActiveTab, mode, setSettingsOpen, setHelpOpen, systemEvents } = useCivicPick('activeTab', 'setActiveTab', 'mode', 'setSettingsOpen', 'setHelpOpen', 'systemEvents')
+  const { activeTab, setActiveTab, setWallMode, mode, setSettingsOpen, setHelpOpen, systemEvents } = useCivicPick('activeTab', 'setActiveTab', 'setWallMode', 'mode', 'setSettingsOpen', 'setHelpOpen', 'systemEvents')
   const [notificationsOpen, setNotificationsOpen] = useState(false)
   const notifRef = useRef<HTMLDivElement>(null)
 
@@ -94,7 +95,7 @@ export function Header({ flush = false }: { flush?: boolean } = {}) {
 
       {/* Desktop navigation tabs */}
       <nav
-        className="hidden lg:flex items-center gap-6 h-full"
+        className="hidden lg:flex items-center gap-4 xl:gap-5 h-full"
         aria-label="Main navigation"
       >
         {TABS.map((tab) => (
@@ -159,6 +160,15 @@ export function Header({ flush = false }: { flush?: boolean } = {}) {
               <NotificationsDropdown events={systemEvents} onClose={() => setNotificationsOpen(false)} />
             )}
           </div>
+          <button
+            onClick={() => setWallMode(true)}
+            className="hidden lg:flex items-center gap-1 border border-amber-gold/35 px-2 py-1 text-[10px] font-mono font-bold uppercase tracking-widest text-amber-gold hover:bg-amber-gold hover:text-onyx-black transition-colors focus:outline-hidden focus-visible:ring-1 focus-visible:ring-amber-gold"
+            aria-label="Wall Display Mode"
+            title="Open passive Wall Display mode (Esc to exit)"
+          >
+            <span className="ms text-[15px] leading-none" aria-hidden="true">fullscreen</span>
+            <span className="hidden xl:inline">Wall</span>
+          </button>
           <button
             onClick={() => exportDashboardSnapshot()}
             className="hidden lg:block hover:text-amber-gold transition-colors p-2 lg:p-1 focus:outline-hidden focus-visible:ring-1 focus-visible:ring-amber-gold"
