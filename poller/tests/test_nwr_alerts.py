@@ -42,6 +42,17 @@ def test_normalize_drops_expired_and_flags_tests():
     assert t["test"] is True
 
 
+def test_normalize_ages_out_an_alert_with_no_end_time():
+    def transcript_only(hours_ago):
+        heard = (NOW - timedelta(hours=hours_ago)).isoformat()
+        return {"id": "t", "state": "TRANSCRIPT_ONLY", "event_name": "High Wind Warning", "fips_codes": [],
+                "first_seen": heard, "sources": []}
+    kept = normalize(transcript_only(1), NOW)
+    assert kept is not None and kept["expires"]
+    assert normalize(transcript_only(7), NOW) is None
+    assert normalize(transcript_only(24 * 20), NOW) is None
+
+
 def test_normalize_carries_transcript_text():
     assert normalize(_alert(), NOW, "  Take shelter now. ")["description"] == "Take shelter now."
 

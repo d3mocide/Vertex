@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useCivicPick } from '../../../store'
 import type {
   Entity,
+  NavTab,
   MeshMessage,
   RadioIncident,
   SummaryPosture,
@@ -9,6 +10,7 @@ import type {
   TrafficIncident,
   WeatherAlert,
 } from '../../../storeTypes'
+import { CATEGORY } from '../RadioIncidents'
 import { ALERT_LABEL, ROLE_ORDER, roleMeta, type AircraftRole } from '../../../aircraftRoles'
 import { isActive } from '../RadioIncidents'
 import { isMajorTrafficIncident } from '../../../incidentUtils'
@@ -71,6 +73,88 @@ export interface MetarSummary {
   flightCategory: string
 }
 
+/** One row of the combined situation board: dispatch, NWS, traffic and other advisories, ranked together. */
+export interface SituationItem {
+  key: string
+  kind: 'dispatch' | 'nws' | 'traffic' | 'advisory'
+  icon: string
+  source: string            // short label: DISPATCH, NWS, ODOT, FAA …
+  title: string
+  detail: string
+  tone: 'red' | 'amber' | 'neutral'
+  ts: string | null
+  rank: number              // higher first
+  lat: number | null
+  lon: number | null
+  distKm: number | null
+  incidentId?: string
+  tab: NavTab               // page that has the full record
+}
+
+export interface BriefingPoint {
+  label: string | null
+  text: string
+}
+
+export interface BriefingDigest {
+  bottomLine: string
+  changes: BriefingPoint[]
+  developments: BriefingPoint[]
+  risks: BriefingPoint[]
+  outlook: BriefingPoint[]
+}
+
+const stripMd = (t: string) => t.replace(/\*\*(.+?)\*\*/g, '$1').replace(/__(.+?)__/g, '$1').replace(/\s+/g, ' ').trim()
+
+function bullets(body: string): BriefingPoint[] {
+  const out: BriefingPoint[] = []
+  for (const raw of body.split('\n')) {
+    const line = raw.replace(/^\s*[-*•]\s+/, '').trim()
+    if (!line || /^none( identified)?\.?$/i.test(stripMd(line))) continue
+    const m = line.match(/^\*\*([^*]{1,40}?):?\*\*:?\s*(.+)$/)
+    out.push(m ? { label: m[1].replace(/:$/, '').trim(), text: stripMd(m[2]) } : { label: null, text: stripMd(line) })
+  }
+  return out
+}
+
+/** The AI briefing split into its parts: bottom line, what changed, key developments, risks, next 24 h. */
+export function digestBriefing(markdown: string | null | undefined): BriefingDigest | null {
+  if (!markdown?.trim()) return null
+  const parts = markdown.split(/^#{2,3}\s+/m)
+  const bottomLine = stripMd(parts[0] ?? '').replace(/^BOTTOM LINE:\s*/i, '')
+  const digest: BriefingDigest = { bottomLine, changes: [], developments: [], risks: [], outlook: [] }
+  for (const chunk of parts.slice(1)) {
+    const nl = chunk.indexOf('\n')
+    const title = (nl < 0 ? chunk : chunk.slice(0, nl)).trim().toLowerCase()
+    const items = bullets(nl < 0 ? '' : chunk.slice(nl + 1))
+    if (title.includes('change')) digest.changes = items
+    else if (title.includes('development')) digest.developments = items
+    else if (title.includes('risk')) digest.risks = items
+    else if (title.includes('next') || title.includes('outlook')) digest.outlook = items
+  }
+  return digest
+}
+
+const ADVISORY_SOURCE_LABEL: Record<string, string> = {
+  faa: 'FAA', news: 'NEWS', flashalert: 'FLASHALERT', briefing: 'BRIEFING',
+}
+const ADVISORY_ICON: Record<string, string> = {
+  faa: 'flight', news: 'newspaper', flashalert: 'campaign', briefing: 'psychology',
+}
+
+const NAV_TABS: readonly NavTab[] = ['dashboard', 'safety', 'infrastructure', 'environment', 'intel', 'events', 'incidents', 'comms', 'flightlog']
+const asNavTab = (tab: string | undefined): NavTab => (NAV_TABS as readonly string[]).includes(tab ?? '') ? tab as NavTab : 'intel'
+
+// Routine dispatch (severity 1-2) on the situation board: only this fresh, and at most this many.
+const ROUTINE_FRESH_MS = 20 * 60 * 1000
+const ROUTINE_MAX = 3
+
+// Traffic items further than this are not "here" for the situation board.
+const TRAFFIC_RADIUS_KM = 40
+// An aircraft this low and slow is on the ground (parked or taxiing), not worth a "nearby" slot.
+const GROUND_ALT_FT = 200
+const GROUND_SPEED_KT = 40
+
 const PRIORITY_VESSEL_RE = /(coast guard|patrol|law|police|rescue|sar|pilot|tug|military|navy|fire|medical|dredg|tanker|hazmat)/i
 
 export function formatRelativeAge(iso: string | null | undefined, nowMs: number): string {
@@ -102,6 +186,12 @@ export function prettyChannelLabel(conversationKey: string, channelName?: string
   if (/^(public|general)$/i.test(raw)) return 'PUBLIC'
   if (/^[a-f0-9]{12,}$/i.test(raw)) return `CH ${raw.slice(0, 6).toUpperCase()}`
   return raw.toUpperCase()
+}
+
+/** MeshCore channel text arrives as "Name: message"; the sender is already shown, so drop the prefix. */
+function stripSender(text: string, sender?: string | null): string {
+  if (sender && text.startsWith(`${sender}: `)) return text.slice(sender.length + 2)
+  return text
 }
 
 function calcDistKm(lat: number | undefined | null, lon: number | undefined | null, existing?: number): number | null {
@@ -265,16 +355,112 @@ export function useDashboardData() {
   const activeDispatch: RadioIncident[] = useMemo(() => {
     const list = radioIncidents?.incidents ?? []
     return list
-      .filter((i) => isActive(i, nowMs) && i.severity >= 3)
+      .filter((i) => isActive(i, nowMs))
       .sort((a, b) => b.severity - a.severity || Date.parse(b.last_seen) - Date.parse(a.last_seen))
   }, [radioIncidents, nowMs])
 
-  const weatherAlerts: WeatherAlert[] = weather.alerts ?? []
+  const weatherAlerts: WeatherAlert[] = useMemo(() => (weather.alerts ?? []).filter((a) => !a.test), [weather.alerts])
 
+  // Unplanned incidents (crashes, hazards) and closures nearby, plus anything the major-incident rule flags;
+  // one row per closure group.
   const majorTraffic: TrafficIncident[] = useMemo(
-    () => trafficIncidents.filter(isMajorTrafficIncident),
+    () => trafficIncidents
+      .filter((t) => !(t.group && t.lead === false))
+      .filter((t) => (t.dist_km ?? 0) <= TRAFFIC_RADIUS_KM)
+      .filter((t) => t.unplanned || t.kind === 'closure' || isMajorTrafficIncident(t))
+      .sort((a, b) =>
+        Number(Boolean(b.unplanned)) - Number(Boolean(a.unplanned)) ||
+        Number(b.kind === 'closure') - Number(a.kind === 'closure') ||
+        (a.dist_km ?? Infinity) - (b.dist_km ?? Infinity)),
     [trafficIncidents],
   )
+
+  const situation: SituationItem[] = useMemo(() => {
+    const items: SituationItem[] = []
+    // Severity 3+ always; routine calls (single-ambulance medicals, alarms) only while fresh and only a few,
+    // so they cannot bury weather, traffic and serious incidents.
+    let routine = 0
+    const board = activeDispatch.filter((inc) => {
+      if (inc.severity >= 3) return true
+      if (inc.category === 'other' || nowMs - Date.parse(inc.last_seen) > ROUTINE_FRESH_MS) return false
+      routine += 1
+      return routine <= ROUTINE_MAX
+    })
+    for (const inc of board) {
+      const cat = CATEGORY[inc.category]
+      const where = [inc.location, inc.city].filter(Boolean).join(', ')
+      items.push({
+        key: `d:${inc.id}`,
+        kind: 'dispatch',
+        icon: cat?.icon ?? 'radio',
+        source: 'DISPATCH',
+        title: `${inc.nature ?? cat?.label ?? 'Dispatch'}${where ? ` · ${where}` : ''}`,
+        detail: [
+          inc.unit_summary || (inc.units.length > 0 ? inc.units.slice(0, 4).join(', ') : null),
+          inc.status === 'on_scene' ? 'On scene' : null,
+          inc.markers?.length ? inc.markers.slice(0, 2).join(', ') : null,
+        ].filter(Boolean).join(' · '),
+        tone: inc.severity >= 5 ? 'red' : inc.severity >= 3 ? 'amber' : 'neutral',
+        ts: inc.last_seen,
+        rank: inc.severity * 20 + (inc.severity >= 5 ? 20 : 0),
+        lat: inc.lat, lon: inc.lon, distKm: inc.dist_km ?? null,
+        incidentId: inc.id,
+        tab: 'incidents',
+      })
+    }
+    weatherAlerts.forEach((a, i) => {
+      const severe = a.severity === 'Extreme' || a.severity === 'Severe'
+      items.push({
+        key: `w:${a.nwr_id || a.event}:${i}`,
+        kind: 'nws',
+        icon: 'thunderstorm',
+        source: a.source === 'nwr' ? 'NWR' : 'NWS',
+        title: a.event,
+        detail: a.area_desc || a.headline,
+        tone: severe ? 'red' : 'amber',
+        ts: a.effective ?? null,
+        rank: severe ? 110 : 75,
+        lat: null, lon: null, distKm: null,
+        tab: 'environment',
+      })
+    })
+    majorTraffic.slice(0, 6).forEach((t, i) => {
+      items.push({
+        key: `t:${t.title}:${i}`,
+        kind: 'traffic',
+        icon: t.unplanned ? 'car_crash' : t.kind === 'closure' ? 'block' : 'traffic',
+        source: 'TRAFFIC',
+        title: t.location || t.title,
+        detail: [t.location ? t.title : null, t.severity].filter(Boolean).join(' · '),
+        tone: t.unplanned || t.kind === 'closure' ? 'amber' : 'neutral',
+        ts: t.start ?? t.pubDate ?? null,
+        rank: t.unplanned ? 55 : t.kind === 'closure' ? 45 : 30,
+        lat: t.lat ?? null, lon: t.lon ?? null, distKm: t.dist_km ?? null,
+        tab: 'infrastructure',
+      })
+    })
+    // Advisory-bar items from sources not already listed above (FAA programs, big-event news, FlashAlert).
+    for (const a of advisories?.items ?? []) {
+      // The briefing has its own card, so its advisory would only repeat it.
+      if (a.source === 'nws' || a.source === 'radio' || a.source === 'traffic' || a.source === 'briefing') continue
+      items.push({
+        key: `a:${a.id}`,
+        kind: 'advisory',
+        icon: ADVISORY_ICON[a.source] ?? 'campaign',
+        source: ADVISORY_SOURCE_LABEL[a.source] ?? a.source.toUpperCase(),
+        title: a.title,
+        detail: a.detail,
+        tone: a.level === 'red' ? 'red' : 'amber',
+        ts: a.ts,
+        rank: 40 + Math.min(60, a.score),
+        lat: a.lat ?? null, lon: a.lon ?? null, distKm: null,
+        tab: asNavTab(a.target?.tab),
+      })
+    }
+    return items.sort((a, b) => b.rank - a.rank || Date.parse(b.ts ?? '') - Date.parse(a.ts ?? ''))
+  }, [activeDispatch, weatherAlerts, majorTraffic, advisories, nowMs])
+
+  const briefing = useMemo(() => digestBriefing(summary.summary), [summary.summary])
 
   const totalActiveIncidents = activeDispatch.length + weatherAlerts.length + majorTraffic.length
   const isQuiet = totalActiveIncidents === 0 && posture === 'NORMAL' && (advisories?.count ?? 0) === 0
@@ -287,12 +473,14 @@ export function useDashboardData() {
     totalVessels,
     meshNodeCount,
     fireHazardCount,
+    nearestFireKm,
   } = useMemo(() => {
     const entityList: Entity[] = Object.values(entities)
     let airCount = 0
     let seaCount = 0
     let meshCount = 0
     let fireCount = 0
+    let nearestFire: number | null = null
 
     const flaggedAir: NotableAirItem[] = []
     const fallbackAir: NotableAirItem[] = []
@@ -305,6 +493,8 @@ export function useDashboardData() {
       }
       if (e.entity_type === 'fire_incident') {
         fireCount++
+        const d = calcDistKm(e.lat, e.lon, e.distance_km)
+        if (d != null && (nearestFire == null || d < nearestFire)) nearestFire = d
         continue
       }
 
@@ -353,9 +543,10 @@ export function useDashboardData() {
           lon,
         }
 
+        const onGround = (altFt != null && altFt < GROUND_ALT_FT) || (speedKt != null && speedKt < GROUND_SPEED_KT)
         if (alertKey || role || military || tagged) {
           flaggedAir.push(item)
-        } else {
+        } else if (!onGround) {
           fallbackAir.push({ ...item, fallbackNearby: true })
         }
         continue
@@ -421,6 +612,7 @@ export function useDashboardData() {
       totalVessels: seaCount,
       meshNodeCount: meshCount,
       fireHazardCount: fireCount,
+      nearestFireKm: nearestFire,
     }
   }, [entities, tracks, entityMissionTags])
 
@@ -443,7 +635,7 @@ export function useDashboardData() {
       key: m.id || `${m.timestamp}-${m.sender_key}-${idx}`,
       sender: (m.sender_name || m.sender_key?.slice(0, 8) || 'NODE').trim(),
       channel: prettyChannelLabel(m.conversation_key, m.channel_name),
-      text: m.text,
+      text: stripSender(m.text, m.sender_name),
       timestamp: m.timestamp,
       snr: snrByNode.get(m.sender_key) ?? snrByNode.get(m.sender_name) ?? null,
     }))
@@ -468,6 +660,10 @@ export function useDashboardData() {
     totalVessels,
     meshNodeCount,
     fireHazardCount,
+    nearestFireKm,
+    situation,
+    briefing,
+    radioIncidents,
     weather,
     lightningCount: lightningStrikes.length,
     radio,

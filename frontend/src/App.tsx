@@ -20,6 +20,7 @@ import { Map }               from './components/Map'
 import { MapViewportContext, useSyncMapResize, type MapViewportRect } from './components/mapViewport'
 import { DesktopDashboard }  from './components/panels/DesktopDashboard'
 import { WallDisplay }       from './components/panels/WallDisplay'
+import { DashboardBackdrop } from './components/panels/dashboard/ui'
 import { MobileGlanceSheet } from './components/panels/MobileGlanceSheet'
 import { TacticalAudio }     from './components/panels/TacticalAudio'
 import { EntityDetail }      from './components/panels/EntityDetail'
@@ -104,6 +105,10 @@ function Dashboard() {
       className={`dark h-full w-full overflow-hidden flex flex-col font-body text-sm antialiased bg-onyx-black text-on-surface lg:pt-safe-chrome ${wallMode ? 'pb-0' : 'pb-[calc(3.5rem+env(safe-area-inset-bottom))] lg:pb-0'}`}
       data-mode={mode}
     >
+      {/* Ambient grid and light behind Dashboard / Wall panels (painted before the map, so the
+          slotted map stays on top of it) — gives the frosted panels something to blur. */}
+      {(wallMode || activeTab === 'dashboard') && <DashboardBackdrop />}
+
       {/* Single shared MapLibre + Deck.gl instance — full-bleed on Map, slotted on Dashboard/Wall */}
       <div
         className={`fixed z-0 overflow-hidden ${
